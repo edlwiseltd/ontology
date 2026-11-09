@@ -17,6 +17,7 @@ from .graph import KnowledgeGraph
 from .lint import Finding, lint
 from .reasoners import ClaudeReasoner, DecisionContext, PlanFollowingReasoner, Proposal, RoutingReasoner
 from .reporting import compliance_report, metrics, ontology_gaps
+from .scoring import Scorecard, score_deployment, score_ontology
 from .state import WorldState
 from .tools import Tool, ToolCall, ToolError, ToolRegistry, ToolResult
 from .versioning import OntologyRegistry, VersionError
@@ -30,5 +31,5 @@ __all__ = [
     "Proposal", "ReviewDecision", "ReviewRequest", "Rule", "RunResult", "StepRecord", "Tool", "ToolCall",
     "ToolError", "ToolRegistry", "ToolResult", "Verdict", "WorkAgent", "WorldState", "compile_expression",
     "Finding", "KnowledgeGraph", "OntologyRegistry", "ROIReport", "RoutingReasoner", "TCOModel", "VersionError",
-    "compliance_report", "lint", "metrics", "ontology_gaps",
+    "compliance_report", "lint", "metrics", "ontology_gaps", "Scorecard", "score_deployment", "score_ontology",
 ]

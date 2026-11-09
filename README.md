@@ -46,6 +46,7 @@ A reference implementation of **ontology-driven workflow automation**. Business 
 | | Hash-chained audit log, compliance report, ontology-gap analysis | `audit.py`, `reporting.py` |
 | Cost optimisation | Model routing (none / Claude Haiku 5.5 / Claude Opus 5.5), decision cache, prompt caching, token cost tracking | `reasoners.py` |
 | | KPIs (success, straight-through, intervention, latency, cost per task), TCO/ROI from measured rates | `reporting.py`, `economics.py` |
+| Readiness | Scorecard 0-100 and grade A-F across ontology quality, agent performance and governance; pilot and scale gate checks; fixes ranked by points recovered | `scoring.py` |
 
 ## Quick start
 
@@ -55,14 +56,27 @@ Requires Python 3.10 or later. No dependencies.
 python examples/customer_onboarding/run.py            # concept walkthrough (7 scenarios)
 python examples/customer_onboarding/run.py financial  # customer XYZ
 python examples/manufacturing/run.py                  # full methodology: modules, CQs, 3 agents, versioning, report, ROI
-python -m unittest discover -s tests -t .             # 78 tests
+python -m unittest discover -s tests -t .             # 86 tests
 
 python -m autology validate examples/manufacturing/enterprise.json --data examples/manufacturing/data.json
 python -m autology ask examples/manufacturing/enterprise.json examples/manufacturing/data.json CQ-02 --param line=PL-1
 python -m autology diff OLD.json NEW.json             # exits 3 if the version bump is too small
 python -m autology export examples/manufacturing/enterprise.json --format turtle
 python -m autology roi examples/manufacturing/roi.json
+python -m autology score examples/manufacturing/enterprise.json --data examples/manufacturing/data.json --min-score 80
 ```
+
+### Readiness scorecard
+
+`score_deployment(ontology, runs, tools=..., graph=..., cost_budget=..., roi=...)` scores a deployment from 0 to 100 and grades it from A to F. There are three weighted pillars:
+
+| Pillar | Weight | Criteria |
+|---|---|---|
+| Ontology quality | 40% | lint findings, competency questions declared and answered, sensitive fields guarded, tool coverage, semantic clarity, versioning and modules |
+| Agent performance | 35% | success rate, unplanned hand-offs, straight-through rate, cost per completed task against a budget, self-healing after tool failures |
+| Governance | 25% | rule families covered, suspension policy, audit-trail integrity, denied proposals, ontology gaps found in the logs |
+
+A criterion with no evidence (no runs, sample data, tools or budget) is marked *not assessed*. It doesn't count toward the score, and the scorecard says what evidence to add. Separately, the roadmap gates check scope and business targets: pilot needs success above 90%, unplanned intervention below 10%, ROI above 200%, and at least 5 entities and 10 rules. A high score with open gates means the deployment is well built but not yet big or valuable enough for the next phase. The CLI scores the ontology pillar, and `--min-score` exits with code 4, so it can gate CI.
 
 Output of the `financial` scenario. The process changes after the rejection and stops at the review gates:
 

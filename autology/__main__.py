@@ -8,6 +8,7 @@
     python -m autology diff OLD NEW                              # semantic diff + required version bump
     python -m autology export ONTOLOGY [--format jsonld|turtle]
     python -m autology roi TCO.json
+    python -m autology score ONTOLOGY [--data SAMPLE.json] [--min-score 70] [--json]
 """
 
 from __future__ import annotations
@@ -74,6 +75,11 @@ def main(argv=None) -> int:
     e.add_argument("--format", choices=["jsonld", "turtle"], default="jsonld")
     r = sub.add_parser("roi", help="TCO / ROI from a JSON model")
     r.add_argument("model")
+    sc = sub.add_parser("score", help="ontology readiness scorecard (agent pillars need runs: use the Python API)")
+    sc.add_argument("ontology")
+    sc.add_argument("--data", help="sample knowledge-graph data to answer competency questions")
+    sc.add_argument("--min-score", type=float, help="exit 4 if the overall score is below this (CI gate)")
+    sc.add_argument("--json", action="store_true", help="print the scorecard as JSON")
     args = parser.parse_args(argv)
 
     if args.command == "roi":
@@ -115,6 +121,15 @@ def main(argv=None) -> int:
         for f in findings or ["clean"]:
             print(f)
         return 1 if worst(findings) == "error" else 0
+    if args.command == "score":
+        from .scoring import score_ontology
+
+        card = score_ontology(onto, graph=_graph(onto, args.data) if args.data else None)
+        print(json.dumps(card.as_dict(), indent=2, default=str) if args.json else card.render())
+        if args.min_score is not None and (card.overall or 0) < args.min_score:
+            print(f"score {card.overall} is below the minimum {args.min_score}", file=sys.stderr)
+            return 4
+        return 0
     if args.command == "describe":
         print(onto.describe())
         return 0

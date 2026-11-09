@@ -91,7 +91,7 @@ The ontology is the single source of truth for business logic, data and rules. I
 > **In this repo**
 > - *Roles:* `WorkAgent` principals with roles. **Multi-agent teams:** `WorkAgent(..., delegates=[finance_agent])`. The lead plans with the team's combined permissions, and each action runs under the identity of a member allowed to perform it. Delegation is audited, and the lead still sees only its own redacted view. CodingAgent and PersonalAgent are not implemented. They would use the same ontology and governance layers.
 > - *LLM guardrails:* the reasoner, whether `ClaudeReasoner` or any `Reasoner`, can only **propose** from the actions valid at that moment. Structured output constrains its answer. Governance re-checks every proposal, tools can write only declared fields (`writes`, plus `write_access`), and status changes only through declared outcomes. Repeated useless-but-valid choices are cut off by `max_repeats`.
-> - *Testing:* there are 78 tests, and `simulate_pilot()` in the manufacturing example runs a seeded batch of 200 contracts. A mid-run ontology change is a tested case, and the agent pauses safely. `reporting.metrics()` reports success rate, straight-through rate, human-intervention rate, average latency and cost per task.
+> - *Testing:* there are 86 tests, and `simulate_pilot()` in the manufacturing example runs a seeded batch of 200 contracts. A mid-run ontology change is a tested case, and the agent pauses safely. `reporting.metrics()` reports success rate, straight-through rate, human-intervention rate, average latency and cost per task.
 
 ---
 
@@ -165,6 +165,8 @@ The ontology is the single source of truth for business logic, data and rules. I
 | **2. Scale (6–18 months)** | 2–3 more use cases (purchase orders, onboarding) | Modular ontology with 50+ entities and 100+ rules; an agent fleet; ERP/CRM/HRIS integration | Agents > 10, tasks > 10k a month, adoption > 30% | `imports` modules, `OntologyRegistry` and `diff` in CI, delegation teams, tool registries per system |
 | **3. Optimise (18+ months)** | Analytics, predictive and multi-agent work | Gap analytics, proactive automation (flag contracts 30 days before expiry), multi-agent collaboration, generated drafts | Adoption > 70%, cost reduction > 50% vs manual, 10+ new use cases a year | `ontology_gaps()`, competency questions as triggers (CQ-01 finds expiring contracts), `RoutingReasoner` |
 
+> **Checking the gates:** `autology.scoring.score_deployment(...)` evaluates the pilot and scale gates automatically from runs, the ontology, ROI and volume. It shows which gates fail or lack evidence and adds them to its ranked recommendations. The manufacturing walkthrough ends with this scorecard (section 6). Its supplier-contracting pilot scores 99/100 (A), yet the pilot gate stays open: the ontology has 9 rules against a minimum of 10, and the estimated ROI is 142% against a target of 200%.
+
 **About the pilot gate.** Use human-intervention rate as defined in `metrics()`: any review or hand-off. It is intentionally strict. The manufacturing pilot simulation reaches about 98% success, but its human-touch rate is about 34%, because 20% of contracts are worth 1M or more and need CFO review, and 15% need a Legal redline. That is the governance working as designed, not agent failure. Either set the target per *unplanned* hand-off, or decide consciously which review thresholds can move.
 
 ---
@@ -196,4 +198,4 @@ Autology moves enterprise automation from human-driven workflows to agent-driven
 - **Scalability.** Modules, versions and teams of agents grow with the enterprise.
 - **ROI.** Value is measured from runs, not assumed.
 
-**Key takeaway.** Success depends on ontology quality (validation, lint, competency questions, versioning), agent design (propose/dispose separation, self-healing, delegation) and enterprise alignment (compliance reports, ROI from evidence). The tooling here makes each of those checkable.
+**Key takeaway.** Success depends on ontology quality (validation, lint, competency questions, versioning), agent design (propose/dispose separation, self-healing, delegation) and enterprise alignment (compliance reports, ROI from evidence). The tooling here makes each of those checkable, and the readiness scorecard (`autology/scoring.py`) combines them into one score with a ranked list of fixes.

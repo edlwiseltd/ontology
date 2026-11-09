@@ -7,7 +7,7 @@
 Sections: 1 ontology engineering (modules, lint, competency questions, export),
 2 agents (ProcurementAgent + FinanceAgent, ProductionAgent, QualityAgent),
 3 feedback loop & versioning (PartialDelivery gap -> v1.1.0), 4 governance
-report, 5 TCO / ROI from measured run metrics.
+report, 5 TCO / ROI from measured run metrics, 6 readiness scorecard.
 """
 
 from __future__ import annotations
@@ -29,6 +29,7 @@ from autology.graph import KnowledgeGraph  # noqa: E402
 from autology.lint import lint  # noqa: E402
 from autology.ontology import load_document  # noqa: E402
 from autology.reporting import compliance_report, metrics, ontology_gaps  # noqa: E402
+from autology.scoring import score_deployment  # noqa: E402
 from autology.versioning import OntologyRegistry, VersionError, diff  # noqa: E402
 from manufacturing_tools import Faults, finance_tools, procurement_tools, production_tools, quality_tools  # noqa: E402
 
@@ -285,10 +286,12 @@ def simulate_pilot(onto: Ontology, n: int = 200, seed: int = 7) -> list:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("sections", nargs="*", default=[], help="ontology | agents | feedback | report | roi")
+    parser.add_argument("sections", nargs="*", default=[],
+                        help="ontology | agents | feedback | report | roi | score")
     parser.add_argument("--report", help="write the compliance report (markdown) to this file")
+    parser.add_argument("--scorecard", help="write the readiness scorecard (markdown) to this file")
     args = parser.parse_args(argv)
-    wanted = set(args.sections) or {"ontology", "agents", "feedback", "report", "roi"}
+    wanted = set(args.sections) or {"ontology", "agents", "feedback", "report", "roi", "score"}
     onto = Ontology.load(ENTERPRISE)
 
     if "ontology" in wanted:
@@ -304,9 +307,12 @@ def main(argv=None) -> int:
         if args.report:
             Path(args.report).write_text(report, encoding="utf-8")
             print(f"(written to {args.report})")
+    pilot, roi = [], None
+    if wanted & {"roi", "score"}:
+        pilot = simulate_pilot(onto)
+        roi = evaluate(from_metrics(TCOModel.load(HERE / "roi.json"), metrics(pilot))).roi
     if "roi" in wanted:
         banner("5. COST OPTIMISATION - pilot simulation, TCO and ROI")
-        pilot = simulate_pilot(onto)
         pm = metrics(pilot)
         print(f"Pilot: {pm.tasks} simulated supplier contracts -> success {pm.success_rate:.0%}, "
               f"straight-through {pm.straight_through_rate:.0%}, human touch {pm.human_intervention_rate:.0%} "
@@ -315,6 +321,16 @@ def main(argv=None) -> int:
         model = from_metrics(TCOModel.load(HERE / "roi.json"), pm)
         print("\nROI = assumptions in roi.json + rates measured in the pilot:\n")
         print(evaluate(model).render())
+    if "score" in wanted or args.scorecard:
+        banner("6. READINESS SCORECARD - pilot batch as evidence")
+        graph = KnowledgeGraph.from_dict(onto, json.loads((HERE / "data.json").read_text()))
+        card = score_deployment(onto, pilot, tools=_all_tools(), graph=graph, cost_budget=50.0, roi=roi,
+                                tasks_per_month=TCOModel.load(HERE / "roi.json").tasks_per_month,
+                                subject="ACME manufacturing - supplier contracting pilot")
+        print(card.render())
+        if args.scorecard:
+            Path(args.scorecard).write_text(card.render(), encoding="utf-8")
+            print(f"(written to {args.scorecard})")
     return 0
 
 

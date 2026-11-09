@@ -1,25 +1,30 @@
 """Ontology layer: a formal, machine-readable model of the business.
 
-An ontology describes *what* the business is and *what is allowed*, never
-*how* a specific process must be walked. It contains:
+An ontology describes *what* the business is and *what is allowed* - nouns,
+verbs and rules - never *how* a specific process must be walked:
 
 * **entities**      - business objects (Customer, Contract, ...) with typed
-                      attributes and a lifecycle (``status``) state set;
-* **relationships** - how entities relate (Customer -has-> Contract);
-* **actions**       - units of work with preconditions, possible outcomes and
-                      their effects, plus the capability a tool must provide;
+                      attributes (optionally tagged ``pii``/``restricted``/
+                      ``protected``) and a lifecycle (``status``) state set;
+* **relationships** - first-class links (Customer -hasContract-> Contract);
+* **actions**       - verbs with preconditions, possible outcomes and effects,
+                      the capability a tool must provide, an optional tool
+                      allow-list and a failure (self-healing) policy;
 * **goals**         - target conditions an agent can be asked to reach;
-* **rules**         - immutable governance policies (mandatory steps,
-                      human review, data access, prohibitions).
+* **rules**         - immutable governance policies (mandatory steps, human
+                      review, data/action/write access, prohibitions);
+* **competency questions** - the questions the model must be able to answer,
+                      checked statically and against sample data.
 
-Agents plan over this model at run time, so changing the business means
-changing the ontology - not rewiring workflows. A loaded ontology is deeply
-frozen and fingerprinted; the governance layer refuses to operate if the
-fingerprint changes underneath it.
+Ontologies are **modular**: a document may ``import`` other module files
+(``ProcurementOntology`` + ``CustomerOntology`` -> enterprise ontology).
+A loaded ontology is validated, deeply frozen and content-fingerprinted;
+change means publishing a new version (see :mod:`autology.versioning`).
 """
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 from dataclasses import dataclass, field
@@ -30,8 +35,12 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 from .expressions import Expression, ExpressionError, compile_expression
 
 STATUS = "status"
+ID = "id"
+PARAMS = "Params"  # pseudo-entity for competency-question parameters
 
-RULE_KINDS = frozenset({"mandatory_step", "human_review", "data_access", "prohibition"})
+RULE_KINDS = frozenset({"mandatory_step", "human_review", "data_access", "write_access", "action_access",
+                        "prohibition"})
+AGGREGATES = frozenset({"count", "sum", "avg", "min", "max"})
 
 
 class OntologyError(ValueError):
@@ -50,7 +59,7 @@ def _freeze(value: Any) -> Any:
 class Attribute:
     name: str
     type: str = "string"
-    sensitivity: Optional[str] = None  # e.g. "pii", "confidential"
+    sensitivity: Optional[str] = None  # "pii", "restricted", "protected" (bias-relevant), ...
     description: str = ""
 
 
@@ -63,7 +72,7 @@ class EntityType:
     description: str = ""
 
     def has_attribute(self, attr: str) -> bool:
-        return attr == STATUS or attr in self.attributes
+        return attr in (STATUS, ID) or attr in self.attributes
 
 
 @dataclass(frozen=True)
@@ -82,6 +91,22 @@ class Outcome:
 
 
 @dataclass(frozen=True)
+class FailurePolicy:
+    """Self-healing: how an agent reacts when every tool for an action fails.
+
+    ``max_attempts`` rounds are tried (each round tries the primary tool and, if
+    ``fallback_tools``, every other eligible tool). Between rounds the agent waits
+    ``backoff_seconds`` - inline if short, otherwise it *defers* the case and can be
+    resumed later. After the last round it escalates to ``escalate_to``.
+    """
+
+    max_attempts: int = 3
+    backoff_seconds: float = 0.0
+    fallback_tools: bool = True
+    escalate_to: str = "operations"
+
+
+@dataclass(frozen=True)
 class ActionType:
     name: str
     description: str
@@ -91,6 +116,8 @@ class ActionType:
     reads: Tuple[str, ...] = ()  # "Entity.attribute" fields passed to tools
     writes: Tuple[str, ...] = ()  # non-status fields a tool may update
     cost: int = 1
+    tools: Tuple[str, ...] = ()  # allow-list of tool names; empty = any tool with the capability
+    on_failure: FailurePolicy = FailurePolicy()
 
     @property
     def expected_outcome(self) -> Outcome:
@@ -122,6 +149,27 @@ class Rule:
         return self.when is None or self.when.evaluate(resolve)
 
 
+@dataclass(frozen=True)
+class CompetencyQuestion:
+    """A question the ontology must be able to answer, e.g. "Which contracts expire in 30 days?".
+
+    ``find`` instances of an entity filtered by ``where``, then ``follow`` relationship
+    kinds (prefix ``^`` to walk a relationship backwards), filter the reached instances
+    with ``result_where`` and optionally ``aggregate`` them (``{"sum": "Order.amount"}``).
+    ``Params.<name>`` in conditions refers to ``params``.
+    """
+
+    id: str
+    question: str
+    find: str
+    where: Optional[Expression] = None
+    follow: Tuple[str, ...] = ()
+    result_where: Optional[Expression] = None
+    aggregate: Optional[Tuple[str, Optional[str]]] = None  # (function, "Entity.attr" | None)
+    params: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
+    expect: Any = None  # expected answer against the sample data (ids or a number)
+
+
 class Ontology:
     """An immutable, validated business ontology."""
 
@@ -136,6 +184,9 @@ class Ontology:
         rules: Iterable[Rule],
         description: str = "",
         source: Optional[Mapping[str, Any]] = None,
+        questions: Iterable[CompetencyQuestion] = (),
+        modules: Iterable[str] = (),
+        settings: Optional[Mapping[str, Any]] = None,
     ):
         object.__setattr__(self, "_frozen", False)
         self.name = name
@@ -146,6 +197,10 @@ class Ontology:
         self.actions = MappingProxyType(dict(actions))
         self.goals = MappingProxyType(dict(goals))
         self.rules = tuple(rules)
+        self.questions = tuple(questions)
+        self.modules = tuple(modules)
+        self.settings = _freeze(dict(settings or {}))
+        self.source = _freeze(copy.deepcopy(dict(source)) if source is not None else {"name": name})
         canonical = json.dumps(source if source is not None else {"name": name, "version": version},
                                sort_keys=True, separators=(",", ":"), default=str)
         self.fingerprint = hashlib.sha256(canonical.encode()).hexdigest()
@@ -160,6 +215,10 @@ class Ontology:
     def __delattr__(self, key: str) -> None:
         raise AttributeError("ontologies are immutable; publish a new version instead")
 
+    @property
+    def ref(self) -> str:
+        return f"{self.name}@{self.version}"
+
     # -- queries --------------------------------------------------------
     def rules_of(self, kind: str) -> Tuple[Rule, ...]:
         return tuple(r for r in self.rules if r.kind == kind)
@@ -169,9 +228,21 @@ class Ontology:
         etype = self.entities.get(entity)
         return etype.attributes.get(attr) if etype else None
 
+    def relationship(self, entity: str, step: str) -> Tuple[Relationship, str]:
+        """Resolve a traversal step (``kind`` or ``^kind``) from ``entity``; returns (relationship, next entity)."""
+        reverse = step.startswith("^")
+        kind = step.lstrip("^")
+        for rel in self.relationships:
+            if rel.kind == kind and (rel.target if reverse else rel.source) == entity:
+                return rel, (rel.source if reverse else rel.target)
+        raise OntologyError(f"no relationship {step!r} from {entity!r}")
+
     def describe(self) -> str:
         """Human/LLM-readable summary of the ontology."""
-        lines = [f"Ontology {self.name} v{self.version}: {self.description}".rstrip(": "), "Entities:"]
+        lines = [f"Ontology {self.ref}: {self.description}".rstrip(": ")]
+        if self.modules:
+            lines.append(f"Modules: {', '.join(self.modules)}")
+        lines.append("Entities:")
         for e in self.entities.values():
             attrs = ", ".join(e.attributes) or "-"
             lines.append(f"  - {e.name} [states: {', '.join(e.states)}] attributes: {attrs}")
@@ -189,18 +260,23 @@ class Ontology:
         return "\n".join(lines)
 
     # -- validation -----------------------------------------------------
-    def _check_ref(self, entity: str, attr: str, where: str) -> None:
+    def _check_ref(self, entity: str, attr: str, where: str, allow_params: bool = False) -> None:
+        if allow_params and entity == PARAMS:
+            return
         etype = self.entities.get(entity)
         if etype is None:
             raise OntologyError(f"{where}: unknown entity {entity!r}")
         if not etype.has_attribute(attr):
             raise OntologyError(f"{where}: entity {entity!r} has no attribute {attr!r}")
 
-    def _check_expr(self, expr: Optional[Expression], where: str) -> None:
+    def _check_expr(self, expr: Optional[Expression], where: str, allow_params: bool = False,
+                    only: Optional[str] = None) -> None:
         if expr is None:
             return
         for entity, attr in expr.references:
-            self._check_ref(entity, attr, where)
+            self._check_ref(entity, attr, where, allow_params)
+            if only and entity not in (only, PARAMS):
+                raise OntologyError(f"{where}: condition may only reference {only} (or Params), not {entity}")
 
     def _check_field(self, ref: str, where: str) -> None:
         entity, dot, attr = ref.partition(".")
@@ -222,13 +298,15 @@ class Ontology:
             where = f"action {a.name!r}"
             if not a.outcomes:
                 raise OntologyError(f"{where}: must declare at least one outcome")
+            if a.on_failure.max_attempts < 1:
+                raise OntologyError(f"{where}: on_failure.max_attempts must be >= 1")
             for expr in a.requires:
                 self._check_expr(expr, where)
             for ref in a.reads + a.writes:
                 self._check_field(ref, where)
             for ref in a.writes:
-                if ref.endswith("." + STATUS):
-                    raise OntologyError(f"{where}: lifecycle status may only change through outcomes")
+                if ref.endswith("." + STATUS) or ref.endswith("." + ID):
+                    raise OntologyError(f"{where}: {ref} may only change through outcomes")
             for o in a.outcomes:
                 for entity, changes in o.effects.items():
                     for attr, value in changes.items():
@@ -256,16 +334,43 @@ class Ontology:
                     if name not in self.actions:
                         raise OntologyError(f"{where}: reset_by names unknown action {name!r}")
                 if "outcome" in p:
-                    self.actions[p["step"]].outcome(p["outcome"])
-            elif r.kind in ("human_review", "prohibition"):
+                    try:
+                        self.actions[p["step"]].outcome(p["outcome"])
+                    except KeyError as exc:
+                        raise OntologyError(f"{where}: {exc.args[0]}") from None
+            elif r.kind in ("human_review", "prohibition", "action_access"):
                 if p.get("action") not in self.actions:
                     raise OntologyError(f"{where}: 'action' must name an action")
                 if r.kind == "human_review" and not p.get("reviewer"):
                     raise OntologyError(f"{where}: human_review needs a 'reviewer' role")
-            elif r.kind == "data_access":
+            if r.kind in ("data_access", "write_access"):
                 self._check_field(p.get("field", ""), where)
-                if not p.get("roles"):
-                    raise OntologyError(f"{where}: data_access needs a non-empty 'roles' list")
+            if r.kind in ("data_access", "write_access", "action_access") and not p.get("roles"):
+                raise OntologyError(f"{where}: {r.kind} needs a non-empty 'roles' list")
+        qids = set()
+        for q in self.questions:
+            where = f"competency question {q.id!r}"
+            if q.id in qids:
+                raise OntologyError(f"{where}: duplicate id")
+            qids.add(q.id)
+            if q.find not in self.entities:
+                raise OntologyError(f"{where}: unknown entity {q.find!r}")
+            self._check_expr(q.where, where, allow_params=True, only=q.find)
+            current = q.find
+            for step in q.follow:
+                _, current = self.relationship(current, step)
+            self._check_expr(q.result_where, where, allow_params=True, only=current)
+            if q.aggregate:
+                fn, target = q.aggregate
+                if fn not in AGGREGATES:
+                    raise OntologyError(f"{where}: unknown aggregate {fn!r}")
+                if fn != "count":
+                    if not target or not target.startswith(current + "."):
+                        raise OntologyError(f"{where}: {fn} needs a field of {current}")
+                    self._check_field(target, where)
+        mv = self.settings.get("max_violations")
+        if mv is not None and (not isinstance(mv, int) or mv < 1):
+            raise OntologyError("settings.max_violations must be a positive integer")
 
     # -- loading --------------------------------------------------------
     @classmethod
@@ -274,7 +379,9 @@ class Ontology:
             return cls._from_dict(doc)
         except ExpressionError as exc:
             raise OntologyError(str(exc)) from None
-        except (KeyError, TypeError, AttributeError) as exc:
+        except (KeyError, TypeError, AttributeError, ValueError) as exc:
+            if isinstance(exc, OntologyError):
+                raise
             raise OntologyError(f"malformed ontology document: {exc!r}") from None
 
     @classmethod
@@ -304,6 +411,7 @@ class Ontology:
             requires = spec.get("requires", [])
             if isinstance(requires, str):
                 requires = [requires]
+            failure = spec.get("on_failure", {})
             actions[name] = ActionType(
                 name=name,
                 description=spec.get("description", ""),
@@ -313,6 +421,11 @@ class Ontology:
                 reads=tuple(spec.get("reads", ())),
                 writes=tuple(spec.get("writes", ())),
                 cost=int(spec.get("cost", 1)),
+                tools=tuple(spec.get("tools", ())),
+                on_failure=FailurePolicy(int(failure.get("max_attempts", 3)),
+                                         float(failure.get("backoff_seconds", 0)),
+                                         bool(failure.get("fallback_tools", True)),
+                                         str(failure.get("escalate_to", "operations"))),
             )
         goals = {name: Goal(name, spec.get("description", ""), compile_expression(spec["target"]))
                  for name, spec in doc.get("goals", {}).items()}
@@ -322,17 +435,95 @@ class Ontology:
             when = spec.get("when")
             rules.append(Rule(spec["id"], spec["type"], spec.get("description", ""),
                               compile_expression(when) if when else None, _freeze(params)))
+        questions = []
+        for spec in doc.get("competency_questions", []):
+            agg = spec.get("aggregate")
+            aggregate = None
+            if agg:
+                (fn, target), = agg.items()
+                aggregate = (fn, None if fn == "count" else target)
+            questions.append(CompetencyQuestion(
+                spec["id"], spec.get("question", ""), spec["find"],
+                compile_expression(spec["where"]) if spec.get("where") else None,
+                tuple(spec.get("follow", ())),
+                compile_expression(spec["result_where"]) if spec.get("result_where") else None,
+                aggregate, _freeze(spec.get("params", {})), spec.get("expect")))
+        source = {k: v for k, v in doc.items() if k != "imports"}
         return cls(doc["name"], str(doc.get("version", "0")), entities, relationships, actions, goals,
-                   rules, doc.get("description", ""), source=doc)
+                   rules, doc.get("description", ""), source=source, questions=questions,
+                   modules=doc.get("modules", ()), settings=doc.get("settings"))
 
     @classmethod
     def load(cls, path: str | Path) -> "Ontology":
-        path = Path(path)
-        text = path.read_text(encoding="utf-8")
-        if path.suffix in (".yaml", ".yml"):
-            try:
-                import yaml  # optional dependency
-            except ImportError as exc:  # pragma: no cover
-                raise OntologyError("install PyYAML to load YAML ontologies, or use JSON") from exc
-            return cls.from_dict(yaml.safe_load(text))
-        return cls.from_dict(json.loads(text))
+        """Load an ontology file, resolving ``imports`` of module files (relative to the importer)."""
+        return cls.from_dict(load_document(path))
+
+
+# -- modules ------------------------------------------------------------------
+_MERGE_MAPS = ("entities", "actions", "goals")
+_SINGULAR = {"entities": "entity", "actions": "action", "goals": "goal"}
+
+
+def _read(path: Path) -> Dict[str, Any]:
+    text = path.read_text(encoding="utf-8")
+    if path.suffix in (".yaml", ".yml"):
+        try:
+            import yaml  # optional dependency
+        except ImportError as exc:  # pragma: no cover
+            raise OntologyError("install PyYAML to load YAML ontologies, or use JSON") from exc
+        return yaml.safe_load(text)
+    return json.loads(text)
+
+
+def merge_documents(root: Mapping[str, Any], modules: Iterable[Mapping[str, Any]]) -> Dict[str, Any]:
+    """Compose module documents under ``root``. Duplicate definitions must be identical."""
+    merged: Dict[str, Any] = {k: copy.deepcopy(v) for k, v in root.items()
+                              if k not in _MERGE_MAPS + ("relationships", "rules", "competency_questions",
+                                                         "imports")}
+    for key in _MERGE_MAPS:
+        merged[key] = {}
+    merged["relationships"], merged["rules"], merged["competency_questions"] = [], [], []
+    module_refs: List[str] = []
+    for doc in list(modules) + [root]:
+        if doc is not root:
+            module_refs.append(f"{doc.get('name', '?')}@{doc.get('version', '0')}")
+        origin = doc.get("name", "?")
+        for key in _MERGE_MAPS:
+            for name, spec in doc.get(key, {}).items():
+                if name in merged[key] and merged[key][name] != spec:
+                    raise OntologyError(f"module {origin!r} redefines {_SINGULAR[key]} {name!r} differently")
+                merged[key][name] = copy.deepcopy(spec)
+        for rel in doc.get("relationships", []):
+            if rel not in merged["relationships"]:
+                merged["relationships"].append(copy.deepcopy(rel))
+        for listkey in ("rules", "competency_questions"):
+            existing = {item["id"]: item for item in merged[listkey]}
+            for item in doc.get(listkey, []):
+                if item["id"] in existing:
+                    if existing[item["id"]] != item:
+                        raise OntologyError(f"module {origin!r} redefines {listkey[:-1]} {item['id']!r} differently")
+                    continue
+                merged[listkey].append(copy.deepcopy(item))
+                existing[item["id"]] = item
+    merged["modules"] = list(dict.fromkeys(module_refs))
+    return merged
+
+
+def load_document(path: str | Path, _stack: Tuple[Path, ...] = ()) -> Dict[str, Any]:
+    """Read an ontology document and (recursively) merge its ``imports``."""
+    path = Path(path).resolve()
+    if path in _stack:
+        raise OntologyError(f"circular import: {' -> '.join(p.name for p in _stack + (path,))}")
+    doc = _read(path)
+    imports = doc.get("imports", [])
+    if not imports:
+        return doc
+    modules: List[Dict[str, Any]] = []
+    for rel in imports:
+        sub = load_document(path.parent / rel, _stack + (path,))
+        # flatten: a sub-module's own modules come first
+        for ref in sub.pop("modules", []):
+            name, _, version = ref.partition("@")
+            modules.append({"name": name, "version": version})
+        modules.append(sub)
+    return merge_documents(doc, modules)

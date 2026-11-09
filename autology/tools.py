@@ -5,12 +5,17 @@ tools *provide* capabilities. A tool may declare a ``when`` condition so the
 agent picks it only in a matching context - e.g. an enhanced KYC provider for
 financial-services customers - and a ``priority`` to break ties. Workflows
 never hard-code which API to call; the agent selects at run time.
+
+Selection order: tools named in the action's ontology allow-list only (if one
+is declared) -> context-specific tools before generic ones -> higher
+``priority`` -> lower ``cost`` (per call, in your currency). Remaining
+candidates are the fallbacks used by the action's failure policy.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Mapping, Optional
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence
 
 from .expressions import Expression, compile_expression
 from .state import WorldState
@@ -48,6 +53,7 @@ class Tool:
     when: Optional[Expression] = None
     priority: int = 0
     description: str = ""
+    cost: float = 0.0
 
     def matches(self, state: WorldState) -> bool:
         return self.when is None or self.when.evaluate(state.get)
@@ -58,32 +64,34 @@ class ToolRegistry:
         self._tools: List[Tool] = []
 
     def register(self, name: str, capability: str, handler: Handler, *, when: Optional[str] = None,
-                 priority: int = 0, description: str = "") -> Tool:
+                 priority: int = 0, description: str = "", cost: float = 0.0) -> Tool:
         tool = Tool(name, capability, handler, compile_expression(when) if when else None, priority,
-                    description or (handler.__doc__ or "").strip())
+                    description or (handler.__doc__ or "").strip(), float(cost))
         self._tools.append(tool)
         return tool
 
     def tool(self, capability: str, *, name: Optional[str] = None, when: Optional[str] = None,
-             priority: int = 0, description: str = "") -> Callable[[Handler], Handler]:
+             priority: int = 0, description: str = "", cost: float = 0.0) -> Callable[[Handler], Handler]:
         """Decorator form of :meth:`register`."""
 
         def decorate(fn: Handler) -> Handler:
             self.register(name or fn.__name__, capability, fn, when=when, priority=priority,
-                          description=description)
+                          description=description, cost=cost)
             return fn
 
         return decorate
 
-    def candidates(self, capability: str, state: WorldState) -> List[Tool]:
-        found = [t for t in self._tools if t.capability == capability and t.matches(state)]
-        # context-specific tools beat generic ones; then explicit priority
-        return sorted(found, key=lambda t: (t.when is not None, t.priority), reverse=True)
+    def candidates(self, capability: str, state: WorldState, allowed: Sequence[str] = ()) -> List[Tool]:
+        found = [t for t in self._tools if t.capability == capability and t.matches(state)
+                 and (not allowed or t.name in allowed)]
+        # context-specific tools beat generic ones; then explicit priority; then cheapest
+        return sorted(found, key=lambda t: (t.when is None, -t.priority, t.cost))
 
-    def select(self, capability: str, state: WorldState) -> Tool:
-        found = self.candidates(capability, state)
+    def select(self, capability: str, state: WorldState, allowed: Sequence[str] = ()) -> Tool:
+        found = self.candidates(capability, state, allowed)
         if not found:
-            raise LookupError(f"no tool provides capability {capability!r} in this context")
+            extra = f" among allowed tools {list(allowed)}" if allowed else ""
+            raise LookupError(f"no tool provides capability {capability!r} in this context{extra}")
         return found[0]
 
     def capabilities(self) -> List[str]:

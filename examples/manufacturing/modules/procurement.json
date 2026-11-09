@@ -1,0 +1,156 @@
+{
+  "name": "procurement",
+  "version": "1.0.0",
+  "description": "ProcurementOntology: supplier contracting",
+  "imports": [
+    "core.json"
+  ],
+  "actions": {
+    "set_payment_terms": {
+      "description": "Agree payment terms with the supplier",
+      "capability": "finance.payment_terms",
+      "requires": [
+        "Contract.status == 'draft'",
+        "Contract.terms_agreed != True"
+      ],
+      "reads": [
+        "Supplier.name",
+        "Contract.value"
+      ],
+      "writes": [
+        "Contract.payment_terms"
+      ],
+      "effects": {
+        "Contract": {
+          "terms_agreed": true
+        }
+      }
+    },
+    "check_clauses": {
+      "description": "Check the contract for mandatory clauses",
+      "capability": "contract.clause_check",
+      "requires": [
+        "Contract.status == 'draft'",
+        "Contract.terms_agreed == True"
+      ],
+      "reads": [
+        "Contract.late_delivery_penalty",
+        "Contract.value"
+      ],
+      "outcomes": {
+        "compliant": {
+          "effects": {
+            "Contract": {
+              "status": "compliant"
+            }
+          }
+        },
+        "missing_penalty": {
+          "effects": {
+            "Contract": {
+              "status": "non_compliant"
+            }
+          }
+        }
+      }
+    },
+    "escalate_to_legal": {
+      "description": "Escalate to Legal to add the missing clause; returns the contract for re-check",
+      "capability": "legal.redline",
+      "requires": [
+        "Contract.status == 'non_compliant'"
+      ],
+      "reads": [
+        "Contract.revision"
+      ],
+      "writes": [
+        "Contract.revision"
+      ],
+      "outcomes": {
+        "redlined": {
+          "description": "Legal inserts the standard clause",
+          "effects": {
+            "Contract": {
+              "status": "draft",
+              "late_delivery_penalty": true
+            }
+          }
+        }
+      },
+      "cost": 3
+    },
+    "sign_supplier_contract": {
+      "description": "Execute the supply contract",
+      "capability": "esign.send",
+      "requires": [
+        "Contract.status == 'compliant'"
+      ],
+      "reads": [
+        "Supplier.name",
+        "Contract.value"
+      ],
+      "effects": {
+        "Contract": {
+          "status": "signed"
+        }
+      }
+    }
+  },
+  "goals": {
+    "contract_supplier": {
+      "description": "Signed, compliant supply contract",
+      "target": "Contract.status == 'signed'"
+    }
+  },
+  "rules": [
+    {
+      "id": "R-PROC-001",
+      "type": "mandatory_step",
+      "description": "Contracts with suppliers must include a LateDeliveryPenalty clause (checked before signature)",
+      "step": "check_clauses",
+      "outcome": "compliant",
+      "before": "sign_supplier_contract",
+      "reset_by": [
+        "escalate_to_legal"
+      ]
+    },
+    {
+      "id": "R-PROC-002",
+      "type": "prohibition",
+      "description": "Never sign a supplier contract without a LateDeliveryPenalty clause",
+      "when": "Contract.late_delivery_penalty != True",
+      "action": "sign_supplier_contract"
+    },
+    {
+      "id": "R-PROC-003",
+      "type": "prohibition",
+      "description": "No contracts with suspended suppliers",
+      "when": "Supplier.status == 'suspended'",
+      "action": "sign_supplier_contract"
+    },
+    {
+      "id": "R-PROC-004",
+      "type": "human_review",
+      "description": "Contract redlines are approved by Legal",
+      "action": "escalate_to_legal",
+      "reviewer": "legal"
+    },
+    {
+      "id": "R-FIN-001",
+      "type": "write_access",
+      "description": "Only Finance can modify payment terms",
+      "field": "Contract.payment_terms",
+      "roles": [
+        "finance"
+      ]
+    },
+    {
+      "id": "R-FIN-002",
+      "type": "human_review",
+      "description": "Supplier contracts of 1,000,000 or more need CFO approval",
+      "when": "Contract.value >= 1000000",
+      "action": "sign_supplier_contract",
+      "reviewer": "cfo"
+    }
+  ]
+}

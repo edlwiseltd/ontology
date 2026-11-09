@@ -39,3 +39,23 @@ def financial_case():
         BillingAccount={"method": "invoice"},
         Order={"sku": "PLAN-ENTERPRISE"},
     )
+
+
+MFG = ROOT / "examples" / "manufacturing"
+MFG_ONTOLOGY = MFG / "enterprise.json"
+if str(MFG) not in sys.path:
+    sys.path.insert(0, str(MFG))
+
+import manufacturing_tools  # noqa: E402,F401
+
+
+def supplier_case(**contract):
+    c = {"value": 400_000, "end_date": "2027-12-31", "late_delivery_penalty": True, "revision": 0}
+    c.update(contract)
+    return {"Supplier": {"name": "Supplier Y", "on_time_rate": 0.81}, "Contract": c}
+
+
+def order_case(on_time_rate=0.97, alternate=True):
+    return {"Supplier": {"name": "Supplier X", "on_time_rate": on_time_rate},
+            "ProductionLine": {"code": "LYON-1", "alternate_available": alternate},
+            "Order": {"quantity": 10, "amount": 1000, "line": "primary"}}

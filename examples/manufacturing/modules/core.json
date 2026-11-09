@@ -1,0 +1,36 @@
+{
+  "name": "core",
+  "version": "1.0.0",
+  "description": "Shared enterprise nouns: suppliers, products and supplier contracts",
+  "entities": {
+    "Supplier": {
+      "states": ["approved", "suspended"],
+      "attributes": {
+        "name": "string",
+        "country": "string",
+        "on_time_rate": "number",
+        "on_time": "boolean"
+      }
+    },
+    "Product": {
+      "states": ["active", "quarantined", "recalled"],
+      "attributes": {"name": "string", "defect_rate": "number"}
+    },
+    "Contract": {
+      "description": "Supply agreement with a supplier",
+      "states": ["draft", "compliant", "non_compliant", "signed"],
+      "attributes": {
+        "value": "number",
+        "end_date": "date",
+        "late_delivery_penalty": "boolean",
+        "terms_agreed": "boolean",
+        "payment_terms": {"type": "string", "sensitivity": "restricted"},
+        "revision": "integer"
+      }
+    }
+  },
+  "relationships": [
+    {"from": "Product", "to": "Supplier", "type": "hasSupplier", "cardinality": "1..*"},
+    {"from": "Supplier", "to": "Contract", "type": "hasContract", "cardinality": "1..*"}
+  ]
+}

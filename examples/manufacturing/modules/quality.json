@@ -1,0 +1,57 @@
+{
+  "name": "quality",
+  "version": "1.0.0",
+  "description": "QualityOntology: defect tracing, containment and recall",
+  "imports": ["core.json"],
+  "entities": {
+    "QualityCase": {
+      "states": ["open", "traced", "contained", "recall_initiated", "closed"],
+      "attributes": {"description": "string", "reported_by": "string"}
+    }
+  },
+  "relationships": [
+    {"from": "QualityCase", "to": "Product", "type": "concerns", "cardinality": "1"}
+  ],
+  "actions": {
+    "trace_to_supplier": {
+      "description": "Trace the defective batch to its supplier",
+      "capability": "qms.trace",
+      "requires": ["QualityCase.status == 'open'"],
+      "reads": ["Product.name", "Supplier.name"],
+      "effects": {"QualityCase": {"status": "traced"}}
+    },
+    "quarantine_stock": {
+      "description": "Quarantine affected stock",
+      "capability": "wms.quarantine",
+      "requires": ["QualityCase.status == 'traced'"],
+      "effects": {"QualityCase": {"status": "contained"}, "Product": {"status": "quarantined"}}
+    },
+    "release_stock": {
+      "description": "Release stock when the defect rate is within tolerance",
+      "capability": "wms.release",
+      "requires": ["QualityCase.status == 'contained'", "Product.defect_rate < 0.02"],
+      "effects": {"QualityCase": {"status": "closed"}, "Product": {"status": "active"}}
+    },
+    "initiate_recall": {
+      "description": "Trigger a ProductRecall for the affected product",
+      "capability": "qms.recall",
+      "requires": ["QualityCase.status == 'contained'", "Product.defect_rate >= 0.02"],
+      "effects": {"QualityCase": {"status": "recall_initiated"}, "Product": {"status": "recalled"}}
+    },
+    "suspend_supplier": {
+      "description": "Suspend the supplier responsible for a recalled product and close the case",
+      "capability": "scm.supplier_status",
+      "requires": ["QualityCase.status == 'recall_initiated'"],
+      "effects": {"QualityCase": {"status": "closed"}, "Supplier": {"status": "suspended"}}
+    }
+  },
+  "goals": {
+    "resolve_quality_case": {"description": "Resolve the quality case", "target": "QualityCase.status == 'closed'"}
+  },
+  "rules": [
+    {"id": "R-QUAL-001", "type": "action_access", "description": "Only quality roles may trigger a recall",
+     "action": "initiate_recall", "roles": ["quality"]},
+    {"id": "R-QUAL-002", "type": "human_review", "description": "Recalls are approved by the Quality Director",
+     "action": "initiate_recall", "reviewer": "quality_director"}
+  ]
+}

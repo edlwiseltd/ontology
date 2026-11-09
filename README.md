@@ -2,7 +2,7 @@
 
 A reference implementation of **ontology-driven workflow automation**. Business knowledge (entities, actions, rules) lives in one immutable **ontology**. **AI agents** work out how to reach a goal at run time. A **governance layer** makes sure they never skip a mandatory step, never read data they aren't entitled to, and hand critical decisions to humans.
 
-> Concept paper: [`docs/autology.md`](docs/autology.md)
+> Concept paper: [`docs/autology.md`](docs/autology.md) · Engineering methodology mapped to the code: [`docs/methodology.md`](docs/methodology.md)
 
 ```
             goal + case facts
@@ -26,15 +26,42 @@ A reference implementation of **ontology-driven workflow automation**. Business 
                   └───────────────────┘
 ```
 
+## What's in the box
+
+| Methodology area | Capability | Module |
+|---|---|---|
+| Ontology engineering | Entities, relationships, actions, goals, rules; validated, frozen, fingerprinted | `ontology.py` |
+| | Modules via `imports` (de-duplicated, conflict and cycle checks) | `ontology.py` |
+| | Competency questions answered over a typed knowledge graph | `graph.py` |
+| | Lint: security by design, bias hints, dead states, tool coverage | `lint.py` |
+| | OWL/Turtle and JSON-LD export | `export.py` |
+| | Semantic diff, semver enforcement, publishing registry, version pinning | `versioning.py` |
+| Agent orchestration | Run-time planning that also plans through non-default outcomes | `planner.py` |
+| | Self-healing: fallback tools, backoff, defer and resume, escalate to the policy owner | `agent.py` |
+| | Tool allow-lists, cost-aware tool selection | `tools.py` |
+| | Multi-agent delegation (e.g. payment terms → FinanceAgent) | `agent.py` |
+| | Context-rich human review requests; decision provenance | `agent.py`, `governance.py` |
+| Governance | Mandatory steps, prohibitions, read/write/action access (ABAC), human review | `governance.py` |
+| | Suspension of agents after repeated violations; fail-safe pause on ontology problems | `governance.py`, `agent.py` |
+| | Hash-chained audit log, compliance report, ontology-gap analysis | `audit.py`, `reporting.py` |
+| Cost optimisation | Model routing (none / Claude Haiku 5.5 / Claude Opus 5.5), decision cache, prompt caching, token cost tracking | `reasoners.py` |
+| | KPIs (success, straight-through, intervention, latency, cost per task), TCO/ROI from measured rates | `reporting.py`, `economics.py` |
+
 ## Quick start
 
 Requires Python 3.10 or later. No dependencies.
 
 ```bash
-python examples/customer_onboarding/run.py            # all scenarios
-python examples/customer_onboarding/run.py financial  # customer XYZ walkthrough
-python -m unittest discover -s tests -t .             # 36 tests
-python -m autology validate examples/customer_onboarding/ontology.json
+python examples/customer_onboarding/run.py            # concept walkthrough (7 scenarios)
+python examples/customer_onboarding/run.py financial  # customer XYZ
+python examples/manufacturing/run.py                  # full methodology: modules, CQs, 3 agents, versioning, report, ROI
+python -m unittest discover -s tests -t .             # 78 tests
+
+python -m autology validate examples/manufacturing/enterprise.json --data examples/manufacturing/data.json
+python -m autology ask examples/manufacturing/enterprise.json examples/manufacturing/data.json CQ-02 --param line=PL-1
+python -m autology diff OLD.json NEW.json             # exits 3 if the version bump is too small
+python -m autology export examples/manufacturing/enterprise.json --format turtle
+python -m autology roi examples/manufacturing/roi.json
 ```
 
 Output of the `financial` scenario. The process changes after the rejection and stops at the review gates:
@@ -124,15 +151,20 @@ result = agent.run("onboard_customer", case={"Customer": {...}, "Contract": {...
 result.status, result.path, result.escalation, result.audit.verify()
 ```
 
-To let Claude reason, pass `reasoner=ClaudeReasoner()`. It defaults to `claude-opus-5-5`. Structured output limits its answer to the actions that are valid right now. It sees only the redacted state. On an API error or refusal it falls back to the planner, with server-side refusal fallbacks enabled.
+To let Claude reason, pass `reasoner=ClaudeReasoner()`. It defaults to `claude-opus-5-5`. Structured output limits its answer to the actions that are valid right now. It sees only the redacted state. On an API error or refusal it falls back to the planner, with server-side refusal fallbacks enabled where the model supports them.
+
+For cost control, use `reasoner=RoutingReasoner.with_claude()`. It makes no model call when only one action is valid, uses Claude Haiku 5.5 for simple choices and Claude Opus 5.5 for complex ones. Decisions are cached, and token cost is reported per run.
 
 ## Layout
 
 ```
-autology/            framework: ontology, state, expressions, planner, governance, agent, reasoners, tools, audit, CLI
-examples/customer_onboarding/   ontology.json, simulated enterprise tools, runnable scenarios
-tests/               unit + scenario tests (stdlib unittest)
-docs/autology.md     the Autology concept and how it maps to this code
+autology/                       framework (see table above) + CLI (python -m autology)
+examples/customer_onboarding/   single-file ontology, simulated tools, 7 scenarios
+examples/manufacturing/         modular enterprise ontology (core/procurement/production/quality),
+                                sample knowledge graph, tools with costs, ROI assumptions, walkthrough
+tests/                          78 unit + scenario tests (stdlib unittest)
+docs/autology.md                the Autology concept and how it maps to this code
+docs/methodology.md             the engineering methodology, section by section, with the code that implements it
 ```
 
 This repository also has notes on video tooling (`video-skills.md`, `.claude/skills/`). They are unrelated to Autology.

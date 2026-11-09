@@ -78,7 +78,10 @@ Autology moves automation from *human-in-the-loop* to *agent-in-the-loop*. Peopl
 
 ## Appendix B: known limitations and next steps
 
-- One instance per entity type per case. Multi-instance relationships, such as many orders, would need instance identifiers in state and in expressions.
+- One instance per entity type per *case*. The `KnowledgeGraph` holds many instances for competency questions, but an agent run still binds one Customer, one Contract and so on. Multi-instance cases, such as many orders per contract, would need instance identifiers in state and expressions.
 - Planning is an exhaustive cost-ordered search. That suits processes with tens of actions. Larger domains would need heuristics or a hierarchy of goals.
-- The ontology format is JSON (or YAML) built for this project. Mapping it to OWL/RDF or SHACL, so it can work with existing enterprise knowledge graphs, is a natural next step.
-- Escalations are returned to the caller. Production use would route them to ticketing or on-call systems.
+- Escalations and deferrals are returned to the caller. Production use would route them to ticketing, on-call and scheduler systems.
+- The knowledge graph is in memory. A Neo4j or Neptune backend would implement the same `add` / `link` / `query` interface.
+- CodingAgent and PersonalAgent roles are not implemented. They would reuse the ontology, governance and audit layers unchanged.
+
+The engineering methodology (modules, competency questions, versioning, self-healing, ABAC, compliance reporting and cost/ROI) is covered in [`methodology.md`](methodology.md).

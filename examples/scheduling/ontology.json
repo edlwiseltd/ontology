@@ -1,0 +1,11 @@
+{
+  "name": "aero-scheduling",
+  "version": "1.0.0",
+  "description": "Ontology + dual-agent scheduling for multi-process aerospace structural parts",
+  "imports": [
+    "modules/replanning.json"
+  ],
+  "settings": {
+    "max_violations": 3
+  }
+}

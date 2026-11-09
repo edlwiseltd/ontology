@@ -1,0 +1,5929 @@
+{
+ "instances": [
+  {
+   "type": "Machine",
+   "id": "EQ_01",
+   "kind": "cut",
+   "calibration_due_h": 999,
+   "status": "available"
+  },
+  {
+   "type": "Machine",
+   "id": "EQ_02",
+   "kind": "cut",
+   "calibration_due_h": 999,
+   "status": "available"
+  },
+  {
+   "type": "Machine",
+   "id": "EQ_03",
+   "kind": "cut",
+   "calibration_due_h": 999,
+   "status": "available"
+  },
+  {
+   "type": "Machine",
+   "id": "EQ_04",
+   "kind": "cut",
+   "calibration_due_h": 999,
+   "status": "available"
+  },
+  {
+   "type": "Machine",
+   "id": "EQ_05",
+   "kind": "mill",
+   "calibration_due_h": 999,
+   "status": "available"
+  },
+  {
+   "type": "Machine",
+   "id": "EQ_06",
+   "kind": "mill",
+   "calibration_due_h": 999,
+   "status": "available"
+  },
+  {
+   "type": "Machine",
+   "id": "EQ_07",
+   "kind": "mill",
+   "calibration_due_h": 999,
+   "status": "available"
+  },
+  {
+   "type": "Machine",
+   "id": "EQ_08",
+   "kind": "mill",
+   "calibration_due_h": 999,
+   "status": "available"
+  },
+  {
+   "type": "Machine",
+   "id": "EQ_09",
+   "kind": "form",
+   "calibration_due_h": 999,
+   "status": "available"
+  },
+  {
+   "type": "Machine",
+   "id": "EQ_10",
+   "kind": "form",
+   "calibration_due_h": 999,
+   "status": "available"
+  },
+  {
+   "type": "Machine",
+   "id": "EQ_11",
+   "kind": "heat",
+   "calibration_due_h": 999,
+   "status": "available"
+  },
+  {
+   "type": "Machine",
+   "id": "EQ_12",
+   "kind": "inspect",
+   "calibration_due_h": 60,
+   "status": "available"
+  },
+  {
+   "type": "Mold",
+   "id": "M-01",
+   "shots_left": 5000,
+   "status": "available"
+  },
+  {
+   "type": "Mold",
+   "id": "M-02",
+   "shots_left": 5000,
+   "status": "available"
+  },
+  {
+   "type": "Mold",
+   "id": "M-03",
+   "shots_left": 5000,
+   "status": "available"
+  },
+  {
+   "type": "Mold",
+   "id": "M-04",
+   "shots_left": 30,
+   "status": "available"
+  },
+  {
+   "type": "Mold",
+   "id": "M-05",
+   "shots_left": 5000,
+   "status": "available"
+  },
+  {
+   "type": "Mold",
+   "id": "M-06",
+   "shots_left": 5000,
+   "status": "maintenance"
+  },
+  {
+   "type": "Operator",
+   "id": "OP_01",
+   "skill": "cnc",
+   "employee_id": "E1001",
+   "cert_expires_h": 9999,
+   "status": "on_shift"
+  },
+  {
+   "type": "Operator",
+   "id": "OP_02",
+   "skill": "cnc",
+   "employee_id": "E1002",
+   "cert_expires_h": 9999,
+   "status": "on_shift"
+  },
+  {
+   "type": "Operator",
+   "id": "OP_03",
+   "skill": "cnc",
+   "employee_id": "E1003",
+   "cert_expires_h": 9999,
+   "status": "on_shift"
+  },
+  {
+   "type": "Operator",
+   "id": "OP_04",
+   "skill": "cnc",
+   "employee_id": "E1004",
+   "cert_expires_h": 9999,
+   "status": "on_shift"
+  },
+  {
+   "type": "Operator",
+   "id": "OP_05",
+   "skill": "press",
+   "employee_id": "E1005",
+   "cert_expires_h": 9999,
+   "status": "on_shift"
+  },
+  {
+   "type": "Operator",
+   "id": "OP_06",
+   "skill": "press",
+   "employee_id": "E1006",
+   "cert_expires_h": 9999,
+   "status": "on_shift"
+  },
+  {
+   "type": "Operator",
+   "id": "OP_07",
+   "skill": "heat",
+   "employee_id": "E1007",
+   "cert_expires_h": 9999,
+   "status": "absent"
+  },
+  {
+   "type": "Operator",
+   "id": "OP_08",
+   "skill": "heat",
+   "employee_id": "E1008",
+   "cert_expires_h": 9999,
+   "status": "on_shift"
+  },
+  {
+   "type": "Operator",
+   "id": "OP_09",
+   "skill": "cmm",
+   "employee_id": "E1009",
+   "cert_expires_h": 9999,
+   "status": "on_shift"
+  },
+  {
+   "type": "Operator",
+   "id": "OP_10",
+   "skill": "cmm",
+   "employee_id": "E1010",
+   "cert_expires_h": 9999,
+   "status": "on_shift"
+  },
+  {
+   "type": "Material",
+   "id": "MAT-AL7075",
+   "grade": "Al 7075-T6",
+   "on_hand_kg": 900
+  },
+  {
+   "type": "Material",
+   "id": "MAT-TI64",
+   "grade": "Ti-6Al-4V",
+   "on_hand_kg": 400
+  },
+  {
+   "type": "Part",
+   "id": "PT-01",
+   "name": "wing rib",
+   "revision": "C",
+   "family": "structure",
+   "status": "released"
+  },
+  {
+   "type": "Part",
+   "id": "PT-02",
+   "name": "spar fitting",
+   "revision": "C",
+   "family": "structure",
+   "status": "released"
+  },
+  {
+   "type": "Part",
+   "id": "PT-03",
+   "name": "bracket",
+   "revision": "C",
+   "family": "structure",
+   "status": "released"
+  },
+  {
+   "type": "Part",
+   "id": "PT-04",
+   "name": "frame clip",
+   "revision": "C",
+   "family": "structure",
+   "status": "released"
+  },
+  {
+   "type": "Part",
+   "id": "PT-05",
+   "name": "stringer",
+   "revision": "C",
+   "family": "structure",
+   "status": "released"
+  },
+  {
+   "type": "Part",
+   "id": "PT-06",
+   "name": "bulkhead web",
+   "revision": "C",
+   "family": "structure",
+   "status": "released"
+  },
+  {
+   "type": "Part",
+   "id": "PT-07",
+   "name": "hinge",
+   "revision": "C",
+   "family": "structure",
+   "status": "released"
+  },
+  {
+   "type": "Part",
+   "id": "PT-08",
+   "name": "doubler",
+   "revision": "C",
+   "family": "structure",
+   "status": "released"
+  },
+  {
+   "type": "Part",
+   "id": "PT-09",
+   "name": "cleat",
+   "revision": "C",
+   "family": "structure",
+   "status": "released"
+  },
+  {
+   "type": "Part",
+   "id": "PT-10",
+   "name": "skin panel",
+   "revision": "C",
+   "family": "structure",
+   "status": "released"
+  },
+  {
+   "type": "Part",
+   "id": "PT-11",
+   "name": "lug",
+   "revision": "C",
+   "family": "structure",
+   "status": "released"
+  },
+  {
+   "type": "Part",
+   "id": "PT-12",
+   "name": "longeron",
+   "revision": "C",
+   "family": "structure",
+   "status": "released"
+  },
+  {
+   "type": "Order",
+   "id": "SO-1",
+   "customer": "Airframer 2",
+   "due_h": 140
+  },
+  {
+   "type": "Order",
+   "id": "SO-2",
+   "customer": "Airframer 3",
+   "due_h": 140
+  },
+  {
+   "type": "Order",
+   "id": "SO-3",
+   "customer": "Airframer 1",
+   "due_h": 140
+  },
+  {
+   "type": "Order",
+   "id": "SO-4",
+   "customer": "Airframer 2",
+   "due_h": 140
+  },
+  {
+   "type": "Order",
+   "id": "SO-5",
+   "customer": "Airframer 3",
+   "due_h": 140
+  },
+  {
+   "type": "Order",
+   "id": "SO-6",
+   "customer": "Airframer 1",
+   "due_h": 140
+  },
+  {
+   "type": "Order",
+   "id": "SO-7",
+   "customer": "Airframer 2",
+   "due_h": 140
+  },
+  {
+   "type": "Order",
+   "id": "SO-8",
+   "customer": "Airframer 3",
+   "due_h": 140
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-01",
+   "quantity": 20,
+   "release_h": 12,
+   "due_h": 72,
+   "kind": "production"
+  },
+  {
+   "type": "Process",
+   "id": "WO-01/10",
+   "seq": 10,
+   "op": "cut",
+   "hours": 2,
+   "quantity": 20,
+   "material_kg": 18.0
+  },
+  {
+   "type": "Process",
+   "id": "WO-01/20",
+   "seq": 20,
+   "op": "mill",
+   "hours": 3,
+   "quantity": 20,
+   "material_kg": 0
+  },
+  {
+   "type": "Process",
+   "id": "WO-01/30",
+   "seq": 30,
+   "op": "inspect",
+   "hours": 3,
+   "quantity": 20,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-02",
+   "quantity": 10,
+   "release_h": 12,
+   "due_h": 60,
+   "kind": "production"
+  },
+  {
+   "type": "Process",
+   "id": "WO-02/10",
+   "seq": 10,
+   "op": "cut",
+   "hours": 3,
+   "quantity": 10,
+   "material_kg": 16.0
+  },
+  {
+   "type": "Process",
+   "id": "WO-02/20",
+   "seq": 20,
+   "op": "mill",
+   "hours": 2,
+   "quantity": 10,
+   "material_kg": 0
+  },
+  {
+   "type": "Process",
+   "id": "WO-02/30",
+   "seq": 30,
+   "op": "heat",
+   "hours": 4,
+   "quantity": 10,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-03",
+   "quantity": 20,
+   "release_h": 16,
+   "due_h": 112,
+   "kind": "subassembly"
+  },
+  {
+   "type": "Process",
+   "id": "WO-03/10",
+   "seq": 10,
+   "op": "cut",
+   "hours": 3,
+   "quantity": 20,
+   "material_kg": 18.0
+  },
+  {
+   "type": "Process",
+   "id": "WO-03/20",
+   "seq": 20,
+   "op": "form",
+   "hours": 3,
+   "quantity": 20,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-04",
+   "quantity": 40,
+   "release_h": 16,
+   "due_h": 76,
+   "kind": "production"
+  },
+  {
+   "type": "Process",
+   "id": "WO-04/10",
+   "seq": 10,
+   "op": "form",
+   "hours": 3,
+   "quantity": 40,
+   "material_kg": 36.0
+  },
+  {
+   "type": "Process",
+   "id": "WO-04/20",
+   "seq": 20,
+   "op": "heat",
+   "hours": 5,
+   "quantity": 40,
+   "material_kg": 0
+  },
+  {
+   "type": "Process",
+   "id": "WO-04/30",
+   "seq": 30,
+   "op": "inspect",
+   "hours": 5,
+   "quantity": 40,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-05",
+   "quantity": 40,
+   "release_h": 16,
+   "due_h": 64,
+   "kind": "production"
+  },
+  {
+   "type": "Process",
+   "id": "WO-05/10",
+   "seq": 10,
+   "op": "cut",
+   "hours": 4,
+   "quantity": 40,
+   "material_kg": 36.0
+  },
+  {
+   "type": "Process",
+   "id": "WO-05/20",
+   "seq": 20,
+   "op": "mill",
+   "hours": 2,
+   "quantity": 40,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-06",
+   "quantity": 10,
+   "release_h": 4,
+   "due_h": 52,
+   "kind": "production"
+  },
+  {
+   "type": "Process",
+   "id": "WO-06/10",
+   "seq": 10,
+   "op": "cut",
+   "hours": 3,
+   "quantity": 10,
+   "material_kg": 9.0
+  },
+  {
+   "type": "Process",
+   "id": "WO-06/20",
+   "seq": 20,
+   "op": "form",
+   "hours": 2,
+   "quantity": 10,
+   "material_kg": 0
+  },
+  {
+   "type": "Process",
+   "id": "WO-06/30",
+   "seq": 30,
+   "op": "inspect",
+   "hours": 2,
+   "quantity": 10,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-07",
+   "quantity": 40,
+   "release_h": 16,
+   "due_h": 112,
+   "kind": "production"
+  },
+  {
+   "type": "Process",
+   "id": "WO-07/10",
+   "seq": 10,
+   "op": "mill",
+   "hours": 4,
+   "quantity": 40,
+   "material_kg": 64.0
+  },
+  {
+   "type": "Process",
+   "id": "WO-07/20",
+   "seq": 20,
+   "op": "heat",
+   "hours": 7,
+   "quantity": 40,
+   "material_kg": 0
+  },
+  {
+   "type": "Process",
+   "id": "WO-07/30",
+   "seq": 30,
+   "op": "inspect",
+   "hours": 4,
+   "quantity": 40,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-08",
+   "quantity": 20,
+   "release_h": 4,
+   "due_h": 52,
+   "kind": "subassembly"
+  },
+  {
+   "type": "Process",
+   "id": "WO-08/10",
+   "seq": 10,
+   "op": "cut",
+   "hours": 2,
+   "quantity": 20,
+   "material_kg": 18.0
+  },
+  {
+   "type": "Process",
+   "id": "WO-08/20",
+   "seq": 20,
+   "op": "form",
+   "hours": 3,
+   "quantity": 20,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-09",
+   "quantity": 25,
+   "release_h": 16,
+   "due_h": 112,
+   "kind": "production"
+  },
+  {
+   "type": "Process",
+   "id": "WO-09/10",
+   "seq": 10,
+   "op": "cut",
+   "hours": 4,
+   "quantity": 25,
+   "material_kg": 22.5
+  },
+  {
+   "type": "Process",
+   "id": "WO-09/20",
+   "seq": 20,
+   "op": "mill",
+   "hours": 4,
+   "quantity": 25,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-10",
+   "quantity": 40,
+   "release_h": 12,
+   "due_h": 108,
+   "kind": "production"
+  },
+  {
+   "type": "Process",
+   "id": "WO-10/10",
+   "seq": 10,
+   "op": "form",
+   "hours": 4,
+   "quantity": 40,
+   "material_kg": 36.0
+  },
+  {
+   "type": "Process",
+   "id": "WO-10/20",
+   "seq": 20,
+   "op": "inspect",
+   "hours": 4,
+   "quantity": 40,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-11",
+   "quantity": 40,
+   "release_h": 12,
+   "due_h": 72,
+   "kind": "production"
+  },
+  {
+   "type": "Process",
+   "id": "WO-11/10",
+   "seq": 10,
+   "op": "cut",
+   "hours": 5,
+   "quantity": 40,
+   "material_kg": 64.0
+  },
+  {
+   "type": "Process",
+   "id": "WO-11/20",
+   "seq": 20,
+   "op": "mill",
+   "hours": 5,
+   "quantity": 40,
+   "material_kg": 0
+  },
+  {
+   "type": "Process",
+   "id": "WO-11/30",
+   "seq": 30,
+   "op": "heat",
+   "hours": 7,
+   "quantity": 40,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-12",
+   "quantity": 25,
+   "release_h": 12,
+   "due_h": 72,
+   "kind": "production"
+  },
+  {
+   "type": "Process",
+   "id": "WO-12/10",
+   "seq": 10,
+   "op": "cut",
+   "hours": 4,
+   "quantity": 25,
+   "material_kg": 22.5
+  },
+  {
+   "type": "Process",
+   "id": "WO-12/20",
+   "seq": 20,
+   "op": "mill",
+   "hours": 3,
+   "quantity": 25,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-13",
+   "quantity": 10,
+   "release_h": 16,
+   "due_h": 76,
+   "kind": "production"
+  },
+  {
+   "type": "Process",
+   "id": "WO-13/10",
+   "seq": 10,
+   "op": "cut",
+   "hours": 2,
+   "quantity": 10,
+   "material_kg": 9.0
+  },
+  {
+   "type": "Process",
+   "id": "WO-13/20",
+   "seq": 20,
+   "op": "mill",
+   "hours": 3,
+   "quantity": 10,
+   "material_kg": 0
+  },
+  {
+   "type": "Process",
+   "id": "WO-13/30",
+   "seq": 30,
+   "op": "inspect",
+   "hours": 2,
+   "quantity": 10,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-14",
+   "quantity": 10,
+   "release_h": 0,
+   "due_h": 96,
+   "kind": "production"
+  },
+  {
+   "type": "Process",
+   "id": "WO-14/10",
+   "seq": 10,
+   "op": "cut",
+   "hours": 3,
+   "quantity": 10,
+   "material_kg": 16.0
+  },
+  {
+   "type": "Process",
+   "id": "WO-14/20",
+   "seq": 20,
+   "op": "mill",
+   "hours": 3,
+   "quantity": 10,
+   "material_kg": 0
+  },
+  {
+   "type": "Process",
+   "id": "WO-14/30",
+   "seq": 30,
+   "op": "heat",
+   "hours": 3,
+   "quantity": 10,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-15",
+   "quantity": 10,
+   "release_h": 8,
+   "due_h": 68,
+   "kind": "subassembly"
+  },
+  {
+   "type": "Process",
+   "id": "WO-15/10",
+   "seq": 10,
+   "op": "cut",
+   "hours": 1,
+   "quantity": 10,
+   "material_kg": 9.0
+  },
+  {
+   "type": "Process",
+   "id": "WO-15/20",
+   "seq": 20,
+   "op": "form",
+   "hours": 2,
+   "quantity": 10,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-16",
+   "quantity": 40,
+   "release_h": 0,
+   "due_h": 48,
+   "kind": "production"
+  },
+  {
+   "type": "Process",
+   "id": "WO-16/10",
+   "seq": 10,
+   "op": "form",
+   "hours": 4,
+   "quantity": 40,
+   "material_kg": 36.0
+  },
+  {
+   "type": "Process",
+   "id": "WO-16/20",
+   "seq": 20,
+   "op": "heat",
+   "hours": 7,
+   "quantity": 40,
+   "material_kg": 0
+  },
+  {
+   "type": "Process",
+   "id": "WO-16/30",
+   "seq": 30,
+   "op": "inspect",
+   "hours": 3,
+   "quantity": 40,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-17",
+   "quantity": 25,
+   "release_h": 12,
+   "due_h": 84,
+   "kind": "production"
+  },
+  {
+   "type": "Process",
+   "id": "WO-17/10",
+   "seq": 10,
+   "op": "cut",
+   "hours": 3,
+   "quantity": 25,
+   "material_kg": 22.5
+  },
+  {
+   "type": "Process",
+   "id": "WO-17/20",
+   "seq": 20,
+   "op": "mill",
+   "hours": 4,
+   "quantity": 25,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-18",
+   "quantity": 25,
+   "release_h": 0,
+   "due_h": 48,
+   "kind": "production"
+  },
+  {
+   "type": "Process",
+   "id": "WO-18/10",
+   "seq": 10,
+   "op": "cut",
+   "hours": 2,
+   "quantity": 25,
+   "material_kg": 22.5
+  },
+  {
+   "type": "Process",
+   "id": "WO-18/20",
+   "seq": 20,
+   "op": "form",
+   "hours": 3,
+   "quantity": 25,
+   "material_kg": 0
+  },
+  {
+   "type": "Process",
+   "id": "WO-18/30",
+   "seq": 30,
+   "op": "inspect",
+   "hours": 4,
+   "quantity": 25,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-19",
+   "quantity": 40,
+   "release_h": 4,
+   "due_h": 76,
+   "kind": "production"
+  },
+  {
+   "type": "Process",
+   "id": "WO-19/10",
+   "seq": 10,
+   "op": "mill",
+   "hours": 3,
+   "quantity": 40,
+   "material_kg": 64.0
+  },
+  {
+   "type": "Process",
+   "id": "WO-19/20",
+   "seq": 20,
+   "op": "heat",
+   "hours": 4,
+   "quantity": 40,
+   "material_kg": 0
+  },
+  {
+   "type": "Process",
+   "id": "WO-19/30",
+   "seq": 30,
+   "op": "inspect",
+   "hours": 5,
+   "quantity": 40,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-20",
+   "quantity": 25,
+   "release_h": 4,
+   "due_h": 64,
+   "kind": "subassembly"
+  },
+  {
+   "type": "Process",
+   "id": "WO-20/10",
+   "seq": 10,
+   "op": "cut",
+   "hours": 4,
+   "quantity": 25,
+   "material_kg": 22.5
+  },
+  {
+   "type": "Process",
+   "id": "WO-20/20",
+   "seq": 20,
+   "op": "form",
+   "hours": 3,
+   "quantity": 25,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-21",
+   "quantity": 40,
+   "release_h": 12,
+   "due_h": 108,
+   "kind": "production"
+  },
+  {
+   "type": "Process",
+   "id": "WO-21/10",
+   "seq": 10,
+   "op": "cut",
+   "hours": 4,
+   "quantity": 40,
+   "material_kg": 36.0
+  },
+  {
+   "type": "Process",
+   "id": "WO-21/20",
+   "seq": 20,
+   "op": "mill",
+   "hours": 4,
+   "quantity": 40,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-22",
+   "quantity": 10,
+   "release_h": 12,
+   "due_h": 84,
+   "kind": "production"
+  },
+  {
+   "type": "Process",
+   "id": "WO-22/10",
+   "seq": 10,
+   "op": "form",
+   "hours": 2,
+   "quantity": 10,
+   "material_kg": 9.0
+  },
+  {
+   "type": "Process",
+   "id": "WO-22/20",
+   "seq": 20,
+   "op": "inspect",
+   "hours": 2,
+   "quantity": 10,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-23",
+   "quantity": 20,
+   "release_h": 4,
+   "due_h": 100,
+   "kind": "production"
+  },
+  {
+   "type": "Process",
+   "id": "WO-23/10",
+   "seq": 10,
+   "op": "cut",
+   "hours": 4,
+   "quantity": 20,
+   "material_kg": 32.0
+  },
+  {
+   "type": "Process",
+   "id": "WO-23/20",
+   "seq": 20,
+   "op": "mill",
+   "hours": 3,
+   "quantity": 20,
+   "material_kg": 0
+  },
+  {
+   "type": "Process",
+   "id": "WO-23/30",
+   "seq": 30,
+   "op": "heat",
+   "hours": 5,
+   "quantity": 20,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-24",
+   "quantity": 10,
+   "release_h": 8,
+   "due_h": 80,
+   "kind": "production"
+  },
+  {
+   "type": "Process",
+   "id": "WO-24/10",
+   "seq": 10,
+   "op": "cut",
+   "hours": 1,
+   "quantity": 10,
+   "material_kg": 9.0
+  },
+  {
+   "type": "Process",
+   "id": "WO-24/20",
+   "seq": 20,
+   "op": "mill",
+   "hours": 2,
+   "quantity": 10,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-25",
+   "quantity": 20,
+   "release_h": 0,
+   "due_h": 72,
+   "kind": "production"
+  },
+  {
+   "type": "Process",
+   "id": "WO-25/10",
+   "seq": 10,
+   "op": "cut",
+   "hours": 3,
+   "quantity": 20,
+   "material_kg": 18.0
+  },
+  {
+   "type": "Process",
+   "id": "WO-25/20",
+   "seq": 20,
+   "op": "mill",
+   "hours": 3,
+   "quantity": 20,
+   "material_kg": 0
+  },
+  {
+   "type": "Process",
+   "id": "WO-25/30",
+   "seq": 30,
+   "op": "inspect",
+   "hours": 2,
+   "quantity": 20,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-26",
+   "quantity": 25,
+   "release_h": 16,
+   "due_h": 112,
+   "kind": "production"
+  },
+  {
+   "type": "Process",
+   "id": "WO-26/10",
+   "seq": 10,
+   "op": "cut",
+   "hours": 2,
+   "quantity": 25,
+   "material_kg": 40.0
+  },
+  {
+   "type": "Process",
+   "id": "WO-26/20",
+   "seq": 20,
+   "op": "mill",
+   "hours": 2,
+   "quantity": 25,
+   "material_kg": 0
+  },
+  {
+   "type": "Process",
+   "id": "WO-26/30",
+   "seq": 30,
+   "op": "heat",
+   "hours": 6,
+   "quantity": 25,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-27",
+   "quantity": 25,
+   "release_h": 4,
+   "due_h": 100,
+   "kind": "subassembly"
+  },
+  {
+   "type": "Process",
+   "id": "WO-27/10",
+   "seq": 10,
+   "op": "cut",
+   "hours": 3,
+   "quantity": 25,
+   "material_kg": 22.5
+  },
+  {
+   "type": "Process",
+   "id": "WO-27/20",
+   "seq": 20,
+   "op": "form",
+   "hours": 3,
+   "quantity": 25,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-28",
+   "quantity": 20,
+   "release_h": 4,
+   "due_h": 64,
+   "kind": "production"
+  },
+  {
+   "type": "Process",
+   "id": "WO-28/10",
+   "seq": 10,
+   "op": "form",
+   "hours": 2,
+   "quantity": 20,
+   "material_kg": 18.0
+  },
+  {
+   "type": "Process",
+   "id": "WO-28/20",
+   "seq": 20,
+   "op": "heat",
+   "hours": 4,
+   "quantity": 20,
+   "material_kg": 0
+  },
+  {
+   "type": "Process",
+   "id": "WO-28/30",
+   "seq": 30,
+   "op": "inspect",
+   "hours": 3,
+   "quantity": 20,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-29",
+   "quantity": 25,
+   "release_h": 8,
+   "due_h": 56,
+   "kind": "production"
+  },
+  {
+   "type": "Process",
+   "id": "WO-29/10",
+   "seq": 10,
+   "op": "cut",
+   "hours": 4,
+   "quantity": 25,
+   "material_kg": 22.5
+  },
+  {
+   "type": "Process",
+   "id": "WO-29/20",
+   "seq": 20,
+   "op": "mill",
+   "hours": 2,
+   "quantity": 25,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-30",
+   "quantity": 20,
+   "release_h": 4,
+   "due_h": 64,
+   "kind": "production"
+  },
+  {
+   "type": "Process",
+   "id": "WO-30/10",
+   "seq": 10,
+   "op": "cut",
+   "hours": 3,
+   "quantity": 20,
+   "material_kg": 18.0
+  },
+  {
+   "type": "Process",
+   "id": "WO-30/20",
+   "seq": 20,
+   "op": "form",
+   "hours": 2,
+   "quantity": 20,
+   "material_kg": 0
+  },
+  {
+   "type": "Process",
+   "id": "WO-30/30",
+   "seq": 30,
+   "op": "inspect",
+   "hours": 2,
+   "quantity": 20,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-31",
+   "quantity": 40,
+   "release_h": 16,
+   "due_h": 64,
+   "kind": "production"
+  },
+  {
+   "type": "Process",
+   "id": "WO-31/10",
+   "seq": 10,
+   "op": "mill",
+   "hours": 2,
+   "quantity": 40,
+   "material_kg": 64.0
+  },
+  {
+   "type": "Process",
+   "id": "WO-31/20",
+   "seq": 20,
+   "op": "heat",
+   "hours": 5,
+   "quantity": 40,
+   "material_kg": 0
+  },
+  {
+   "type": "Process",
+   "id": "WO-31/30",
+   "seq": 30,
+   "op": "inspect",
+   "hours": 3,
+   "quantity": 40,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-32",
+   "quantity": 20,
+   "release_h": 8,
+   "due_h": 68,
+   "kind": "production"
+  },
+  {
+   "type": "Process",
+   "id": "WO-32/10",
+   "seq": 10,
+   "op": "cut",
+   "hours": 2,
+   "quantity": 20,
+   "material_kg": 18.0
+  },
+  {
+   "type": "Process",
+   "id": "WO-32/20",
+   "seq": 20,
+   "op": "form",
+   "hours": 3,
+   "quantity": 20,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-33",
+   "quantity": 20,
+   "release_h": 12,
+   "due_h": 108,
+   "kind": "production"
+  },
+  {
+   "type": "Process",
+   "id": "WO-33/10",
+   "seq": 10,
+   "op": "cut",
+   "hours": 2,
+   "quantity": 20,
+   "material_kg": 18.0
+  },
+  {
+   "type": "Process",
+   "id": "WO-33/20",
+   "seq": 20,
+   "op": "mill",
+   "hours": 3,
+   "quantity": 20,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-34",
+   "quantity": 10,
+   "release_h": 12,
+   "due_h": 72,
+   "kind": "production"
+  },
+  {
+   "type": "Process",
+   "id": "WO-34/10",
+   "seq": 10,
+   "op": "form",
+   "hours": 2,
+   "quantity": 10,
+   "material_kg": 9.0
+  },
+  {
+   "type": "Process",
+   "id": "WO-34/20",
+   "seq": 20,
+   "op": "inspect",
+   "hours": 3,
+   "quantity": 10,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-35",
+   "quantity": 20,
+   "release_h": 4,
+   "due_h": 76,
+   "kind": "production"
+  },
+  {
+   "type": "Process",
+   "id": "WO-35/10",
+   "seq": 10,
+   "op": "cut",
+   "hours": 4,
+   "quantity": 20,
+   "material_kg": 32.0
+  },
+  {
+   "type": "Process",
+   "id": "WO-35/20",
+   "seq": 20,
+   "op": "mill",
+   "hours": 3,
+   "quantity": 20,
+   "material_kg": 0
+  },
+  {
+   "type": "Process",
+   "id": "WO-35/30",
+   "seq": 30,
+   "op": "heat",
+   "hours": 6,
+   "quantity": 20,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-36",
+   "quantity": 25,
+   "release_h": 12,
+   "due_h": 72,
+   "kind": "production"
+  },
+  {
+   "type": "Process",
+   "id": "WO-36/10",
+   "seq": 10,
+   "op": "cut",
+   "hours": 3,
+   "quantity": 25,
+   "material_kg": 22.5
+  },
+  {
+   "type": "Process",
+   "id": "WO-36/20",
+   "seq": 20,
+   "op": "mill",
+   "hours": 3,
+   "quantity": 25,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-37",
+   "quantity": 25,
+   "release_h": 8,
+   "due_h": 80,
+   "kind": "production"
+  },
+  {
+   "type": "Process",
+   "id": "WO-37/10",
+   "seq": 10,
+   "op": "cut",
+   "hours": 3,
+   "quantity": 25,
+   "material_kg": 22.5
+  },
+  {
+   "type": "Process",
+   "id": "WO-37/20",
+   "seq": 20,
+   "op": "mill",
+   "hours": 2,
+   "quantity": 25,
+   "material_kg": 0
+  },
+  {
+   "type": "Process",
+   "id": "WO-37/30",
+   "seq": 30,
+   "op": "inspect",
+   "hours": 3,
+   "quantity": 25,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-38",
+   "quantity": 10,
+   "release_h": 8,
+   "due_h": 68,
+   "kind": "production"
+  },
+  {
+   "type": "Process",
+   "id": "WO-38/10",
+   "seq": 10,
+   "op": "cut",
+   "hours": 1,
+   "quantity": 10,
+   "material_kg": 16.0
+  },
+  {
+   "type": "Process",
+   "id": "WO-38/20",
+   "seq": 20,
+   "op": "mill",
+   "hours": 2,
+   "quantity": 10,
+   "material_kg": 0
+  },
+  {
+   "type": "Process",
+   "id": "WO-38/30",
+   "seq": 30,
+   "op": "heat",
+   "hours": 5,
+   "quantity": 10,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-39",
+   "quantity": 40,
+   "release_h": 12,
+   "due_h": 72,
+   "kind": "production"
+  },
+  {
+   "type": "Process",
+   "id": "WO-39/10",
+   "seq": 10,
+   "op": "cut",
+   "hours": 2,
+   "quantity": 40,
+   "material_kg": 36.0
+  },
+  {
+   "type": "Process",
+   "id": "WO-39/20",
+   "seq": 20,
+   "op": "form",
+   "hours": 4,
+   "quantity": 40,
+   "material_kg": 0
+  },
+  {
+   "type": "WorkOrder",
+   "id": "WO-40",
+   "quantity": 25,
+   "release_h": 12,
+   "due_h": 84,
+   "kind": "production"
+  },
+  {
+   "type": "Process",
+   "id": "WO-40/10",
+   "seq": 10,
+   "op": "form",
+   "hours": 4,
+   "quantity": 25,
+   "material_kg": 22.5
+  },
+  {
+   "type": "Process",
+   "id": "WO-40/20",
+   "seq": 20,
+   "op": "heat",
+   "hours": 6,
+   "quantity": 25,
+   "material_kg": 0
+  },
+  {
+   "type": "Process",
+   "id": "WO-40/30",
+   "seq": 30,
+   "op": "inspect",
+   "hours": 4,
+   "quantity": 25,
+   "material_kg": 0
+  },
+  {
+   "type": "ECN",
+   "id": "ECN-7",
+   "title": "Rev D: thicker flange, extra deburr",
+   "duration_factor": 1.25,
+   "effective_at": 6
+  },
+  {
+   "type": "ECN",
+   "id": "ECN-8",
+   "title": "Rev E: tighter hole tolerance",
+   "duration_factor": 1.1,
+   "effective_at": 0
+  },
+  {
+   "type": "QualityReturn",
+   "id": "QR-1",
+   "defect": "heat-treat hardness out of tolerance",
+   "from_seq": 20
+  },
+  {
+   "type": "QualityReturn",
+   "id": "QR-2",
+   "defect": "edge cracks after forming",
+   "from_seq": 10
+  },
+  {
+   "type": "MachineAlert",
+   "id": "ALERT-01",
+   "code": "BREAKDOWN",
+   "message": "EQ_01 cut fault"
+  },
+  {
+   "type": "MachineAlert",
+   "id": "ALERT-02",
+   "code": "BREAKDOWN",
+   "message": "EQ_02 cut fault"
+  },
+  {
+   "type": "MachineAlert",
+   "id": "ALERT-03",
+   "code": "BREAKDOWN",
+   "message": "EQ_03 cut fault"
+  },
+  {
+   "type": "MachineAlert",
+   "id": "ALERT-04",
+   "code": "BREAKDOWN",
+   "message": "EQ_04 cut fault"
+  },
+  {
+   "type": "MachineAlert",
+   "id": "ALERT-05",
+   "code": "BREAKDOWN",
+   "message": "EQ_05 mill fault"
+  },
+  {
+   "type": "MachineAlert",
+   "id": "ALERT-06",
+   "code": "BREAKDOWN",
+   "message": "EQ_06 mill fault"
+  },
+  {
+   "type": "MachineAlert",
+   "id": "ALERT-07",
+   "code": "BREAKDOWN",
+   "message": "EQ_07 mill fault"
+  },
+  {
+   "type": "MachineAlert",
+   "id": "ALERT-08",
+   "code": "BREAKDOWN",
+   "message": "EQ_08 mill fault"
+  },
+  {
+   "type": "MachineAlert",
+   "id": "ALERT-09",
+   "code": "BREAKDOWN",
+   "message": "EQ_09 form fault"
+  },
+  {
+   "type": "MachineAlert",
+   "id": "ALERT-10",
+   "code": "BREAKDOWN",
+   "message": "EQ_10 form fault"
+  },
+  {
+   "type": "MachineAlert",
+   "id": "ALERT-11",
+   "code": "BREAKDOWN",
+   "message": "EQ_11 heat fault"
+  },
+  {
+   "type": "MachineAlert",
+   "id": "ALERT-12",
+   "code": "BREAKDOWN",
+   "message": "EQ_12 inspect fault"
+  }
+ ],
+ "links": [
+  [
+   "WO-01",
+   "produces",
+   "PT-01"
+  ],
+  [
+   "WO-01",
+   "fulfils",
+   "SO-1"
+  ],
+  [
+   "WO-01",
+   "hasProcess",
+   "WO-01/10"
+  ],
+  [
+   "WO-01/10",
+   "requiresMachine",
+   "EQ_01"
+  ],
+  [
+   "WO-01/10",
+   "requiresMachine",
+   "EQ_02"
+  ],
+  [
+   "WO-01/10",
+   "requiresMachine",
+   "EQ_03"
+  ],
+  [
+   "WO-01/10",
+   "requiresMachine",
+   "EQ_04"
+  ],
+  [
+   "WO-01/10",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-01/10",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-01/10",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-01/10",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-01/10",
+   "consumes",
+   "MAT-AL7075"
+  ],
+  [
+   "WO-01",
+   "hasProcess",
+   "WO-01/20"
+  ],
+  [
+   "WO-01/20",
+   "requiresMachine",
+   "EQ_05"
+  ],
+  [
+   "WO-01/20",
+   "requiresMachine",
+   "EQ_06"
+  ],
+  [
+   "WO-01/20",
+   "requiresMachine",
+   "EQ_07"
+  ],
+  [
+   "WO-01/20",
+   "requiresMachine",
+   "EQ_08"
+  ],
+  [
+   "WO-01/20",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-01/20",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-01/20",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-01/20",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-01",
+   "hasProcess",
+   "WO-01/30"
+  ],
+  [
+   "WO-01/30",
+   "requiresMachine",
+   "EQ_12"
+  ],
+  [
+   "WO-01/30",
+   "operatedBy",
+   "OP_09"
+  ],
+  [
+   "WO-01/30",
+   "operatedBy",
+   "OP_10"
+  ],
+  [
+   "WO-02",
+   "produces",
+   "PT-02"
+  ],
+  [
+   "WO-02",
+   "fulfils",
+   "SO-2"
+  ],
+  [
+   "WO-02",
+   "hasProcess",
+   "WO-02/10"
+  ],
+  [
+   "WO-02/10",
+   "requiresMachine",
+   "EQ_01"
+  ],
+  [
+   "WO-02/10",
+   "requiresMachine",
+   "EQ_02"
+  ],
+  [
+   "WO-02/10",
+   "requiresMachine",
+   "EQ_03"
+  ],
+  [
+   "WO-02/10",
+   "requiresMachine",
+   "EQ_04"
+  ],
+  [
+   "WO-02/10",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-02/10",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-02/10",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-02/10",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-02/10",
+   "consumes",
+   "MAT-TI64"
+  ],
+  [
+   "WO-02",
+   "hasProcess",
+   "WO-02/20"
+  ],
+  [
+   "WO-02/20",
+   "requiresMachine",
+   "EQ_05"
+  ],
+  [
+   "WO-02/20",
+   "requiresMachine",
+   "EQ_06"
+  ],
+  [
+   "WO-02/20",
+   "requiresMachine",
+   "EQ_07"
+  ],
+  [
+   "WO-02/20",
+   "requiresMachine",
+   "EQ_08"
+  ],
+  [
+   "WO-02/20",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-02/20",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-02/20",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-02/20",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-02",
+   "hasProcess",
+   "WO-02/30"
+  ],
+  [
+   "WO-02/30",
+   "requiresMachine",
+   "EQ_11"
+  ],
+  [
+   "WO-02/30",
+   "operatedBy",
+   "OP_07"
+  ],
+  [
+   "WO-02/30",
+   "operatedBy",
+   "OP_08"
+  ],
+  [
+   "WO-03",
+   "produces",
+   "PT-03"
+  ],
+  [
+   "WO-03",
+   "fulfils",
+   "SO-3"
+  ],
+  [
+   "WO-03",
+   "hasProcess",
+   "WO-03/10"
+  ],
+  [
+   "WO-03/10",
+   "requiresMachine",
+   "EQ_01"
+  ],
+  [
+   "WO-03/10",
+   "requiresMachine",
+   "EQ_02"
+  ],
+  [
+   "WO-03/10",
+   "requiresMachine",
+   "EQ_03"
+  ],
+  [
+   "WO-03/10",
+   "requiresMachine",
+   "EQ_04"
+  ],
+  [
+   "WO-03/10",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-03/10",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-03/10",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-03/10",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-03/10",
+   "consumes",
+   "MAT-AL7075"
+  ],
+  [
+   "WO-03",
+   "hasProcess",
+   "WO-03/20"
+  ],
+  [
+   "WO-03/20",
+   "requiresMachine",
+   "EQ_09"
+  ],
+  [
+   "WO-03/20",
+   "requiresMachine",
+   "EQ_10"
+  ],
+  [
+   "WO-03/20",
+   "requiresMold",
+   "M-01"
+  ],
+  [
+   "WO-03/20",
+   "operatedBy",
+   "OP_05"
+  ],
+  [
+   "WO-03/20",
+   "operatedBy",
+   "OP_06"
+  ],
+  [
+   "WO-04",
+   "produces",
+   "PT-04"
+  ],
+  [
+   "WO-04",
+   "fulfils",
+   "SO-4"
+  ],
+  [
+   "WO-04",
+   "hasProcess",
+   "WO-04/10"
+  ],
+  [
+   "WO-04/10",
+   "requiresMachine",
+   "EQ_09"
+  ],
+  [
+   "WO-04/10",
+   "requiresMachine",
+   "EQ_10"
+  ],
+  [
+   "WO-04/10",
+   "requiresMold",
+   "M-02"
+  ],
+  [
+   "WO-04/10",
+   "operatedBy",
+   "OP_05"
+  ],
+  [
+   "WO-04/10",
+   "operatedBy",
+   "OP_06"
+  ],
+  [
+   "WO-04/10",
+   "consumes",
+   "MAT-AL7075"
+  ],
+  [
+   "WO-04",
+   "hasProcess",
+   "WO-04/20"
+  ],
+  [
+   "WO-04/20",
+   "requiresMachine",
+   "EQ_11"
+  ],
+  [
+   "WO-04/20",
+   "operatedBy",
+   "OP_07"
+  ],
+  [
+   "WO-04/20",
+   "operatedBy",
+   "OP_08"
+  ],
+  [
+   "WO-04",
+   "hasProcess",
+   "WO-04/30"
+  ],
+  [
+   "WO-04/30",
+   "requiresMachine",
+   "EQ_12"
+  ],
+  [
+   "WO-04/30",
+   "operatedBy",
+   "OP_09"
+  ],
+  [
+   "WO-04/30",
+   "operatedBy",
+   "OP_10"
+  ],
+  [
+   "WO-05",
+   "produces",
+   "PT-05"
+  ],
+  [
+   "WO-05",
+   "fulfils",
+   "SO-5"
+  ],
+  [
+   "WO-05",
+   "hasProcess",
+   "WO-05/10"
+  ],
+  [
+   "WO-05/10",
+   "requiresMachine",
+   "EQ_01"
+  ],
+  [
+   "WO-05/10",
+   "requiresMachine",
+   "EQ_02"
+  ],
+  [
+   "WO-05/10",
+   "requiresMachine",
+   "EQ_03"
+  ],
+  [
+   "WO-05/10",
+   "requiresMachine",
+   "EQ_04"
+  ],
+  [
+   "WO-05/10",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-05/10",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-05/10",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-05/10",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-05/10",
+   "consumes",
+   "MAT-AL7075"
+  ],
+  [
+   "WO-05",
+   "hasProcess",
+   "WO-05/20"
+  ],
+  [
+   "WO-05/20",
+   "requiresMachine",
+   "EQ_05"
+  ],
+  [
+   "WO-05/20",
+   "requiresMachine",
+   "EQ_06"
+  ],
+  [
+   "WO-05/20",
+   "requiresMachine",
+   "EQ_07"
+  ],
+  [
+   "WO-05/20",
+   "requiresMachine",
+   "EQ_08"
+  ],
+  [
+   "WO-05/20",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-05/20",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-05/20",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-05/20",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-06",
+   "produces",
+   "PT-06"
+  ],
+  [
+   "WO-06",
+   "fulfils",
+   "SO-6"
+  ],
+  [
+   "WO-06",
+   "hasProcess",
+   "WO-06/10"
+  ],
+  [
+   "WO-06/10",
+   "requiresMachine",
+   "EQ_01"
+  ],
+  [
+   "WO-06/10",
+   "requiresMachine",
+   "EQ_02"
+  ],
+  [
+   "WO-06/10",
+   "requiresMachine",
+   "EQ_03"
+  ],
+  [
+   "WO-06/10",
+   "requiresMachine",
+   "EQ_04"
+  ],
+  [
+   "WO-06/10",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-06/10",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-06/10",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-06/10",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-06/10",
+   "consumes",
+   "MAT-AL7075"
+  ],
+  [
+   "WO-06",
+   "hasProcess",
+   "WO-06/20"
+  ],
+  [
+   "WO-06/20",
+   "requiresMachine",
+   "EQ_09"
+  ],
+  [
+   "WO-06/20",
+   "requiresMachine",
+   "EQ_10"
+  ],
+  [
+   "WO-06/20",
+   "requiresMold",
+   "M-03"
+  ],
+  [
+   "WO-06/20",
+   "operatedBy",
+   "OP_05"
+  ],
+  [
+   "WO-06/20",
+   "operatedBy",
+   "OP_06"
+  ],
+  [
+   "WO-06",
+   "hasProcess",
+   "WO-06/30"
+  ],
+  [
+   "WO-06/30",
+   "requiresMachine",
+   "EQ_12"
+  ],
+  [
+   "WO-06/30",
+   "operatedBy",
+   "OP_09"
+  ],
+  [
+   "WO-06/30",
+   "operatedBy",
+   "OP_10"
+  ],
+  [
+   "WO-07",
+   "produces",
+   "PT-07"
+  ],
+  [
+   "WO-07",
+   "fulfils",
+   "SO-7"
+  ],
+  [
+   "WO-07",
+   "hasProcess",
+   "WO-07/10"
+  ],
+  [
+   "WO-07/10",
+   "requiresMachine",
+   "EQ_05"
+  ],
+  [
+   "WO-07/10",
+   "requiresMachine",
+   "EQ_06"
+  ],
+  [
+   "WO-07/10",
+   "requiresMachine",
+   "EQ_07"
+  ],
+  [
+   "WO-07/10",
+   "requiresMachine",
+   "EQ_08"
+  ],
+  [
+   "WO-07/10",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-07/10",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-07/10",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-07/10",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-07/10",
+   "consumes",
+   "MAT-TI64"
+  ],
+  [
+   "WO-07",
+   "hasProcess",
+   "WO-07/20"
+  ],
+  [
+   "WO-07/20",
+   "requiresMachine",
+   "EQ_11"
+  ],
+  [
+   "WO-07/20",
+   "operatedBy",
+   "OP_07"
+  ],
+  [
+   "WO-07/20",
+   "operatedBy",
+   "OP_08"
+  ],
+  [
+   "WO-07",
+   "hasProcess",
+   "WO-07/30"
+  ],
+  [
+   "WO-07/30",
+   "requiresMachine",
+   "EQ_12"
+  ],
+  [
+   "WO-07/30",
+   "operatedBy",
+   "OP_09"
+  ],
+  [
+   "WO-07/30",
+   "operatedBy",
+   "OP_10"
+  ],
+  [
+   "WO-08",
+   "produces",
+   "PT-08"
+  ],
+  [
+   "WO-08",
+   "fulfils",
+   "SO-8"
+  ],
+  [
+   "WO-08",
+   "hasProcess",
+   "WO-08/10"
+  ],
+  [
+   "WO-08/10",
+   "requiresMachine",
+   "EQ_01"
+  ],
+  [
+   "WO-08/10",
+   "requiresMachine",
+   "EQ_02"
+  ],
+  [
+   "WO-08/10",
+   "requiresMachine",
+   "EQ_03"
+  ],
+  [
+   "WO-08/10",
+   "requiresMachine",
+   "EQ_04"
+  ],
+  [
+   "WO-08/10",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-08/10",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-08/10",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-08/10",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-08/10",
+   "consumes",
+   "MAT-AL7075"
+  ],
+  [
+   "WO-08",
+   "hasProcess",
+   "WO-08/20"
+  ],
+  [
+   "WO-08/20",
+   "requiresMachine",
+   "EQ_09"
+  ],
+  [
+   "WO-08/20",
+   "requiresMachine",
+   "EQ_10"
+  ],
+  [
+   "WO-08/20",
+   "requiresMold",
+   "M-04"
+  ],
+  [
+   "WO-08/20",
+   "operatedBy",
+   "OP_05"
+  ],
+  [
+   "WO-08/20",
+   "operatedBy",
+   "OP_06"
+  ],
+  [
+   "WO-09",
+   "produces",
+   "PT-09"
+  ],
+  [
+   "WO-09",
+   "fulfils",
+   "SO-1"
+  ],
+  [
+   "WO-09",
+   "hasProcess",
+   "WO-09/10"
+  ],
+  [
+   "WO-09/10",
+   "requiresMachine",
+   "EQ_01"
+  ],
+  [
+   "WO-09/10",
+   "requiresMachine",
+   "EQ_02"
+  ],
+  [
+   "WO-09/10",
+   "requiresMachine",
+   "EQ_03"
+  ],
+  [
+   "WO-09/10",
+   "requiresMachine",
+   "EQ_04"
+  ],
+  [
+   "WO-09/10",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-09/10",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-09/10",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-09/10",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-09/10",
+   "consumes",
+   "MAT-AL7075"
+  ],
+  [
+   "WO-09",
+   "hasProcess",
+   "WO-09/20"
+  ],
+  [
+   "WO-09/20",
+   "requiresMachine",
+   "EQ_05"
+  ],
+  [
+   "WO-09/20",
+   "requiresMachine",
+   "EQ_06"
+  ],
+  [
+   "WO-09/20",
+   "requiresMachine",
+   "EQ_07"
+  ],
+  [
+   "WO-09/20",
+   "requiresMachine",
+   "EQ_08"
+  ],
+  [
+   "WO-09/20",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-09/20",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-09/20",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-09/20",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-10",
+   "produces",
+   "PT-10"
+  ],
+  [
+   "WO-10",
+   "fulfils",
+   "SO-2"
+  ],
+  [
+   "WO-10",
+   "hasProcess",
+   "WO-10/10"
+  ],
+  [
+   "WO-10/10",
+   "requiresMachine",
+   "EQ_09"
+  ],
+  [
+   "WO-10/10",
+   "requiresMachine",
+   "EQ_10"
+  ],
+  [
+   "WO-10/10",
+   "requiresMold",
+   "M-05"
+  ],
+  [
+   "WO-10/10",
+   "operatedBy",
+   "OP_05"
+  ],
+  [
+   "WO-10/10",
+   "operatedBy",
+   "OP_06"
+  ],
+  [
+   "WO-10/10",
+   "consumes",
+   "MAT-AL7075"
+  ],
+  [
+   "WO-10",
+   "hasProcess",
+   "WO-10/20"
+  ],
+  [
+   "WO-10/20",
+   "requiresMachine",
+   "EQ_12"
+  ],
+  [
+   "WO-10/20",
+   "operatedBy",
+   "OP_09"
+  ],
+  [
+   "WO-10/20",
+   "operatedBy",
+   "OP_10"
+  ],
+  [
+   "WO-11",
+   "produces",
+   "PT-11"
+  ],
+  [
+   "WO-11",
+   "fulfils",
+   "SO-3"
+  ],
+  [
+   "WO-11",
+   "hasProcess",
+   "WO-11/10"
+  ],
+  [
+   "WO-11/10",
+   "requiresMachine",
+   "EQ_01"
+  ],
+  [
+   "WO-11/10",
+   "requiresMachine",
+   "EQ_02"
+  ],
+  [
+   "WO-11/10",
+   "requiresMachine",
+   "EQ_03"
+  ],
+  [
+   "WO-11/10",
+   "requiresMachine",
+   "EQ_04"
+  ],
+  [
+   "WO-11/10",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-11/10",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-11/10",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-11/10",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-11/10",
+   "consumes",
+   "MAT-TI64"
+  ],
+  [
+   "WO-11",
+   "hasProcess",
+   "WO-11/20"
+  ],
+  [
+   "WO-11/20",
+   "requiresMachine",
+   "EQ_05"
+  ],
+  [
+   "WO-11/20",
+   "requiresMachine",
+   "EQ_06"
+  ],
+  [
+   "WO-11/20",
+   "requiresMachine",
+   "EQ_07"
+  ],
+  [
+   "WO-11/20",
+   "requiresMachine",
+   "EQ_08"
+  ],
+  [
+   "WO-11/20",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-11/20",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-11/20",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-11/20",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-11",
+   "hasProcess",
+   "WO-11/30"
+  ],
+  [
+   "WO-11/30",
+   "requiresMachine",
+   "EQ_11"
+  ],
+  [
+   "WO-11/30",
+   "operatedBy",
+   "OP_07"
+  ],
+  [
+   "WO-11/30",
+   "operatedBy",
+   "OP_08"
+  ],
+  [
+   "WO-12",
+   "produces",
+   "PT-12"
+  ],
+  [
+   "WO-12",
+   "fulfils",
+   "SO-4"
+  ],
+  [
+   "WO-12",
+   "hasProcess",
+   "WO-12/10"
+  ],
+  [
+   "WO-12/10",
+   "requiresMachine",
+   "EQ_01"
+  ],
+  [
+   "WO-12/10",
+   "requiresMachine",
+   "EQ_02"
+  ],
+  [
+   "WO-12/10",
+   "requiresMachine",
+   "EQ_03"
+  ],
+  [
+   "WO-12/10",
+   "requiresMachine",
+   "EQ_04"
+  ],
+  [
+   "WO-12/10",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-12/10",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-12/10",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-12/10",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-12/10",
+   "consumes",
+   "MAT-AL7075"
+  ],
+  [
+   "WO-12",
+   "hasProcess",
+   "WO-12/20"
+  ],
+  [
+   "WO-12/20",
+   "requiresMachine",
+   "EQ_05"
+  ],
+  [
+   "WO-12/20",
+   "requiresMachine",
+   "EQ_06"
+  ],
+  [
+   "WO-12/20",
+   "requiresMachine",
+   "EQ_07"
+  ],
+  [
+   "WO-12/20",
+   "requiresMachine",
+   "EQ_08"
+  ],
+  [
+   "WO-12/20",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-12/20",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-12/20",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-12/20",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-13",
+   "produces",
+   "PT-01"
+  ],
+  [
+   "WO-13",
+   "fulfils",
+   "SO-5"
+  ],
+  [
+   "WO-13",
+   "hasProcess",
+   "WO-13/10"
+  ],
+  [
+   "WO-13/10",
+   "requiresMachine",
+   "EQ_01"
+  ],
+  [
+   "WO-13/10",
+   "requiresMachine",
+   "EQ_02"
+  ],
+  [
+   "WO-13/10",
+   "requiresMachine",
+   "EQ_03"
+  ],
+  [
+   "WO-13/10",
+   "requiresMachine",
+   "EQ_04"
+  ],
+  [
+   "WO-13/10",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-13/10",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-13/10",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-13/10",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-13/10",
+   "consumes",
+   "MAT-AL7075"
+  ],
+  [
+   "WO-13",
+   "hasProcess",
+   "WO-13/20"
+  ],
+  [
+   "WO-13/20",
+   "requiresMachine",
+   "EQ_05"
+  ],
+  [
+   "WO-13/20",
+   "requiresMachine",
+   "EQ_06"
+  ],
+  [
+   "WO-13/20",
+   "requiresMachine",
+   "EQ_07"
+  ],
+  [
+   "WO-13/20",
+   "requiresMachine",
+   "EQ_08"
+  ],
+  [
+   "WO-13/20",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-13/20",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-13/20",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-13/20",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-13",
+   "hasProcess",
+   "WO-13/30"
+  ],
+  [
+   "WO-13/30",
+   "requiresMachine",
+   "EQ_12"
+  ],
+  [
+   "WO-13/30",
+   "operatedBy",
+   "OP_09"
+  ],
+  [
+   "WO-13/30",
+   "operatedBy",
+   "OP_10"
+  ],
+  [
+   "WO-14",
+   "produces",
+   "PT-02"
+  ],
+  [
+   "WO-14",
+   "fulfils",
+   "SO-6"
+  ],
+  [
+   "WO-14",
+   "hasProcess",
+   "WO-14/10"
+  ],
+  [
+   "WO-14/10",
+   "requiresMachine",
+   "EQ_01"
+  ],
+  [
+   "WO-14/10",
+   "requiresMachine",
+   "EQ_02"
+  ],
+  [
+   "WO-14/10",
+   "requiresMachine",
+   "EQ_03"
+  ],
+  [
+   "WO-14/10",
+   "requiresMachine",
+   "EQ_04"
+  ],
+  [
+   "WO-14/10",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-14/10",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-14/10",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-14/10",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-14/10",
+   "consumes",
+   "MAT-TI64"
+  ],
+  [
+   "WO-14",
+   "hasProcess",
+   "WO-14/20"
+  ],
+  [
+   "WO-14/20",
+   "requiresMachine",
+   "EQ_05"
+  ],
+  [
+   "WO-14/20",
+   "requiresMachine",
+   "EQ_06"
+  ],
+  [
+   "WO-14/20",
+   "requiresMachine",
+   "EQ_07"
+  ],
+  [
+   "WO-14/20",
+   "requiresMachine",
+   "EQ_08"
+  ],
+  [
+   "WO-14/20",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-14/20",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-14/20",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-14/20",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-14",
+   "hasProcess",
+   "WO-14/30"
+  ],
+  [
+   "WO-14/30",
+   "requiresMachine",
+   "EQ_11"
+  ],
+  [
+   "WO-14/30",
+   "operatedBy",
+   "OP_07"
+  ],
+  [
+   "WO-14/30",
+   "operatedBy",
+   "OP_08"
+  ],
+  [
+   "WO-15",
+   "produces",
+   "PT-03"
+  ],
+  [
+   "WO-15",
+   "fulfils",
+   "SO-7"
+  ],
+  [
+   "WO-15",
+   "hasProcess",
+   "WO-15/10"
+  ],
+  [
+   "WO-15/10",
+   "requiresMachine",
+   "EQ_01"
+  ],
+  [
+   "WO-15/10",
+   "requiresMachine",
+   "EQ_02"
+  ],
+  [
+   "WO-15/10",
+   "requiresMachine",
+   "EQ_03"
+  ],
+  [
+   "WO-15/10",
+   "requiresMachine",
+   "EQ_04"
+  ],
+  [
+   "WO-15/10",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-15/10",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-15/10",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-15/10",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-15/10",
+   "consumes",
+   "MAT-AL7075"
+  ],
+  [
+   "WO-15",
+   "hasProcess",
+   "WO-15/20"
+  ],
+  [
+   "WO-15/20",
+   "requiresMachine",
+   "EQ_09"
+  ],
+  [
+   "WO-15/20",
+   "requiresMachine",
+   "EQ_10"
+  ],
+  [
+   "WO-15/20",
+   "requiresMold",
+   "M-01"
+  ],
+  [
+   "WO-15/20",
+   "operatedBy",
+   "OP_05"
+  ],
+  [
+   "WO-15/20",
+   "operatedBy",
+   "OP_06"
+  ],
+  [
+   "WO-16",
+   "produces",
+   "PT-04"
+  ],
+  [
+   "WO-16",
+   "fulfils",
+   "SO-8"
+  ],
+  [
+   "WO-16",
+   "hasProcess",
+   "WO-16/10"
+  ],
+  [
+   "WO-16/10",
+   "requiresMachine",
+   "EQ_09"
+  ],
+  [
+   "WO-16/10",
+   "requiresMachine",
+   "EQ_10"
+  ],
+  [
+   "WO-16/10",
+   "requiresMold",
+   "M-02"
+  ],
+  [
+   "WO-16/10",
+   "operatedBy",
+   "OP_05"
+  ],
+  [
+   "WO-16/10",
+   "operatedBy",
+   "OP_06"
+  ],
+  [
+   "WO-16/10",
+   "consumes",
+   "MAT-AL7075"
+  ],
+  [
+   "WO-16",
+   "hasProcess",
+   "WO-16/20"
+  ],
+  [
+   "WO-16/20",
+   "requiresMachine",
+   "EQ_11"
+  ],
+  [
+   "WO-16/20",
+   "operatedBy",
+   "OP_07"
+  ],
+  [
+   "WO-16/20",
+   "operatedBy",
+   "OP_08"
+  ],
+  [
+   "WO-16",
+   "hasProcess",
+   "WO-16/30"
+  ],
+  [
+   "WO-16/30",
+   "requiresMachine",
+   "EQ_12"
+  ],
+  [
+   "WO-16/30",
+   "operatedBy",
+   "OP_09"
+  ],
+  [
+   "WO-16/30",
+   "operatedBy",
+   "OP_10"
+  ],
+  [
+   "WO-17",
+   "produces",
+   "PT-05"
+  ],
+  [
+   "WO-17",
+   "fulfils",
+   "SO-1"
+  ],
+  [
+   "WO-17",
+   "hasProcess",
+   "WO-17/10"
+  ],
+  [
+   "WO-17/10",
+   "requiresMachine",
+   "EQ_01"
+  ],
+  [
+   "WO-17/10",
+   "requiresMachine",
+   "EQ_02"
+  ],
+  [
+   "WO-17/10",
+   "requiresMachine",
+   "EQ_03"
+  ],
+  [
+   "WO-17/10",
+   "requiresMachine",
+   "EQ_04"
+  ],
+  [
+   "WO-17/10",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-17/10",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-17/10",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-17/10",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-17/10",
+   "consumes",
+   "MAT-AL7075"
+  ],
+  [
+   "WO-17",
+   "hasProcess",
+   "WO-17/20"
+  ],
+  [
+   "WO-17/20",
+   "requiresMachine",
+   "EQ_05"
+  ],
+  [
+   "WO-17/20",
+   "requiresMachine",
+   "EQ_06"
+  ],
+  [
+   "WO-17/20",
+   "requiresMachine",
+   "EQ_07"
+  ],
+  [
+   "WO-17/20",
+   "requiresMachine",
+   "EQ_08"
+  ],
+  [
+   "WO-17/20",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-17/20",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-17/20",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-17/20",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-18",
+   "produces",
+   "PT-06"
+  ],
+  [
+   "WO-18",
+   "fulfils",
+   "SO-2"
+  ],
+  [
+   "WO-18",
+   "hasProcess",
+   "WO-18/10"
+  ],
+  [
+   "WO-18/10",
+   "requiresMachine",
+   "EQ_01"
+  ],
+  [
+   "WO-18/10",
+   "requiresMachine",
+   "EQ_02"
+  ],
+  [
+   "WO-18/10",
+   "requiresMachine",
+   "EQ_03"
+  ],
+  [
+   "WO-18/10",
+   "requiresMachine",
+   "EQ_04"
+  ],
+  [
+   "WO-18/10",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-18/10",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-18/10",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-18/10",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-18/10",
+   "consumes",
+   "MAT-AL7075"
+  ],
+  [
+   "WO-18",
+   "hasProcess",
+   "WO-18/20"
+  ],
+  [
+   "WO-18/20",
+   "requiresMachine",
+   "EQ_09"
+  ],
+  [
+   "WO-18/20",
+   "requiresMachine",
+   "EQ_10"
+  ],
+  [
+   "WO-18/20",
+   "requiresMold",
+   "M-03"
+  ],
+  [
+   "WO-18/20",
+   "operatedBy",
+   "OP_05"
+  ],
+  [
+   "WO-18/20",
+   "operatedBy",
+   "OP_06"
+  ],
+  [
+   "WO-18",
+   "hasProcess",
+   "WO-18/30"
+  ],
+  [
+   "WO-18/30",
+   "requiresMachine",
+   "EQ_12"
+  ],
+  [
+   "WO-18/30",
+   "operatedBy",
+   "OP_09"
+  ],
+  [
+   "WO-18/30",
+   "operatedBy",
+   "OP_10"
+  ],
+  [
+   "WO-19",
+   "produces",
+   "PT-07"
+  ],
+  [
+   "WO-19",
+   "fulfils",
+   "SO-3"
+  ],
+  [
+   "WO-19",
+   "hasProcess",
+   "WO-19/10"
+  ],
+  [
+   "WO-19/10",
+   "requiresMachine",
+   "EQ_05"
+  ],
+  [
+   "WO-19/10",
+   "requiresMachine",
+   "EQ_06"
+  ],
+  [
+   "WO-19/10",
+   "requiresMachine",
+   "EQ_07"
+  ],
+  [
+   "WO-19/10",
+   "requiresMachine",
+   "EQ_08"
+  ],
+  [
+   "WO-19/10",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-19/10",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-19/10",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-19/10",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-19/10",
+   "consumes",
+   "MAT-TI64"
+  ],
+  [
+   "WO-19",
+   "hasProcess",
+   "WO-19/20"
+  ],
+  [
+   "WO-19/20",
+   "requiresMachine",
+   "EQ_11"
+  ],
+  [
+   "WO-19/20",
+   "operatedBy",
+   "OP_07"
+  ],
+  [
+   "WO-19/20",
+   "operatedBy",
+   "OP_08"
+  ],
+  [
+   "WO-19",
+   "hasProcess",
+   "WO-19/30"
+  ],
+  [
+   "WO-19/30",
+   "requiresMachine",
+   "EQ_12"
+  ],
+  [
+   "WO-19/30",
+   "operatedBy",
+   "OP_09"
+  ],
+  [
+   "WO-19/30",
+   "operatedBy",
+   "OP_10"
+  ],
+  [
+   "WO-20",
+   "produces",
+   "PT-08"
+  ],
+  [
+   "WO-20",
+   "fulfils",
+   "SO-4"
+  ],
+  [
+   "WO-20",
+   "hasProcess",
+   "WO-20/10"
+  ],
+  [
+   "WO-20/10",
+   "requiresMachine",
+   "EQ_01"
+  ],
+  [
+   "WO-20/10",
+   "requiresMachine",
+   "EQ_02"
+  ],
+  [
+   "WO-20/10",
+   "requiresMachine",
+   "EQ_03"
+  ],
+  [
+   "WO-20/10",
+   "requiresMachine",
+   "EQ_04"
+  ],
+  [
+   "WO-20/10",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-20/10",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-20/10",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-20/10",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-20/10",
+   "consumes",
+   "MAT-AL7075"
+  ],
+  [
+   "WO-20",
+   "hasProcess",
+   "WO-20/20"
+  ],
+  [
+   "WO-20/20",
+   "requiresMachine",
+   "EQ_09"
+  ],
+  [
+   "WO-20/20",
+   "requiresMachine",
+   "EQ_10"
+  ],
+  [
+   "WO-20/20",
+   "requiresMold",
+   "M-04"
+  ],
+  [
+   "WO-20/20",
+   "operatedBy",
+   "OP_05"
+  ],
+  [
+   "WO-20/20",
+   "operatedBy",
+   "OP_06"
+  ],
+  [
+   "WO-21",
+   "produces",
+   "PT-09"
+  ],
+  [
+   "WO-21",
+   "fulfils",
+   "SO-5"
+  ],
+  [
+   "WO-21",
+   "hasProcess",
+   "WO-21/10"
+  ],
+  [
+   "WO-21/10",
+   "requiresMachine",
+   "EQ_01"
+  ],
+  [
+   "WO-21/10",
+   "requiresMachine",
+   "EQ_02"
+  ],
+  [
+   "WO-21/10",
+   "requiresMachine",
+   "EQ_03"
+  ],
+  [
+   "WO-21/10",
+   "requiresMachine",
+   "EQ_04"
+  ],
+  [
+   "WO-21/10",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-21/10",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-21/10",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-21/10",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-21/10",
+   "consumes",
+   "MAT-AL7075"
+  ],
+  [
+   "WO-21",
+   "hasProcess",
+   "WO-21/20"
+  ],
+  [
+   "WO-21/20",
+   "requiresMachine",
+   "EQ_05"
+  ],
+  [
+   "WO-21/20",
+   "requiresMachine",
+   "EQ_06"
+  ],
+  [
+   "WO-21/20",
+   "requiresMachine",
+   "EQ_07"
+  ],
+  [
+   "WO-21/20",
+   "requiresMachine",
+   "EQ_08"
+  ],
+  [
+   "WO-21/20",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-21/20",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-21/20",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-21/20",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-22",
+   "produces",
+   "PT-10"
+  ],
+  [
+   "WO-22",
+   "fulfils",
+   "SO-6"
+  ],
+  [
+   "WO-22",
+   "hasProcess",
+   "WO-22/10"
+  ],
+  [
+   "WO-22/10",
+   "requiresMachine",
+   "EQ_09"
+  ],
+  [
+   "WO-22/10",
+   "requiresMachine",
+   "EQ_10"
+  ],
+  [
+   "WO-22/10",
+   "requiresMold",
+   "M-05"
+  ],
+  [
+   "WO-22/10",
+   "operatedBy",
+   "OP_05"
+  ],
+  [
+   "WO-22/10",
+   "operatedBy",
+   "OP_06"
+  ],
+  [
+   "WO-22/10",
+   "consumes",
+   "MAT-AL7075"
+  ],
+  [
+   "WO-22",
+   "hasProcess",
+   "WO-22/20"
+  ],
+  [
+   "WO-22/20",
+   "requiresMachine",
+   "EQ_12"
+  ],
+  [
+   "WO-22/20",
+   "operatedBy",
+   "OP_09"
+  ],
+  [
+   "WO-22/20",
+   "operatedBy",
+   "OP_10"
+  ],
+  [
+   "WO-23",
+   "produces",
+   "PT-11"
+  ],
+  [
+   "WO-23",
+   "fulfils",
+   "SO-7"
+  ],
+  [
+   "WO-23",
+   "hasProcess",
+   "WO-23/10"
+  ],
+  [
+   "WO-23/10",
+   "requiresMachine",
+   "EQ_01"
+  ],
+  [
+   "WO-23/10",
+   "requiresMachine",
+   "EQ_02"
+  ],
+  [
+   "WO-23/10",
+   "requiresMachine",
+   "EQ_03"
+  ],
+  [
+   "WO-23/10",
+   "requiresMachine",
+   "EQ_04"
+  ],
+  [
+   "WO-23/10",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-23/10",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-23/10",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-23/10",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-23/10",
+   "consumes",
+   "MAT-TI64"
+  ],
+  [
+   "WO-23",
+   "hasProcess",
+   "WO-23/20"
+  ],
+  [
+   "WO-23/20",
+   "requiresMachine",
+   "EQ_05"
+  ],
+  [
+   "WO-23/20",
+   "requiresMachine",
+   "EQ_06"
+  ],
+  [
+   "WO-23/20",
+   "requiresMachine",
+   "EQ_07"
+  ],
+  [
+   "WO-23/20",
+   "requiresMachine",
+   "EQ_08"
+  ],
+  [
+   "WO-23/20",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-23/20",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-23/20",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-23/20",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-23",
+   "hasProcess",
+   "WO-23/30"
+  ],
+  [
+   "WO-23/30",
+   "requiresMachine",
+   "EQ_11"
+  ],
+  [
+   "WO-23/30",
+   "operatedBy",
+   "OP_07"
+  ],
+  [
+   "WO-23/30",
+   "operatedBy",
+   "OP_08"
+  ],
+  [
+   "WO-24",
+   "produces",
+   "PT-12"
+  ],
+  [
+   "WO-24",
+   "fulfils",
+   "SO-8"
+  ],
+  [
+   "WO-24",
+   "hasProcess",
+   "WO-24/10"
+  ],
+  [
+   "WO-24/10",
+   "requiresMachine",
+   "EQ_01"
+  ],
+  [
+   "WO-24/10",
+   "requiresMachine",
+   "EQ_02"
+  ],
+  [
+   "WO-24/10",
+   "requiresMachine",
+   "EQ_03"
+  ],
+  [
+   "WO-24/10",
+   "requiresMachine",
+   "EQ_04"
+  ],
+  [
+   "WO-24/10",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-24/10",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-24/10",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-24/10",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-24/10",
+   "consumes",
+   "MAT-AL7075"
+  ],
+  [
+   "WO-24",
+   "hasProcess",
+   "WO-24/20"
+  ],
+  [
+   "WO-24/20",
+   "requiresMachine",
+   "EQ_05"
+  ],
+  [
+   "WO-24/20",
+   "requiresMachine",
+   "EQ_06"
+  ],
+  [
+   "WO-24/20",
+   "requiresMachine",
+   "EQ_07"
+  ],
+  [
+   "WO-24/20",
+   "requiresMachine",
+   "EQ_08"
+  ],
+  [
+   "WO-24/20",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-24/20",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-24/20",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-24/20",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-25",
+   "produces",
+   "PT-01"
+  ],
+  [
+   "WO-25",
+   "fulfils",
+   "SO-1"
+  ],
+  [
+   "WO-25",
+   "hasProcess",
+   "WO-25/10"
+  ],
+  [
+   "WO-25/10",
+   "requiresMachine",
+   "EQ_01"
+  ],
+  [
+   "WO-25/10",
+   "requiresMachine",
+   "EQ_02"
+  ],
+  [
+   "WO-25/10",
+   "requiresMachine",
+   "EQ_03"
+  ],
+  [
+   "WO-25/10",
+   "requiresMachine",
+   "EQ_04"
+  ],
+  [
+   "WO-25/10",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-25/10",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-25/10",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-25/10",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-25/10",
+   "consumes",
+   "MAT-AL7075"
+  ],
+  [
+   "WO-25",
+   "hasProcess",
+   "WO-25/20"
+  ],
+  [
+   "WO-25/20",
+   "requiresMachine",
+   "EQ_05"
+  ],
+  [
+   "WO-25/20",
+   "requiresMachine",
+   "EQ_06"
+  ],
+  [
+   "WO-25/20",
+   "requiresMachine",
+   "EQ_07"
+  ],
+  [
+   "WO-25/20",
+   "requiresMachine",
+   "EQ_08"
+  ],
+  [
+   "WO-25/20",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-25/20",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-25/20",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-25/20",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-25",
+   "hasProcess",
+   "WO-25/30"
+  ],
+  [
+   "WO-25/30",
+   "requiresMachine",
+   "EQ_12"
+  ],
+  [
+   "WO-25/30",
+   "operatedBy",
+   "OP_09"
+  ],
+  [
+   "WO-25/30",
+   "operatedBy",
+   "OP_10"
+  ],
+  [
+   "WO-26",
+   "produces",
+   "PT-02"
+  ],
+  [
+   "WO-26",
+   "fulfils",
+   "SO-2"
+  ],
+  [
+   "WO-26",
+   "hasProcess",
+   "WO-26/10"
+  ],
+  [
+   "WO-26/10",
+   "requiresMachine",
+   "EQ_01"
+  ],
+  [
+   "WO-26/10",
+   "requiresMachine",
+   "EQ_02"
+  ],
+  [
+   "WO-26/10",
+   "requiresMachine",
+   "EQ_03"
+  ],
+  [
+   "WO-26/10",
+   "requiresMachine",
+   "EQ_04"
+  ],
+  [
+   "WO-26/10",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-26/10",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-26/10",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-26/10",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-26/10",
+   "consumes",
+   "MAT-TI64"
+  ],
+  [
+   "WO-26",
+   "hasProcess",
+   "WO-26/20"
+  ],
+  [
+   "WO-26/20",
+   "requiresMachine",
+   "EQ_05"
+  ],
+  [
+   "WO-26/20",
+   "requiresMachine",
+   "EQ_06"
+  ],
+  [
+   "WO-26/20",
+   "requiresMachine",
+   "EQ_07"
+  ],
+  [
+   "WO-26/20",
+   "requiresMachine",
+   "EQ_08"
+  ],
+  [
+   "WO-26/20",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-26/20",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-26/20",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-26/20",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-26",
+   "hasProcess",
+   "WO-26/30"
+  ],
+  [
+   "WO-26/30",
+   "requiresMachine",
+   "EQ_11"
+  ],
+  [
+   "WO-26/30",
+   "operatedBy",
+   "OP_07"
+  ],
+  [
+   "WO-26/30",
+   "operatedBy",
+   "OP_08"
+  ],
+  [
+   "WO-27",
+   "produces",
+   "PT-03"
+  ],
+  [
+   "WO-27",
+   "fulfils",
+   "SO-3"
+  ],
+  [
+   "WO-27",
+   "hasProcess",
+   "WO-27/10"
+  ],
+  [
+   "WO-27/10",
+   "requiresMachine",
+   "EQ_01"
+  ],
+  [
+   "WO-27/10",
+   "requiresMachine",
+   "EQ_02"
+  ],
+  [
+   "WO-27/10",
+   "requiresMachine",
+   "EQ_03"
+  ],
+  [
+   "WO-27/10",
+   "requiresMachine",
+   "EQ_04"
+  ],
+  [
+   "WO-27/10",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-27/10",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-27/10",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-27/10",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-27/10",
+   "consumes",
+   "MAT-AL7075"
+  ],
+  [
+   "WO-27",
+   "hasProcess",
+   "WO-27/20"
+  ],
+  [
+   "WO-27/20",
+   "requiresMachine",
+   "EQ_09"
+  ],
+  [
+   "WO-27/20",
+   "requiresMachine",
+   "EQ_10"
+  ],
+  [
+   "WO-27/20",
+   "requiresMold",
+   "M-01"
+  ],
+  [
+   "WO-27/20",
+   "operatedBy",
+   "OP_05"
+  ],
+  [
+   "WO-27/20",
+   "operatedBy",
+   "OP_06"
+  ],
+  [
+   "WO-28",
+   "produces",
+   "PT-04"
+  ],
+  [
+   "WO-28",
+   "fulfils",
+   "SO-4"
+  ],
+  [
+   "WO-28",
+   "hasProcess",
+   "WO-28/10"
+  ],
+  [
+   "WO-28/10",
+   "requiresMachine",
+   "EQ_09"
+  ],
+  [
+   "WO-28/10",
+   "requiresMachine",
+   "EQ_10"
+  ],
+  [
+   "WO-28/10",
+   "requiresMold",
+   "M-02"
+  ],
+  [
+   "WO-28/10",
+   "operatedBy",
+   "OP_05"
+  ],
+  [
+   "WO-28/10",
+   "operatedBy",
+   "OP_06"
+  ],
+  [
+   "WO-28/10",
+   "consumes",
+   "MAT-AL7075"
+  ],
+  [
+   "WO-28",
+   "hasProcess",
+   "WO-28/20"
+  ],
+  [
+   "WO-28/20",
+   "requiresMachine",
+   "EQ_11"
+  ],
+  [
+   "WO-28/20",
+   "operatedBy",
+   "OP_07"
+  ],
+  [
+   "WO-28/20",
+   "operatedBy",
+   "OP_08"
+  ],
+  [
+   "WO-28",
+   "hasProcess",
+   "WO-28/30"
+  ],
+  [
+   "WO-28/30",
+   "requiresMachine",
+   "EQ_12"
+  ],
+  [
+   "WO-28/30",
+   "operatedBy",
+   "OP_09"
+  ],
+  [
+   "WO-28/30",
+   "operatedBy",
+   "OP_10"
+  ],
+  [
+   "WO-29",
+   "produces",
+   "PT-05"
+  ],
+  [
+   "WO-29",
+   "fulfils",
+   "SO-5"
+  ],
+  [
+   "WO-29",
+   "hasProcess",
+   "WO-29/10"
+  ],
+  [
+   "WO-29/10",
+   "requiresMachine",
+   "EQ_01"
+  ],
+  [
+   "WO-29/10",
+   "requiresMachine",
+   "EQ_02"
+  ],
+  [
+   "WO-29/10",
+   "requiresMachine",
+   "EQ_03"
+  ],
+  [
+   "WO-29/10",
+   "requiresMachine",
+   "EQ_04"
+  ],
+  [
+   "WO-29/10",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-29/10",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-29/10",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-29/10",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-29/10",
+   "consumes",
+   "MAT-AL7075"
+  ],
+  [
+   "WO-29",
+   "hasProcess",
+   "WO-29/20"
+  ],
+  [
+   "WO-29/20",
+   "requiresMachine",
+   "EQ_05"
+  ],
+  [
+   "WO-29/20",
+   "requiresMachine",
+   "EQ_06"
+  ],
+  [
+   "WO-29/20",
+   "requiresMachine",
+   "EQ_07"
+  ],
+  [
+   "WO-29/20",
+   "requiresMachine",
+   "EQ_08"
+  ],
+  [
+   "WO-29/20",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-29/20",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-29/20",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-29/20",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-30",
+   "produces",
+   "PT-06"
+  ],
+  [
+   "WO-30",
+   "fulfils",
+   "SO-6"
+  ],
+  [
+   "WO-30",
+   "hasProcess",
+   "WO-30/10"
+  ],
+  [
+   "WO-30/10",
+   "requiresMachine",
+   "EQ_01"
+  ],
+  [
+   "WO-30/10",
+   "requiresMachine",
+   "EQ_02"
+  ],
+  [
+   "WO-30/10",
+   "requiresMachine",
+   "EQ_03"
+  ],
+  [
+   "WO-30/10",
+   "requiresMachine",
+   "EQ_04"
+  ],
+  [
+   "WO-30/10",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-30/10",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-30/10",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-30/10",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-30/10",
+   "consumes",
+   "MAT-AL7075"
+  ],
+  [
+   "WO-30",
+   "hasProcess",
+   "WO-30/20"
+  ],
+  [
+   "WO-30/20",
+   "requiresMachine",
+   "EQ_09"
+  ],
+  [
+   "WO-30/20",
+   "requiresMachine",
+   "EQ_10"
+  ],
+  [
+   "WO-30/20",
+   "requiresMold",
+   "M-03"
+  ],
+  [
+   "WO-30/20",
+   "operatedBy",
+   "OP_05"
+  ],
+  [
+   "WO-30/20",
+   "operatedBy",
+   "OP_06"
+  ],
+  [
+   "WO-30",
+   "hasProcess",
+   "WO-30/30"
+  ],
+  [
+   "WO-30/30",
+   "requiresMachine",
+   "EQ_12"
+  ],
+  [
+   "WO-30/30",
+   "operatedBy",
+   "OP_09"
+  ],
+  [
+   "WO-30/30",
+   "operatedBy",
+   "OP_10"
+  ],
+  [
+   "WO-31",
+   "produces",
+   "PT-07"
+  ],
+  [
+   "WO-31",
+   "fulfils",
+   "SO-7"
+  ],
+  [
+   "WO-31",
+   "hasProcess",
+   "WO-31/10"
+  ],
+  [
+   "WO-31/10",
+   "requiresMachine",
+   "EQ_05"
+  ],
+  [
+   "WO-31/10",
+   "requiresMachine",
+   "EQ_06"
+  ],
+  [
+   "WO-31/10",
+   "requiresMachine",
+   "EQ_07"
+  ],
+  [
+   "WO-31/10",
+   "requiresMachine",
+   "EQ_08"
+  ],
+  [
+   "WO-31/10",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-31/10",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-31/10",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-31/10",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-31/10",
+   "consumes",
+   "MAT-TI64"
+  ],
+  [
+   "WO-31",
+   "hasProcess",
+   "WO-31/20"
+  ],
+  [
+   "WO-31/20",
+   "requiresMachine",
+   "EQ_11"
+  ],
+  [
+   "WO-31/20",
+   "operatedBy",
+   "OP_07"
+  ],
+  [
+   "WO-31/20",
+   "operatedBy",
+   "OP_08"
+  ],
+  [
+   "WO-31",
+   "hasProcess",
+   "WO-31/30"
+  ],
+  [
+   "WO-31/30",
+   "requiresMachine",
+   "EQ_12"
+  ],
+  [
+   "WO-31/30",
+   "operatedBy",
+   "OP_09"
+  ],
+  [
+   "WO-31/30",
+   "operatedBy",
+   "OP_10"
+  ],
+  [
+   "WO-32",
+   "produces",
+   "PT-08"
+  ],
+  [
+   "WO-32",
+   "fulfils",
+   "SO-8"
+  ],
+  [
+   "WO-32",
+   "hasProcess",
+   "WO-32/10"
+  ],
+  [
+   "WO-32/10",
+   "requiresMachine",
+   "EQ_01"
+  ],
+  [
+   "WO-32/10",
+   "requiresMachine",
+   "EQ_02"
+  ],
+  [
+   "WO-32/10",
+   "requiresMachine",
+   "EQ_03"
+  ],
+  [
+   "WO-32/10",
+   "requiresMachine",
+   "EQ_04"
+  ],
+  [
+   "WO-32/10",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-32/10",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-32/10",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-32/10",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-32/10",
+   "consumes",
+   "MAT-AL7075"
+  ],
+  [
+   "WO-32",
+   "hasProcess",
+   "WO-32/20"
+  ],
+  [
+   "WO-32/20",
+   "requiresMachine",
+   "EQ_09"
+  ],
+  [
+   "WO-32/20",
+   "requiresMachine",
+   "EQ_10"
+  ],
+  [
+   "WO-32/20",
+   "requiresMold",
+   "M-04"
+  ],
+  [
+   "WO-32/20",
+   "operatedBy",
+   "OP_05"
+  ],
+  [
+   "WO-32/20",
+   "operatedBy",
+   "OP_06"
+  ],
+  [
+   "WO-33",
+   "produces",
+   "PT-09"
+  ],
+  [
+   "WO-33",
+   "fulfils",
+   "SO-1"
+  ],
+  [
+   "WO-33",
+   "hasProcess",
+   "WO-33/10"
+  ],
+  [
+   "WO-33/10",
+   "requiresMachine",
+   "EQ_01"
+  ],
+  [
+   "WO-33/10",
+   "requiresMachine",
+   "EQ_02"
+  ],
+  [
+   "WO-33/10",
+   "requiresMachine",
+   "EQ_03"
+  ],
+  [
+   "WO-33/10",
+   "requiresMachine",
+   "EQ_04"
+  ],
+  [
+   "WO-33/10",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-33/10",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-33/10",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-33/10",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-33/10",
+   "consumes",
+   "MAT-AL7075"
+  ],
+  [
+   "WO-33",
+   "hasProcess",
+   "WO-33/20"
+  ],
+  [
+   "WO-33/20",
+   "requiresMachine",
+   "EQ_05"
+  ],
+  [
+   "WO-33/20",
+   "requiresMachine",
+   "EQ_06"
+  ],
+  [
+   "WO-33/20",
+   "requiresMachine",
+   "EQ_07"
+  ],
+  [
+   "WO-33/20",
+   "requiresMachine",
+   "EQ_08"
+  ],
+  [
+   "WO-33/20",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-33/20",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-33/20",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-33/20",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-34",
+   "produces",
+   "PT-10"
+  ],
+  [
+   "WO-34",
+   "fulfils",
+   "SO-2"
+  ],
+  [
+   "WO-34",
+   "hasProcess",
+   "WO-34/10"
+  ],
+  [
+   "WO-34/10",
+   "requiresMachine",
+   "EQ_09"
+  ],
+  [
+   "WO-34/10",
+   "requiresMachine",
+   "EQ_10"
+  ],
+  [
+   "WO-34/10",
+   "requiresMold",
+   "M-05"
+  ],
+  [
+   "WO-34/10",
+   "operatedBy",
+   "OP_05"
+  ],
+  [
+   "WO-34/10",
+   "operatedBy",
+   "OP_06"
+  ],
+  [
+   "WO-34/10",
+   "consumes",
+   "MAT-AL7075"
+  ],
+  [
+   "WO-34",
+   "hasProcess",
+   "WO-34/20"
+  ],
+  [
+   "WO-34/20",
+   "requiresMachine",
+   "EQ_12"
+  ],
+  [
+   "WO-34/20",
+   "operatedBy",
+   "OP_09"
+  ],
+  [
+   "WO-34/20",
+   "operatedBy",
+   "OP_10"
+  ],
+  [
+   "WO-35",
+   "produces",
+   "PT-11"
+  ],
+  [
+   "WO-35",
+   "fulfils",
+   "SO-3"
+  ],
+  [
+   "WO-35",
+   "hasProcess",
+   "WO-35/10"
+  ],
+  [
+   "WO-35/10",
+   "requiresMachine",
+   "EQ_01"
+  ],
+  [
+   "WO-35/10",
+   "requiresMachine",
+   "EQ_02"
+  ],
+  [
+   "WO-35/10",
+   "requiresMachine",
+   "EQ_03"
+  ],
+  [
+   "WO-35/10",
+   "requiresMachine",
+   "EQ_04"
+  ],
+  [
+   "WO-35/10",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-35/10",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-35/10",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-35/10",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-35/10",
+   "consumes",
+   "MAT-TI64"
+  ],
+  [
+   "WO-35",
+   "hasProcess",
+   "WO-35/20"
+  ],
+  [
+   "WO-35/20",
+   "requiresMachine",
+   "EQ_05"
+  ],
+  [
+   "WO-35/20",
+   "requiresMachine",
+   "EQ_06"
+  ],
+  [
+   "WO-35/20",
+   "requiresMachine",
+   "EQ_07"
+  ],
+  [
+   "WO-35/20",
+   "requiresMachine",
+   "EQ_08"
+  ],
+  [
+   "WO-35/20",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-35/20",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-35/20",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-35/20",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-35",
+   "hasProcess",
+   "WO-35/30"
+  ],
+  [
+   "WO-35/30",
+   "requiresMachine",
+   "EQ_11"
+  ],
+  [
+   "WO-35/30",
+   "operatedBy",
+   "OP_07"
+  ],
+  [
+   "WO-35/30",
+   "operatedBy",
+   "OP_08"
+  ],
+  [
+   "WO-36",
+   "produces",
+   "PT-12"
+  ],
+  [
+   "WO-36",
+   "fulfils",
+   "SO-4"
+  ],
+  [
+   "WO-36",
+   "hasProcess",
+   "WO-36/10"
+  ],
+  [
+   "WO-36/10",
+   "requiresMachine",
+   "EQ_01"
+  ],
+  [
+   "WO-36/10",
+   "requiresMachine",
+   "EQ_02"
+  ],
+  [
+   "WO-36/10",
+   "requiresMachine",
+   "EQ_03"
+  ],
+  [
+   "WO-36/10",
+   "requiresMachine",
+   "EQ_04"
+  ],
+  [
+   "WO-36/10",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-36/10",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-36/10",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-36/10",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-36/10",
+   "consumes",
+   "MAT-AL7075"
+  ],
+  [
+   "WO-36",
+   "hasProcess",
+   "WO-36/20"
+  ],
+  [
+   "WO-36/20",
+   "requiresMachine",
+   "EQ_05"
+  ],
+  [
+   "WO-36/20",
+   "requiresMachine",
+   "EQ_06"
+  ],
+  [
+   "WO-36/20",
+   "requiresMachine",
+   "EQ_07"
+  ],
+  [
+   "WO-36/20",
+   "requiresMachine",
+   "EQ_08"
+  ],
+  [
+   "WO-36/20",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-36/20",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-36/20",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-36/20",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-37",
+   "produces",
+   "PT-01"
+  ],
+  [
+   "WO-37",
+   "fulfils",
+   "SO-5"
+  ],
+  [
+   "WO-37",
+   "hasProcess",
+   "WO-37/10"
+  ],
+  [
+   "WO-37/10",
+   "requiresMachine",
+   "EQ_01"
+  ],
+  [
+   "WO-37/10",
+   "requiresMachine",
+   "EQ_02"
+  ],
+  [
+   "WO-37/10",
+   "requiresMachine",
+   "EQ_03"
+  ],
+  [
+   "WO-37/10",
+   "requiresMachine",
+   "EQ_04"
+  ],
+  [
+   "WO-37/10",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-37/10",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-37/10",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-37/10",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-37/10",
+   "consumes",
+   "MAT-AL7075"
+  ],
+  [
+   "WO-37",
+   "hasProcess",
+   "WO-37/20"
+  ],
+  [
+   "WO-37/20",
+   "requiresMachine",
+   "EQ_05"
+  ],
+  [
+   "WO-37/20",
+   "requiresMachine",
+   "EQ_06"
+  ],
+  [
+   "WO-37/20",
+   "requiresMachine",
+   "EQ_07"
+  ],
+  [
+   "WO-37/20",
+   "requiresMachine",
+   "EQ_08"
+  ],
+  [
+   "WO-37/20",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-37/20",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-37/20",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-37/20",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-37",
+   "hasProcess",
+   "WO-37/30"
+  ],
+  [
+   "WO-37/30",
+   "requiresMachine",
+   "EQ_12"
+  ],
+  [
+   "WO-37/30",
+   "operatedBy",
+   "OP_09"
+  ],
+  [
+   "WO-37/30",
+   "operatedBy",
+   "OP_10"
+  ],
+  [
+   "WO-38",
+   "produces",
+   "PT-02"
+  ],
+  [
+   "WO-38",
+   "fulfils",
+   "SO-6"
+  ],
+  [
+   "WO-38",
+   "hasProcess",
+   "WO-38/10"
+  ],
+  [
+   "WO-38/10",
+   "requiresMachine",
+   "EQ_01"
+  ],
+  [
+   "WO-38/10",
+   "requiresMachine",
+   "EQ_02"
+  ],
+  [
+   "WO-38/10",
+   "requiresMachine",
+   "EQ_03"
+  ],
+  [
+   "WO-38/10",
+   "requiresMachine",
+   "EQ_04"
+  ],
+  [
+   "WO-38/10",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-38/10",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-38/10",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-38/10",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-38/10",
+   "consumes",
+   "MAT-TI64"
+  ],
+  [
+   "WO-38",
+   "hasProcess",
+   "WO-38/20"
+  ],
+  [
+   "WO-38/20",
+   "requiresMachine",
+   "EQ_05"
+  ],
+  [
+   "WO-38/20",
+   "requiresMachine",
+   "EQ_06"
+  ],
+  [
+   "WO-38/20",
+   "requiresMachine",
+   "EQ_07"
+  ],
+  [
+   "WO-38/20",
+   "requiresMachine",
+   "EQ_08"
+  ],
+  [
+   "WO-38/20",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-38/20",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-38/20",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-38/20",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-38",
+   "hasProcess",
+   "WO-38/30"
+  ],
+  [
+   "WO-38/30",
+   "requiresMachine",
+   "EQ_11"
+  ],
+  [
+   "WO-38/30",
+   "operatedBy",
+   "OP_07"
+  ],
+  [
+   "WO-38/30",
+   "operatedBy",
+   "OP_08"
+  ],
+  [
+   "WO-39",
+   "produces",
+   "PT-03"
+  ],
+  [
+   "WO-39",
+   "fulfils",
+   "SO-7"
+  ],
+  [
+   "WO-39",
+   "hasProcess",
+   "WO-39/10"
+  ],
+  [
+   "WO-39/10",
+   "requiresMachine",
+   "EQ_01"
+  ],
+  [
+   "WO-39/10",
+   "requiresMachine",
+   "EQ_02"
+  ],
+  [
+   "WO-39/10",
+   "requiresMachine",
+   "EQ_03"
+  ],
+  [
+   "WO-39/10",
+   "requiresMachine",
+   "EQ_04"
+  ],
+  [
+   "WO-39/10",
+   "operatedBy",
+   "OP_01"
+  ],
+  [
+   "WO-39/10",
+   "operatedBy",
+   "OP_02"
+  ],
+  [
+   "WO-39/10",
+   "operatedBy",
+   "OP_03"
+  ],
+  [
+   "WO-39/10",
+   "operatedBy",
+   "OP_04"
+  ],
+  [
+   "WO-39/10",
+   "consumes",
+   "MAT-AL7075"
+  ],
+  [
+   "WO-39",
+   "hasProcess",
+   "WO-39/20"
+  ],
+  [
+   "WO-39/20",
+   "requiresMachine",
+   "EQ_09"
+  ],
+  [
+   "WO-39/20",
+   "requiresMachine",
+   "EQ_10"
+  ],
+  [
+   "WO-39/20",
+   "requiresMold",
+   "M-01"
+  ],
+  [
+   "WO-39/20",
+   "operatedBy",
+   "OP_05"
+  ],
+  [
+   "WO-39/20",
+   "operatedBy",
+   "OP_06"
+  ],
+  [
+   "WO-40",
+   "produces",
+   "PT-04"
+  ],
+  [
+   "WO-40",
+   "fulfils",
+   "SO-8"
+  ],
+  [
+   "WO-40",
+   "hasProcess",
+   "WO-40/10"
+  ],
+  [
+   "WO-40/10",
+   "requiresMachine",
+   "EQ_09"
+  ],
+  [
+   "WO-40/10",
+   "requiresMachine",
+   "EQ_10"
+  ],
+  [
+   "WO-40/10",
+   "requiresMold",
+   "M-02"
+  ],
+  [
+   "WO-40/10",
+   "operatedBy",
+   "OP_05"
+  ],
+  [
+   "WO-40/10",
+   "operatedBy",
+   "OP_06"
+  ],
+  [
+   "WO-40/10",
+   "consumes",
+   "MAT-AL7075"
+  ],
+  [
+   "WO-40",
+   "hasProcess",
+   "WO-40/20"
+  ],
+  [
+   "WO-40/20",
+   "requiresMachine",
+   "EQ_11"
+  ],
+  [
+   "WO-40/20",
+   "operatedBy",
+   "OP_07"
+  ],
+  [
+   "WO-40/20",
+   "operatedBy",
+   "OP_08"
+  ],
+  [
+   "WO-40",
+   "hasProcess",
+   "WO-40/30"
+  ],
+  [
+   "WO-40/30",
+   "requiresMachine",
+   "EQ_12"
+  ],
+  [
+   "WO-40/30",
+   "operatedBy",
+   "OP_09"
+  ],
+  [
+   "WO-40/30",
+   "operatedBy",
+   "OP_10"
+  ],
+  [
+   "WO-03",
+   "feeds",
+   "WO-01"
+  ],
+  [
+   "WO-08",
+   "feeds",
+   "WO-06"
+  ],
+  [
+   "WO-15",
+   "feeds",
+   "WO-13"
+  ],
+  [
+   "WO-20",
+   "feeds",
+   "WO-18"
+  ],
+  [
+   "WO-27",
+   "feeds",
+   "WO-25"
+  ],
+  [
+   "ALERT-01",
+   "affects",
+   "EQ_01"
+  ],
+  [
+   "ALERT-02",
+   "affects",
+   "EQ_02"
+  ],
+  [
+   "ALERT-03",
+   "affects",
+   "EQ_03"
+  ],
+  [
+   "ALERT-04",
+   "affects",
+   "EQ_04"
+  ],
+  [
+   "ALERT-05",
+   "affects",
+   "EQ_05"
+  ],
+  [
+   "ALERT-06",
+   "affects",
+   "EQ_06"
+  ],
+  [
+   "ALERT-07",
+   "affects",
+   "EQ_07"
+  ],
+  [
+   "ALERT-08",
+   "affects",
+   "EQ_08"
+  ],
+  [
+   "ALERT-09",
+   "affects",
+   "EQ_09"
+  ],
+  [
+   "ALERT-10",
+   "affects",
+   "EQ_10"
+  ],
+  [
+   "ALERT-11",
+   "affects",
+   "EQ_11"
+  ],
+  [
+   "ALERT-12",
+   "affects",
+   "EQ_12"
+  ],
+  [
+   "ECN-7",
+   "changes",
+   "PT-02"
+  ],
+  [
+   "ECN-7",
+   "changes",
+   "PT-05"
+  ],
+  [
+   "ECN-7",
+   "changes",
+   "PT-07"
+  ],
+  [
+   "ECN-7",
+   "changes",
+   "PT-11"
+  ],
+  [
+   "QR-1",
+   "returnOf",
+   "WO-04"
+  ],
+  [
+   "ECN-8",
+   "changes",
+   "PT-09"
+  ],
+  [
+   "ECN-8",
+   "changes",
+   "PT-12"
+  ],
+  [
+   "QR-2",
+   "returnOf",
+   "WO-10"
+  ]
+ ]
+}

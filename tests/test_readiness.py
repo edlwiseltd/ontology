@@ -1,7 +1,7 @@
 """Regression gate: every example deployment, run end to end through the generic CLI, scores >= 95.
 
-The examples use three unrelated domains (B2B onboarding, manufacturing procurement, healthcare
-referrals) and no example-specific glue: an ontology, a tool config, an approval policy, cases and a
+The examples use four unrelated domains (B2B onboarding, manufacturing procurement, healthcare
+referrals, event-driven production scheduling) and no example-specific glue: an ontology, a tool config, an approval policy, cases and a
 TCO model. The care-referral example has no Python at all - its systems are decision tables.
 """
 
@@ -32,6 +32,9 @@ DEPLOYMENTS = {
         ontology="ontology.json", goal="start_treatment", tools="tools_pilot.json", score_tools="all_tools.json",
         run=["--name", "care-coordinator", "--roles", "clinical", "--delegate",
              "booking-agent:admin:{dir}/admin_tools.json"], budget="25", tco="tco.json"),
+    "scheduling": dict(
+        ontology="ontology.json", goal="replan_after_event", tools="tools_pilot.json", score_tools="tools_pilot.json",
+        run=["--name", "scheduler-agent", "--roles", "scheduler"], budget="1", tco="tco.json"),
 }
 
 

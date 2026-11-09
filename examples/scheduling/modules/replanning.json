@@ -1,0 +1,218 @@
+{
+  "name": "replanning",
+  "version": "1.0.0",
+  "imports": [
+    "plant.json"
+  ],
+  "description": "ReplanningOntology: governed event -> impact -> schedule -> validation -> MES loop",
+  "entities": {
+    "Replan": {
+      "description": "One replanning case triggered by a plant event",
+      "states": [
+        "received",
+        "analyzed",
+        "optimized",
+        "infeasible",
+        "validated",
+        "published"
+      ],
+      "attributes": {
+        "event_id": "string",
+        "affected_jobs": "integer",
+        "affected_tasks": "integer",
+        "unavailable_resources": "integer",
+        "risks": "integer",
+        "critical_risks": "integer",
+        "makespan": "integer",
+        "baseline_makespan": "integer",
+        "delay": "integer",
+        "solver_status": "string",
+        "jobs_on_hold": "integer",
+        "jobs_delayed": "integer",
+        "warnings": "integer",
+        "critical_warnings": "integer"
+      }
+    }
+  },
+  "relationships": [
+    {
+      "from": "Replan",
+      "to": "WorkOrder",
+      "type": "reschedules",
+      "cardinality": "0..*"
+    }
+  ],
+  "actions": {
+    "analyze_impact": {
+      "description": "ImpactAgent: infer affected work orders, operations and resources from the ontology",
+      "capability": "scheduling.impact",
+      "requires": [
+        "Replan.status == 'received'"
+      ],
+      "reads": [
+        "Replan.event_id"
+      ],
+      "writes": [
+        "Replan.affected_jobs",
+        "Replan.affected_tasks",
+        "Replan.unavailable_resources",
+        "Replan.risks",
+        "Replan.critical_risks"
+      ],
+      "effects": {
+        "Replan": {
+          "status": "analyzed"
+        }
+      }
+    },
+    "optimize_schedule": {
+      "description": "ScheduleAgent: solve the constrained job-shop problem (minimise makespan)",
+      "capability": "scheduling.solve",
+      "requires": [
+        "Replan.status == 'analyzed'"
+      ],
+      "reads": [
+        "Replan.event_id"
+      ],
+      "writes": [
+        "Replan.makespan",
+        "Replan.baseline_makespan",
+        "Replan.delay",
+        "Replan.solver_status",
+        "Replan.jobs_on_hold",
+        "Replan.jobs_delayed"
+      ],
+      "outcomes": {
+        "optimized": {
+          "effects": {
+            "Replan": {
+              "status": "optimized"
+            }
+          }
+        },
+        "infeasible": {
+          "effects": {
+            "Replan": {
+              "status": "infeasible",
+              "solver_status": "infeasible"
+            }
+          }
+        }
+      },
+      "on_failure": {
+        "max_attempts": 2,
+        "escalate_to": "production_planner"
+      }
+    },
+    "validate_schedule": {
+      "description": "Ontology validation: solver invariants plus semantic checks the solver does not model",
+      "capability": "scheduling.validate",
+      "requires": [
+        "Replan.status == 'optimized'"
+      ],
+      "reads": [
+        "Replan.event_id"
+      ],
+      "writes": [
+        "Replan.warnings",
+        "Replan.critical_warnings"
+      ],
+      "effects": {
+        "Replan": {
+          "status": "validated"
+        }
+      }
+    },
+    "publish_to_mes": {
+      "description": "Push the validated schedule to MES and shop-floor dashboards",
+      "capability": "scheduling.publish",
+      "requires": [
+        "Replan.status == 'validated'"
+      ],
+      "reads": [
+        "Replan.event_id",
+        "Replan.makespan"
+      ],
+      "effects": {
+        "Replan": {
+          "status": "published"
+        }
+      }
+    }
+  },
+  "goals": {
+    "replan_after_event": {
+      "description": "A validated schedule reflecting the event is live in MES",
+      "target": "Replan.status == 'published'"
+    }
+  },
+  "rules": [
+    {
+      "id": "R-SCH-001",
+      "type": "mandatory_step",
+      "description": "Every schedule is checked against the ontology before release",
+      "step": "validate_schedule",
+      "before": "publish_to_mes",
+      "reset_by": [
+        "optimize_schedule"
+      ]
+    },
+    {
+      "id": "R-SCH-002",
+      "type": "mandatory_step",
+      "description": "Schedules are recomputed only after impact analysis",
+      "step": "analyze_impact",
+      "before": "optimize_schedule"
+    },
+    {
+      "id": "R-SCH-003",
+      "type": "human_review",
+      "description": "A planner approves schedules with critical warnings, orders on hold or > 8 h delay",
+      "when": "Replan.critical_warnings > 0 or Replan.jobs_on_hold > 0 or Replan.delay > 8",
+      "action": "publish_to_mes",
+      "reviewer": "production_planner"
+    },
+    {
+      "id": "R-SCH-004",
+      "type": "prohibition",
+      "description": "Never publish a schedule the solver could not make feasible",
+      "when": "Replan.solver_status == 'infeasible'",
+      "action": "publish_to_mes"
+    },
+    {
+      "id": "R-SCH-005",
+      "type": "action_access",
+      "description": "Only scheduling agents may publish to MES",
+      "action": "publish_to_mes",
+      "roles": [
+        "scheduler"
+      ]
+    },
+    {
+      "id": "R-SCH-006",
+      "type": "action_access",
+      "description": "Only scheduling and planning agents run impact analysis",
+      "action": "analyze_impact",
+      "roles": [
+        "scheduler",
+        "planner"
+      ]
+    },
+    {
+      "id": "R-SCH-007",
+      "type": "action_access",
+      "description": "Only scheduling agents run the optimiser",
+      "action": "optimize_schedule",
+      "roles": [
+        "scheduler"
+      ]
+    },
+    {
+      "id": "R-SCH-008",
+      "type": "prohibition",
+      "description": "More than 10 critical findings means master data is wrong: fix it before publishing",
+      "when": "Replan.critical_warnings > 10",
+      "action": "publish_to_mes"
+    }
+  ]
+}

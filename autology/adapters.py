@@ -4,7 +4,8 @@ Tools (``load_tools``) - a JSON config describing the registry::
 
     {
       "python_path": ["."],                                  # dirs (relative to the file) to import from
-      "registries": ["my_tools:build_registry"],             # factories returning a ToolRegistry
+      "registries": ["my_tools:build_registry",               # factories returning a ToolRegistry
+                     {"target": "my_tools:make", "kwargs": {"data": "data.json"}, "path_kwargs": ["data"]}],
       "tools": [
         {"name": "kyc", "capability": "kyc.verify", "type": "python", "target": "my_tools:kyc"},
         {"name": "clm", "capability": "contract.validate", "type": "http",
@@ -162,7 +163,10 @@ def load_tools(config: Union[str, Path, Mapping[str, Any]], base_dir: Optional[P
     search = tuple(str((base / p).resolve()) for p in config.get("python_path", ["."]))
     registry = ToolRegistry()
     for spec in config.get("registries", []):
-        target, kwargs = (spec, {}) if isinstance(spec, str) else (spec["target"], spec.get("kwargs", {}))
+        target, kwargs = (spec, {}) if isinstance(spec, str) else (spec["target"], dict(spec.get("kwargs", {})))
+        for key in ([] if isinstance(spec, str) else spec.get("path_kwargs", [])):
+            if kwargs.get(key):  # resolve file arguments relative to the config file
+                kwargs[key] = str((base / kwargs[key]).resolve())
         sub = import_target(target, search)(**kwargs)
         if not isinstance(sub, ToolRegistry):
             raise AdapterError(f"{target} did not return a ToolRegistry")

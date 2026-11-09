@@ -174,6 +174,74 @@ class CompetencyQuestion:
     expect: Any = None  # expected answer against the sample data (ids or a number)
 
 
+@dataclass(frozen=True)
+class ImpactRule:
+    """How an event propagates through the ontology ("who/what is affected?").
+
+    ``paths`` are relationship chains walked from the event instance (``^`` walks a
+    relationship backwards) - the equivalent of SPARQL property paths. ``adjust`` maps
+    adjustments for affected scheduling tasks to attributes of the event, e.g.
+    ``{"duration_factor": "ECN.duration_factor", "release": "ECN.effective_at"}``.
+    ``apply`` lists state changes the event makes before impact is traced, e.g. an MES
+    alert ``{"path": "affects", "set": {"status": "down"}}`` takes the machine down.
+    """
+
+    id: str
+    event: str
+    paths: Tuple[Tuple[str, ...], ...]
+    description: str = ""
+    when: Optional[Expression] = None
+    adjust: Mapping[str, str] = field(default_factory=lambda: MappingProxyType({}))
+    apply: Tuple[Tuple[Tuple[str, ...], Mapping[str, Any]], ...] = ()  # (path, attribute values) set by the event
+
+
+@dataclass(frozen=True)
+class ResourceRequirement:
+    step: str  # relationship from the task to the resource(s)
+    alternatives: bool = False  # True: the task needs ONE of the linked resources; False: ALL of them
+
+
+@dataclass(frozen=True)
+class ScheduleCheck:
+    """A semantic check applied to every scheduled task after solving.
+
+    ``when`` may reference the task, its job, its assigned resources (by entity type) and
+    ``Slot.start`` / ``Slot.end`` / ``Slot.duration``; if it holds, ``message`` is reported.
+    """
+
+    id: str
+    when: Expression
+    message: str
+    severity: str = "warning"  # "warning" | "critical"
+
+
+@dataclass(frozen=True)
+class SchedulingSpec:
+    """Maps ontology entities onto a (flexible) job-shop scheduling problem."""
+
+    job: str
+    task: str
+    job_tasks: str  # relationship step job -> tasks
+    sequence: str  # task attribute giving the order within its job
+    duration: str  # task attribute (time units)
+    resources: Tuple[ResourceRequirement, ...]
+    release: Optional[str] = None  # job attribute: earliest start
+    due: Optional[str] = None  # job attribute: due time
+    job_precedence: Optional[str] = None  # step job -> job that may only start after this one finishes
+    availability: Mapping[str, Expression] = field(default_factory=lambda: MappingProxyType({}))
+    checks: Tuple[ScheduleCheck, ...] = ()
+    time_unit: str = "h"
+    context: Tuple[str, ...] = ()  # extra steps from the task whose targets checks may reference (e.g. "consumes")
+    job_context: Tuple[str, ...] = ()  # extra steps from the job (e.g. "produces")
+
+    def context_types(self, ontology: "Ontology") -> Tuple[str, ...]:
+        return tuple(ontology.relationship(self.task, s)[1] for s in self.context) + \
+            tuple(ontology.relationship(self.job, s)[1] for s in self.job_context)
+
+    def resource_types(self, ontology: "Ontology") -> Tuple[str, ...]:
+        return tuple(ontology.relationship(self.task, r.step)[1] for r in self.resources)
+
+
 class Ontology:
     """An immutable, validated business ontology."""
 
@@ -191,6 +259,8 @@ class Ontology:
         questions: Iterable[CompetencyQuestion] = (),
         modules: Iterable[str] = (),
         settings: Optional[Mapping[str, Any]] = None,
+        impact_rules: Iterable[ImpactRule] = (),
+        scheduling: Optional[SchedulingSpec] = None,
     ):
         object.__setattr__(self, "_frozen", False)
         self.name = name
@@ -204,6 +274,8 @@ class Ontology:
         self.questions = tuple(questions)
         self.modules = tuple(modules)
         self.settings = _freeze(dict(settings or {}))
+        self.impact_rules = tuple(impact_rules)
+        self.scheduling = scheduling
         self.source = _freeze(copy.deepcopy(dict(source)) if source is not None else {"name": name})
         canonical = json.dumps(source if source is not None else {"name": name, "version": version},
                                sort_keys=True, separators=(",", ":"), default=str)
@@ -377,9 +449,90 @@ class Ontology:
                     if not target or not target.startswith(current + "."):
                         raise OntologyError(f"{where}: {fn} needs a field of {current}")
                     self._check_field(target, where)
+        self._validate_impact_and_scheduling()
         mv = self.settings.get("max_violations")
         if mv is not None and (not isinstance(mv, int) or mv < 1):
             raise OntologyError("settings.max_violations must be a positive integer")
+
+    def _walk(self, start: str, steps: Iterable[str], where: str) -> str:
+        current = start
+        for step in steps:
+            try:
+                _, current = self.relationship(current, step)
+            except OntologyError as exc:
+                raise OntologyError(f"{where}: {exc}") from None
+        return current
+
+    def _validate_impact_and_scheduling(self) -> None:
+        ids = set()
+        for r in self.impact_rules:
+            where = f"impact rule {r.id!r}"
+            if r.id in ids:
+                raise OntologyError(f"{where}: duplicate id")
+            ids.add(r.id)
+            if r.event not in self.entities:
+                raise OntologyError(f"{where}: unknown event entity {r.event!r}")
+            if not r.paths:
+                raise OntologyError(f"{where}: needs at least one path")
+            self._check_expr(r.when, where, only=r.event)
+            for path in r.paths:
+                self._walk(r.event, path, where)
+            for path, values in r.apply:
+                target = self._walk(r.event, path, where)
+                for attr, value in values.items():
+                    self._check_ref(target, attr, f"{where} apply")
+                    if attr == STATUS and value not in self.entities[target].states:
+                        raise OntologyError(f"{where}: {value!r} is not a state of {target}")
+            for key, ref in r.adjust.items():
+                if key not in ("duration_factor", "release"):
+                    raise OntologyError(f"{where}: unknown adjustment {key!r} (duration_factor | release)")
+                self._check_field(ref, where)
+                if ref.partition(".")[0] != r.event:
+                    raise OntologyError(f"{where}: adjustment {key} must reference the event ({r.event})")
+        spec = self.scheduling
+        if spec is None:
+            return
+        where = "scheduling"
+        for entity in (spec.job, spec.task):
+            if entity not in self.entities:
+                raise OntologyError(f"{where}: unknown entity {entity!r}")
+        if self._walk(spec.job, [spec.job_tasks], where) != spec.task:
+            raise OntologyError(f"{where}: job_tasks must lead from {spec.job} to {spec.task}")
+        for attr in (spec.sequence, spec.duration):
+            self._check_ref(spec.task, attr, where)
+        for attr in (spec.release, spec.due):
+            if attr:
+                self._check_ref(spec.job, attr, where)
+        if spec.job_precedence and self._walk(spec.job, [spec.job_precedence], where) != spec.job:
+            raise OntologyError(f"{where}: job_precedence must lead from {spec.job} to {spec.job}")
+        if not spec.resources:
+            raise OntologyError(f"{where}: declare at least one resource requirement")
+        resource_types = set(spec.resource_types(self))
+        for entity, expr in spec.availability.items():
+            if entity not in resource_types:
+                raise OntologyError(f"{where}: availability given for {entity!r}, which is not a resource type")
+            self._check_expr(expr, f"{where} availability", only=entity)
+        for step in spec.context:
+            self._walk(spec.task, [step], f"{where} context")
+        for step in spec.job_context:
+            self._walk(spec.job, [step], f"{where} job_context")
+        bound = {spec.task, spec.job, "Slot"} | resource_types | set(spec.context_types(self))
+        cids = set()
+        for check in spec.checks:
+            cw = f"{where} check {check.id!r}"
+            if check.id in cids:
+                raise OntologyError(f"{cw}: duplicate id")
+            cids.add(check.id)
+            if check.severity not in ("warning", "critical"):
+                raise OntologyError(f"{cw}: severity must be warning or critical")
+            for entity, attr in check.when.references:
+                if entity == "Slot":
+                    if attr not in ("start", "end", "duration"):
+                        raise OntologyError(f"{cw}: Slot has start, end and duration only")
+                    continue
+                if entity not in bound:
+                    raise OntologyError(f"{cw}: may reference {sorted(bound)} only, not {entity}")
+                self._check_ref(entity, attr, cw)
 
     # -- loading --------------------------------------------------------
     @classmethod
@@ -458,10 +611,32 @@ class Ontology:
                 tuple(spec.get("follow", ())),
                 compile_expression(spec["result_where"]) if spec.get("result_where") else None,
                 aggregate, _freeze(spec.get("params", {})), spec.get("expect")))
+        impact_rules = []
+        for spec in doc.get("impact_rules", []):
+            paths = tuple(tuple(p.split(".")) if isinstance(p, str) else tuple(p) for p in spec.get("paths", []))
+            applies = tuple((tuple(a["path"].split(".")), _freeze(a.get("set", {}))) for a in spec.get("apply", []))
+            impact_rules.append(ImpactRule(spec["id"], spec["event"], paths, spec.get("description", ""),
+                                           compile_expression(spec["when"]) if spec.get("when") else None,
+                                           _freeze(spec.get("adjust", {})), applies))
+        scheduling = None
+        if doc.get("scheduling"):
+            sc = doc["scheduling"]
+            scheduling = SchedulingSpec(
+                job=sc["job"], task=sc["task"], job_tasks=sc["job_tasks"], sequence=sc["sequence"],
+                duration=sc["duration"],
+                resources=tuple(ResourceRequirement(r["step"], bool(r.get("alternatives", False)))
+                                for r in sc.get("resources", [])),
+                release=sc.get("release"), due=sc.get("due"), job_precedence=sc.get("job_precedence"),
+                availability=MappingProxyType({k: compile_expression(v) for k, v in sc.get("availability", {}).items()}),
+                checks=tuple(ScheduleCheck(c["id"], compile_expression(c["when"]), c.get("message", c["id"]),
+                                           c.get("severity", "warning")) for c in sc.get("checks", [])),
+                time_unit=sc.get("time_unit", "h"), context=tuple(sc.get("context", ())),
+                job_context=tuple(sc.get("job_context", ())))
         source = {k: v for k, v in doc.items() if k != "imports"}
         return cls(doc["name"], str(doc.get("version", "0")), entities, relationships, actions, goals,
                    rules, doc.get("description", ""), source=source, questions=questions,
-                   modules=doc.get("modules", ()), settings=doc.get("settings"))
+                   modules=doc.get("modules", ()), settings=doc.get("settings"), impact_rules=impact_rules,
+                   scheduling=scheduling)
 
     @classmethod
     def load(cls, path: str | Path) -> "Ontology":
@@ -489,10 +664,11 @@ def merge_documents(root: Mapping[str, Any], modules: Iterable[Mapping[str, Any]
     """Compose module documents under ``root``. Duplicate definitions must be identical."""
     merged: Dict[str, Any] = {k: copy.deepcopy(v) for k, v in root.items()
                               if k not in _MERGE_MAPS + ("relationships", "rules", "competency_questions",
-                                                         "imports")}
+                                                         "impact_rules", "scheduling", "imports")}
     for key in _MERGE_MAPS:
         merged[key] = {}
     merged["relationships"], merged["rules"], merged["competency_questions"] = [], [], []
+    merged["impact_rules"] = []
     module_refs: List[str] = []
     for doc in list(modules) + [root]:
         if doc is not root:
@@ -506,12 +682,17 @@ def merge_documents(root: Mapping[str, Any], modules: Iterable[Mapping[str, Any]
         for rel in doc.get("relationships", []):
             if rel not in merged["relationships"]:
                 merged["relationships"].append(copy.deepcopy(rel))
-        for listkey in ("rules", "competency_questions"):
+        if doc.get("scheduling"):
+            if merged.get("scheduling") and merged["scheduling"] != doc["scheduling"]:
+                raise OntologyError(f"module {origin!r} redefines the scheduling spec differently")
+            merged["scheduling"] = copy.deepcopy(doc["scheduling"])
+        for listkey in ("rules", "competency_questions", "impact_rules"):
             existing = {item["id"]: item for item in merged[listkey]}
             for item in doc.get(listkey, []):
                 if item["id"] in existing:
                     if existing[item["id"]] != item:
-                        raise OntologyError(f"module {origin!r} redefines {listkey[:-1]} {item['id']!r} differently")
+                        raise OntologyError(f"module {origin!r} redefines {listkey[:-1].replace('_', ' ')} "
+                                            f"{item['id']!r} differently")
                     continue
                 merged[listkey].append(copy.deepcopy(item))
                 existing[item["id"]] = item

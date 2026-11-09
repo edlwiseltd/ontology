@@ -1,0 +1,34 @@
+[
+  {
+    "case_id": "ECN-7",
+    "case": {
+      "Replan": {
+        "event_id": "ECN-7"
+      }
+    }
+  },
+  {
+    "case_id": "EQ_05-breakdown",
+    "case": {
+      "Replan": {
+        "event_id": "ALERT-05"
+      }
+    }
+  },
+  {
+    "case_id": "QR-1-rework",
+    "case": {
+      "Replan": {
+        "event_id": "QR-1"
+      }
+    }
+  },
+  {
+    "case_id": "EQ_11-breakdown",
+    "case": {
+      "Replan": {
+        "event_id": "ALERT-11"
+      }
+    }
+  }
+]

@@ -1,0 +1,11 @@
+{
+  "registries": [{
+    "target": "autology.scheduling:scheduling_tools",
+    "kwargs": {
+      "ontology": "ontology.json", "data": "data.json", "solver": "auto", "time_limit": 5, "out_dir": "out",
+      "rework": {"event": "QualityReturn", "source": "returnOf", "link": "reworks", "from_seq": "from_seq"}
+    },
+    "path_kwargs": ["ontology", "data", "out_dir"]
+  }],
+  "_comment": "ImpactAgent, ScheduleAgent (CP-SAT if OR-Tools is installed, else the built-in solver), ontology validator, and a file-based MES publisher. Swap the publisher for an http tool to push to a real MES."
+}

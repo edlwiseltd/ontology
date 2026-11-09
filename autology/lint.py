@@ -54,10 +54,13 @@ def lint(ontology: Ontology, tools=None) -> List[Finding]:
         if hits:
             out.append(Finding("warning", "BIAS001", f"{where} decides on protected attribute(s) {hits}: "
                                                      "review for disparate impact"))
+    # numeric cut-offs only matter for bias when they decide about a party (an entity holding personal data)
+    parties = {e.name for e in o.entities.values()
+               if any(a.sensitivity in ("pii", "protected") for a in e.attributes.values())}
     for r in o.rules:
         if r.when is not None and r.kind in ("prohibition", "action_access", "human_review"):
             numeric = [f"{e}.{at}" for e, at in r.when.references
-                       if (attr := o.attribute(f"{e}.{at}")) and attr.type in ("number", "integer")]
+                       if e in parties and (attr := o.attribute(f"{e}.{at}")) and attr.type in ("number", "integer")]
             if numeric and r.kind == "prohibition":
                 out.append(Finding("info", "BIAS002", f"rule {r.id} excludes cases by numeric threshold on "
                                                       f"{numeric}; confirm it does not disadvantage a segment"))

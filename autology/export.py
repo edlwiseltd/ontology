@@ -119,3 +119,39 @@ def to_turtle(onto: Ontology) -> str:
         lines.append(f":rule_{r.id.replace('-', '_')} a autology:Rule ; autology:kind {_lit(r.kind)} ; "
                      f"rdfs:comment {_lit(r.description)} .")
     return "\n".join(lines) + "\n"
+
+
+def graph_to_turtle(graph) -> str:
+    """Instance data of a :class:`~autology.graph.KnowledgeGraph` as RDF Turtle (same IRIs as :func:`to_turtle`).
+
+    Load it with the schema into any triple store and query it with SPARQL; the ontology's impact
+    paths translate directly into SPARQL property paths, e.g. IMP-ECN's ``changes.^produces`` is
+    ``?ecn :changes/^:produces ?workOrder``.
+    """
+    onto = graph.ontology
+    base = _base(onto)
+    lines = [f"@prefix : <{base}> .", "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .", ""]
+
+    def iri(identifier: str) -> str:
+        return ":i_" + "".join(c if c.isalnum() else "_" for c in identifier)
+
+    def literal(value: Any) -> str:
+        if isinstance(value, bool):
+            return "true" if value else "false"
+        if isinstance(value, (int, float)):
+            return json.dumps(value)
+        return _lit(value)
+
+    for inst in graph.instances():
+        parts = [f"{iri(inst.id)} a :{inst.type}", f":id {_lit(inst.id)}"]
+        for attr, value in inst.attributes.items():
+            if value is None:
+                continue
+            if attr == "status":
+                parts.append(f":{inst.type}_status :{inst.type}_{value}")
+            else:
+                parts.append(f":{inst.type}_{attr} {literal(value)}")
+        lines.append(" ;\n    ".join(parts) + " .")
+    for source, kind, target in graph._links:
+        lines.append(f"{iri(source)} :{kind} {iri(target)} .")
+    return "\n".join(lines) + "\n"

@@ -1,0 +1,6 @@
+{
+  "type": "policy",
+  "reviewer": "production-planner",
+  "decisions": {"publish_to_mes": "Replan.jobs_on_hold == 0 and Replan.delay <= 24"},
+  "default": false
+}

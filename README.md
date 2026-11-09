@@ -8,7 +8,7 @@ It is **agnostic** in three ways:
 - **Model:** any LLM plugs in through a small `ChatModel` interface. Claude is the default adapter.
 - **Systems:** tools are Python callables, HTTP services or declarative decision tables, wired up in a JSON config.
 
-> Concept paper: [`docs/autology.md`](docs/autology.md) · Engineering methodology mapped to the code: [`docs/methodology.md`](docs/methodology.md)
+> Concept paper: [`docs/autology.md`](docs/autology.md) · Engineering methodology mapped to the code: [`docs/methodology.md`](docs/methodology.md) · Ontology + dual-agent scheduling: [`docs/scheduling.md`](docs/scheduling.md)
 
 ```
             goal + case facts
@@ -32,7 +32,7 @@ It is **agnostic** in three ways:
                   └───────────────────┘
 ```
 
-## Readiness of the three example deployments
+## Readiness of the four example deployments
 
 Each example is a different domain. Each is run end to end through the generic CLI on a reproducible pilot batch that includes simulated tool outages, then scored. `tests/test_readiness.py` keeps every one at **95 or above with 100% of the evidence assessed**.
 
@@ -41,8 +41,23 @@ Each example is a different domain. Each is run end to end through the generic C
 | `customer_onboarding` | B2B onboarding (KYC, contracts, billing) | tool handlers | 120 cases | **100 (A)** | passed (ROI 1140%) |
 | `manufacturing` | supplier contracting, production, quality | tool handlers | 150 contracts | **100 (A)** | passed (ROI 354%) |
 | `care_referral` | healthcare referrals (consent, triage, booking) | **none**: decision tables | 100 patients | **96 (A)** | open: 4 entities (needs 5), ROI 91% |
+| `scheduling` | aerospace structural parts: event-driven replanning | **none**: generic scheduling tools | 16 plant events | **100 (A)** | passed |
 
 ROI figures use the illustrative cost assumptions in each example's TCO file. Only the intervention rate and the tool and LLM cost per task are measured from the runs. The care-referral pilot gate is honestly open: the deployment is well built, but its business case is weak under those assumptions. The roadmap gates exist to show exactly that difference.
+
+## Ontology + dual-agent scheduling
+
+A complete version of the *ontology + ImpactAgent + ScheduleAgent* manufacturing scheduling pattern, generic and driven by the ontology ([`docs/scheduling.md`](docs/scheduling.md)):
+
+- **ImpactAgent** (`impact.py`) applies an event (an ECN, an MES breakdown alert, a quality return) and walks the ontology's declared `impact_rules`: relationship paths, equivalent to SPARQL property paths. It returns every affected part, work order, operation, resource and customer order, each with a reasoning chain, plus unavailable resources and risks.
+- **ScheduleAgent** (`scheduling.py`) builds a flexible job-shop problem from the ontology's `scheduling` section and solves it. It uses **OR-Tools CP-SAT** when installed and a built-in solver otherwise. A schedule is called *optimal* only when that is proven.
+- **Ontology validation** runs two layers: solver invariants (overlaps, sequence, precedence, availability), then semantic checks the solver does not model (mold life, calibration, certification, material, due dates).
+- **The replanning loop is governed:** impact → optimise → validate → planner review → publish to MES (JSON plus an HTML Gantt chart, or HTTP). Rework orders inherit the returned order's routing.
+
+```bash
+python examples/scheduling/run.py            # ECN-7 on 40 work orders / 101 operations, narrated
+python examples/scheduling/run.py ALERT-11   # furnace breakdown: 14 jobs on hold, planner declines publishing
+```
 
 ## What's in the box
 
@@ -62,13 +77,14 @@ ROI figures use the illustrative cost assumptions in each example's TCO file. On
 | | Saved runs (JSONL) with intact hash chains, resumable in another process | `persistence.py` |
 | Cost | Model routing (none / small / large), decision cache, prompt caching, token cost; TCO/ROI from measured rates | `reasoners.py`, `economics.py` |
 | Readiness | Scorecard 0–100 (A–F), evidence coverage, roadmap gates, fixes ranked by points recovered | `scoring.py` |
+| Scheduling | Impact rules with reasoning chains and event application; flexible job-shop model; CP-SAT and built-in solvers; post-solve validation; rework cloning; Gantt; RDF export of instance data for SPARQL | `impact.py`, `scheduling.py`, `export.py` |
 
 ## Quick start
 
 Requires Python 3.10 or later. No dependencies (`anthropic` is optional, for Claude).
 
 ```bash
-python -m unittest discover -s tests -t .             # 122 tests, 98% line coverage
+python -m unittest discover -s tests -t .             # 143 tests, 98% line coverage (OR-Tools and rdflib tests skip if not installed)
 python examples/customer_onboarding/run.py financial  # narrated walkthrough
 python examples/manufacturing/run.py                  # full methodology: modules, CQs, agents, versioning, report, ROI, score
 ```
@@ -225,7 +241,8 @@ autology/                      framework (see table above) + CLI (python -m auto
 examples/customer_onboarding/  modular ontology (customer/contracting/fulfilment), tools, pilot batch, narrated scenarios
 examples/manufacturing/        modular enterprise ontology (core/procurement/production/quality), knowledge graph, walkthrough
 examples/care_referral/        configuration-only deployment: ontology, decision-table tools, policy, pilot batch
-tests/                         122 tests (stdlib unittest), including the >= 95 readiness gate for every example
+examples/scheduling/           aerospace plant: plant + replanning modules, generated knowledge graph, 16 events, narrated run
+tests/                         143 tests (stdlib unittest), including the >= 95 readiness gate for every example
 docs/autology.md               the Autology concept and how it maps to this code
 docs/methodology.md            the engineering methodology, section by section, with the code that implements it
 ```

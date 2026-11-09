@@ -167,6 +167,7 @@ class LintEdgeTests(unittest.TestCase):
             d["rules"] = [d["rules"][0]]  # restricted A.terms writable without write_access
             d["entities"]["C"] = {"states": ["c"]}  # unrelated entity
             d["entities"]["B"]["attributes"]["revenue"] = "number"
+            d["entities"]["B"]["attributes"]["owner"] = {"type": "string", "sensitivity": "pii"}  # B is a party
             d["rules"].append({"id": "P", "type": "prohibition", "action": "go", "when": "B.revenue < 1000000"})
             d["goals"]["h"] = {"target": "B.y == 1"}  # nothing changes B.y
             d["actions"]["go"]["tools"] = ["ghost"]

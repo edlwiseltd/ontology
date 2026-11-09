@@ -4,7 +4,8 @@ Scores the three success factors of the methodology on 0-100:
 
 * **Ontology quality** - lint findings, competency questions, security coverage,
   tool coverage, semantic richness, versioning;
-* **Agent performance** - success, unplanned hand-offs, straight-through rate,
+* **Agent performance** - resolution (completed, or correctly stopped by policy),
+  unplanned hand-offs, straight-through rate,
   cost per completed task, self-healing (needs agent runs);
 * **Governance** - rule coverage, audit integrity, violations, ontology gaps,
   revocation policy.
@@ -28,7 +29,6 @@ from .versioning import VersionError, parse_version
 
 PILLAR_WEIGHTS = {"Ontology quality": 0.40, "Agent performance": 0.35, "Governance": 0.25}
 GRADES = ((85, "A"), (70, "B"), (55, "C"), (40, "D"), (0, "F"))
-UNPLANNED = ("escalated", "paused", "suspended")  # hand-offs nobody designed for
 
 
 @dataclass
@@ -289,15 +289,18 @@ def _agent_pillar(results: List, budget: Optional[float]) -> Pillar:
         rec = "run agents (e.g. a simulated pilot batch) and score the results"
         return Pillar("Agent performance", PILLAR_WEIGHTS["Agent performance"], [
             Criterion(name, pts, None, missing, rec) for name, pts in
-            (("Success rate", 30), ("Unplanned hand-offs", 25), ("Straight-through rate", 15),
+            (("Resolution rate", 30), ("Unplanned hand-offs", 25), ("Straight-through rate", 15),
              ("Cost efficiency", 15), ("Self-healing", 15))])
     m = metrics(results)
-    unplanned = sum(m.by_status.get(s, 0) for s in UNPLANNED) / m.tasks
+    stops = m.by_outcome.get("policy_stop", 0)
     crit = [
-        Criterion("Success rate", 30, 30 * _linear(m.success_rate, 0.5, 0.9), f"{_pct(m.success_rate)} (target 90%)",
-                  "raise success: review escalation reasons and ontology gaps"),
-        Criterion("Unplanned hand-offs", 25, 25 * _linear(unplanned, 0.5, 0.1),
-                  f"{_pct(unplanned)} escalated/paused/suspended (target <= 10%)",
+        Criterion("Resolution rate", 30, 30 * _linear(m.resolution_rate, 0.5, 0.9),
+                  f"{_pct(m.resolution_rate)} completed or correctly stopped by policy "
+                  f"({m.by_outcome.get('completed', 0)} completed, {stops} policy stops; target 90%)",
+                  "raise resolution: review unplanned escalation reasons and ontology gaps"),
+        Criterion("Unplanned hand-offs", 25, 25 * _linear(m.unplanned_handoff_rate, 0.5, 0.1),
+                  f"{_pct(m.unplanned_handoff_rate)} tool failures, gaps, loops, missing permissions, pauses or "
+                  "suspensions (target <= 10%)",
                   "cut unplanned hand-offs: model the missing recovery paths the gap report lists"),
         Criterion("Straight-through rate", 15, 15 * _linear(m.straight_through_rate, 0.0, 0.7),
                   f"{_pct(m.straight_through_rate)} completed with no human (target 70%)",
@@ -363,7 +366,7 @@ def _governance_pillar(onto: Ontology, results: List) -> Pillar:
 
 def _gates(onto: Ontology, results: List, roi: Optional[float], tasks_per_month: Optional[float]) -> List[Gate]:
     m = metrics(results) if results else None
-    unplanned = (sum(m.by_status.get(s, 0) for s in UNPLANNED) / m.tasks) if m else None
+    unplanned = m.unplanned_handoff_rate if m else None
     agents = {e.data.get("agent") for r in results for e in r.audit.events("run.start")} if results else set()
     agents |= {e.data.get("to_agent") for r in results for e in r.audit.events("delegate")} if results else set()
     agents.discard(None)
@@ -376,8 +379,8 @@ def _gates(onto: Ontology, results: List, roi: Optional[float], tasks_per_month:
     gates = [
         gate("Pilot", "Ontology scope", f"{n_ent} entities, {n_rules} rules", ">= 5 entities, >= 10 rules",
              n_ent >= 5 and n_rules >= 10),
-        gate("Pilot", "Agent success rate", _pct(m.success_rate) if m else None, "> 90%",
-             None if m is None else m.success_rate > 0.9),
+        gate("Pilot", "Agent success rate", _pct(m.resolution_rate) if m else None, "> 90% resolved",
+             None if m is None else m.resolution_rate > 0.9),
         gate("Pilot", "Unplanned human intervention", _pct(unplanned) if m else None, "< 10%",
              None if m is None else unplanned < 0.1),
         gate("Pilot", "ROI", None if roi is None else _pct(roi), "> 200%", None if roi is None else roi > 2.0),

@@ -70,6 +70,7 @@ class EntityType:
     states: Tuple[str, ...]
     initial_state: str
     description: str = ""
+    external_states: Tuple[str, ...] = ()  # states set by outside systems (ETL, sensors), not by actions
 
     def has_attribute(self, attr: str) -> bool:
         return attr in (STATUS, ID) or attr in self.attributes
@@ -95,15 +96,18 @@ class FailurePolicy:
     """Self-healing: how an agent reacts when every tool for an action fails.
 
     ``max_attempts`` rounds are tried (each round tries the primary tool and, if
-    ``fallback_tools``, every other eligible tool). Between rounds the agent waits
-    ``backoff_seconds`` - inline if short, otherwise it *defers* the case and can be
-    resumed later. After the last round it escalates to ``escalate_to``.
+    ``fallback_tools``, every other eligible tool). ``fallback_after`` keeps the first
+    rounds primary-only - retry the cheap tool before paying for the expensive
+    fallback. Between rounds the agent waits ``backoff_seconds`` - inline if short,
+    otherwise it *defers* the case and can be resumed later. After the last round it
+    escalates to ``escalate_to``.
     """
 
     max_attempts: int = 3
     backoff_seconds: float = 0.0
     fallback_tools: bool = True
     escalate_to: str = "operations"
+    fallback_after: int = 0
 
 
 @dataclass(frozen=True)
@@ -290,6 +294,9 @@ class Ontology:
                 raise OntologyError(f"entity {e.name!r} must declare at least one state")
             if e.initial_state not in e.states:
                 raise OntologyError(f"entity {e.name!r}: initial state {e.initial_state!r} not in states")
+            unknown = set(e.external_states) - set(e.states)
+            if unknown:
+                raise OntologyError(f"entity {e.name!r}: external states {sorted(unknown)} not in states")
         for r in self.relationships:
             for end in (r.source, r.target):
                 if end not in self.entities:
@@ -300,6 +307,8 @@ class Ontology:
                 raise OntologyError(f"{where}: must declare at least one outcome")
             if a.on_failure.max_attempts < 1:
                 raise OntologyError(f"{where}: on_failure.max_attempts must be >= 1")
+            if not 0 <= a.on_failure.fallback_after < a.on_failure.max_attempts:
+                raise OntologyError(f"{where}: on_failure.fallback_after must be between 0 and max_attempts - 1")
             for expr in a.requires:
                 self._check_expr(expr, where)
             for ref in a.reads + a.writes:
@@ -397,7 +406,7 @@ class Ontology:
             states = tuple(spec.get("states", ()))
             entities[name] = EntityType(name, MappingProxyType(attrs), states,
                                         spec.get("initial", states[0] if states else ""),
-                                        spec.get("description", ""))
+                                        spec.get("description", ""), tuple(spec.get("external_states", ())))
         relationships = [Relationship(r["from"], r["to"], r["type"], r.get("cardinality", "1..*"))
                          for r in doc.get("relationships", [])]
         actions: Dict[str, ActionType] = {}
@@ -425,7 +434,8 @@ class Ontology:
                 on_failure=FailurePolicy(int(failure.get("max_attempts", 3)),
                                          float(failure.get("backoff_seconds", 0)),
                                          bool(failure.get("fallback_tools", True)),
-                                         str(failure.get("escalate_to", "operations"))),
+                                         str(failure.get("escalate_to", "operations")),
+                                         int(failure.get("fallback_after", 0))),
             )
         goals = {name: Goal(name, spec.get("description", ""), compile_expression(spec["target"]))
                  for name, spec in doc.get("goals", {}).items()}

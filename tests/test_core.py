@@ -34,6 +34,10 @@ class ExpressionTests(unittest.TestCase):
                 compile_expression(src)
 
 
+def rule(doc, rule_id):
+    return next(r for r in doc["rules"] if r["id"] == rule_id)
+
+
 class OntologyTests(unittest.TestCase):
     def test_loads_example(self):
         onto = Ontology.load(ONTOLOGY_PATH)
@@ -72,11 +76,11 @@ class OntologyTests(unittest.TestCase):
                 lambda d: d["actions"]["sign_contract"]["effects"]["Contract"].update(status="teleported")),
             "tool may not write status": broken(
                 lambda d: d["actions"]["sign_contract"].update(writes=["Contract.status"])),
-            "rule names unknown action": broken(lambda d: d["rules"][0].update(before="fly_to_moon")),
-            "unknown rule kind": broken(lambda d: d["rules"][0].update(type="suggestion")),
-            "duplicate rule id": broken(lambda d: d["rules"].append(dict(d["rules"][0]))),
-            "unknown outcome": broken(lambda d: d["rules"][0].update(outcome="maybe")),
-            "unsafe expression": broken(lambda d: d["rules"][1].update(when="__import__('os')")),
+            "rule names unknown action": broken(lambda d: rule(d, "R-LEGAL-001").update(before="fly_to_moon")),
+            "unknown rule kind": broken(lambda d: rule(d, "R-LEGAL-001").update(type="suggestion")),
+            "duplicate rule id": broken(lambda d: d["rules"].append(dict(rule(d, "R-LEGAL-001")))),
+            "unknown outcome": broken(lambda d: rule(d, "R-LEGAL-001").update(outcome="maybe")),
+            "unsafe expression": broken(lambda d: rule(d, "R-FS-001").update(when="__import__('os')")),
         }
         for label, doc in bad_docs.items():
             with self.subTest(label), self.assertRaises(OntologyError):
@@ -108,6 +112,9 @@ class GovernanceTests(unittest.TestCase):
         self.assertEqual(decision.verdict, Verdict.DENY)
         self.assertIn("R-LEGAL-001", decision.rule_ids)
         state.steps["legal_review"] = "approved"
+        decision = self.gov.evaluate("sign_contract", state, self.agent)
+        self.assertEqual(decision.rule_ids, ["R-SIG-001"])  # signatory not verified yet
+        state.steps["verify_signatory"] = "done"
         self.assertEqual(self.gov.evaluate("sign_contract", state, self.agent).verdict, Verdict.ALLOW)
 
     def test_revision_resets_prior_legal_review(self):
@@ -125,7 +132,7 @@ class GovernanceTests(unittest.TestCase):
 
     def test_human_review_is_context_dependent(self):
         state = self.state(Customer="verified", Contract="approved")
-        state.steps["legal_review"] = "approved"
+        state.steps.update(legal_review="approved", verify_signatory="done")
         self.assertEqual(self.gov.evaluate("sign_contract", state, self.agent).verdict, Verdict.ALLOW)
         state.set("Contract", "value", 1_000_000)
         decision = self.gov.evaluate("sign_contract", state, self.agent)
@@ -141,7 +148,7 @@ class GovernanceTests(unittest.TestCase):
 
     def test_prohibition(self):
         state = self.state(Customer="verified", Contract="approved")
-        state.steps["legal_review"] = "approved"
+        state.steps.update(legal_review="approved", verify_signatory="done")
         state.set("Customer", "sanctions_hit", True)
         decision = self.gov.evaluate("sign_contract", state, self.agent)
         self.assertEqual(decision.verdict, Verdict.DENY)

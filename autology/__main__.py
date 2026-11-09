@@ -1,14 +1,19 @@
-"""Command line: engineer, inspect and dry-run ontologies.
+"""Command line: engineer, run, score and govern any Autology deployment - no Python glue required.
 
     python -m autology validate ONTOLOGY [--data SAMPLE.json]   # validation + lint + competency questions
     python -m autology lint ONTOLOGY
     python -m autology describe ONTOLOGY
     python -m autology ask ONTOLOGY DATA.json QUESTION_ID [--param key=value ...]
     python -m autology plan ONTOLOGY GOAL CASE.json [--roles kyc,sales]
+    python -m autology run ONTOLOGY GOAL CASES.json --tools TOOLS.json [--roles r1,r2]
+                       [--delegate NAME:ROLE+ROLE:TOOLS.json] [--approver auto|deny|console|POLICY.json]
+                       [--reasoner planner|claude|routing|module:factory] [--out RUNS.jsonl]
+    python -m autology report ONTOLOGY RUNS.jsonl
+    python -m autology score ONTOLOGY [--runs RUNS.jsonl] [--tools TOOLS.json] [--data SAMPLE.json]
+                       [--budget 50] [--roi 2.5 | --tco TCO.json] [--tasks-per-month N] [--min-score 80] [--json]
     python -m autology diff OLD NEW                              # semantic diff + required version bump
     python -m autology export ONTOLOGY [--format jsonld|turtle]
     python -m autology roi TCO.json
-    python -m autology score ONTOLOGY [--data SAMPLE.json] [--min-score 70] [--json]
 """
 
 from __future__ import annotations
@@ -16,8 +21,9 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from pathlib import Path
 
-from .economics import TCOModel, evaluate
+from .economics import TCOModel, evaluate, from_metrics
 from .export import to_jsonld, to_turtle
 from .governance import GovernanceLayer, Principal
 from .graph import KnowledgeGraph
@@ -25,7 +31,7 @@ from .lint import lint, worst
 from .ontology import Ontology, OntologyError
 from .planner import Planner
 from .state import WorldState
-from .versioning import actual_bump, diff, required_bump
+from .versioning import LEVELS, actual_bump, diff, required_bump
 
 
 def _load(path: str) -> Ontology:
@@ -48,11 +54,27 @@ def _value(text: str):
         return text
 
 
-def main(argv=None) -> int:
+def _roles(text: str):
+    return [r for r in text.replace("+", ",").split(",") if r]
+
+
+def _cases(path: str):
+    """A case file holds one case object, a list of cases, or a list of {"case_id", "case"} items."""
+    with open(path, encoding="utf-8") as fh:
+        data = json.load(fh)
+    items = data if isinstance(data, list) else [data]
+    for i, item in enumerate(items, 1):
+        if isinstance(item, dict) and "case" in item:
+            yield str(item.get("case_id", f"case-{i}")), item["case"]
+        else:
+            yield f"case-{i}", item
+
+
+def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="autology", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="command", required=True)
-    v = sub.add_parser("validate")
+    v = sub.add_parser("validate", help="validate, lint and check competency questions")
     v.add_argument("ontology")
     v.add_argument("--data", help="sample knowledge-graph data to answer competency questions")
     for name in ("describe", "lint"):
@@ -67,6 +89,31 @@ def main(argv=None) -> int:
     plan.add_argument("goal")
     plan.add_argument("case", help="JSON file with initial entity attributes")
     plan.add_argument("--roles", default="", help="comma-separated roles of the acting agent")
+    run = sub.add_parser("run", help="run an agent on one or more cases")
+    run.add_argument("ontology")
+    run.add_argument("goal")
+    run.add_argument("cases", help="JSON: a case, a list of cases, or a list of {case_id, case}")
+    run.add_argument("--tools", required=True, help="tool registry config (JSON)")
+    run.add_argument("--name", default="work-agent")
+    run.add_argument("--roles", default="")
+    run.add_argument("--delegate", action="append", default=[], help="NAME:ROLE+ROLE:TOOLS.json (repeatable)")
+    run.add_argument("--approver", default="deny", help="auto | deny | console | POLICY.json (default: deny)")
+    run.add_argument("--reasoner", default="planner", help="planner | claude | routing | module:factory")
+    run.add_argument("--out", help="append the runs to this JSONL file")
+    rep = sub.add_parser("report", help="compliance report from saved runs")
+    rep.add_argument("ontology")
+    rep.add_argument("runs")
+    sc = sub.add_parser("score", help="readiness scorecard")
+    sc.add_argument("ontology")
+    sc.add_argument("--runs", help="saved runs (JSONL) as agent evidence")
+    sc.add_argument("--tools", help="tool registry config, for tool-coverage checks")
+    sc.add_argument("--data", help="sample knowledge-graph data to answer competency questions")
+    sc.add_argument("--budget", type=float, help="target cost per completed task")
+    sc.add_argument("--roi", type=float, help="ROI as a fraction (2.5 = 250%%)")
+    sc.add_argument("--tco", help="TCO model JSON; ROI is computed with rates measured from --runs")
+    sc.add_argument("--tasks-per-month", type=float)
+    sc.add_argument("--min-score", type=float, help="exit 4 if the overall score is below this (CI gate)")
+    sc.add_argument("--json", action="store_true", help="print the scorecard as JSON")
     d = sub.add_parser("diff", help="semantic diff and the version bump it requires")
     d.add_argument("old")
     d.add_argument("new")
@@ -75,12 +122,75 @@ def main(argv=None) -> int:
     e.add_argument("--format", choices=["jsonld", "turtle"], default="jsonld")
     r = sub.add_parser("roi", help="TCO / ROI from a JSON model")
     r.add_argument("model")
-    sc = sub.add_parser("score", help="ontology readiness scorecard (agent pillars need runs: use the Python API)")
-    sc.add_argument("ontology")
-    sc.add_argument("--data", help="sample knowledge-graph data to answer competency questions")
-    sc.add_argument("--min-score", type=float, help="exit 4 if the overall score is below this (CI gate)")
-    sc.add_argument("--json", action="store_true", help="print the scorecard as JSON")
-    args = parser.parse_args(argv)
+    return parser
+
+
+def _cmd_run(args, onto: Ontology) -> int:
+    from .adapters import AdapterError, load_approver, load_reasoner, load_tools
+    from .agent import WorkAgent
+    from .persistence import save_runs
+
+    try:
+        tools = load_tools(args.tools)
+        delegates = []
+        for spec in args.delegate:
+            name, roles, tools_path = spec.split(":", 2)
+            delegates.append(WorkAgent(name, onto, load_tools(tools_path), roles=_roles(roles)))
+        approver = load_approver(args.approver)
+        search = (str(Path(args.tools).resolve().parent),)
+        reasoner = load_reasoner(args.reasoner, search)
+    except (AdapterError, OSError, ValueError) as exc:
+        print(f"configuration error: {exc}", file=sys.stderr)
+        return 2
+    agent = WorkAgent(args.name, onto, tools, roles=_roles(args.roles), delegates=delegates, approver=approver,
+                      reasoner=reasoner)
+    results = []
+    for case_id, case in _cases(args.cases):
+        try:
+            result = agent.run(args.goal, case, case_id)
+        except OntologyError as exc:
+            print(f"{case_id}: invalid case: {exc}", file=sys.stderr)
+            return 2
+        results.append(result)
+        tail = f" - {result.escalation.reason} (to {result.escalation.to})" if result.escalation else ""
+        print(f"{case_id}: {result.status} after {len(result.steps)} steps{tail}")
+    if args.out:
+        save_runs(results, args.out, append=True)
+        print(f"{len(results)} run(s) appended to {args.out}")
+    return 0 if all(r.status in ("completed", "deferred") for r in results) else 1
+
+
+def _cmd_score(args, onto: Ontology) -> int:
+    from .adapters import AdapterError, load_tools
+    from .persistence import load_runs
+    from .reporting import metrics
+    from .scoring import score_deployment
+
+    try:
+        runs = load_runs(args.runs) if args.runs else []
+        tools = load_tools(args.tools) if args.tools else None
+    except (AdapterError, OSError, ValueError) as exc:
+        print(f"cannot load evidence: {exc}", file=sys.stderr)
+        return 2
+    roi = args.roi
+    if args.tco:
+        model = TCOModel.load(args.tco)
+        if runs:
+            model = from_metrics(model, metrics(runs))
+        roi = evaluate(model).roi
+        if args.tasks_per_month is None:
+            args.tasks_per_month = model.tasks_per_month
+    card = score_deployment(onto, runs, tools=tools, graph=_graph(onto, args.data) if args.data else None,
+                            cost_budget=args.budget, roi=roi, tasks_per_month=args.tasks_per_month)
+    print(json.dumps(card.as_dict(), indent=2, default=str) if args.json else card.render())
+    if args.min_score is not None and (card.overall or 0) < args.min_score:
+        print(f"score {card.overall} is below the minimum {args.min_score}", file=sys.stderr)
+        return 4
+    return 0
+
+
+def main(argv=None) -> int:
+    args = _build_parser().parse_args(argv)
 
     if args.command == "roi":
         print(evaluate(TCOModel.load(args.model)).render())
@@ -93,8 +203,6 @@ def main(argv=None) -> int:
         needed = required_bump(changes)
         got = actual_bump(old.version, new.version) if old.version != new.version else None
         print(f"\n{old.ref} -> {new.ref}: required bump {needed or 'none'}, actual {got or 'none'}")
-        from .versioning import LEVELS
-
         if needed and (got is None or LEVELS[got] < LEVELS[needed]):
             print("version bump is insufficient", file=sys.stderr)
             return 3
@@ -121,15 +229,6 @@ def main(argv=None) -> int:
         for f in findings or ["clean"]:
             print(f)
         return 1 if worst(findings) == "error" else 0
-    if args.command == "score":
-        from .scoring import score_ontology
-
-        card = score_ontology(onto, graph=_graph(onto, args.data) if args.data else None)
-        print(json.dumps(card.as_dict(), indent=2, default=str) if args.json else card.render())
-        if args.min_score is not None and (card.overall or 0) < args.min_score:
-            print(f"score {card.overall} is below the minimum {args.min_score}", file=sys.stderr)
-            return 4
-        return 0
     if args.command == "describe":
         print(onto.describe())
         return 0
@@ -141,11 +240,21 @@ def main(argv=None) -> int:
         result = _graph(onto, args.data).ask(args.question, **{k: _value(v) for k, v in params.items()})
         print(json.dumps(result.answer))
         return 0
+    if args.command == "run":
+        return _cmd_run(args, onto)
+    if args.command == "score":
+        return _cmd_score(args, onto)
+    if args.command == "report":
+        from .persistence import load_runs
+        from .reporting import compliance_report
+
+        print(compliance_report(load_runs(args.runs), onto))
+        return 0
     # plan
     with open(args.case, encoding="utf-8") as fh:
         case = json.load(fh)
     governance = GovernanceLayer(onto)
-    principal = Principal("cli", [r for r in args.roles.split(",") if r])
+    principal = Principal("cli", _roles(args.roles))
     state = WorldState.initial(onto, case)
     steps = Planner(onto, governance).plan_with_outcomes(state, onto.goals[args.goal], principal)
     if steps is None:

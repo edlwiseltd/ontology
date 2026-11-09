@@ -1,6 +1,6 @@
 {
   "name": "procurement",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "ProcurementOntology: supplier contracting",
   "imports": [
     "core.json"
@@ -52,6 +52,12 @@
             }
           }
         }
+      },
+      "on_failure": {
+        "max_attempts": 3,
+        "backoff_seconds": 1,
+        "fallback_after": 1,
+        "escalate_to": "legal"
       }
     },
     "escalate_to_legal": {

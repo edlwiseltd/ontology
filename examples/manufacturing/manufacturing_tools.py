@@ -13,14 +13,16 @@ from autology import ToolCall, ToolError, ToolRegistry, ToolResult
 class Faults:
     """Switches to inject failures into the simulated systems."""
 
-    def __init__(self, mes_down: int = 0, clause_ai_down: bool = False, partial_delivery: bool = False):
+    def __init__(self, mes_down: int = 0, clause_ai_down: bool = False, partial_delivery: bool = False,
+                 clause_ai_failures: int = 0):
         self.mes_down = mes_down  # MES start fails this many times
         self.clause_ai_down = clause_ai_down
+        self.clause_ai_failures = clause_ai_failures  # the clause model fails this many calls, then recovers
         self.partial_delivery = partial_delivery
 
 
-def procurement_tools(faults: Faults | None = None) -> ToolRegistry:
-    faults = faults or Faults()
+def procurement_tools(faults: Faults | None = None, clause_ai_failures: int = 0) -> ToolRegistry:
+    faults = faults or Faults(clause_ai_failures=clause_ai_failures)
     tools = ToolRegistry()
 
     @tools.tool("contract.clause_check", name="ai_clause_checker", cost=0.05)
@@ -28,6 +30,9 @@ def procurement_tools(faults: Faults | None = None) -> ToolRegistry:
         """Automated clause extraction and playbook check."""
         if faults.clause_ai_down:
             raise ToolError("clause model endpoint unavailable")
+        if faults.clause_ai_failures > 0:
+            faults.clause_ai_failures -= 1
+            raise ToolError("clause model timed out")
         if not call.inputs["Contract.late_delivery_penalty"]:
             return ToolResult("missing_penalty", message="no LateDeliveryPenalty clause found")
         return ToolResult("compliant", message="all mandatory clauses present")
@@ -38,6 +43,13 @@ def procurement_tools(faults: Faults | None = None) -> ToolRegistry:
         if not call.inputs["Contract.late_delivery_penalty"]:
             return ToolResult("missing_penalty", message="counsel: LateDeliveryPenalty clause missing")
         return ToolResult("compliant", message="counsel: contract compliant")
+
+    @tools.tool("legal.redline", name="ai_clause_drafter", when="Contract.value < 1000000", cost=6.0)
+    def ai_drafter(call: ToolCall) -> ToolResult:
+        """Generative drafting of the standard penalty clause; Legal approves it (R-PROC-004)."""
+        rev = (call.inputs.get("Contract.revision") or 0) + 1
+        return ToolResult(updates={"Contract": {"revision": rev}},
+                          message=f"AI-drafted LateDeliveryPenalty clause inserted (rev {rev}), approved by Legal")
 
     @tools.tool("legal.redline", name="legal_redline_desk", cost=150.0)
     def redline(call: ToolCall) -> ToolResult:

@@ -1,0 +1,9 @@
+{
+  "type": "policy",
+  "reviewer": "pilot-review-board",
+  "decisions": {
+    "escalate_to_legal": true,
+    "sign_supplier_contract": "Contract.value < 2000000"
+  },
+  "default": false
+}

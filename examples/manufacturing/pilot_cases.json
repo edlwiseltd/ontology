@@ -1,0 +1,2254 @@
+[
+ {
+  "case_id": "PROC-000",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 000",
+    "on_time_rate": 0.88
+   },
+   "Contract": {
+    "value": 150000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-001",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 001",
+    "on_time_rate": 0.97
+   },
+   "Contract": {
+    "value": 1200000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": false
+   }
+  }
+ },
+ {
+  "case_id": "PROC-002",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 002",
+    "on_time_rate": 0.82
+   },
+   "Contract": {
+    "value": 150000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-003",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 003",
+    "on_time_rate": 0.92
+   },
+   "Contract": {
+    "value": 1200000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": false
+   }
+  }
+ },
+ {
+  "case_id": "PROC-004",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 004",
+    "on_time_rate": 0.99
+   },
+   "Contract": {
+    "value": 60000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-005",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 005",
+    "on_time_rate": 0.9
+   },
+   "Contract": {
+    "value": 150000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-006",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 006",
+    "on_time_rate": 0.91
+   },
+   "Contract": {
+    "value": 60000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-007",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 007",
+    "on_time_rate": 0.91
+   },
+   "Contract": {
+    "value": 60000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-008",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 008",
+    "on_time_rate": 0.89
+   },
+   "Contract": {
+    "value": 300000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-009",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 009",
+    "on_time_rate": 0.93
+   },
+   "Contract": {
+    "value": 150000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-010",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 010",
+    "on_time_rate": 0.94
+   },
+   "Contract": {
+    "value": 300000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-011",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 011",
+    "on_time_rate": 0.83
+   },
+   "Contract": {
+    "value": 2500000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-012",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 012",
+    "on_time_rate": 0.95
+   },
+   "Contract": {
+    "value": 60000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-013",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 013",
+    "on_time_rate": 0.91
+   },
+   "Contract": {
+    "value": 300000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-014",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 014",
+    "on_time_rate": 0.89
+   },
+   "Contract": {
+    "value": 300000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": false
+   }
+  }
+ },
+ {
+  "case_id": "PROC-015",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 015",
+    "on_time_rate": 0.85
+   },
+   "Contract": {
+    "value": 650000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-016",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 016",
+    "on_time_rate": 0.87
+   },
+   "Contract": {
+    "value": 2500000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-017",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 017",
+    "on_time_rate": 0.82
+   },
+   "Contract": {
+    "value": 300000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-018",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 018",
+    "on_time_rate": 0.83
+   },
+   "Contract": {
+    "value": 60000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-019",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 019",
+    "on_time_rate": 0.96
+   },
+   "Contract": {
+    "value": 2500000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-020",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 020",
+    "on_time_rate": 0.98
+   },
+   "Contract": {
+    "value": 650000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-021",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 021",
+    "on_time_rate": 0.8
+   },
+   "Contract": {
+    "value": 150000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-022",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 022",
+    "on_time_rate": 0.88
+   },
+   "Contract": {
+    "value": 150000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-023",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 023",
+    "on_time_rate": 0.89
+   },
+   "Contract": {
+    "value": 60000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-024",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 024",
+    "on_time_rate": 0.88
+   },
+   "Contract": {
+    "value": 650000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-025",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 025",
+    "on_time_rate": 0.81
+   },
+   "Contract": {
+    "value": 150000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-026",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 026",
+    "on_time_rate": 0.82
+   },
+   "Contract": {
+    "value": 60000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-027",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 027",
+    "on_time_rate": 0.81
+   },
+   "Contract": {
+    "value": 60000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-028",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 028",
+    "on_time_rate": 0.91
+   },
+   "Contract": {
+    "value": 300000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": false
+   }
+  }
+ },
+ {
+  "case_id": "PROC-029",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 029",
+    "on_time_rate": 0.89
+   },
+   "Contract": {
+    "value": 650000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": false
+   }
+  }
+ },
+ {
+  "case_id": "PROC-030",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 030",
+    "on_time_rate": 0.89
+   },
+   "Contract": {
+    "value": 300000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-031",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 031",
+    "on_time_rate": 0.83
+   },
+   "Contract": {
+    "value": 300000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": false
+   }
+  }
+ },
+ {
+  "case_id": "PROC-032",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 032",
+    "on_time_rate": 0.93
+   },
+   "Contract": {
+    "value": 60000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-033",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 033",
+    "on_time_rate": 0.9
+   },
+   "Contract": {
+    "value": 1200000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-034",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 034",
+    "on_time_rate": 0.95
+   },
+   "Contract": {
+    "value": 150000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-035",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 035",
+    "on_time_rate": 0.87
+   },
+   "Contract": {
+    "value": 650000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": false
+   }
+  }
+ },
+ {
+  "case_id": "PROC-036",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 036",
+    "on_time_rate": 0.84
+   },
+   "Contract": {
+    "value": 300000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-037",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 037",
+    "on_time_rate": 0.98
+   },
+   "Contract": {
+    "value": 300000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-038",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 038",
+    "on_time_rate": 0.86
+   },
+   "Contract": {
+    "value": 150000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-039",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 039",
+    "on_time_rate": 0.89
+   },
+   "Contract": {
+    "value": 60000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-040",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 040",
+    "on_time_rate": 0.97
+   },
+   "Contract": {
+    "value": 1200000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-041",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 041",
+    "on_time_rate": 0.88
+   },
+   "Contract": {
+    "value": 150000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": false
+   }
+  }
+ },
+ {
+  "case_id": "PROC-042",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 042",
+    "on_time_rate": 0.89
+   },
+   "Contract": {
+    "value": 650000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": false
+   }
+  }
+ },
+ {
+  "case_id": "PROC-043",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 043",
+    "on_time_rate": 0.81
+   },
+   "Contract": {
+    "value": 1200000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-044",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 044",
+    "on_time_rate": 0.92
+   },
+   "Contract": {
+    "value": 650000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-045",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 045",
+    "on_time_rate": 0.95
+   },
+   "Contract": {
+    "value": 1200000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": false
+   }
+  }
+ },
+ {
+  "case_id": "PROC-046",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 046",
+    "on_time_rate": 0.88
+   },
+   "Contract": {
+    "value": 150000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-047",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 047",
+    "on_time_rate": 0.84
+   },
+   "Contract": {
+    "value": 300000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-048",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 048",
+    "on_time_rate": 0.96
+   },
+   "Contract": {
+    "value": 650000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-049",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 049",
+    "on_time_rate": 0.96
+   },
+   "Contract": {
+    "value": 650000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": false
+   }
+  }
+ },
+ {
+  "case_id": "PROC-050",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 050",
+    "on_time_rate": 0.97
+   },
+   "Contract": {
+    "value": 1200000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-051",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 051",
+    "on_time_rate": 0.83
+   },
+   "Contract": {
+    "value": 150000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-052",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 052",
+    "on_time_rate": 0.93
+   },
+   "Contract": {
+    "value": 300000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-053",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 053",
+    "on_time_rate": 0.85
+   },
+   "Contract": {
+    "value": 60000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-054",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 054",
+    "on_time_rate": 0.94
+   },
+   "Contract": {
+    "value": 60000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-055",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 055",
+    "on_time_rate": 0.93
+   },
+   "Contract": {
+    "value": 150000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-056",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 056",
+    "on_time_rate": 0.93
+   },
+   "Contract": {
+    "value": 150000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-057",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 057",
+    "on_time_rate": 0.96
+   },
+   "Contract": {
+    "value": 150000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": false
+   }
+  }
+ },
+ {
+  "case_id": "PROC-058",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 058",
+    "on_time_rate": 0.93
+   },
+   "Contract": {
+    "value": 60000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-059",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 059",
+    "on_time_rate": 0.97
+   },
+   "Contract": {
+    "value": 60000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-060",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 060",
+    "on_time_rate": 0.85
+   },
+   "Contract": {
+    "value": 150000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-061",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 061",
+    "on_time_rate": 0.88
+   },
+   "Contract": {
+    "value": 60000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-062",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 062",
+    "on_time_rate": 0.93
+   },
+   "Contract": {
+    "value": 150000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-063",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 063",
+    "on_time_rate": 0.86
+   },
+   "Contract": {
+    "value": 300000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": false
+   }
+  }
+ },
+ {
+  "case_id": "PROC-064",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 064",
+    "on_time_rate": 0.93
+   },
+   "Contract": {
+    "value": 650000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-065",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 065",
+    "on_time_rate": 0.82
+   },
+   "Contract": {
+    "value": 60000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-066",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 066",
+    "on_time_rate": 0.85
+   },
+   "Contract": {
+    "value": 60000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-067",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 067",
+    "on_time_rate": 0.96
+   },
+   "Contract": {
+    "value": 150000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-068",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 068",
+    "on_time_rate": 0.83
+   },
+   "Contract": {
+    "value": 650000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-069",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 069",
+    "on_time_rate": 0.85
+   },
+   "Contract": {
+    "value": 60000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-070",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 070",
+    "on_time_rate": 0.98
+   },
+   "Contract": {
+    "value": 300000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-071",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 071",
+    "on_time_rate": 0.81
+   },
+   "Contract": {
+    "value": 1200000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-072",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 072",
+    "on_time_rate": 0.98
+   },
+   "Contract": {
+    "value": 650000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": false
+   }
+  }
+ },
+ {
+  "case_id": "PROC-073",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 073",
+    "on_time_rate": 0.98
+   },
+   "Contract": {
+    "value": 150000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-074",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 074",
+    "on_time_rate": 0.92
+   },
+   "Contract": {
+    "value": 2500000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-075",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 075",
+    "on_time_rate": 0.85
+   },
+   "Contract": {
+    "value": 150000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-076",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 076",
+    "on_time_rate": 0.94
+   },
+   "Contract": {
+    "value": 1200000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-077",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 077",
+    "on_time_rate": 0.82
+   },
+   "Contract": {
+    "value": 650000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-078",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 078",
+    "on_time_rate": 0.98
+   },
+   "Contract": {
+    "value": 650000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-079",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 079",
+    "on_time_rate": 0.96
+   },
+   "Contract": {
+    "value": 150000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-080",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 080",
+    "on_time_rate": 0.99
+   },
+   "Contract": {
+    "value": 300000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": false
+   }
+  }
+ },
+ {
+  "case_id": "PROC-081",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 081",
+    "on_time_rate": 0.88
+   },
+   "Contract": {
+    "value": 300000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-082",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 082",
+    "on_time_rate": 0.91
+   },
+   "Contract": {
+    "value": 300000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": false
+   }
+  }
+ },
+ {
+  "case_id": "PROC-083",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 083",
+    "on_time_rate": 0.88
+   },
+   "Contract": {
+    "value": 2500000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-084",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 084",
+    "on_time_rate": 0.85
+   },
+   "Contract": {
+    "value": 300000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-085",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 085",
+    "on_time_rate": 0.86
+   },
+   "Contract": {
+    "value": 60000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-086",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 086",
+    "on_time_rate": 0.9,
+    "status": "suspended"
+   },
+   "Contract": {
+    "value": 150000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-087",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 087",
+    "on_time_rate": 0.91
+   },
+   "Contract": {
+    "value": 2500000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-088",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 088",
+    "on_time_rate": 0.91
+   },
+   "Contract": {
+    "value": 60000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-089",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 089",
+    "on_time_rate": 0.95
+   },
+   "Contract": {
+    "value": 650000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-090",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 090",
+    "on_time_rate": 0.81
+   },
+   "Contract": {
+    "value": 150000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-091",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 091",
+    "on_time_rate": 0.97
+   },
+   "Contract": {
+    "value": 150000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-092",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 092",
+    "on_time_rate": 0.96
+   },
+   "Contract": {
+    "value": 60000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-093",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 093",
+    "on_time_rate": 0.82
+   },
+   "Contract": {
+    "value": 150000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-094",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 094",
+    "on_time_rate": 0.96
+   },
+   "Contract": {
+    "value": 650000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-095",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 095",
+    "on_time_rate": 0.89,
+    "status": "suspended"
+   },
+   "Contract": {
+    "value": 150000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-096",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 096",
+    "on_time_rate": 0.93
+   },
+   "Contract": {
+    "value": 60000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-097",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 097",
+    "on_time_rate": 0.96
+   },
+   "Contract": {
+    "value": 60000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-098",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 098",
+    "on_time_rate": 0.89
+   },
+   "Contract": {
+    "value": 650000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-099",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 099",
+    "on_time_rate": 0.92
+   },
+   "Contract": {
+    "value": 60000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": false
+   }
+  }
+ },
+ {
+  "case_id": "PROC-100",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 100",
+    "on_time_rate": 0.92
+   },
+   "Contract": {
+    "value": 2500000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-101",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 101",
+    "on_time_rate": 0.81
+   },
+   "Contract": {
+    "value": 2500000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-102",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 102",
+    "on_time_rate": 0.86
+   },
+   "Contract": {
+    "value": 650000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-103",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 103",
+    "on_time_rate": 0.99
+   },
+   "Contract": {
+    "value": 60000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-104",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 104",
+    "on_time_rate": 0.8
+   },
+   "Contract": {
+    "value": 2500000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-105",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 105",
+    "on_time_rate": 0.99
+   },
+   "Contract": {
+    "value": 650000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-106",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 106",
+    "on_time_rate": 0.91
+   },
+   "Contract": {
+    "value": 60000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-107",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 107",
+    "on_time_rate": 0.91
+   },
+   "Contract": {
+    "value": 150000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-108",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 108",
+    "on_time_rate": 0.84
+   },
+   "Contract": {
+    "value": 2500000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-109",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 109",
+    "on_time_rate": 0.98
+   },
+   "Contract": {
+    "value": 1200000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-110",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 110",
+    "on_time_rate": 0.87
+   },
+   "Contract": {
+    "value": 650000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-111",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 111",
+    "on_time_rate": 0.96
+   },
+   "Contract": {
+    "value": 2500000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-112",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 112",
+    "on_time_rate": 0.85
+   },
+   "Contract": {
+    "value": 300000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-113",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 113",
+    "on_time_rate": 0.87
+   },
+   "Contract": {
+    "value": 60000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-114",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 114",
+    "on_time_rate": 0.81
+   },
+   "Contract": {
+    "value": 1200000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-115",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 115",
+    "on_time_rate": 0.88
+   },
+   "Contract": {
+    "value": 2500000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-116",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 116",
+    "on_time_rate": 0.97
+   },
+   "Contract": {
+    "value": 650000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-117",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 117",
+    "on_time_rate": 0.94
+   },
+   "Contract": {
+    "value": 150000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-118",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 118",
+    "on_time_rate": 0.92
+   },
+   "Contract": {
+    "value": 150000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": false
+   }
+  }
+ },
+ {
+  "case_id": "PROC-119",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 119",
+    "on_time_rate": 0.83
+   },
+   "Contract": {
+    "value": 150000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-120",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 120",
+    "on_time_rate": 0.88
+   },
+   "Contract": {
+    "value": 300000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-121",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 121",
+    "on_time_rate": 0.83
+   },
+   "Contract": {
+    "value": 60000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-122",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 122",
+    "on_time_rate": 0.9
+   },
+   "Contract": {
+    "value": 650000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-123",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 123",
+    "on_time_rate": 0.83
+   },
+   "Contract": {
+    "value": 650000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": false
+   }
+  }
+ },
+ {
+  "case_id": "PROC-124",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 124",
+    "on_time_rate": 0.86
+   },
+   "Contract": {
+    "value": 60000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-125",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 125",
+    "on_time_rate": 0.94
+   },
+   "Contract": {
+    "value": 60000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-126",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 126",
+    "on_time_rate": 0.85
+   },
+   "Contract": {
+    "value": 650000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-127",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 127",
+    "on_time_rate": 0.82
+   },
+   "Contract": {
+    "value": 300000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-128",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 128",
+    "on_time_rate": 0.82
+   },
+   "Contract": {
+    "value": 150000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-129",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 129",
+    "on_time_rate": 0.98
+   },
+   "Contract": {
+    "value": 650000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-130",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 130",
+    "on_time_rate": 0.88
+   },
+   "Contract": {
+    "value": 1200000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-131",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 131",
+    "on_time_rate": 0.8
+   },
+   "Contract": {
+    "value": 650000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-132",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 132",
+    "on_time_rate": 0.98
+   },
+   "Contract": {
+    "value": 650000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": false
+   }
+  }
+ },
+ {
+  "case_id": "PROC-133",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 133",
+    "on_time_rate": 0.98
+   },
+   "Contract": {
+    "value": 1200000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-134",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 134",
+    "on_time_rate": 0.82
+   },
+   "Contract": {
+    "value": 650000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": false
+   }
+  }
+ },
+ {
+  "case_id": "PROC-135",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 135",
+    "on_time_rate": 0.92
+   },
+   "Contract": {
+    "value": 1200000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": false
+   }
+  }
+ },
+ {
+  "case_id": "PROC-136",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 136",
+    "on_time_rate": 0.93
+   },
+   "Contract": {
+    "value": 650000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": false
+   }
+  }
+ },
+ {
+  "case_id": "PROC-137",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 137",
+    "on_time_rate": 0.87
+   },
+   "Contract": {
+    "value": 150000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-138",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 138",
+    "on_time_rate": 0.99
+   },
+   "Contract": {
+    "value": 2500000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-139",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 139",
+    "on_time_rate": 0.89
+   },
+   "Contract": {
+    "value": 150000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-140",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 140",
+    "on_time_rate": 0.81
+   },
+   "Contract": {
+    "value": 300000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-141",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 141",
+    "on_time_rate": 0.85
+   },
+   "Contract": {
+    "value": 60000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-142",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 142",
+    "on_time_rate": 0.93
+   },
+   "Contract": {
+    "value": 60000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-143",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 143",
+    "on_time_rate": 0.95
+   },
+   "Contract": {
+    "value": 60000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-144",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 144",
+    "on_time_rate": 0.86
+   },
+   "Contract": {
+    "value": 150000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-145",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 145",
+    "on_time_rate": 0.82
+   },
+   "Contract": {
+    "value": 300000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-146",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 146",
+    "on_time_rate": 0.88
+   },
+   "Contract": {
+    "value": 650000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-147",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 147",
+    "on_time_rate": 0.81
+   },
+   "Contract": {
+    "value": 2500000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-148",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 148",
+    "on_time_rate": 0.83
+   },
+   "Contract": {
+    "value": 60000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ },
+ {
+  "case_id": "PROC-149",
+  "case": {
+   "Supplier": {
+    "name": "Supplier 149",
+    "on_time_rate": 0.99
+   },
+   "Contract": {
+    "value": 60000,
+    "end_date": "2027-12-31",
+    "revision": 0,
+    "late_delivery_penalty": true
+   }
+  }
+ }
+]

@@ -282,7 +282,8 @@ class WorkAgent:
         error = "tool failed"
         while True:
             round_no = run.failures[action.name] + 1
-            for tool in candidates:
+            this_round = candidates if round_no > policy.fallback_after else candidates[:1]
+            for tool in this_round:
                 call = ToolCall(action.name, action.capability, dict(inputs), view, round_no)
                 self._log(audit, "tool.call", case=run.case_id, action=action.name, tool=tool.name,
                           attempt=round_no, executed_by=executor.name, cost=tool.cost)

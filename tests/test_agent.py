@@ -7,8 +7,8 @@ from autology import (AutoApprover, ClaudeReasoner, DecisionContext, GovernanceL
 
 from .helpers import ONTOLOGY_PATH, build_registry, financial_case, retail_case
 
-HAPPY_PATH = ["verify_identity", "submit_contract", "legal_review", "sign_contract", "setup_billing",
-              "place_order", "activate_customer"]
+HAPPY_PATH = ["verify_identity", "verify_signatory", "submit_contract", "legal_review", "sign_contract",
+              "setup_billing", "place_order", "activate_customer"]
 
 
 def make_agent(onto, roles=("sales", "kyc"), **kw):
@@ -22,19 +22,22 @@ class PlannerTests(unittest.TestCase):
         self.onto = Ontology.load(ONTOLOGY_PATH)
         self.planner = Planner(self.onto, GovernanceLayer(self.onto))
         self.goal = self.onto.goals["onboard_customer"]
-        self.who = Principal("p", ["kyc"])
+        self.who = Principal("p", ["sales", "kyc"])
 
     def test_plan_is_derived_from_context(self):
         retail = self.planner.plan(WorldState.initial(self.onto, retail_case()), self.goal, self.who)
         self.assertEqual(retail, HAPPY_PATH)
         fs = self.planner.plan(WorldState.initial(self.onto, financial_case()), self.goal, self.who)
-        self.assertEqual(fs[:3], ["verify_identity", "enhanced_due_diligence", "submit_contract"])
+        self.assertEqual(fs[:4], ["verify_identity", "verify_signatory", "enhanced_due_diligence", "submit_contract"])
 
     def test_replans_after_rejection(self):
         state = WorldState.initial(self.onto, retail_case())
         state.set("Customer", "status", "verified")
         state.set("Contract", "status", "rejected")
-        self.assertEqual(self.planner.plan(state, self.goal, self.who)[:2], ["revise_contract", "legal_review"])
+        self.assertIsNone(self.planner.plan(state, self.goal, self.who))  # status forged: R-KYC-002 has no record
+        state.steps["verify_identity"] = "done"
+        self.assertEqual(self.planner.plan(state, self.goal, self.who)[:3],
+                         ["verify_signatory", "revise_contract", "legal_review"])
 
     def test_goal_already_reached(self):
         state = WorldState.initial(self.onto, retail_case(Customer={"status": "active"}))
@@ -57,8 +60,8 @@ class ScenarioTests(unittest.TestCase):
         result = make_agent(self.onto, approver=approver).run("onboard_customer", financial_case())
         self.assertTrue(result.completed, result.escalation)
         self.assertEqual(result.path[:6], [
-            "verify_identity:done", "enhanced_due_diligence:cleared", "submit_contract:done",
-            "legal_review:rejected", "revise_contract:resubmitted", "legal_review:approved"])
+            "verify_identity:done", "verify_signatory:done", "enhanced_due_diligence:cleared",
+            "submit_contract:done", "legal_review:rejected", "revise_contract:resubmitted"])
         self.assertEqual(result.steps[0].tool, "regulated_kyc")  # context-specific tool chosen
         self.assertEqual(next(s.tool for s in result.steps if s.action == "setup_billing"), "invoice_billing")
         self.assertEqual([r.action for r in approver.requests], ["revise_contract", "sign_contract"])
@@ -73,7 +76,7 @@ class ScenarioTests(unittest.TestCase):
         self.assertNotIn("sign_contract:done", result.path)
 
     def test_default_approver_is_fail_closed(self):
-        agent = WorkAgent("a", self.onto, build_registry(), roles=("kyc",))
+        agent = WorkAgent("a", self.onto, build_registry(), roles=("sales", "kyc"))
         result = agent.run("onboard_customer", financial_case())
         self.assertEqual(result.status, "blocked")
 
@@ -110,7 +113,9 @@ class GuardrailTests(unittest.TestCase):
             def propose(self, ctx):
                 return Proposal("sign_contract", "skip the paperwork", "rogue")
 
-        result = make_agent(self.onto, reasoner=Rogue()).run("onboard_customer", retail_case())
+        # with suspension disabled the agent keeps going and is overridden at every step
+        lenient = GovernanceLayer(self.onto, max_violations=0)
+        result = make_agent(self.onto, reasoner=Rogue(), governance=lenient).run("onboard_customer", retail_case())
         self.assertTrue(result.completed)
         self.assertEqual([s.action for s in result.steps], HAPPY_PATH)  # compliant order kept
         self.assertTrue(result.violations)
@@ -161,6 +166,17 @@ class GuardrailTests(unittest.TestCase):
         tools.register("spy_esign", "esign.send", spy, priority=99)
         make_agent(self.onto, tools=tools).run("onboard_customer", retail_case())
         self.assertEqual(set(seen), {"Customer.name", "Contract.value"})
+
+
+    def test_rogue_reasoner_is_suspended_by_ontology_policy(self):
+        class Rogue:
+            def propose(self, ctx):
+                return Proposal("sign_contract", "skip the paperwork", "rogue")
+
+        result = make_agent(self.onto, reasoner=Rogue()).run("onboard_customer", retail_case())
+        self.assertEqual(result.status, "suspended")  # settings.max_violations = 3
+        self.assertEqual(len(result.violations), 3)
+        self.assertNotIn("sign_contract:done", result.path)
 
 
 class FakeClaude:

@@ -91,7 +91,7 @@ The ontology is the single source of truth for business logic, data and rules. I
 > **In this repo**
 > - *Roles:* `WorkAgent` principals with roles. **Multi-agent teams:** `WorkAgent(..., delegates=[finance_agent])`. The lead plans with the team's combined permissions, and each action runs under the identity of a member allowed to perform it. Delegation is audited, and the lead still sees only its own redacted view. CodingAgent and PersonalAgent are not implemented. They would use the same ontology and governance layers.
 > - *LLM guardrails:* the reasoner, whether `ClaudeReasoner` or any `Reasoner`, can only **propose** from the actions valid at that moment. Structured output constrains its answer. Governance re-checks every proposal, tools can write only declared fields (`writes`, plus `write_access`), and status changes only through declared outcomes. Repeated useless-but-valid choices are cut off by `max_repeats`.
-> - *Testing:* there are 86 tests, and `simulate_pilot()` in the manufacturing example runs a seeded batch of 200 contracts. A mid-run ontology change is a tested case, and the agent pauses safely. `reporting.metrics()` reports success rate, straight-through rate, human-intervention rate, average latency and cost per task.
+> - *Testing:* there are 122 tests (98% line coverage), and `simulate_pilot()` in the manufacturing example runs a seeded batch of 200 contracts. A mid-run ontology change is a tested case, and the agent pauses safely. `reporting.metrics()` reports success rate, straight-through rate, human-intervention rate, average latency and cost per task.
 
 ---
 
@@ -188,6 +188,23 @@ A global manufacturer with 10k+ employees and $5B revenue. See `examples/manufac
 The framework estimated savings of $2M a year from 30% less downtime, $1M from 50% faster contract signature and $500k from 20% fewer defects. Treat these as the business case to test. Run the pilot simulation with your own case mix, put your cost assumptions in `roi.json`, and compare.
 
 ---
+
+## 6b. Staying agnostic: domain, model and systems
+
+The methodology warns against vendor lock-in (§3.2). The framework applies the same principle to everything around the ontology.
+
+| Concern | How it stays agnostic | Where |
+|---|---|---|
+| **Business domain** | The framework has no business vocabulary. Three unrelated domains (onboarding, manufacturing, healthcare) run on identical code | `examples/*` |
+| **AI model / vendor** | Reasoners talk to a `ChatModel` (`complete_json(system, prompt, schema)`). `AnthropicChatModel` is the default. `FunctionChatModel` wraps any other SDK, a local model or a rules engine. `register_price()` tracks cost for any model | `reasoners.py` |
+| **Enterprise systems** | Tools are declared in JSON as `python` callables, `http` services (secrets from env vars, failures trigger the failure policy) or `table` decision tables, which suit pilots and simple rules engines | `adapters.py` |
+| **Human workflow** | Approvers: policy files whose decisions can be conditions, the console, or an HTTP review service that fails closed | `adapters.py` |
+| **Process / runtime** | Runs are saved as JSONL with their hash chains intact. Deferred runs resume in another process. `autology report` and `autology score` work from the saved files | `persistence.py`, CLI |
+| **Ontology format** | JSON or YAML in; OWL/Turtle and JSON-LD out | `ontology.py`, `export.py` |
+
+**Configuration-only deployment.** `examples/care_referral` has no Python at all. It consists of an ontology, decision-table tools, an approval policy, sample data, a TCO model and a pilot batch. Running `autology run`, then `report`, then `score` gives 96/100 with full evidence coverage. Every system can later be swapped for its real `http` or `python` adapter without touching the ontology.
+
+**Readiness gate in CI.** `tests/test_readiness.py` runs every example's pilot through the CLI and fails if any scores below 95 or leaves evidence unassessed. Current scores: onboarding 100, manufacturing 100, care referral 96.
 
 ## 7. Conclusion
 

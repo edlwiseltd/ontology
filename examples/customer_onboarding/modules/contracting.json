@@ -1,0 +1,169 @@
+{
+  "name": "contracting",
+  "version": "1.1.0",
+  "description": "ContractOntology: submission, legal review, revision and signature",
+  "imports": [
+    "customer.json"
+  ],
+  "entities": {
+    "Contract": {
+      "description": "Master service agreement with the customer",
+      "states": [
+        "draft",
+        "submitted",
+        "approved",
+        "rejected",
+        "signed"
+      ],
+      "initial": "draft",
+      "attributes": {
+        "value": "number",
+        "nonstandard_terms": "boolean",
+        "revision": "integer"
+      }
+    }
+  },
+  "relationships": [
+    {
+      "from": "Customer",
+      "to": "Contract",
+      "type": "has",
+      "cardinality": "1..*"
+    }
+  ],
+  "actions": {
+    "submit_contract": {
+      "description": "Submit the draft contract for validation",
+      "capability": "contract.submit",
+      "requires": [
+        "Customer.status == 'verified'",
+        "Contract.status == 'draft'"
+      ],
+      "effects": {
+        "Contract": {
+          "status": "submitted"
+        }
+      }
+    },
+    "legal_review": {
+      "description": "Validate the contract against the legal playbook",
+      "capability": "contract.validate",
+      "requires": [
+        "Contract.status == 'submitted'"
+      ],
+      "reads": [
+        "Contract.value",
+        "Contract.nonstandard_terms",
+        "Contract.revision"
+      ],
+      "outcomes": {
+        "approved": {
+          "effects": {
+            "Contract": {
+              "status": "approved"
+            }
+          }
+        },
+        "rejected": {
+          "effects": {
+            "Contract": {
+              "status": "rejected"
+            }
+          }
+        }
+      }
+    },
+    "revise_contract": {
+      "description": "Escalate to Legal to revise a rejected contract and resubmit it",
+      "capability": "contract.revise",
+      "requires": [
+        "Contract.status == 'rejected'"
+      ],
+      "reads": [
+        "Contract.nonstandard_terms",
+        "Contract.revision"
+      ],
+      "writes": [
+        "Contract.nonstandard_terms",
+        "Contract.revision"
+      ],
+      "outcomes": {
+        "resubmitted": {
+          "effects": {
+            "Contract": {
+              "status": "submitted"
+            }
+          }
+        }
+      },
+      "cost": 3
+    },
+    "sign_contract": {
+      "description": "Send the approved contract for e-signature",
+      "capability": "esign.send",
+      "requires": [
+        "Contract.status == 'approved'"
+      ],
+      "reads": [
+        "Customer.name",
+        "Contract.value"
+      ],
+      "effects": {
+        "Contract": {
+          "status": "signed"
+        }
+      }
+    }
+  },
+  "rules": [
+    {
+      "id": "R-LEGAL-001",
+      "type": "mandatory_step",
+      "description": "Contracts must be approved by Legal before signature",
+      "step": "legal_review",
+      "outcome": "approved",
+      "before": "sign_contract",
+      "reset_by": [
+        "revise_contract"
+      ]
+    },
+    {
+      "id": "R-FS-001",
+      "type": "mandatory_step",
+      "description": "Financial-services customers require cleared enhanced due diligence before contracting",
+      "when": "Customer.industry == 'Financial Services'",
+      "step": "enhanced_due_diligence",
+      "outcome": "cleared",
+      "before": "submit_contract"
+    },
+    {
+      "id": "R-LEGAL-002",
+      "type": "human_review",
+      "description": "Contract revisions are made and signed off by Legal",
+      "action": "revise_contract",
+      "reviewer": "legal"
+    },
+    {
+      "id": "R-FIN-001",
+      "type": "human_review",
+      "description": "Critical decision: contracts worth 1,000,000 or more need Finance Director sign-off",
+      "when": "Contract.value >= 1000000",
+      "action": "sign_contract",
+      "reviewer": "finance_director"
+    },
+    {
+      "id": "R-SANC-001",
+      "type": "prohibition",
+      "description": "Never enter a contract with a sanctioned party",
+      "when": "Customer.sanctions_hit == True",
+      "action": "sign_contract"
+    },
+    {
+      "id": "R-SIG-001",
+      "type": "mandatory_step",
+      "description": "Only a verified authorised signatory may sign the contract",
+      "step": "verify_signatory",
+      "before": "sign_contract"
+    }
+  ]
+}

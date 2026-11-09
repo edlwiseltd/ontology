@@ -1,0 +1,1802 @@
+[
+ {
+  "case_id": "REF-000",
+  "case": {
+   "Patient": {
+    "age": 83,
+    "nhs_number": "943 476 0000",
+    "condition": "joint pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "rheumatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Rheumatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-001",
+  "case": {
+   "Patient": {
+    "age": 49,
+    "nhs_number": "943 476 0001",
+    "condition": "rash",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "dermatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Dermatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-002",
+  "case": {
+   "Patient": {
+    "age": 87,
+    "nhs_number": "943 476 0002",
+    "condition": "migraine",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "neurology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Neurology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-003",
+  "case": {
+   "Patient": {
+    "age": 7,
+    "nhs_number": "943 476 0003",
+    "condition": "migraine",
+    "guardian_consent": true
+   },
+   "Referral": {
+    "specialty": "neurology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Neurology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-004",
+  "case": {
+   "Patient": {
+    "age": 35,
+    "nhs_number": "943 476 0004",
+    "condition": "rash",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "dermatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Dermatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-005",
+  "case": {
+   "Patient": {
+    "age": 24,
+    "nhs_number": "943 476 0005",
+    "condition": "chest pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "cardiology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Cardiology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-006",
+  "case": {
+   "Patient": {
+    "age": 64,
+    "nhs_number": "943 476 0006",
+    "condition": "migraine",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "neurology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Neurology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-007",
+  "case": {
+   "Patient": {
+    "age": 52,
+    "nhs_number": "943 476 0007",
+    "condition": "non-specific",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "general medicine",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "General Medicine Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-008",
+  "case": {
+   "Patient": {
+    "age": 77,
+    "nhs_number": "943 476 0008",
+    "condition": "joint pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "rheumatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Rheumatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-009",
+  "case": {
+   "Patient": {
+    "age": 31,
+    "nhs_number": "943 476 0009",
+    "condition": "joint pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "rheumatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Rheumatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-010",
+  "case": {
+   "Patient": {
+    "age": 27,
+    "nhs_number": "943 476 0010",
+    "condition": "migraine",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "neurology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Neurology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-011",
+  "case": {
+   "Patient": {
+    "age": 53,
+    "nhs_number": "943 476 0011",
+    "condition": "chest pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "cardiology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Cardiology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-012",
+  "case": {
+   "Patient": {
+    "age": 13,
+    "nhs_number": "943 476 0012",
+    "condition": "chest pain",
+    "guardian_consent": true
+   },
+   "Referral": {
+    "specialty": "cardiology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Cardiology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-013",
+  "case": {
+   "Patient": {
+    "age": 20,
+    "nhs_number": "943 476 0013",
+    "condition": "chest pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "cardiology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Cardiology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-014",
+  "case": {
+   "Patient": {
+    "age": 4,
+    "nhs_number": "943 476 0014",
+    "condition": "joint pain",
+    "guardian_consent": true
+   },
+   "Referral": {
+    "specialty": "rheumatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Rheumatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-015",
+  "case": {
+   "Patient": {
+    "age": 25,
+    "nhs_number": "943 476 0015",
+    "condition": "migraine",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "neurology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Neurology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-016",
+  "case": {
+   "Patient": {
+    "age": 41,
+    "nhs_number": "943 476 0016",
+    "condition": "joint pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "rheumatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Rheumatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-017",
+  "case": {
+   "Patient": {
+    "age": 29,
+    "nhs_number": "943 476 0017",
+    "condition": "non-specific",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "general medicine",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "General Medicine Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-018",
+  "case": {
+   "Patient": {
+    "age": 90,
+    "nhs_number": "943 476 0018",
+    "condition": "rash",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "dermatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Dermatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-019",
+  "case": {
+   "Patient": {
+    "age": 27,
+    "nhs_number": "943 476 0019",
+    "condition": "migraine",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "neurology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Neurology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-020",
+  "case": {
+   "Patient": {
+    "age": 92,
+    "nhs_number": "943 476 0020",
+    "condition": "chest pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "cardiology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Cardiology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-021",
+  "case": {
+   "Patient": {
+    "age": 53,
+    "nhs_number": "943 476 0021",
+    "condition": "joint pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "rheumatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Rheumatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-022",
+  "case": {
+   "Patient": {
+    "age": 50,
+    "nhs_number": "943 476 0022",
+    "condition": "joint pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "rheumatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Rheumatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-023",
+  "case": {
+   "Patient": {
+    "age": 22,
+    "nhs_number": "943 476 0023",
+    "condition": "joint pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "rheumatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Rheumatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-024",
+  "case": {
+   "Patient": {
+    "age": 46,
+    "nhs_number": "943 476 0024",
+    "condition": "joint pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "rheumatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Rheumatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-025",
+  "case": {
+   "Patient": {
+    "age": 81,
+    "nhs_number": "943 476 0025",
+    "condition": "non-specific",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "general medicine",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "General Medicine Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-026",
+  "case": {
+   "Patient": {
+    "age": 80,
+    "nhs_number": "943 476 0026",
+    "condition": "rash",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "dermatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Dermatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-027",
+  "case": {
+   "Patient": {
+    "age": 47,
+    "nhs_number": "943 476 0027",
+    "condition": "chest pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "cardiology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Cardiology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-028",
+  "case": {
+   "Patient": {
+    "age": 49,
+    "nhs_number": "943 476 0028",
+    "condition": "migraine",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "neurology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Neurology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-029",
+  "case": {
+   "Patient": {
+    "age": 65,
+    "nhs_number": "943 476 0029",
+    "condition": "rash",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "dermatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Dermatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-030",
+  "case": {
+   "Patient": {
+    "age": 27,
+    "nhs_number": "943 476 0030",
+    "condition": "non-specific",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "general medicine",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "General Medicine Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-031",
+  "case": {
+   "Patient": {
+    "age": 94,
+    "nhs_number": "943 476 0031",
+    "condition": "chest pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "cardiology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Cardiology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-032",
+  "case": {
+   "Patient": {
+    "age": 36,
+    "nhs_number": "943 476 0032",
+    "condition": "migraine",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "neurology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Neurology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-033",
+  "case": {
+   "Patient": {
+    "age": 6,
+    "nhs_number": "943 476 0033",
+    "condition": "migraine",
+    "guardian_consent": true
+   },
+   "Referral": {
+    "specialty": "neurology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Neurology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-034",
+  "case": {
+   "Patient": {
+    "age": 55,
+    "nhs_number": "943 476 0034",
+    "condition": "chest pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "cardiology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Cardiology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-035",
+  "case": {
+   "Patient": {
+    "age": 57,
+    "nhs_number": "943 476 0035",
+    "condition": "joint pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "rheumatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Rheumatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-036",
+  "case": {
+   "Patient": {
+    "age": 78,
+    "nhs_number": "943 476 0036",
+    "condition": "migraine",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "neurology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Neurology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-037",
+  "case": {
+   "Patient": {
+    "age": 61,
+    "nhs_number": "943 476 0037",
+    "condition": "chest pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "cardiology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Cardiology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-038",
+  "case": {
+   "Patient": {
+    "age": 27,
+    "nhs_number": "943 476 0038",
+    "condition": "rash",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "dermatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Dermatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-039",
+  "case": {
+   "Patient": {
+    "age": 29,
+    "nhs_number": "943 476 0039",
+    "condition": "chest pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "cardiology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Cardiology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-040",
+  "case": {
+   "Patient": {
+    "age": 35,
+    "nhs_number": "943 476 0040",
+    "condition": "migraine",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "neurology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Neurology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-041",
+  "case": {
+   "Patient": {
+    "age": 63,
+    "nhs_number": "943 476 0041",
+    "condition": "joint pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "rheumatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Rheumatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-042",
+  "case": {
+   "Patient": {
+    "age": 49,
+    "nhs_number": "943 476 0042",
+    "condition": "migraine",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "neurology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Neurology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-043",
+  "case": {
+   "Patient": {
+    "age": 36,
+    "nhs_number": "943 476 0043",
+    "condition": "rash",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "dermatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Dermatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-044",
+  "case": {
+   "Patient": {
+    "age": 17,
+    "nhs_number": "943 476 0044",
+    "condition": "non-specific",
+    "guardian_consent": true
+   },
+   "Referral": {
+    "specialty": "general medicine",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "General Medicine Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-045",
+  "case": {
+   "Patient": {
+    "age": 51,
+    "nhs_number": "943 476 0045",
+    "condition": "migraine",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "neurology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Neurology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-046",
+  "case": {
+   "Patient": {
+    "age": 8,
+    "nhs_number": "943 476 0046",
+    "condition": "joint pain",
+    "guardian_consent": false
+   },
+   "Referral": {
+    "specialty": "rheumatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Rheumatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-047",
+  "case": {
+   "Patient": {
+    "age": 30,
+    "nhs_number": "943 476 0047",
+    "condition": "joint pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "rheumatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Rheumatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-048",
+  "case": {
+   "Patient": {
+    "age": 82,
+    "nhs_number": "943 476 0048",
+    "condition": "joint pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "rheumatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Rheumatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-049",
+  "case": {
+   "Patient": {
+    "age": 22,
+    "nhs_number": "943 476 0049",
+    "condition": "joint pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "rheumatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Rheumatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-050",
+  "case": {
+   "Patient": {
+    "age": 93,
+    "nhs_number": "943 476 0050",
+    "condition": "non-specific",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "general medicine",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "General Medicine Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-051",
+  "case": {
+   "Patient": {
+    "age": 43,
+    "nhs_number": "943 476 0051",
+    "condition": "rash",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "dermatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Dermatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-052",
+  "case": {
+   "Patient": {
+    "age": 43,
+    "nhs_number": "943 476 0052",
+    "condition": "chest pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "cardiology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Cardiology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-053",
+  "case": {
+   "Patient": {
+    "age": 14,
+    "nhs_number": "943 476 0053",
+    "condition": "rash",
+    "guardian_consent": true
+   },
+   "Referral": {
+    "specialty": "dermatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Dermatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-054",
+  "case": {
+   "Patient": {
+    "age": 43,
+    "nhs_number": "943 476 0054",
+    "condition": "migraine",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "neurology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Neurology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-055",
+  "case": {
+   "Patient": {
+    "age": 24,
+    "nhs_number": "943 476 0055",
+    "condition": "rash",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "dermatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Dermatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-056",
+  "case": {
+   "Patient": {
+    "age": 14,
+    "nhs_number": "943 476 0056",
+    "condition": "migraine",
+    "guardian_consent": true
+   },
+   "Referral": {
+    "specialty": "neurology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Neurology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-057",
+  "case": {
+   "Patient": {
+    "age": 55,
+    "nhs_number": "943 476 0057",
+    "condition": "chest pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "cardiology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Cardiology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-058",
+  "case": {
+   "Patient": {
+    "age": 80,
+    "nhs_number": "943 476 0058",
+    "condition": "joint pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "rheumatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Rheumatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-059",
+  "case": {
+   "Patient": {
+    "age": 36,
+    "nhs_number": "943 476 0059",
+    "condition": "non-specific",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "general medicine",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "General Medicine Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-060",
+  "case": {
+   "Patient": {
+    "age": 57,
+    "nhs_number": "943 476 0060",
+    "condition": "chest pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "cardiology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Cardiology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-061",
+  "case": {
+   "Patient": {
+    "age": 85,
+    "nhs_number": "943 476 0061",
+    "condition": "chest pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "cardiology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Cardiology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-062",
+  "case": {
+   "Patient": {
+    "age": 67,
+    "nhs_number": "943 476 0062",
+    "condition": "joint pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "rheumatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Rheumatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-063",
+  "case": {
+   "Patient": {
+    "age": 30,
+    "nhs_number": "943 476 0063",
+    "condition": "chest pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "cardiology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Cardiology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-064",
+  "case": {
+   "Patient": {
+    "age": 76,
+    "nhs_number": "943 476 0064",
+    "condition": "migraine",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "neurology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Neurology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-065",
+  "case": {
+   "Patient": {
+    "age": 84,
+    "nhs_number": "943 476 0065",
+    "condition": "migraine",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "neurology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Neurology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-066",
+  "case": {
+   "Patient": {
+    "age": 56,
+    "nhs_number": "943 476 0066",
+    "condition": "chest pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "cardiology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Cardiology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-067",
+  "case": {
+   "Patient": {
+    "age": 59,
+    "nhs_number": "943 476 0067",
+    "condition": "joint pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "rheumatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Rheumatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-068",
+  "case": {
+   "Patient": {
+    "age": 11,
+    "nhs_number": "943 476 0068",
+    "condition": "migraine",
+    "guardian_consent": true
+   },
+   "Referral": {
+    "specialty": "neurology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Neurology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-069",
+  "case": {
+   "Patient": {
+    "age": 62,
+    "nhs_number": "943 476 0069",
+    "condition": "migraine",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "neurology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Neurology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-070",
+  "case": {
+   "Patient": {
+    "age": 83,
+    "nhs_number": "943 476 0070",
+    "condition": "migraine",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "neurology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Neurology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-071",
+  "case": {
+   "Patient": {
+    "age": 70,
+    "nhs_number": "943 476 0071",
+    "condition": "non-specific",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "general medicine",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "General Medicine Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-072",
+  "case": {
+   "Patient": {
+    "age": 66,
+    "nhs_number": "943 476 0072",
+    "condition": "rash",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "dermatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Dermatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-073",
+  "case": {
+   "Patient": {
+    "age": 44,
+    "nhs_number": "943 476 0073",
+    "condition": "non-specific",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "general medicine",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "General Medicine Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-074",
+  "case": {
+   "Patient": {
+    "age": 41,
+    "nhs_number": "943 476 0074",
+    "condition": "non-specific",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "general medicine",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "General Medicine Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-075",
+  "case": {
+   "Patient": {
+    "age": 22,
+    "nhs_number": "943 476 0075",
+    "condition": "chest pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "cardiology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Cardiology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-076",
+  "case": {
+   "Patient": {
+    "age": 72,
+    "nhs_number": "943 476 0076",
+    "condition": "migraine",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "neurology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Neurology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-077",
+  "case": {
+   "Patient": {
+    "age": 84,
+    "nhs_number": "943 476 0077",
+    "condition": "migraine",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "neurology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Neurology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-078",
+  "case": {
+   "Patient": {
+    "age": 47,
+    "nhs_number": "943 476 0078",
+    "condition": "chest pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "cardiology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Cardiology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-079",
+  "case": {
+   "Patient": {
+    "age": 66,
+    "nhs_number": "943 476 0079",
+    "condition": "joint pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "rheumatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Rheumatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-080",
+  "case": {
+   "Patient": {
+    "age": 74,
+    "nhs_number": "943 476 0080",
+    "condition": "migraine",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "neurology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Neurology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-081",
+  "case": {
+   "Patient": {
+    "age": 50,
+    "nhs_number": "943 476 0081",
+    "condition": "chest pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "cardiology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Cardiology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-082",
+  "case": {
+   "Patient": {
+    "age": 49,
+    "nhs_number": "943 476 0082",
+    "condition": "rash",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "dermatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Dermatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-083",
+  "case": {
+   "Patient": {
+    "age": 88,
+    "nhs_number": "943 476 0083",
+    "condition": "chest pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "cardiology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Cardiology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-084",
+  "case": {
+   "Patient": {
+    "age": 43,
+    "nhs_number": "943 476 0084",
+    "condition": "joint pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "rheumatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Rheumatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-085",
+  "case": {
+   "Patient": {
+    "age": 94,
+    "nhs_number": "943 476 0085",
+    "condition": "rash",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "dermatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Dermatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-086",
+  "case": {
+   "Patient": {
+    "age": 66,
+    "nhs_number": "943 476 0086",
+    "condition": "joint pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "rheumatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Rheumatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-087",
+  "case": {
+   "Patient": {
+    "age": 92,
+    "nhs_number": "943 476 0087",
+    "condition": "rash",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "dermatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Dermatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-088",
+  "case": {
+   "Patient": {
+    "age": 47,
+    "nhs_number": "943 476 0088",
+    "condition": "rash",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "dermatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Dermatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-089",
+  "case": {
+   "Patient": {
+    "age": 78,
+    "nhs_number": "943 476 0089",
+    "condition": "migraine",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "neurology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Neurology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-090",
+  "case": {
+   "Patient": {
+    "age": 64,
+    "nhs_number": "943 476 0090",
+    "condition": "non-specific",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "general medicine",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "General Medicine Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-091",
+  "case": {
+   "Patient": {
+    "age": 36,
+    "nhs_number": "943 476 0091",
+    "condition": "joint pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "rheumatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Rheumatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-092",
+  "case": {
+   "Patient": {
+    "age": 39,
+    "nhs_number": "943 476 0092",
+    "condition": "non-specific",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "general medicine",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "General Medicine Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-093",
+  "case": {
+   "Patient": {
+    "age": 68,
+    "nhs_number": "943 476 0093",
+    "condition": "rash",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "dermatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Dermatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-094",
+  "case": {
+   "Patient": {
+    "age": 49,
+    "nhs_number": "943 476 0094",
+    "condition": "joint pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "rheumatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Rheumatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-095",
+  "case": {
+   "Patient": {
+    "age": 86,
+    "nhs_number": "943 476 0095",
+    "condition": "joint pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "rheumatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Rheumatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-096",
+  "case": {
+   "Patient": {
+    "age": 56,
+    "nhs_number": "943 476 0096",
+    "condition": "joint pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "rheumatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Rheumatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-097",
+  "case": {
+   "Patient": {
+    "age": 26,
+    "nhs_number": "943 476 0097",
+    "condition": "migraine",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "neurology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Neurology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-098",
+  "case": {
+   "Patient": {
+    "age": 92,
+    "nhs_number": "943 476 0098",
+    "condition": "joint pain",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "rheumatology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Rheumatology Clinic"
+   }
+  }
+ },
+ {
+  "case_id": "REF-099",
+  "case": {
+   "Patient": {
+    "age": 50,
+    "nhs_number": "943 476 0099",
+    "condition": "migraine",
+    "guardian_consent": null
+   },
+   "Referral": {
+    "specialty": "neurology",
+    "urgency": "routine"
+   },
+   "Appointment": {
+    "clinic": "Neurology Clinic"
+   }
+  }
+ }
+]

@@ -63,3 +63,14 @@ class AuditLog:
 
     def to_jsonl(self) -> str:
         return "\n".join(json.dumps(e.__dict__, default=str) for e in self._entries)
+
+    def to_list(self) -> List[Dict[str, Any]]:
+        return [dict(e.__dict__) for e in self._entries]
+
+    @classmethod
+    def from_list(cls, entries: List[Dict[str, Any]]) -> "AuditLog":
+        """Rebuild a log from stored entries; :meth:`verify` still detects any tampering in storage."""
+        log = cls()
+        log._entries = [AuditEntry(int(e["seq"]), e["timestamp"], e["event"], dict(e["data"]), e["prev_hash"],
+                                   e["hash"]) for e in entries]
+        return log

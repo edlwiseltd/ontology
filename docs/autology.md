@@ -83,5 +83,6 @@ Autology moves automation from *human-in-the-loop* to *agent-in-the-loop*. Peopl
 - Escalations and deferrals are returned to the caller. Production use would route them to ticketing, on-call and scheduler systems.
 - The knowledge graph is in memory. A Neo4j or Neptune backend would implement the same `add` / `link` / `query` interface.
 - CodingAgent and PersonalAgent roles are not implemented. They would reuse the ontology, governance and audit layers unchanged.
+- Only the Anthropic adapter ships for LLMs. Other providers plug in through `FunctionChatModel` (or your own `ChatModel`), but no other vendor SDK is bundled.
 
 The engineering methodology (modules, competency questions, versioning, self-healing, ABAC, compliance reporting and cost/ROI) is covered in [`methodology.md`](methodology.md).

@@ -19,13 +19,38 @@ from typing import Dict, Iterable, List, Optional
 from .agent import RunResult
 
 HUMAN_STATUSES = ("blocked", "escalated", "paused", "suspended")
+POLICY_MARKERS = ("prohibited:", "mandatory step")
+
+
+def classify(result: RunResult) -> str:
+    """Outcome class of a run.
+
+    ``completed``    - goal reached;
+    ``policy_stop``  - correctly stopped by governance: a human reviewer declined, or the only
+                       paths to the goal violate a prohibition / mandatory-step rule (e.g. a
+                       sanctioned party, a failed due-diligence check). This is the system working;
+    ``pending``      - deferred, waiting for a retry window;
+    ``unplanned``    - everything else: tool failures, unmodelled outcomes, missing capabilities
+                       or permissions, loops, paused or suspended agents.
+    """
+    if result.status == "completed":
+        return "completed"
+    if result.status == "deferred":
+        return "pending"
+    if result.status == "blocked":
+        return "policy_stop"
+    esc = result.escalation
+    if (result.status == "escalated" and esc and esc.reason.startswith("no compliant path")
+            and esc.details and all(any(m in d for m in POLICY_MARKERS) for d in esc.details)):
+        return "policy_stop"
+    return "unplanned"
 
 
 @dataclass
 class Metrics:
     tasks: int
     by_status: Dict[str, int]
-    success_rate: float
+    success_rate: float  # completed / tasks
     straight_through_rate: float  # completed with no human touch
     human_intervention_rate: float  # needed a reviewer or a hand-off
     reviews: int
@@ -40,6 +65,9 @@ class Metrics:
     cost_per_completed_task: float = 0.0  # what outcome-based pricing should be benchmarked against
     avg_latency_ms: float = 0.0
     violations_by_principal: Dict[str, int] = field(default_factory=dict)
+    by_outcome: Dict[str, int] = field(default_factory=dict)  # see classify()
+    resolution_rate: float = 0.0  # (completed + correctly stopped by policy) / tasks
+    unplanned_handoff_rate: float = 0.0  # unplanned / tasks
 
     def as_dict(self) -> Dict:
         return dict(self.__dict__)
@@ -73,6 +101,7 @@ def metrics(results: Iterable[RunResult]) -> Metrics:
     for r in results:
         for e in r.audit.events("governance.deny"):
             violators[e.data.get("principal", "?")] += 1
+    outcomes = Counter(classify(r) for r in results)
     return Metrics(
         tasks=n, by_status=dict(by_status), success_rate=_rate(by_status["completed"], n),
         straight_through_rate=_rate(len(straight), n), human_intervention_rate=_rate(len(human), n),
@@ -86,6 +115,9 @@ def metrics(results: Iterable[RunResult]) -> Metrics:
         cost_per_completed_task=round((llm + tools) / by_status["completed"], 6) if by_status["completed"] else 0.0,
         avg_latency_ms=round(sum(_latency_ms(r) for r in results) / n, 3) if n else 0.0,
         violations_by_principal=dict(violators),
+        by_outcome=dict(outcomes),
+        resolution_rate=_rate(outcomes["completed"] + outcomes["policy_stop"], n),
+        unplanned_handoff_rate=_rate(outcomes["unplanned"], n),
     )
 
 
@@ -138,7 +170,9 @@ def compliance_report(results: Iterable[RunResult], ontology, title: Optional[st
              f"Audit trails intact: {'yes' if chain_ok else 'NO - TAMPERING DETECTED'}", "",
              "## KPIs", "",
              "| Metric | Value |", "|---|---|",
-             f"| Success rate | {m.success_rate:.0%} |",
+             f"| Success rate (completed) | {m.success_rate:.0%} |",
+             f"| Resolution rate (completed or correctly stopped by policy) | {m.resolution_rate:.0%} |",
+             f"| Unplanned hand-offs | {m.unplanned_handoff_rate:.0%} |",
              f"| Straight-through (no human) | {m.straight_through_rate:.0%} |",
              f"| Human intervention rate | {m.human_intervention_rate:.0%} |",
              f"| Human reviews | {m.reviews} |",

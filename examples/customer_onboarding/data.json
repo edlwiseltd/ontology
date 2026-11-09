@@ -1,0 +1,173 @@
+{
+  "instances": [
+    {
+      "type": "Customer",
+      "id": "CU-1",
+      "name": "Acme Retail",
+      "industry": "Retail",
+      "status": "active"
+    },
+    {
+      "type": "Customer",
+      "id": "CU-2",
+      "name": "XYZ Capital",
+      "industry": "Financial Services",
+      "status": "verified"
+    },
+    {
+      "type": "Customer",
+      "id": "CU-3",
+      "name": "Globex",
+      "industry": "Manufacturing",
+      "status": "active"
+    },
+    {
+      "type": "Customer",
+      "id": "CU-4",
+      "name": "Northwind Bank",
+      "industry": "Financial Services",
+      "status": "active"
+    },
+    {
+      "type": "Customer",
+      "id": "CU-5",
+      "name": "Delta Bank",
+      "industry": "Financial Services",
+      "status": "verified"
+    },
+    {
+      "type": "Contract",
+      "id": "K-1",
+      "status": "signed",
+      "value": 48000
+    },
+    {
+      "type": "Contract",
+      "id": "K-2",
+      "status": "submitted",
+      "value": 2500000
+    },
+    {
+      "type": "Contract",
+      "id": "K-3",
+      "status": "signed",
+      "value": 120000
+    },
+    {
+      "type": "Contract",
+      "id": "K-4",
+      "status": "signed",
+      "value": 180000
+    },
+    {
+      "type": "Contract",
+      "id": "K-5",
+      "status": "rejected",
+      "value": 300000
+    },
+    {
+      "type": "Order",
+      "id": "O-1",
+      "status": "placed",
+      "sku": "PLAN-STARTER"
+    },
+    {
+      "type": "Order",
+      "id": "O-2",
+      "status": "placed",
+      "sku": "ADDON-SEATS"
+    },
+    {
+      "type": "Order",
+      "id": "O-3",
+      "status": "placed",
+      "sku": "PLAN-PRO"
+    },
+    {
+      "type": "Order",
+      "id": "O-4",
+      "status": "placed",
+      "sku": "PLAN-ENTERPRISE"
+    },
+    {
+      "type": "BillingAccount",
+      "id": "B-1",
+      "status": "configured",
+      "method": "card"
+    },
+    {
+      "type": "BillingAccount",
+      "id": "B-3",
+      "status": "configured",
+      "method": "invoice"
+    },
+    {
+      "type": "BillingAccount",
+      "id": "B-4",
+      "status": "configured",
+      "method": "invoice"
+    }
+  ],
+  "links": [
+    [
+      "CU-1",
+      "has",
+      "K-1"
+    ],
+    [
+      "CU-2",
+      "has",
+      "K-2"
+    ],
+    [
+      "CU-3",
+      "has",
+      "K-3"
+    ],
+    [
+      "CU-4",
+      "has",
+      "K-4"
+    ],
+    [
+      "CU-5",
+      "has",
+      "K-5"
+    ],
+    [
+      "K-1",
+      "governs",
+      "O-1"
+    ],
+    [
+      "K-1",
+      "governs",
+      "O-2"
+    ],
+    [
+      "K-3",
+      "governs",
+      "O-3"
+    ],
+    [
+      "K-4",
+      "governs",
+      "O-4"
+    ],
+    [
+      "CU-1",
+      "billed_through",
+      "B-1"
+    ],
+    [
+      "CU-3",
+      "billed_through",
+      "B-3"
+    ],
+    [
+      "CU-4",
+      "billed_through",
+      "B-4"
+    ]
+  ]
+}

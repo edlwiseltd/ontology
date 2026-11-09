@@ -1,0 +1,5 @@
+{
+  "python_path": ["."],
+  "registries": [{"target": "onboarding_tools:build_registry", "kwargs": {"flaky_billing": 2}}],
+  "_comment": "pilot environment: the card billing API times out twice at the start of the batch"
+}

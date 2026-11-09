@@ -67,8 +67,9 @@ def lint(ontology: Ontology, tools=None) -> List[Finding]:
                 for ent, ch in out_.effects.items() if STATUS in ch}
     for e in o.entities.values():
         for s in e.states:
-            if s != e.initial_state and (e.name, s) not in produced:
-                out.append(Finding("info", "STR001", f"state {e.name}:{s} is never produced by any action"))
+            if s != e.initial_state and s not in e.external_states and (e.name, s) not in produced:
+                out.append(Finding("info", "STR001", f"state {e.name}:{s} is never produced by any action "
+                                                     "(declare it in external_states if another system sets it)"))
     related = {r.source for r in o.relationships} | {r.target for r in o.relationships}
     for e in o.entities:
         if o.relationships and e not in related:

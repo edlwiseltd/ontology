@@ -1,0 +1,29 @@
+{
+  "tools": [
+    {
+      "name": "booking_office",
+      "capability": "scheduling.book",
+      "type": "table",
+      "cost": 0.5,
+      "rows": [
+        {
+          "when": "Referral.urgency == 'urgent'",
+          "updates": {
+            "Appointment": {
+              "slot": "within 2 weeks"
+            }
+          },
+          "message": "urgent slot booked"
+        },
+        {
+          "updates": {
+            "Appointment": {
+              "slot": "within 8 weeks"
+            }
+          },
+          "message": "routine slot booked"
+        }
+      ]
+    }
+  ]
+}

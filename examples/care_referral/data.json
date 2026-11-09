@@ -1,0 +1,124 @@
+{
+  "instances": [
+    {
+      "type": "Patient",
+      "id": "PT-1",
+      "age": 71,
+      "status": "under_care",
+      "consent": true
+    },
+    {
+      "type": "Patient",
+      "id": "PT-2",
+      "age": 58,
+      "status": "triaged",
+      "consent": true
+    },
+    {
+      "type": "Patient",
+      "id": "PT-3",
+      "age": 34,
+      "status": "under_care",
+      "consent": true
+    },
+    {
+      "type": "Patient",
+      "id": "PT-4",
+      "age": 66,
+      "status": "triaged",
+      "consent": true
+    },
+    {
+      "type": "Referral",
+      "id": "RF-1",
+      "status": "accepted",
+      "specialty": "cardiology",
+      "urgency": "urgent"
+    },
+    {
+      "type": "Referral",
+      "id": "RF-2",
+      "status": "submitted",
+      "specialty": "cardiology",
+      "urgency": "urgent"
+    },
+    {
+      "type": "Referral",
+      "id": "RF-3",
+      "status": "accepted",
+      "specialty": "dermatology",
+      "urgency": "routine"
+    },
+    {
+      "type": "Referral",
+      "id": "RF-4",
+      "status": "rejected",
+      "specialty": "neurology",
+      "urgency": "routine"
+    },
+    {
+      "type": "Appointment",
+      "id": "AP-1",
+      "status": "booked",
+      "clinic": "Heart Centre"
+    },
+    {
+      "type": "Appointment",
+      "id": "AP-3",
+      "status": "booked",
+      "clinic": "Skin Clinic"
+    },
+    {
+      "type": "CarePlan",
+      "id": "CP-1",
+      "status": "approved"
+    },
+    {
+      "type": "CarePlan",
+      "id": "CP-3",
+      "status": "approved"
+    }
+  ],
+  "links": [
+    [
+      "PT-1",
+      "hasReferral",
+      "RF-1"
+    ],
+    [
+      "PT-2",
+      "hasReferral",
+      "RF-2"
+    ],
+    [
+      "PT-3",
+      "hasReferral",
+      "RF-3"
+    ],
+    [
+      "PT-4",
+      "hasReferral",
+      "RF-4"
+    ],
+    [
+      "RF-1",
+      "leadsTo",
+      "AP-1"
+    ],
+    [
+      "RF-3",
+      "leadsTo",
+      "AP-3"
+    ],
+    [
+      "PT-1",
+      "hasCarePlan",
+      "CP-1"
+    ],
+    [
+      "PT-3",
+      "hasCarePlan",
+      "CP-3"
+    ]
+  ]
+}

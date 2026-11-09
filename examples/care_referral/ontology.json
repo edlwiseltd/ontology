@@ -1,0 +1,413 @@
+{
+  "name": "care-referral",
+  "version": "1.0.0",
+  "description": "Patient referral pathway: consent, triage, specialist referral, booking and care plan",
+  "settings": {
+    "max_violations": 3
+  },
+  "entities": {
+    "Patient": {
+      "description": "Person referred for specialist care",
+      "states": [
+        "registered",
+        "triaged",
+        "under_care"
+      ],
+      "attributes": {
+        "age": "integer",
+        "nhs_number": {
+          "type": "string",
+          "sensitivity": "pii"
+        },
+        "condition": {
+          "type": "string",
+          "sensitivity": "confidential"
+        },
+        "consent": "boolean",
+        "guardian_consent": "boolean",
+        "risk": "string"
+      }
+    },
+    "Referral": {
+      "description": "Request to a specialist service",
+      "states": [
+        "draft",
+        "submitted",
+        "accepted",
+        "rejected"
+      ],
+      "attributes": {
+        "specialty": "string",
+        "urgency": "string",
+        "alternate": "boolean"
+      }
+    },
+    "Appointment": {
+      "description": "Specialist appointment",
+      "states": [
+        "none",
+        "booked"
+      ],
+      "attributes": {
+        "slot": {
+          "type": "string",
+          "sensitivity": "restricted"
+        },
+        "clinic": "string"
+      }
+    },
+    "CarePlan": {
+      "description": "Agreed treatment plan",
+      "states": [
+        "none",
+        "approved"
+      ],
+      "attributes": {
+        "summary": "string"
+      }
+    }
+  },
+  "relationships": [
+    {
+      "from": "Patient",
+      "to": "Referral",
+      "type": "hasReferral",
+      "cardinality": "1..*"
+    },
+    {
+      "from": "Referral",
+      "to": "Appointment",
+      "type": "leadsTo",
+      "cardinality": "0..1"
+    },
+    {
+      "from": "Patient",
+      "to": "CarePlan",
+      "type": "hasCarePlan",
+      "cardinality": "0..*"
+    }
+  ],
+  "actions": {
+    "record_consent": {
+      "description": "Record the patient's consent to share data with the specialist service",
+      "capability": "consent.record",
+      "requires": [
+        "Patient.consent != True"
+      ],
+      "reads": [
+        "Patient.age"
+      ],
+      "effects": {
+        "Patient": {
+          "consent": true
+        }
+      }
+    },
+    "triage": {
+      "description": "Clinical triage of the presenting condition",
+      "capability": "clinical.triage",
+      "requires": [
+        "Patient.status == 'registered'",
+        "Patient.consent == True"
+      ],
+      "reads": [
+        "Patient.age",
+        "Patient.condition"
+      ],
+      "outcomes": {
+        "routine": {
+          "effects": {
+            "Patient": {
+              "status": "triaged",
+              "risk": "low"
+            }
+          }
+        },
+        "urgent": {
+          "effects": {
+            "Patient": {
+              "status": "triaged",
+              "risk": "high"
+            },
+            "Referral": {
+              "urgency": "urgent"
+            }
+          }
+        }
+      }
+    },
+    "create_referral": {
+      "description": "Create the referral in the electronic health record",
+      "capability": "ehr.referral",
+      "requires": [
+        "Patient.status == 'triaged'",
+        "Referral.status == 'draft'"
+      ],
+      "reads": [
+        "Referral.specialty",
+        "Patient.nhs_number"
+      ],
+      "effects": {
+        "Referral": {
+          "status": "submitted"
+        }
+      }
+    },
+    "specialist_review": {
+      "description": "Specialist service accepts or rejects the referral",
+      "capability": "specialist.review",
+      "requires": [
+        "Referral.status == 'submitted'"
+      ],
+      "reads": [
+        "Referral.specialty",
+        "Referral.urgency",
+        "Referral.alternate",
+        "Patient.condition"
+      ],
+      "outcomes": {
+        "accepted": {
+          "effects": {
+            "Referral": {
+              "status": "accepted"
+            }
+          }
+        },
+        "rejected": {
+          "effects": {
+            "Referral": {
+              "status": "rejected"
+            }
+          }
+        }
+      }
+    },
+    "refer_alternate": {
+      "description": "Re-refer a rejected referral to an alternate service",
+      "capability": "ehr.referral",
+      "requires": [
+        "Referral.status == 'rejected'",
+        "Referral.alternate != True"
+      ],
+      "effects": {
+        "Referral": {
+          "status": "submitted",
+          "alternate": true
+        }
+      },
+      "cost": 3
+    },
+    "book_appointment": {
+      "description": "Book the specialist appointment",
+      "capability": "scheduling.book",
+      "requires": [
+        "Referral.status == 'accepted'",
+        "Appointment.status == 'none'"
+      ],
+      "reads": [
+        "Referral.urgency",
+        "Appointment.clinic"
+      ],
+      "writes": [
+        "Appointment.slot"
+      ],
+      "effects": {
+        "Appointment": {
+          "status": "booked"
+        }
+      }
+    },
+    "approve_care_plan": {
+      "description": "Agree the care plan with the treating clinician",
+      "capability": "clinical.care_plan",
+      "requires": [
+        "Appointment.status == 'booked'",
+        "CarePlan.status == 'none'"
+      ],
+      "reads": [
+        "Patient.condition",
+        "Patient.risk"
+      ],
+      "effects": {
+        "CarePlan": {
+          "status": "approved"
+        }
+      }
+    },
+    "start_care": {
+      "description": "Admit the patient to the specialist care pathway",
+      "capability": "ehr.admit",
+      "requires": [
+        "CarePlan.status == 'approved'"
+      ],
+      "reads": [
+        "Patient.nhs_number",
+        "Patient.age"
+      ],
+      "effects": {
+        "Patient": {
+          "status": "under_care"
+        }
+      }
+    }
+  },
+  "goals": {
+    "start_treatment": {
+      "description": "Referred patient starts specialist care",
+      "target": "Patient.status == 'under_care'"
+    }
+  },
+  "rules": [
+    {
+      "id": "R-CON-001",
+      "type": "mandatory_step",
+      "description": "No clinical processing without recorded consent",
+      "step": "record_consent",
+      "before": "triage"
+    },
+    {
+      "id": "R-PHI-001",
+      "type": "data_access",
+      "description": "Patient identifiers are visible to clinical and admin staff only",
+      "field": "Patient.nhs_number",
+      "roles": [
+        "clinical",
+        "admin"
+      ]
+    },
+    {
+      "id": "R-PHI-002",
+      "type": "data_access",
+      "description": "Clinical conditions are visible to clinical staff only",
+      "field": "Patient.condition",
+      "roles": [
+        "clinical"
+      ]
+    },
+    {
+      "id": "R-CLIN-001",
+      "type": "mandatory_step",
+      "description": "Every referral is preceded by triage",
+      "step": "triage",
+      "before": "create_referral"
+    },
+    {
+      "id": "R-CLIN-002",
+      "type": "mandatory_step",
+      "description": "Appointments are booked only for referrals the specialist accepted",
+      "step": "specialist_review",
+      "outcome": "accepted",
+      "before": "book_appointment",
+      "reset_by": [
+        "refer_alternate"
+      ]
+    },
+    {
+      "id": "R-CLIN-003",
+      "type": "human_review",
+      "description": "High-risk care plans are approved by a consultant",
+      "when": "Patient.risk == 'high'",
+      "action": "approve_care_plan",
+      "reviewer": "consultant"
+    },
+    {
+      "id": "R-CLIN-004",
+      "type": "action_access",
+      "description": "Only clinical staff agree care plans",
+      "action": "approve_care_plan",
+      "roles": [
+        "clinical"
+      ]
+    },
+    {
+      "id": "R-GP-001",
+      "type": "human_review",
+      "description": "Re-referrals to an alternate service need GP sign-off",
+      "action": "refer_alternate",
+      "reviewer": "gp"
+    },
+    {
+      "id": "R-ADM-001",
+      "type": "write_access",
+      "description": "Only the booking office allocates appointment slots",
+      "field": "Appointment.slot",
+      "roles": [
+        "admin"
+      ]
+    },
+    {
+      "id": "R-SAFE-001",
+      "type": "prohibition",
+      "description": "Minors start care only with guardian consent",
+      "when": "Patient.age < 18 and Patient.guardian_consent != True",
+      "action": "start_care"
+    },
+    {
+      "id": "R-SAFE-002",
+      "type": "action_access",
+      "description": "Only clinical staff admit patients",
+      "action": "start_care",
+      "roles": [
+        "clinical"
+      ]
+    }
+  ],
+  "competency_questions": [
+    {
+      "id": "CQ-01",
+      "question": "Which urgent referrals are waiting for specialist review?",
+      "find": "Referral",
+      "where": "Referral.status == 'submitted' and Referral.urgency == 'urgent'",
+      "expect": [
+        "RF-2"
+      ]
+    },
+    {
+      "id": "CQ-02",
+      "question": "Which patients aged 65 or over are under care?",
+      "find": "Patient",
+      "where": "Patient.age >= 65 and Patient.status == 'under_care'",
+      "expect": [
+        "PT-1"
+      ]
+    },
+    {
+      "id": "CQ-03",
+      "question": "How many cardiology referrals are there?",
+      "find": "Referral",
+      "where": "Referral.specialty == 'cardiology'",
+      "aggregate": {
+        "count": true
+      },
+      "expect": 2
+    },
+    {
+      "id": "CQ-04",
+      "question": "Which patients have a rejected referral?",
+      "find": "Referral",
+      "where": "Referral.status == 'rejected'",
+      "follow": [
+        "^hasReferral"
+      ],
+      "expect": [
+        "PT-4"
+      ]
+    },
+    {
+      "id": "CQ-05",
+      "question": "Which appointments follow from a patient's referrals?",
+      "find": "Patient",
+      "where": "Patient.id == Params.patient",
+      "follow": [
+        "hasReferral",
+        "leadsTo"
+      ],
+      "params": {
+        "patient": "PT-1"
+      },
+      "expect": [
+        "AP-1"
+      ]
+    }
+  ]
+}

@@ -13,7 +13,9 @@ for p in (str(ROOT), str(EXAMPLE)):
 
 from onboarding_tools import build_registry  # noqa: E402,F401
 
-_DOC = json.loads(ONTOLOGY_PATH.read_text())
+from autology.ontology import load_document  # noqa: E402
+
+_DOC = load_document(ONTOLOGY_PATH)  # composed from modules
 
 
 def load_doc():

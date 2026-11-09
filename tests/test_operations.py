@@ -34,6 +34,7 @@ def mfg():
 
 def procurement_agent(onto, faults=None, with_finance=True, **kw):
     kw.setdefault("approver", AutoApprover())
+    kw.setdefault("sleep", lambda seconds: None)
     finance = WorkAgent("finance-agent", onto, mt.finance_tools(), roles=["finance"])
     return WorkAgent("procurement-agent", onto, mt.procurement_tools(faults), roles=["procurement"],
                      delegates=[finance] if with_finance else [], **kw)
@@ -69,7 +70,17 @@ class SelfHealingTests(unittest.TestCase):
         self.assertTrue(result.completed)
         step = next(s for s in result.steps if s.action == "check_clauses")
         self.assertEqual(step.tool, "outside_counsel_review")
-        self.assertEqual(result.costs["tools"], 1.0 + 0.05 + 400.0 + 2.0)
+        # fallback_after=1: the cheap checker is retried once before the 400 fallback is paid for
+        self.assertEqual(result.costs["tools"], 1.0 + 0.05 + 0.05 + 400.0 + 2.0)
+
+    def test_cheap_retry_avoids_expensive_fallback(self):
+        slept = []
+        agent = procurement_agent(mfg(), mt.Faults(clause_ai_failures=1), sleep=slept.append)
+        result = agent.run("contract_supplier", supplier_case())
+        self.assertTrue(result.completed)
+        self.assertEqual(next(s.tool for s in result.steps if s.action == "check_clauses"), "ai_clause_checker")
+        self.assertEqual(slept, [1.0])
+        self.assertNotIn("outside_counsel_review", [e.data["tool"] for e in result.audit.events("tool.call")])
 
     def test_cheapest_tool_preferred(self):
         result = procurement_agent(mfg()).run("contract_supplier", supplier_case())
@@ -323,7 +334,7 @@ class CostOptimisationTests(unittest.TestCase):
     def test_valid_but_useless_llm_choices_are_bounded(self):
         client = FakeClaude(picker=lambda names: names[0])  # keeps re-running due diligence
         onto = Ontology.load(ONTOLOGY_PATH)
-        agent = WorkAgent("a", onto, build_registry(), roles=["kyc"], reasoner=ClaudeReasoner(client),
+        agent = WorkAgent("a", onto, build_registry(), roles=["sales", "kyc"], reasoner=ClaudeReasoner(client),
                           approver=AutoApprover())
         res = agent.run("onboard_customer", retail_case())
         self.assertEqual(res.status, "escalated")
@@ -334,7 +345,7 @@ class CostOptimisationTests(unittest.TestCase):
         router = RoutingReasoner(ClaudeReasoner(client, "claude-haiku-5-5", effort="low"),
                                  ClaudeReasoner(client, "claude-opus-5-5"), simple_max_candidates=1)
         onto = Ontology.load(ONTOLOGY_PATH)
-        agent = WorkAgent("a", onto, build_registry(), roles=["kyc"], reasoner=router, approver=AutoApprover())
+        agent = WorkAgent("a", onto, build_registry(), roles=["sales", "kyc"], reasoner=router, approver=AutoApprover())
         res = agent.run("onboard_customer", retail_case())
         self.assertTrue(res.completed)
         self.assertGreater(router.routes["deterministic"], 0)
@@ -356,7 +367,7 @@ class CostOptimisationTests(unittest.TestCase):
         self.assertNotIn("fallbacks", haiku)  # no server-side fallback on Haiku
         self.assertEqual(haiku["output_config"]["effort"], "low")
         self.assertEqual(opus["cache_control"], {"type": "ephemeral"})
-        self.assertIn("Ontology customer-onboarding@1.0.0", opus["system"])  # stable, cacheable prefix
+        self.assertIn("Ontology customer-onboarding@1.2.0", opus["system"])  # stable, cacheable prefix
         self.assertNotIn("CASE STATE", opus["system"])
 
     def test_decision_cache(self):

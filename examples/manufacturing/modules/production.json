@@ -2,62 +2,168 @@
   "name": "production",
   "version": "1.0.0",
   "description": "ProductionOntology: factories, lines and order fulfilment",
-  "imports": ["core.json"],
+  "imports": [
+    "core.json"
+  ],
   "entities": {
-    "Factory": {"states": ["operating", "shutdown"], "attributes": {"name": "string", "region": "string"}},
+    "Factory": {
+      "states": [
+        "operating",
+        "shutdown"
+      ],
+      "attributes": {
+        "name": "string",
+        "region": "string"
+      },
+      "external_states": [
+        "shutdown"
+      ],
+      "description": "Plant; status is synced from the plant ERP"
+    },
     "ProductionLine": {
-      "states": ["available", "down"],
-      "attributes": {"code": "string", "alternate_available": "boolean"}
+      "states": [
+        "available",
+        "down"
+      ],
+      "attributes": {
+        "code": "string",
+        "alternate_available": "boolean"
+      },
+      "external_states": [
+        "down"
+      ],
+      "description": "Line; status is synced from MES telemetry"
     },
     "Order": {
-      "states": ["received", "scheduled", "in_production", "completed"],
-      "attributes": {"quantity": "integer", "amount": "number", "line": "string"}
+      "states": [
+        "received",
+        "scheduled",
+        "in_production",
+        "completed"
+      ],
+      "attributes": {
+        "quantity": "integer",
+        "amount": "number",
+        "line": "string"
+      }
     }
   },
   "relationships": [
-    {"from": "Factory", "to": "ProductionLine", "type": "hasProductionLine", "cardinality": "1..*"},
-    {"from": "ProductionLine", "to": "Product", "type": "manufactures", "cardinality": "1..*"},
-    {"from": "Order", "to": "Product", "type": "forProduct", "cardinality": "1"}
+    {
+      "from": "Factory",
+      "to": "ProductionLine",
+      "type": "hasProductionLine",
+      "cardinality": "1..*"
+    },
+    {
+      "from": "ProductionLine",
+      "to": "Product",
+      "type": "manufactures",
+      "cardinality": "1..*"
+    },
+    {
+      "from": "Order",
+      "to": "Product",
+      "type": "forProduct",
+      "cardinality": "1"
+    }
   ],
   "actions": {
     "check_material_supply": {
       "description": "Confirm the supplier will deliver raw materials on time",
       "capability": "scm.supply_check",
-      "requires": ["Order.status == 'received'"],
-      "reads": ["Supplier.name", "Supplier.on_time_rate"],
+      "requires": [
+        "Order.status == 'received'"
+      ],
+      "reads": [
+        "Supplier.name",
+        "Supplier.on_time_rate"
+      ],
       "outcomes": {
-        "on_time": {"effects": {"Supplier": {"on_time": true}, "Order": {"status": "scheduled"}}},
-        "late": {"effects": {"Supplier": {"on_time": false}, "Order": {"status": "scheduled"}}}
+        "on_time": {
+          "effects": {
+            "Supplier": {
+              "on_time": true
+            },
+            "Order": {
+              "status": "scheduled"
+            }
+          }
+        },
+        "late": {
+          "effects": {
+            "Supplier": {
+              "on_time": false
+            },
+            "Order": {
+              "status": "scheduled"
+            }
+          }
+        }
       }
     },
     "reroute_to_alternate_line": {
       "description": "Move the order to an alternate production line with its own material stock",
       "capability": "mes.reroute",
-      "requires": ["Order.status == 'scheduled'", "Order.line == 'primary'", "ProductionLine.alternate_available == True"],
-      "effects": {"Order": {"line": "alternate"}},
+      "requires": [
+        "Order.status == 'scheduled'",
+        "Order.line == 'primary'",
+        "ProductionLine.alternate_available == True"
+      ],
+      "effects": {
+        "Order": {
+          "line": "alternate"
+        }
+      },
       "cost": 2
     },
     "start_production": {
       "description": "Release the order to the shop floor",
       "capability": "mes.start",
-      "requires": ["Order.status == 'scheduled'"],
-      "reads": ["Order.quantity", "Order.line"],
-      "effects": {"Order": {"status": "in_production"}},
-      "on_failure": {"max_attempts": 3, "backoff_seconds": 3600, "escalate_to": "plant_manager"}
+      "requires": [
+        "Order.status == 'scheduled'"
+      ],
+      "reads": [
+        "Order.quantity",
+        "Order.line"
+      ],
+      "effects": {
+        "Order": {
+          "status": "in_production"
+        }
+      },
+      "on_failure": {
+        "max_attempts": 3,
+        "backoff_seconds": 3600,
+        "escalate_to": "plant_manager"
+      }
     },
     "complete_order": {
       "description": "Confirm production output and close the order",
       "capability": "mes.complete",
-      "requires": ["Order.status == 'in_production'"],
-      "effects": {"Order": {"status": "completed"}}
+      "requires": [
+        "Order.status == 'in_production'"
+      ],
+      "effects": {
+        "Order": {
+          "status": "completed"
+        }
+      }
     }
   },
   "goals": {
-    "fulfil_order": {"description": "Produce and complete the customer order", "target": "Order.status == 'completed'"}
+    "fulfil_order": {
+      "description": "Produce and complete the customer order",
+      "target": "Order.status == 'completed'"
+    }
   },
   "rules": [
-    {"id": "R-PROD-001", "type": "prohibition",
-     "description": "The primary line may only run Product A when the supplier delivers raw materials on time",
-     "when": "Supplier.on_time == False and Order.line == 'primary'", "action": "start_production"}
+    {
+      "id": "R-PROD-001",
+      "type": "prohibition",
+      "description": "The primary line may only run Product A when the supplier delivers raw materials on time",
+      "when": "Supplier.on_time == False and Order.line == 'primary'",
+      "action": "start_production"
+    }
   ]
 }

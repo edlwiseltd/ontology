@@ -24,7 +24,7 @@ def write(tmp: Path, name: str, doc: dict) -> Path:
 class ModuleTests(unittest.TestCase):
     def test_enterprise_composes_modules_once(self):
         onto = Ontology.load(MFG_ONTOLOGY)
-        self.assertEqual(onto.modules, ("core@1.0.0", "procurement@1.0.0", "production@1.0.0", "quality@1.0.0"))
+        self.assertEqual(onto.modules, ("core@1.0.0", "procurement@1.1.0", "production@1.0.0", "quality@1.0.0"))
         self.assertIn("Contract", onto.entities)  # from core, imported by three modules
         self.assertEqual(len([r for r in onto.relationships if r.kind == "hasSupplier"]), 1)
         self.assertIn("R-QUAL-001", {r.id for r in onto.rules})

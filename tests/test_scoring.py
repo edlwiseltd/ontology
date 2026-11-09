@@ -2,7 +2,9 @@
 
 import io
 import json
+import tempfile
 import unittest
+from pathlib import Path
 from contextlib import redirect_stderr, redirect_stdout
 
 from autology import AutoApprover, Ontology, WorkAgent
@@ -71,9 +73,13 @@ class ScoringTests(unittest.TestCase):
         gates = {(g.phase, g.criterion): g.passed for g in card.gates}
         self.assertTrue(gates[("Pilot", "Agent success rate")])
         self.assertTrue(gates[("Pilot", "ROI")])
-        self.assertFalse(gates[("Pilot", "Ontology scope")])  # 9 rules < 10
-        self.assertIn("pilot gate not passed (failing: Ontology scope)", card.phase_reached)
-        self.assertIn("[Pilot gate] Ontology scope is 7 entities, 9 rules", "\n".join(card.recommendations()))
+        self.assertTrue(gates[("Pilot", "Ontology scope")])  # 7 entities, 10 rules
+        self.assertTrue(all(g.passed for g in card.gates if g.phase == "Pilot"))
+        self.assertIn("Pilot gate passed - scale gate failing: Ontology scope, Agents in operation, Tasks per month",
+                      card.phase_reached)
+        self.assertIn("[Scale gate] Tasks per month is 1,500; target > 10,000", "\n".join(card.recommendations()))
+        low_roi = score_deployment(self.onto, clean_runs(self.onto, 3), roi=1.4)
+        self.assertIn("pilot gate not passed (failing: ROI", low_roi.phase_reached)
 
     def test_troubled_deployment_scores_lower_with_actionable_advice(self):
         clean = score_deployment(self.onto, clean_runs(self.onto), tools=all_tools(), graph=self.graph)
@@ -83,7 +89,7 @@ class ScoringTests(unittest.TestCase):
         self.assertLess(agent.score, 60)
         recs = "\n".join(bad.recommendations())
         self.assertIn("partial_delivery", recs)
-        self.assertIn("raise success", bad.recommendations()[0])
+        self.assertIn("raise resolution", bad.recommendations()[0])
 
     def test_recommendations_ranked_and_unique(self):
         card = score_deployment(self.onto, troubled_runs(self.onto), tools=all_tools())
@@ -99,7 +105,7 @@ class ScoringTests(unittest.TestCase):
         unguarded = score_ontology(Ontology.from_dict(doc)).pillars[0]
         sec = lambda p: next(c for c in p.criteria if c.name == "Security by design")  # noqa: E731
         self.assertEqual(sec(guarded).earned, 20)
-        self.assertEqual(sec(unguarded).earned, 0)
+        self.assertEqual(sec(unguarded).earned, 10)  # Contact.email still guarded, Customer.tax_id not
         self.assertIn("Customer.tax_id", sec(unguarded).recommendation)
 
     def test_render_and_dict(self):
@@ -118,9 +124,14 @@ class ScoringTests(unittest.TestCase):
         self.assertEqual([g for _, g in GRADES], ["A", "B", "C", "D", "F"])
 
     def test_cli_gate(self):
+        doc = load_doc()
+        doc.pop("competency_questions")
+        doc.pop("settings")
+        weak = Path(tempfile.mkdtemp()) / "weak.json"
+        weak.write_text(json.dumps(doc))
         out, err = io.StringIO(), io.StringIO()
         with redirect_stdout(out), redirect_stderr(err):
-            low = cli(["score", str(ONTOLOGY_PATH), "--min-score", "95"])
+            low = cli(["score", str(weak), "--min-score", "90"])
             ok = cli(["score", str(MFG_ONTOLOGY), "--data", str(MFG / "data.json"), "--min-score", "90"])
             cli(["score", str(MFG_ONTOLOGY), "--json"])
         self.assertEqual((low, ok), (4, 0))

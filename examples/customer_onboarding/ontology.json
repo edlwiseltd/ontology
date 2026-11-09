@@ -1,0 +1,173 @@
+{
+  "name": "customer-onboarding",
+  "version": "1.0.0",
+  "description": "Customer -> Contract -> Order lifecycle for B2B onboarding",
+  "entities": {
+    "Customer": {
+      "description": "The organisation being onboarded",
+      "states": ["prospect", "verified", "active"],
+      "initial": "prospect",
+      "attributes": {
+        "name": "string",
+        "industry": "string",
+        "tax_id": {"type": "string", "sensitivity": "pii"},
+        "risk_level": "string",
+        "sanctions_hit": "boolean"
+      }
+    },
+    "Contract": {
+      "description": "Master service agreement with the customer",
+      "states": ["draft", "submitted", "approved", "rejected", "signed"],
+      "initial": "draft",
+      "attributes": {
+        "value": "number",
+        "nonstandard_terms": "boolean",
+        "revision": "integer"
+      }
+    },
+    "BillingAccount": {
+      "states": ["none", "configured"],
+      "initial": "none",
+      "attributes": {"method": "string"}
+    },
+    "Order": {
+      "states": ["none", "placed"],
+      "initial": "none",
+      "attributes": {"sku": "string"}
+    }
+  },
+  "relationships": [
+    {"from": "Customer", "to": "Contract", "type": "has", "cardinality": "1..*"},
+    {"from": "Contract", "to": "Order", "type": "governs", "cardinality": "1..*"},
+    {"from": "Customer", "to": "BillingAccount", "type": "billed_through", "cardinality": "1"}
+  ],
+  "actions": {
+    "verify_identity": {
+      "description": "Run KYC: verify the customer's identity and screen against sanctions lists",
+      "capability": "kyc.verify",
+      "requires": ["Customer.status == 'prospect'"],
+      "reads": ["Customer.name", "Customer.industry", "Customer.tax_id"],
+      "writes": ["Customer.risk_level", "Customer.sanctions_hit"],
+      "effects": {"Customer": {"status": "verified"}}
+    },
+    "enhanced_due_diligence": {
+      "description": "Enhanced due diligence (beneficial owners, PEP screening) for regulated customers",
+      "capability": "kyc.enhanced_due_diligence",
+      "requires": ["Customer.status == 'verified'", "Customer.risk_level != 'high'"],
+      "reads": ["Customer.name", "Customer.tax_id"],
+      "outcomes": {
+        "cleared": {"effects": {}},
+        "flagged": {"effects": {"Customer": {"risk_level": "high"}}}
+      },
+      "cost": 2
+    },
+    "submit_contract": {
+      "description": "Submit the draft contract for validation",
+      "capability": "contract.submit",
+      "requires": ["Customer.status == 'verified'", "Contract.status == 'draft'"],
+      "effects": {"Contract": {"status": "submitted"}}
+    },
+    "legal_review": {
+      "description": "Validate the contract against the legal playbook",
+      "capability": "contract.validate",
+      "requires": ["Contract.status == 'submitted'"],
+      "reads": ["Contract.value", "Contract.nonstandard_terms", "Contract.revision"],
+      "outcomes": {
+        "approved": {"effects": {"Contract": {"status": "approved"}}},
+        "rejected": {"effects": {"Contract": {"status": "rejected"}}}
+      }
+    },
+    "revise_contract": {
+      "description": "Escalate to Legal to revise a rejected contract and resubmit it",
+      "capability": "contract.revise",
+      "requires": ["Contract.status == 'rejected'"],
+      "reads": ["Contract.nonstandard_terms", "Contract.revision"],
+      "writes": ["Contract.nonstandard_terms", "Contract.revision"],
+      "outcomes": {"resubmitted": {"effects": {"Contract": {"status": "submitted"}}}},
+      "cost": 3
+    },
+    "sign_contract": {
+      "description": "Send the approved contract for e-signature",
+      "capability": "esign.send",
+      "requires": ["Contract.status == 'approved'"],
+      "reads": ["Customer.name", "Contract.value"],
+      "effects": {"Contract": {"status": "signed"}}
+    },
+    "setup_billing": {
+      "description": "Create the customer's billing account",
+      "capability": "billing.setup",
+      "requires": ["Contract.status == 'signed'", "BillingAccount.status == 'none'"],
+      "reads": ["Customer.name", "BillingAccount.method"],
+      "effects": {"BillingAccount": {"status": "configured"}}
+    },
+    "place_order": {
+      "description": "Place the initial order in the ERP",
+      "capability": "erp.order",
+      "requires": ["Contract.status == 'signed'", "BillingAccount.status == 'configured'", "Order.status == 'none'"],
+      "reads": ["Customer.name", "Order.sku"],
+      "effects": {"Order": {"status": "placed"}}
+    },
+    "activate_customer": {
+      "description": "Activate the customer account in the CRM",
+      "capability": "crm.activate",
+      "requires": ["Customer.status == 'verified'", "Order.status == 'placed'"],
+      "reads": ["Customer.name"],
+      "effects": {"Customer": {"status": "active"}}
+    }
+  },
+  "goals": {
+    "onboard_customer": {
+      "description": "Take a prospect to an active, billed customer with a signed contract and a first order",
+      "target": "Customer.status == 'active'"
+    }
+  },
+  "rules": [
+    {
+      "id": "R-LEGAL-001",
+      "type": "mandatory_step",
+      "description": "Contracts must be approved by Legal before signature",
+      "step": "legal_review",
+      "outcome": "approved",
+      "before": "sign_contract",
+      "reset_by": ["revise_contract"]
+    },
+    {
+      "id": "R-FS-001",
+      "type": "mandatory_step",
+      "description": "Financial-services customers require cleared enhanced due diligence before contracting",
+      "when": "Customer.industry == 'Financial Services'",
+      "step": "enhanced_due_diligence",
+      "outcome": "cleared",
+      "before": "submit_contract"
+    },
+    {
+      "id": "R-LEGAL-002",
+      "type": "human_review",
+      "description": "Contract revisions are made and signed off by Legal",
+      "action": "revise_contract",
+      "reviewer": "legal"
+    },
+    {
+      "id": "R-FIN-001",
+      "type": "human_review",
+      "description": "Critical decision: contracts worth 1,000,000 or more need Finance Director sign-off",
+      "when": "Contract.value >= 1000000",
+      "action": "sign_contract",
+      "reviewer": "finance_director"
+    },
+    {
+      "id": "R-PII-001",
+      "type": "data_access",
+      "description": "Tax identifiers are restricted to KYC and compliance roles",
+      "field": "Customer.tax_id",
+      "roles": ["kyc", "compliance"]
+    },
+    {
+      "id": "R-SANC-001",
+      "type": "prohibition",
+      "description": "Never enter a contract with a sanctioned party",
+      "when": "Customer.sanctions_hit == True",
+      "action": "sign_contract"
+    }
+  ]
+}

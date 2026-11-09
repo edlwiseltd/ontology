@@ -1,0 +1,138 @@
+# Autology: Ontology × Agent
+
+A reference implementation of **ontology-driven workflow automation**. Business knowledge (entities, actions, rules) lives in one immutable **ontology**. **AI agents** work out how to reach a goal at run time. A **governance layer** makes sure they never skip a mandatory step, never read data they aren't entitled to, and hand critical decisions to humans.
+
+> Concept paper: [`docs/autology.md`](docs/autology.md)
+
+```
+            goal + case facts
+                    │
+   ┌────────────────▼─────────────────┐
+   │          AI agent layer          │  WorkAgent: observe → plan → reason → govern → act → re-plan
+   │  ┌───────────┐   ┌────────────┐  │
+   │  │  Planner  │──▶│  Reasoner  │  │  deterministic, or Claude choosing among valid moves
+   │  └─────▲─────┘   └─────┬──────┘  │
+   └────────┼───────────────┼─────────┘
+            │      proposal │
+   ┌────────┴──────┐ ┌──────▼─────────────┐    ┌───────────────────┐
+   │ Ontology layer│ │  Governance layer  │──▶ │ human review gate │
+   │ entities      │ │ mandatory steps    │    └───────────────────┘
+   │ actions       │─▶ prohibitions       │
+   │ goals, rules  │ │ data access / PII  │──▶ hash-chained audit log
+   └───────────────┘ └──────┬─────────────┘
+                            │ allowed
+                  ┌─────────▼─────────┐
+                  │   Tool registry   │  capability → context-selected tool (KYC, CLM, ERP, CRM…)
+                  └───────────────────┘
+```
+
+## Quick start
+
+Requires Python 3.10 or later. No dependencies.
+
+```bash
+python examples/customer_onboarding/run.py            # all scenarios
+python examples/customer_onboarding/run.py financial  # customer XYZ walkthrough
+python -m unittest discover -s tests -t .             # 36 tests
+python -m autology validate examples/customer_onboarding/ontology.json
+```
+
+Output of the `financial` scenario. The process changes after the rejection and stops at the review gates:
+
+```
+  [ 1] verify_identity          ALLOW  (planner)
+       -> regulated_kyc: done - identity verified, no sanctions hit  [Customer: prospect->verified]
+  [ 2] enhanced_due_diligence   ALLOW  (planner)
+       -> edd_provider: cleared - beneficial owners verified
+  [ 3] submit_contract          ALLOW  (planner)
+       -> clm_portal: done - contract uploaded to CLM  [Contract: draft->submitted]
+  [ 4] legal_review             ALLOW  (planner)
+       -> contract_validator: rejected - non-standard liability clause violates playbook
+  [ 5] revise_contract          REVIEW (planner) R-LEGAL-002
+       ? human review by auto-reviewer[legal]: APPROVED
+       -> legal_desk: resubmitted - liability clause replaced with standard wording (rev 1)
+  [ 6] legal_review             ALLOW  (planner)
+       -> contract_validator: approved - all clauses within playbook
+  [ 7] sign_contract            REVIEW (planner) R-FIN-001
+       ? human review by auto-reviewer[finance_director]: APPROVED
+  ...
+  [10] activate_customer        ALLOW  (planner)
+  => COMPLETED
+```
+
+| Scenario | Result | What it shows |
+|---|---|---|
+| `retail` | completed | Straight-through processing with no human touch |
+| `financial` | completed | Context-dependent mandatory step (EDD) and tool choice; re-planning after rejection; human review gates |
+| `sanctioned` | escalated | A prohibition rule blocks signature; the escalation names the rule |
+| `pep` | escalated | A failed mandatory step means no compliant path, so the case goes to a human |
+| `unprivileged` | escalated | The agent lacks the role to read tax IDs, so it escalates instead of working around the rule |
+| `declined` | blocked | The Finance Director declines a 2.5M contract |
+| `flaky` | completed | A transient tool failure is retried |
+
+Add `--interactive` to act as the human reviewer yourself. Add `--llm` to let Claude choose each step (`pip install anthropic` and API credentials needed).
+
+## Writing an ontology
+
+```jsonc
+{
+  "name": "customer-onboarding", "version": "1.0.0",
+  "entities": {
+    "Contract": {"states": ["draft", "submitted", "approved", "rejected", "signed"],
+                 "attributes": {"value": "number", "nonstandard_terms": "boolean"}}
+  },
+  "actions": {
+    "legal_review": {
+      "capability": "contract.validate",            // which tool kind can do it
+      "requires": ["Contract.status == 'submitted'"], // preconditions
+      "reads": ["Contract.value"],                  // the only data the tool receives
+      "outcomes": {                                 // first = expected (used for planning)
+        "approved": {"effects": {"Contract": {"status": "approved"}}},
+        "rejected": {"effects": {"Contract": {"status": "rejected"}}}
+      }
+    }
+  },
+  "goals": {"onboard_customer": {"target": "Customer.status == 'active'"}},
+  "rules": [
+    {"id": "R-LEGAL-001", "type": "mandatory_step", "step": "legal_review", "outcome": "approved",
+     "before": "sign_contract", "reset_by": ["revise_contract"]},
+    {"id": "R-FIN-001", "type": "human_review", "action": "sign_contract", "reviewer": "finance_director",
+     "when": "Contract.value >= 1000000"},
+    {"id": "R-PII-001", "type": "data_access", "field": "Customer.tax_id", "roles": ["kyc", "compliance"]},
+    {"id": "R-SANC-001", "type": "prohibition", "action": "sign_contract", "when": "Customer.sanctions_hit == True"}
+  ]
+}
+```
+
+Conditions use a small, sandboxed expression language: `Entity.attr`, literals, comparisons, `in`, `and`/`or`/`not`. Ontologies are validated when they load, then frozen and fingerprinted.
+
+## Using it from code
+
+```python
+from autology import AutoApprover, Ontology, ToolRegistry, ToolResult, WorkAgent
+
+ontology = Ontology.load("examples/customer_onboarding/ontology.json")
+tools = ToolRegistry()
+
+@tools.tool("contract.validate", when="Contract.value > 0")
+def contract_validator(call):
+    return ToolResult("rejected" if call.inputs["Contract.nonstandard_terms"] else "approved")
+# ... register a tool for every capability ...
+
+agent = WorkAgent("work-agent", ontology, tools, roles=["kyc"], approver=AutoApprover())
+result = agent.run("onboard_customer", case={"Customer": {...}, "Contract": {...}})
+result.status, result.path, result.escalation, result.audit.verify()
+```
+
+To let Claude reason, pass `reasoner=ClaudeReasoner()`. It defaults to `claude-opus-5-5`. Structured output limits its answer to the actions that are valid right now. It sees only the redacted state. On an API error or refusal it falls back to the planner, with server-side refusal fallbacks enabled.
+
+## Layout
+
+```
+autology/            framework: ontology, state, expressions, planner, governance, agent, reasoners, tools, audit, CLI
+examples/customer_onboarding/   ontology.json, simulated enterprise tools, runnable scenarios
+tests/               unit + scenario tests (stdlib unittest)
+docs/autology.md     the Autology concept and how it maps to this code
+```
+
+This repository also has notes on video tooling (`video-skills.md`, `.claude/skills/`). They are unrelated to Autology.

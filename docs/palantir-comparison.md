@@ -26,8 +26,8 @@ Of the 58 feature areas compared below:
 
 | Status | Count | Meaning |
 |---|---|---|
-| **Have** | 16 | Autology has a working equivalent |
-| **Partial** | 20 | The concept exists but is narrower, or has no user interface |
+| **Have** | 17 | Autology has a working equivalent |
+| **Partial** | 19 | The concept exists but is narrower, or has no user interface |
 | **Missing** | 18 | Not present |
 | **Out of scope** | 4 | Not sensible to build here |
 
@@ -62,7 +62,7 @@ This is the heart of both systems.
 |---|---|---|---|---|---|
 | AIP Logic | No-code builder for LLM-powered functions that read the Ontology and call actions | Reasoners choose among ontology-valid actions under governance. Code and config only | **Partial** | Medium. The engine exists. The no-code builder is the missing part | L |
 | AIP Chatbot Studio | Build chat assistants that use Ontology data and tools | No conversational interface. Agents are goal-driven, not chat-driven | **Missing** | High. A chat front end over the same governed tools, using the model's tool-use | M |
-| AIP Evals | Test suites for LLM functions: compare models and prompts, analyse failures | Readiness scorecard and seeded pilot batches measure deployments. No per-prompt evaluation harness | **Partial** | High. An evaluation harness for reasoners fits the existing run files | M |
+| AIP Evals | Test suites for LLM functions: compare models and prompts, analyse failures | Evaluation suites for reasoners: expectations on status, actions, order, reviews and final state; pass rate, agreement, fallbacks, cost, latency and consistency per reasoner; failure analysis; CI gate (Tier 2, [`evals.md`](evals.md)) | **Have** | — | — |
 | Bring your own model | Register external or self-hosted models; many providers supported | `ChatModel` interface. The Anthropic adapter ships; others plug in through a function wrapper | **Have** | Add tested adapters for other providers | S each |
 | AIP Observability | Tracing, logs and run history for functions, actions and models | Hash-chained audit log, metrics and saved runs. No trace viewer or OpenTelemetry export | **Partial** | High. Export audit events as OpenTelemetry spans | S–M |
 | Automate | Run actions or send notifications when Ontology data changes | Automations on data changes, deadlines and schedules start governed runs on cases built from the graph, write results back and notify people (Tier 2) | **Have** | — | — |
@@ -152,7 +152,7 @@ The gaps differ a great deal in value. This order follows what each step unlocks
 | # | Build | Effort |
 |---|---|---|
 | 5 | Triggers and schedules (Automate) | Done: automations, case templates, write-back, notifications, webhooks |
-| 6 | Evaluation harness for reasoners (Evals) | M |
+| 6 | Evaluation harness for reasoners (Evals) | Done: `autology eval`, see [`evals.md`](evals.md) |
 | 7 | Scenarios: fork, simulate, compare, commit | Done: API, CLI, conflict-checked commit |
 | 8 | Generated typed SDK (OSDK) | M |
 | 9 | Chat front end over governed tools (Chatbot Studio) | M |

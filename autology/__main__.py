@@ -14,6 +14,7 @@
     python -m autology diff OLD NEW                              # semantic diff + required version bump
     python -m autology export ONTOLOGY [--format jsonld|turtle]
     python -m autology roi TCO.json
+    python -m autology eval SUITE.json [--reasoner NAME=SPEC ...] [--repeats N] [--json] [--min-pass 0.95]
     python -m autology scenario ONTOLOGY DATA.json SCENARIO.json [--schedule] [--json] [--commit OUT.json]
     python -m autology serve SERVER.json [--host 127.0.0.1] [--port 8800]   # REST API + web inbox
     python -m autology token                                               # new API token and its hash
@@ -43,6 +44,27 @@ def _load(path: str) -> Ontology:
     except (OntologyError, OSError, json.JSONDecodeError) as exc:
         print(f"invalid ontology {path}: {exc}", file=sys.stderr)
         raise SystemExit(1)
+
+
+def _cmd_eval(args) -> int:
+    from .evals import load_suite, run_suite
+
+    try:
+        suite = load_suite(args.suite)
+    except (OntologyError, OSError, ValueError, KeyError) as exc:
+        print(f"invalid suite: {exc}", file=sys.stderr)
+        return 1
+    reasoners = dict(r.split("=", 1) for r in args.reasoner) if args.reasoner else None
+    report = run_suite(suite, reasoners, args.repeats)
+    print(json.dumps(report.as_dict(), indent=2, default=str) if args.json else report.render(), end="")
+    if args.json:
+        print()
+    if args.min_pass is not None:
+        low = {n: m["pass_rate"] for n, m in report.summary().items() if m["pass_rate"] < args.min_pass}
+        if low:
+            print(f"pass rate below {args.min_pass}: {low}", file=sys.stderr)
+            return 5
+    return 0
 
 
 def _cmd_scenario(args, onto: Ontology) -> int:
@@ -152,6 +174,13 @@ def _build_parser() -> argparse.ArgumentParser:
     e.add_argument("--format", choices=["jsonld", "turtle"], default="jsonld")
     r = sub.add_parser("roi", help="TCO / ROI from a JSON model")
     r.add_argument("model")
+    ev = sub.add_parser("eval", help="evaluate reasoners (models, prompts, routing) against a test suite")
+    ev.add_argument("suite")
+    ev.add_argument("--reasoner", action="append", default=[], metavar="NAME=SPEC",
+                    help="evaluate these instead of the suite's reasoners (planner, claude, routing, module:factory)")
+    ev.add_argument("--repeats", type=int, help="runs per case and reasoner (consistency of non-deterministic models)")
+    ev.add_argument("--json", action="store_true", help="print the full report as JSON")
+    ev.add_argument("--min-pass", type=float, help="exit 5 if any reasoner's pass rate is below this (CI gate)")
     scn = sub.add_parser("scenario", help="what-if: apply edits to a copy of the data and compare outcomes")
     scn.add_argument("ontology")
     scn.add_argument("data")
@@ -272,6 +301,9 @@ def main(argv=None) -> int:
             print("version bump is insufficient", file=sys.stderr)
             return 3
         return 0
+
+    if args.command == "eval":
+        return _cmd_eval(args)
 
     onto = _load(args.ontology)
     if args.command == "validate":

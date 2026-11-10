@@ -71,7 +71,20 @@ class ReviewDecision:
 
 
 class Approver(Protocol):
-    def review(self, request: ReviewRequest) -> ReviewDecision: ...
+    def review(self, request: ReviewRequest) -> Optional[ReviewDecision]:
+        """Decide now, or return None to park the run until a decision arrives (see WorkAgent.resume)."""
+        ...
+
+
+class DeferredApprover:
+    """Never decides inline: every review parks the run as ``awaiting_review`` (for inboxes and ticketing)."""
+
+    def __init__(self) -> None:
+        self.requests: List[ReviewRequest] = []
+
+    def review(self, request: ReviewRequest) -> None:
+        self.requests.append(request)
+        return None
 
 
 class AutoApprover:
@@ -146,11 +159,13 @@ class RunState:
     resume_at: Optional[float] = None
     ontology_ref: str = ""
     update_noticed: bool = False
+    pending_review: Optional[Dict[str, Any]] = None  # review request the run is waiting on
+    review_decisions: Dict[str, Dict[str, Any]] = field(default_factory=dict)  # ground action -> decision to apply
 
 
 @dataclass
 class RunResult:
-    status: str  # completed | blocked | escalated | deferred | paused | suspended
+    status: str  # completed | blocked | escalated | deferred | paused | suspended | awaiting_review
     goal: str
     case_id: str
     steps: List[StepRecord]
@@ -161,6 +176,7 @@ class RunResult:
     costs: Dict[str, float] = field(default_factory=dict)
     resume_at: Optional[float] = None
     run: Optional[RunState] = field(default=None, repr=False)
+    run_id: Optional[str] = None  # set when stored
 
     @property
     def completed(self) -> bool:
@@ -338,13 +354,25 @@ class WorkAgent:
                   fingerprint=self.ontology.fingerprint)
         return self._loop(run, audit)
 
-    def resume(self, previous: RunResult, force: bool = False) -> RunResult:
-        """Continue a deferred (or paused) run, e.g. after the backoff window or an ontology fix."""
-        if previous.run is None or previous.status not in ("deferred", "paused"):
+    def resume(self, previous: RunResult, force: bool = False,
+               decision: Optional[ReviewDecision] = None) -> RunResult:
+        """Continue a deferred, paused or awaiting-review run.
+
+        Deferred runs wait for their retry window (unless ``force``); a run awaiting review needs the
+        reviewer's ``decision``, which is applied to exactly the action that was waiting for it.
+        """
+        if previous.run is None or previous.status not in ("deferred", "paused", "awaiting_review"):
             raise ValueError(f"cannot resume a run with status {previous.status!r}")
         run = previous.run
         if previous.status == "deferred" and not force and run.resume_at and self.clock() < run.resume_at:
             return previous
+        if previous.status == "awaiting_review":
+            if decision is None:
+                raise ValueError("this run is waiting for a review decision")
+            pending = run.pending_review or {}
+            run.review_decisions[pending.get("action", "")] = {
+                "approved": bool(decision.approved), "reviewer": decision.reviewer, "comment": decision.comment}
+            run.pending_review = None
         if run.ontology_ref != self.ontology.ref:
             raise OntologyError(f"run was started on {run.ontology_ref}; this agent uses {self.ontology.ref}")
         run.resume_at = None
@@ -450,7 +478,16 @@ class WorkAgent:
                                         decision.reasons, self.governance.redacted_view(state, self.principal),
                                         list(run.history), decision.facts, explanation, decision.rule_ids,
                                         dict(action.binding))
-                review = self.approver.review(request)
+                stored = run.review_decisions.pop(action.name, None)
+                review = ReviewDecision(**stored) if stored else self.approver.review(request)
+                if review is None:  # the reviewer will answer later (inbox, ticket, ...): park the run
+                    run.attempts[action.name] -= 1
+                    run.pending_review = dict(request.__dict__)
+                    self._log(audit, "review.requested", case=run.case_id, action=action.name,
+                              roles=list(decision.reviewers), rules=decision.rule_ids, reasons=decision.reasons)
+                    return finish("awaiting_review", Escalation(
+                        f"awaiting {'/'.join(decision.reviewers)} review of {action.name}",
+                        "/".join(decision.reviewers), action.name, list(decision.reasons)))
                 record.reviewer = review.reviewer
                 self._log(audit, "review", case=run.case_id, action=action.name, approved=review.approved,
                           reviewer=review.reviewer, roles=list(decision.reviewers), comment=review.comment,

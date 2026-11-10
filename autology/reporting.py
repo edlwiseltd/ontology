@@ -29,13 +29,13 @@ def classify(result: RunResult) -> str:
     ``policy_stop``  - correctly stopped by governance: a human reviewer declined, or the only
                        paths to the goal violate a prohibition / mandatory-step rule (e.g. a
                        sanctioned party, a failed due-diligence check). This is the system working;
-    ``pending``      - deferred, waiting for a retry window;
+    ``pending``      - deferred (waiting for a retry window) or awaiting a human review decision;
     ``unplanned``    - everything else: tool failures, unmodelled outcomes, missing capabilities
                        or permissions, loops, paused or suspended agents.
     """
     if result.status == "completed":
         return "completed"
-    if result.status == "deferred":
+    if result.status in ("deferred", "awaiting_review"):
         return "pending"
     if result.status == "blocked":
         return "policy_stop"

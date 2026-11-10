@@ -1,0 +1,16 @@
+{
+  "ontology": "ontology.json",
+  "store": "autology.db",
+  "data": "data.json",
+  "agents": {
+    "fulfilment": {"roles": ["ops", "eu_ops", "finance"], "tools": "tools.json",
+                   "goals": ["fulfil_contract"], "approver": "inbox"}
+  },
+  "users": [
+    {"name": "olivia", "token_env": "AUTOLOGY_TOKEN_OLIVIA", "permissions": ["read", "run"], "roles": ["ops"]},
+    {"name": "lena", "token_env": "AUTOLOGY_TOKEN_LENA", "permissions": ["read", "review"],
+     "roles": ["ops", "eu_ops"], "reviewer_roles": ["logistics_manager"]},
+    {"name": "audrey", "token_env": "AUTOLOGY_TOKEN_AUDREY", "permissions": ["read", "audit"], "roles": ["finance"]},
+    {"name": "admin", "token_env": "AUTOLOGY_TOKEN_ADMIN", "permissions": ["admin"]}
+  ]
+}

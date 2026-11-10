@@ -5,7 +5,7 @@ agents plan and execute against it at run time, and a governance layer makes
 sure they never skip mandatory steps or break enterprise rules.
 """
 
-from .agent import (AutoApprover, ConsoleApprover, Escalation, ReviewDecision, ReviewRequest, RunResult,
+from .agent import (AutoApprover, ConsoleApprover, DeferredApprover, Escalation, ReviewDecision, ReviewRequest, RunResult,
                     StepRecord, WorkAgent)
 from .audit import AuditLog
 from .expressions import Expression, ExpressionError, compile_expression
@@ -33,5 +33,5 @@ __all__ = [
     "ToolError", "ToolRegistry", "ToolResult", "Verdict", "WorkAgent", "WorldState", "compile_expression",
     "Finding", "KnowledgeGraph", "OntologyRegistry", "ROIReport", "RoutingReasoner", "TCOModel", "VersionError",
     "compliance_report", "lint", "metrics", "ontology_gaps", "Scorecard", "score_deployment", "score_ontology",
-    "AnthropicChatModel", "ChatModel", "FunctionChatModel", "LLMReasoner", "LLMResponse",
+    "DeferredApprover", "AnthropicChatModel", "ChatModel", "FunctionChatModel", "LLMReasoner", "LLMResponse",
 ]

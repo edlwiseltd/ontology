@@ -8,7 +8,7 @@ It is **agnostic** in three ways:
 - **Model:** any LLM plugs in through a small `ChatModel` interface. Claude is the default adapter.
 - **Systems:** tools are Python callables, HTTP services or declarative decision tables, wired up in a JSON config.
 
-> Concept paper: [`docs/autology.md`](docs/autology.md) · Engineering methodology mapped to the code: [`docs/methodology.md`](docs/methodology.md) · Ontology + dual-agent scheduling: [`docs/scheduling.md`](docs/scheduling.md) · Feature map against Palantir's platforms: [`docs/palantir-comparison.md`](docs/palantir-comparison.md)
+> Concept paper: [`docs/autology.md`](docs/autology.md) · Engineering methodology mapped to the code: [`docs/methodology.md`](docs/methodology.md) · Ontology + dual-agent scheduling: [`docs/scheduling.md`](docs/scheduling.md) · Feature map against Palantir's platforms: [`docs/palantir-comparison.md`](docs/palantir-comparison.md) · Running as a service: [`docs/platform.md`](docs/platform.md)
 
 ```
             goal + case facts
@@ -45,6 +45,16 @@ Each example is a different domain. Each is run end to end through the generic C
 
 ROI figures use the illustrative cost assumptions in each example's TCO file. Only the intervention rate and the tool and LLM cost per task are measured from the runs. The care-referral pilot gate is honestly open: the deployment is well built, but its business case is weak under those assumptions. The roadmap gates exist to show exactly that difference.
 
+## Run it as a shared service
+
+Autology runs as a REST API with a web inbox ([`docs/platform.md`](docs/platform.md)). Runs, the knowledge graph, the append-only audit log and review decisions persist in SQLite. Users authenticate with tokens, and each user sees only the records and fields their roles allow. Human reviews park a run until someone decides in the inbox, even hours later and after a restart. Cases can hold many records, such as many orders under one contract, with actions, rules and access applied per record.
+
+```bash
+cd examples/order_fulfilment
+export AUTOLOGY_TOKEN_OLIVIA=... AUTOLOGY_TOKEN_LENA=... AUTOLOGY_TOKEN_AUDREY=... AUTOLOGY_TOKEN_ADMIN=...
+python -m autology serve server.json        # then open http://127.0.0.1:8800
+```
+
 ## Ontology + dual-agent scheduling
 
 A complete version of the *ontology + ImpactAgent + ScheduleAgent* manufacturing scheduling pattern, generic and driven by the ontology ([`docs/scheduling.md`](docs/scheduling.md)):
@@ -77,6 +87,7 @@ python examples/scheduling/run.py ALERT-11   # furnace breakdown: 14 jobs on hol
 | | Saved runs (JSONL) with intact hash chains, resumable in another process | `persistence.py` |
 | Cost | Model routing (none / small / large), decision cache, prompt caching, token cost; TCO/ROI from measured rates | `reasoners.py`, `economics.py` |
 | Readiness | Scorecard 0–100 (A–F), evidence coverage, roadmap gates, fixes ranked by points recovered | `scoring.py` |
+| Platform | Multi-record cases (`multiple`, `for_each`, `all_of`/`any_of`/`count_of`), row-level access, SQLite store with append-only audit, asynchronous reviews, REST API with token auth, web inbox | `state.py`, `store.py`, `server.py`, `static/` |
 | Scheduling | Impact rules with reasoning chains and event application; flexible job-shop model; CP-SAT and built-in solvers; post-solve validation; rework cloning; Gantt; RDF export of instance data for SPARQL | `impact.py`, `scheduling.py`, `export.py` |
 
 ## Quick start
@@ -84,7 +95,7 @@ python examples/scheduling/run.py ALERT-11   # furnace breakdown: 14 jobs on hol
 Requires Python 3.10 or later. No dependencies (`anthropic` is optional, for Claude).
 
 ```bash
-python -m unittest discover -s tests -t .             # 143 tests, 98% line coverage (OR-Tools and rdflib tests skip if not installed)
+python -m unittest discover -s tests -t .             # 172 tests, 98% line coverage (OR-Tools and rdflib tests skip if not installed)
 python examples/customer_onboarding/run.py financial  # narrated walkthrough
 python examples/manufacturing/run.py                  # full methodology: modules, CQs, agents, versioning, report, ROI, score
 ```
@@ -242,7 +253,8 @@ examples/customer_onboarding/  modular ontology (customer/contracting/fulfilment
 examples/manufacturing/        modular enterprise ontology (core/procurement/production/quality), knowledge graph, walkthrough
 examples/care_referral/        configuration-only deployment: ontology, decision-table tools, policy, pilot batch
 examples/scheduling/           aerospace plant: plant + replanning modules, generated knowledge graph, 16 events, narrated run
-tests/                         143 tests (stdlib unittest), including the >= 95 readiness gate for every example
+examples/order_fulfilment/     many orders per contract, row-level access, and a server config with four users
+tests/                         172 tests (stdlib unittest), including the >= 95 readiness gate for every example
 docs/autology.md               the Autology concept and how it maps to this code
 docs/methodology.md            the engineering methodology, section by section, with the code that implements it
 ```

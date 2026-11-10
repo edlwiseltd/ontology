@@ -26,9 +26,9 @@ Of the 58 feature areas compared below:
 
 | Status | Count | Meaning |
 |---|---|---|
-| **Have** | 10 | Autology has a working equivalent |
+| **Have** | 14 | Autology has a working equivalent |
 | **Partial** | 21 | The concept exists but is narrower, or has no user interface |
-| **Missing** | 23 | Not present |
+| **Missing** | 19 | Not present |
 | **Out of scope** | 4 | Not sensible to build here |
 
 The pattern is clear. Autology is strongest where Palantir's *ideas* are: an ontology that agents act through, governed actions, human review, audit, impact analysis and scheduling. It is weakest where Palantir's *product mass* is: data pipelines, a scalable object store, end-user applications, analytics and fine-grained security.
@@ -48,8 +48,8 @@ This is the heart of both systems.
 | Side effects: notifications and webhooks | Notify people or call external systems when an action runs. A writeback webhook runs first and blocks the edit if it fails | HTTP tools call external systems, and a failed tool blocks the step. No notifications | **Partial** | High. Add a notification side effect and an explicit "call before commit" ordering | S |
 | Functions | Code-based logic over objects, usable in actions and applications | Python tool handlers and decision tables. No reusable, versioned function registry | **Partial** | High. A function registry with typed inputs is a natural extension of the tool registry | M |
 | Interfaces | Shared shape that several object types implement | Not present | **Missing** | High. Add to the ontology schema and validator | S–M |
-| Object storage and indexing | Scalable store for billions of objects, with search and incremental indexing | In-memory knowledge graph loaded from JSON | **Missing** | Medium. Back the graph interface with PostgreSQL or a graph database. Palantir-scale indexing is not realistic | L |
-| Multiple objects per case | Actions operate on object sets of any size | An agent run binds one instance of each entity type | **Missing** | High, and the most important functional gap | L |
+| Object storage and indexing | Scalable store for billions of objects, with search and incremental indexing | SQLite store for the graph, runs, audit and reviews (Tier 1). Single node, no search index | **Partial** | Medium. A PostgreSQL implementation of the same `Store` interface. Palantir-scale indexing is not realistic | L |
+| Multiple objects per case | Actions operate on object sets of any size | Multi-record entities, per-record actions (`for_each`), quantified goals, per-record mandatory steps (Tier 1) | **Have** | — | — |
 | Object sets and search | Filter, search and aggregate objects | `KnowledgeGraph.query` with filters, traversals and aggregates. No full-text search | **Partial** | High | M |
 | Ontology Manager | Visual editor for the ontology | JSON files plus validate, lint and diff on the CLI | **Partial** | Medium. A web editor is a user-interface project | L |
 | Ontology SDK (OSDK) | Generated, typed client libraries in TypeScript, Python and Java | Python API only. Nothing generated from the ontology | **Missing** | High. Generating typed Python and TypeScript clients from an ontology file is well defined | M |
@@ -85,11 +85,11 @@ This is the heart of both systems.
 
 | Palantir feature | What it does | Autology today | Status | Potential here | Effort |
 |---|---|---|---|---|---|
-| Projects and roles | Discretionary access: owner, editor, viewer per project | Agent roles used by rules. No user accounts, projects or authentication | **Partial** | Medium. Needs a service layer with real identities first | L |
+| Projects and roles | Discretionary access: owner, editor, viewer per project | API users with tokens, permissions (read, run, review, audit, admin) and data roles (Tier 1). No projects or single sign-on | **Partial** | Medium. Projects and OIDC sign-in on top of the API | M |
 | Markings | Mandatory, all-or-nothing access labels that travel with derived data | Sensitivity tags on attributes and role-based read rules. Nothing propagates to derived data | **Missing** | Medium. Propagation needs data lineage, which is also missing | L |
-| Restricted views and granular policies | Row-level access by comparing user attributes with data values | Field-level read rules with conditions. No row-level filtering | **Partial** | High once multi-object cases exist | M |
+| Restricted views and granular policies | Row-level access by comparing user attributes with data values | `row_access` rules hide records from agents and API users; field rules redact attributes (Tier 1) | **Have** | — | — |
 | Classification-based access controls | Clearance-level controls for government use | Not present | **Out of scope** | — | — |
-| Audit logging | Append-only log of every read, write and permission change | Hash-chained audit of every agent decision, review and tool call. Graph reads are not logged | **Partial** | High. Log queries too, and write to append-only storage | S–M |
+| Audit logging | Append-only log of every read, write and permission change | Hash-chained audit of every agent decision, review and tool call, stored append-only (database triggers) with reviewer identities (Tier 1). API reads are not logged | **Partial** | High. Log API reads and logins too | S |
 | Sensitive Data Scanner | Scan datasets for sensitive patterns and apply markings | Lint flags tagged sensitive fields without access rules. No scanning of actual data | **Partial** | High. A regex and model-based scanner over graph data | S–M |
 | Download and export controls | Restrict and record data leaving the platform | Not present | **Missing** | Low until there is a service and user interface | M |
 | Agent suspension | Not a named Palantir feature | Agents that repeatedly propose forbidden actions are suspended | **Have** | — | — |
@@ -117,8 +117,8 @@ Autology has no graphical interface at all. Its output is a CLI, files and one s
 |---|---|---|---|---|---|
 | Workshop | Low-code builder for operational applications on the Ontology | Not present | **Missing** | Medium. Building a low-code builder is a product in itself. A fixed set of screens is realistic | XL for a builder, L for fixed screens |
 | Slate | Code-first custom applications | Not present | **Missing** | Unnecessary. With a REST API, any web framework serves this purpose | — |
-| Review and operations inbox | Where people approve, reject and monitor work | Console prompts, policy files and an HTTP approver | **Missing** | High, and the most valuable interface to build first | M |
-| Object Explorer | Search and browse objects | CLI `ask` command for competency questions | **Partial** | Medium. Needs the service and an interface | M |
+| Review and operations inbox | Where people approve, reject and monitor work | Web inbox: pending reviews with rules, facts and history; runs with steps and audit verification; start runs; browse objects (Tier 1) | **Have** | Notifications when a review arrives | S |
+| Object Explorer | Search and browse objects | Object listing and detail in the API and inbox, access-filtered (Tier 1). No full-text search | **Partial** | Medium. Search and filters | M |
 | Vertex | Visual graph exploration and simulation | Graph queries and impact chains as text | **Partial** | Medium. A graph view of impact results would be valuable | M |
 | Quiver and Contour | Point-and-click analysis of objects and large tables | Not present | **Missing** | Integrate an open-source business-intelligence tool | S to integrate |
 | Notepad | Reports that embed live data | Markdown compliance and readiness reports | **Partial** | Low priority | S |
@@ -128,7 +128,7 @@ Autology has no graphical interface at all. Its output is a CLI, files and one s
 
 | Palantir feature | What it does | Autology today | Status | Potential here | Effort |
 |---|---|---|---|---|---|
-| REST API | Programmatic access to objects, actions and queries | Python library and CLI only | **Missing** | High. The first thing to build for multi-project use | M |
+| REST API | Programmatic access to objects, actions and queries | REST API: objects, questions, runs, reviews, audit, report and score, with token auth and per-user access (Tier 1) | **Have** | — | — |
 | Foundry Branching | Change pipelines, ontology and applications on a branch, test, then merge | Ontology files live in git. Semantic diff and version checks exist. No branch-aware runtime | **Partial** | Medium. Git plus the diff tool covers most of the need | S–M |
 | Foundry DevOps and Marketplace | Package resources into versioned products and install them across environments | Ontology modules with imports, a version registry and release checks. No packaging | **Partial** | High. Package an ontology, tools and policies as one installable unit | M |
 | Compute modules | Run custom containers inside the platform | Not present | **Out of scope** | Use your own container platform | — |
@@ -138,14 +138,14 @@ Autology has no graphical interface at all. Its output is a CLI, files and one s
 
 The gaps differ a great deal in value. This order follows what each step unlocks.
 
-**Tier 1: make the core production-grade.** These remove the limits that block real projects.
+**Tier 1: make the core production-grade.** These remove the limits that block real projects. **Done** — see [`platform.md`](platform.md).
 
-| # | Build | Why | Effort |
+| # | Build | Why | Status |
 |---|---|---|---|
-| 1 | Persistent store for the graph, runs and audit log | Nothing survives a restart today | L |
-| 2 | Multiple objects per case, with row-level access | The largest functional gap against Palantir's object model | L |
-| 3 | REST API service with authentication | Lets many projects and applications use one deployment | M |
-| 4 | Review and operations inbox (web) | People need somewhere to approve and monitor | M |
+| 1 | Persistent store for the graph, runs and audit log | Nothing survived a restart | Done: SQLite store with an append-only audit table |
+| 2 | Multiple objects per case, with row-level access | The largest functional gap against Palantir's object model | Done: multi-record entities, per-record actions, `row_access` |
+| 3 | REST API service with authentication | Lets many projects and applications use one deployment | Done: token auth, permissions, per-user data access |
+| 4 | Review and operations inbox (web) | People need somewhere to approve and monitor | Done: web inbox with asynchronous reviews |
 
 **Tier 2: close the AIP gaps.** These are well-defined and build directly on existing code.
 

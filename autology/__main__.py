@@ -14,6 +14,8 @@
     python -m autology diff OLD NEW                              # semantic diff + required version bump
     python -m autology export ONTOLOGY [--format jsonld|turtle]
     python -m autology roi TCO.json
+    python -m autology serve SERVER.json [--host 127.0.0.1] [--port 8800]   # REST API + web inbox
+    python -m autology token                                               # new API token and its hash
 """
 
 from __future__ import annotations
@@ -100,12 +102,15 @@ def _build_parser() -> argparse.ArgumentParser:
     run.add_argument("--approver", default="deny", help="auto | deny | console | POLICY.json (default: deny)")
     run.add_argument("--reasoner", default="planner", help="planner | claude | routing | module:factory")
     run.add_argument("--out", help="append the runs to this JSONL file")
+    run.add_argument("--db", help="also store the runs (and their audit) in this SQLite store")
     rep = sub.add_parser("report", help="compliance report from saved runs")
     rep.add_argument("ontology")
-    rep.add_argument("runs")
+    rep.add_argument("runs", nargs="?", help="saved runs (JSONL)")
+    rep.add_argument("--db", help="read the runs from this SQLite store instead")
     sc = sub.add_parser("score", help="readiness scorecard")
     sc.add_argument("ontology")
     sc.add_argument("--runs", help="saved runs (JSONL) as agent evidence")
+    sc.add_argument("--db", help="SQLite store whose runs are the agent evidence")
     sc.add_argument("--tools", help="tool registry config, for tool-coverage checks")
     sc.add_argument("--data", help="sample knowledge-graph data to answer competency questions")
     sc.add_argument("--budget", type=float, help="target cost per completed task")
@@ -122,6 +127,11 @@ def _build_parser() -> argparse.ArgumentParser:
     e.add_argument("--format", choices=["jsonld", "turtle"], default="jsonld")
     r = sub.add_parser("roi", help="TCO / ROI from a JSON model")
     r.add_argument("model")
+    sv = sub.add_parser("serve", help="run the REST API and web inbox")
+    sv.add_argument("config")
+    sv.add_argument("--host", default="127.0.0.1")
+    sv.add_argument("--port", type=int, default=8800)
+    sub.add_parser("token", help="generate an API token and the hash to put in the server config")
     return parser
 
 
@@ -157,6 +167,13 @@ def _cmd_run(args, onto: Ontology) -> int:
     if args.out:
         save_runs(results, args.out, append=True)
         print(f"{len(results)} run(s) appended to {args.out}")
+    if args.db:
+        from .store import Store
+
+        store = Store(args.db)
+        for result in results:
+            store.save_run(result, agent=args.name)
+        print(f"{len(results)} run(s) stored in {args.db}")
     return 0 if all(r.status in ("completed", "deferred") for r in results) else 1
 
 
@@ -168,6 +185,10 @@ def _cmd_score(args, onto: Ontology) -> int:
 
     try:
         runs = load_runs(args.runs) if args.runs else []
+        if args.db:
+            from .store import Store
+
+            runs += Store(args.db).all_runs()
         tools = load_tools(args.tools) if args.tools else None
     except (AdapterError, OSError, ValueError) as exc:
         print(f"cannot load evidence: {exc}", file=sys.stderr)
@@ -194,6 +215,18 @@ def main(argv=None) -> int:
 
     if args.command == "roi":
         print(evaluate(TCOModel.load(args.model)).render())
+        return 0
+    if args.command == "token":
+        from .server import new_token
+
+        token, digest = new_token()
+        print(f"token (give to the user; shown once): {token}")
+        print(f"token_sha256 (put in server config):  {digest}")
+        return 0
+    if args.command == "serve":  # pragma: no cover - blocking
+        from .server import serve
+
+        serve(args.config, args.host, args.port)
         return 0
     if args.command == "diff":
         old, new = _load(args.old), _load(args.new)
@@ -248,7 +281,15 @@ def main(argv=None) -> int:
         from .persistence import load_runs
         from .reporting import compliance_report
 
-        print(compliance_report(load_runs(args.runs), onto))
+        if not args.runs and not args.db:
+            print("give a runs file or --db", file=sys.stderr)
+            return 2
+        runs = load_runs(args.runs) if args.runs else []
+        if args.db:
+            from .store import Store
+
+            runs += Store(args.db).all_runs()
+        print(compliance_report(runs, onto))
         return 0
     # plan
     with open(args.case, encoding="utf-8") as fh:

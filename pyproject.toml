@@ -19,3 +19,6 @@ autology = "autology.__main__:main"
 
 [tool.setuptools]
 packages = ["autology"]
+
+[tool.setuptools.package-data]
+autology = ["static/*"]

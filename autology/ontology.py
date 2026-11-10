@@ -253,6 +253,20 @@ class SchedulingSpec:
         return tuple(ontology.relationship(self.task, r.step)[1] for r in self.resources)
 
 
+@dataclass(frozen=True)
+class CaseTemplate:
+    """How to assemble an agent case from the knowledge graph, starting at one ``root`` instance.
+
+    ``entities`` maps each entity type to ``"self"`` (the root) or a relationship path from the root
+    (``"^hasContract"``, ``"covers"``). Single-instance entities take the first instance reached;
+    entities marked ``multiple`` take all of them.
+    """
+
+    name: str
+    root: str
+    entities: Mapping[str, Tuple[str, ...]]  # entity -> steps from the root (() = the root itself)
+
+
 class Ontology:
     """An immutable, validated business ontology."""
 
@@ -272,6 +286,7 @@ class Ontology:
         settings: Optional[Mapping[str, Any]] = None,
         impact_rules: Iterable[ImpactRule] = (),
         scheduling: Optional[SchedulingSpec] = None,
+        case_templates: Optional[Mapping[str, CaseTemplate]] = None,
     ):
         object.__setattr__(self, "_frozen", False)
         self.name = name
@@ -287,6 +302,7 @@ class Ontology:
         self.settings = _freeze(dict(settings or {}))
         self.impact_rules = tuple(impact_rules)
         self.scheduling = scheduling
+        self.case_templates = MappingProxyType(dict(case_templates or {}))
         self.source = _freeze(copy.deepcopy(dict(source)) if source is not None else {"name": name})
         canonical = json.dumps(source if source is not None else {"name": name, "version": version},
                                sort_keys=True, separators=(",", ":"), default=str)
@@ -482,6 +498,18 @@ class Ontology:
                         raise OntologyError(f"{where}: {fn} needs a field of {current}")
                     self._check_field(target, where)
         self._validate_impact_and_scheduling()
+        for t in self.case_templates.values():
+            where = f"case template {t.name!r}"
+            if t.root not in self.entities:
+                raise OntologyError(f"{where}: unknown root entity {t.root!r}")
+            for entity, steps in t.entities.items():
+                if entity not in self.entities:
+                    raise OntologyError(f"{where}: unknown entity {entity!r}")
+                end = self._walk(t.root, steps, where)
+                if end != entity:
+                    raise OntologyError(f"{where}: path for {entity} ends at {end}")
+            if t.root not in t.entities:
+                raise OntologyError(f"{where}: must include its root entity {t.root} (\"self\")")
         mv = self.settings.get("max_violations")
         if mv is not None and (not isinstance(mv, int) or mv < 1):
             raise OntologyError("settings.max_violations must be a positive integer")
@@ -666,11 +694,16 @@ class Ontology:
                                            c.get("severity", "warning")) for c in sc.get("checks", [])),
                 time_unit=sc.get("time_unit", "h"), context=tuple(sc.get("context", ())),
                 job_context=tuple(sc.get("job_context", ())))
+        templates = {}
+        for tname, spec in (doc.get("case_templates") or {}).items():
+            ents = {e: (() if path in ("self", "", None) else tuple(path.split(".")))
+                    for e, path in spec.get("entities", {}).items()}
+            templates[tname] = CaseTemplate(tname, spec["root"], MappingProxyType(ents))
         source = {k: v for k, v in doc.items() if k != "imports"}
         return cls(doc["name"], str(doc.get("version", "0")), entities, relationships, actions, goals,
                    rules, doc.get("description", ""), source=source, questions=questions,
                    modules=doc.get("modules", ()), settings=doc.get("settings"), impact_rules=impact_rules,
-                   scheduling=scheduling)
+                   scheduling=scheduling, case_templates=templates)
 
     @classmethod
     def load(cls, path: str | Path) -> "Ontology":
@@ -679,8 +712,8 @@ class Ontology:
 
 
 # -- modules ------------------------------------------------------------------
-_MERGE_MAPS = ("entities", "actions", "goals")
-_SINGULAR = {"entities": "entity", "actions": "action", "goals": "goal"}
+_MERGE_MAPS = ("entities", "actions", "goals", "case_templates")
+_SINGULAR = {"entities": "entity", "actions": "action", "goals": "goal", "case_templates": "case template"}
 
 
 def _read(path: Path) -> Dict[str, Any]:

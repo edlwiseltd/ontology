@@ -206,6 +206,17 @@
       "target": "Contract.status == 'signed' and all_of(Order.status in ['invoiced', 'cancelled'])"
     }
   },
+  "case_templates": {
+    "contract_case": {
+      "description": "A contract with its customer and every order it covers",
+      "root": "Contract",
+      "entities": {
+        "Contract": "self",
+        "Customer": "^hasContract",
+        "Order": "covers"
+      }
+    }
+  },
   "rules": [
     {
       "id": "R-HAZ-001",

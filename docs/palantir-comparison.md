@@ -26,9 +26,9 @@ Of the 58 feature areas compared below:
 
 | Status | Count | Meaning |
 |---|---|---|
-| **Have** | 14 | Autology has a working equivalent |
+| **Have** | 15 | Autology has a working equivalent |
 | **Partial** | 21 | The concept exists but is narrower, or has no user interface |
-| **Missing** | 19 | Not present |
+| **Missing** | 18 | Not present |
 | **Out of scope** | 4 | Not sensible to build here |
 
 The pattern is clear. Autology is strongest where Palantir's *ideas* are: an ontology that agents act through, governed actions, human review, audit, impact analysis and scheduling. It is weakest where Palantir's *product mass* is: data pipelines, a scalable object store, end-user applications, analytics and fine-grained security.
@@ -45,7 +45,7 @@ This is the heart of both systems.
 | Link types | Typed relationships between object types | Relationships with cardinality; traversed by queries and impact rules | **Have** | — | — |
 | Action types | Governed, auditable changes to objects, with parameters and rules | Actions with preconditions, outcomes, effects, and read and write declarations | **Have** | — | — |
 | Submission criteria | Conditions on the user, parameters and objects that decide whether an action may run | Governance rules: mandatory steps, prohibitions, read, write and action access, with conditions | **Have** | — | — |
-| Side effects: notifications and webhooks | Notify people or call external systems when an action runs. A writeback webhook runs first and blocks the edit if it fails | HTTP tools call external systems, and a failed tool blocks the step. No notifications | **Partial** | High. Add a notification side effect and an explicit "call before commit" ordering | S |
+| Side effects: notifications and webhooks | Notify people or call external systems when an action runs. A writeback webhook runs first and blocks the edit if it fails | HTTP tools call external systems, and a failed tool blocks the step. Notifications by role for reviews and automations, delivered to webhooks (Tier 2) | **Partial** | Medium. An explicit "call before commit" ordering | S |
 | Functions | Code-based logic over objects, usable in actions and applications | Python tool handlers and decision tables. No reusable, versioned function registry | **Partial** | High. A function registry with typed inputs is a natural extension of the tool registry | M |
 | Interfaces | Shared shape that several object types implement | Not present | **Missing** | High. Add to the ontology schema and validator | S–M |
 | Object storage and indexing | Scalable store for billions of objects, with search and incremental indexing | SQLite store for the graph, runs, audit and reviews (Tier 1). Single node, no search index | **Partial** | Medium. A PostgreSQL implementation of the same `Store` interface. Palantir-scale indexing is not realistic | L |
@@ -65,7 +65,7 @@ This is the heart of both systems.
 | AIP Evals | Test suites for LLM functions: compare models and prompts, analyse failures | Readiness scorecard and seeded pilot batches measure deployments. No per-prompt evaluation harness | **Partial** | High. An evaluation harness for reasoners fits the existing run files | M |
 | Bring your own model | Register external or self-hosted models; many providers supported | `ChatModel` interface. The Anthropic adapter ships; others plug in through a function wrapper | **Have** | Add tested adapters for other providers | S each |
 | AIP Observability | Tracing, logs and run history for functions, actions and models | Hash-chained audit log, metrics and saved runs. No trace viewer or OpenTelemetry export | **Partial** | High. Export audit events as OpenTelemetry spans | S–M |
-| Automate | Run actions or send notifications when Ontology data changes | Agents run when called. No triggers or schedules | **Missing** | High. Event and schedule triggers over the existing agent loop | M |
+| Automate | Run actions or send notifications when Ontology data changes | Automations on data changes, deadlines and schedules start governed runs on cases built from the graph, write results back and notify people (Tier 2) | **Have** | — | — |
 | Human review of AI edits | Stage AI-proposed changes for a person to approve | Human-review rules with context-rich requests; policy, console and HTTP approvers | **Have** | — | — |
 | AIP Threads and AIP Analyst | Ad-hoc chat with documents and data exploration | Not present | **Missing** | Low priority. Generic chat tools already do this | M |
 | AIP Assist | In-product help assistant | Not present | **Out of scope** | — | — |
@@ -117,7 +117,7 @@ Autology has no graphical interface at all. Its output is a CLI, files and one s
 |---|---|---|---|---|---|
 | Workshop | Low-code builder for operational applications on the Ontology | Not present | **Missing** | Medium. Building a low-code builder is a product in itself. A fixed set of screens is realistic | XL for a builder, L for fixed screens |
 | Slate | Code-first custom applications | Not present | **Missing** | Unnecessary. With a REST API, any web framework serves this purpose | — |
-| Review and operations inbox | Where people approve, reject and monitor work | Web inbox: pending reviews with rules, facts and history; runs with steps and audit verification; start runs; browse objects (Tier 1) | **Have** | Notifications when a review arrives | S |
+| Review and operations inbox | Where people approve, reject and monitor work | Web inbox: pending reviews with rules, facts and history; runs with steps and audit verification; start runs; browse objects (Tier 1); notifications and automations (Tier 2) | **Have** | — | — |
 | Object Explorer | Search and browse objects | Object listing and detail in the API and inbox, access-filtered (Tier 1). No full-text search | **Partial** | Medium. Search and filters | M |
 | Vertex | Visual graph exploration and simulation | Graph queries and impact chains as text | **Partial** | Medium. A graph view of impact results would be valuable | M |
 | Quiver and Contour | Point-and-click analysis of objects and large tables | Not present | **Missing** | Integrate an open-source business-intelligence tool | S to integrate |
@@ -147,11 +147,11 @@ The gaps differ a great deal in value. This order follows what each step unlocks
 | 3 | REST API service with authentication | Lets many projects and applications use one deployment | Done: token auth, permissions, per-user data access |
 | 4 | Review and operations inbox (web) | People need somewhere to approve and monitor | Done: web inbox with asynchronous reviews |
 
-**Tier 2: close the AIP gaps.** These are well-defined and build directly on existing code.
+**Tier 2: close the AIP gaps.** These are well-defined and build directly on existing code. In progress — see [`platform.md`](platform.md).
 
 | # | Build | Effort |
 |---|---|---|
-| 5 | Triggers and schedules (Automate) | M |
+| 5 | Triggers and schedules (Automate) | Done: automations, case templates, write-back, notifications, webhooks |
 | 6 | Evaluation harness for reasoners (Evals) | M |
 | 7 | Scenarios: fork, simulate, compare, commit | M |
 | 8 | Generated typed SDK (OSDK) | M |

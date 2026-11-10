@@ -163,5 +163,40 @@ class KnowledgeGraph:
         return report
 
 
+def build_case(graph: "KnowledgeGraph", template: str, root_id: str) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """Assemble an agent case from the graph with a case template.
+
+    Returns ``(case, sources)`` - ``sources`` maps each entity to the instance id(s) it came from, so a
+    completed run can write its results back to exactly those instances.
+    """
+    onto = graph.ontology
+    tpl = onto.case_templates.get(template)
+    if tpl is None:
+        raise OntologyError(f"unknown case template {template!r}")
+    try:
+        root = graph.get(root_id)
+    except KeyError:
+        raise OntologyError(f"no instance {root_id!r}") from None
+    if root.type != tpl.root:
+        raise OntologyError(f"template {template!r} starts at a {tpl.root}, not a {root.type}")
+    case: Dict[str, Any] = {}
+    sources: Dict[str, Any] = {}
+    for entity, steps in tpl.entities.items():
+        reached = [root]
+        for step in steps:
+            seen: Dict[str, Instance] = {}
+            for inst in reached:
+                for n in graph.neighbours(inst, step):
+                    seen.setdefault(n.id, n)
+            reached = sorted(seen.values(), key=lambda i: i.id)
+        if onto.entities[entity].multiple:
+            case[entity] = [{"id": i.id, **i.attributes} for i in reached]
+            sources[entity] = [i.id for i in reached]
+        elif reached:
+            case[entity] = dict(reached[0].attributes)
+            sources[entity] = reached[0].id
+    return case, sources
+
+
 def _raise(exc: Exception):
     raise exc

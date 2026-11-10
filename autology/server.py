@@ -18,7 +18,10 @@ Standard library only (``http.server``). Configuration (paths relative to the co
         {"name": "ci-bot", "token_env": "AUTOLOGY_TOKEN_CI", "permissions": ["read"]},
         {"name": "lena", "token_sha256": "<hash>", "permissions": ["read", "review"],
          "roles": ["ops", "eu_ops"], "reviewer_roles": ["logistics_manager"]}
-      ]
+      ],
+      "automations": {...},                  # optional: see autology.automation
+      "automation_interval": 60,             # seconds between scheduled ticks (serve only)
+      "webhooks": [{"url": "https://hooks.example.com/autology", "kinds": ["review", "automation"]}]
     }
 
 Permissions: ``read`` (ontology, objects, runs, reports), ``run`` (start / resume runs), ``review``
@@ -38,6 +41,7 @@ import hmac
 import json
 import secrets
 import threading
+import time
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -45,8 +49,9 @@ from typing import Any, Dict, FrozenSet, List, Optional, Tuple
 from urllib.parse import parse_qs, urlparse
 
 from .agent import DeferredApprover, ReviewDecision, WorkAgent
+from .automation import Automation, Automator, Firing, load_automations
 from .governance import REDACTED, GovernanceLayer, Principal
-from .graph import Instance, KnowledgeGraph
+from .graph import Instance, KnowledgeGraph, build_case
 from .ontology import Ontology, OntologyError
 from .store import Store, StoreError
 
@@ -143,6 +148,16 @@ class AutologyService:
                 raise ValueError(f"user {u['name']}: token_sha256 must be a SHA-256 hex digest (see `autology token`)")
             self.users.append(User(u["name"], digest.lower(), perms, frozenset(u.get("roles", [])),
                                    frozenset(u.get("reviewer_roles", []))))
+        self.automations = load_automations(config.get("automations") or {}, self.ontology,
+                                            {n: a.goals for n, a in self.agents.items()})
+        self.automation_interval = float(config.get("automation_interval", 60))
+        self.webhooks: List[Dict[str, Any]] = []
+        for hook in config.get("webhooks", []):
+            if urlparse(str(hook.get("url", ""))).scheme not in ("http", "https"):
+                raise ValueError(f"webhook {hook.get('url')!r}: url must be http or https")
+            self.webhooks.append({"url": hook["url"], "kinds": set(hook.get("kinds") or [])})
+        self.deliveries: List[threading.Thread] = []  # webhook deliveries in flight (joined by tests)
+        self.automator = Automator(self.automations, self.store, self._graph_instances, self._fire)
 
     @classmethod
     def from_file(cls, path: str) -> "AutologyService":
@@ -260,7 +275,11 @@ class AutologyService:
                 except (OntologyError, KeyError) as exc:
                     raise ApiError(400, f"invalid link {link}: {exc}") from None
                 self.store.add_link(iid, link["kind"], link["target"])
-        return self.object_view(inst, user)
+        out = self.object_view(inst, user)
+        fired = self._changed([iid])
+        if fired:
+            out["triggered"] = [f.as_dict() for f in fired]
+        return out
 
     def answer(self, user: User, qid: str, params: Dict[str, Any]) -> Dict[str, Any]:
         self.require(user, "read")
@@ -287,15 +306,174 @@ class AutologyService:
         out["pending_review"] = pending[0]["review_id"] if pending else None
         return out
 
-    def _store_result(self, result, agent_name: str, run_id: Optional[str] = None) -> str:
+    def _store_result(self, result, agent_name: str, run_id: Optional[str] = None,
+                      sources: Optional[Tuple[str, str, Dict[str, Any], bool]] = None) -> Tuple[str, List[str]]:
+        """Save a run, open its review (and notify reviewers), write results back to the graph.
+
+        Returns ``(run_id, changed instance ids)``. Callers pass the changed ids to :meth:`_changed`
+        once they have released the agent's lock, so automations never wait on a running agent.
+        """
         run_id = self.store.save_run(result, run_id, agent_name)
+        if sources:
+            self.store.link_run_sources(run_id, *sources)
         if result.status == "awaiting_review" and result.run and result.run.pending_review:
             from .agent import ReviewRequest
 
             req = ReviewRequest(**{k: v for k, v in result.run.pending_review.items()
                                    if k in ReviewRequest.__dataclass_fields__})
-            self.store.create_review(run_id, req)
-        return run_id
+            review_id = self.store.create_review(run_id, req)
+            self._notify("review", req.reviewers, f"Review needed: {req.action} in run {run_id} ({', '.join(req.rule_ids) or 'policy'})",
+                         {"review_id": review_id, "run_id": run_id, "action": req.action})
+        linked = self.store.run_sources(run_id)
+        changed = self._write_back(result, linked["sources"]) if linked and linked["write_back"] else []
+        return run_id, changed
+
+    def _write_back(self, result, sources: Dict[str, Any]) -> List[str]:
+        """Copy the run's resulting state onto the graph instances its case was built from."""
+        changed = []
+        state = result.state
+        with self.graph_lock:
+            for entity, src in sources.items():
+                if isinstance(src, list):
+                    pairs = [(iid, state.collections.get(entity, {}).get(iid)) for iid in src]
+                else:
+                    pairs = [(src, state.entities.get(entity))]
+                for iid, values in pairs:
+                    inst = self.graph._instances.get(iid)
+                    if not values or inst is None:
+                        continue
+                    new = {k: v for k, v in values.items() if k in inst.attributes and inst.attributes[k] != v}
+                    if new:
+                        inst.attributes.update(new)
+                        self.store.upsert_instance(inst.type, iid, inst.attributes)
+                        changed.append(iid)
+        return changed
+
+    def _changed(self, instance_ids: List[str]) -> List[Firing]:
+        return self.automator.on_change(instance_ids) if instance_ids and self.automations else []
+
+    # -- automations and notifications ------------------------------------------
+    def _graph_instances(self, entity: Optional[str]) -> List[Instance]:
+        with self.graph_lock:
+            return list(self.graph.instances(entity))
+
+    def _notify(self, kind: str, roles, message: str, ref: Dict[str, Any]) -> Dict[str, Any]:
+        note = self.store.add_notification(kind, roles, message, ref)
+        for hook in self.webhooks:
+            if not hook["kinds"] or kind in hook["kinds"]:
+                t = threading.Thread(target=self._deliver, args=(hook["url"], note), daemon=True)
+                t.start()
+                self.deliveries.append(t)
+        self.deliveries = [t for t in self.deliveries if t.is_alive()]
+        return note
+
+    @staticmethod
+    def _deliver(url: str, note: Dict[str, Any]) -> None:
+        import urllib.request
+
+        req = urllib.request.Request(url, json.dumps({"autology": note}).encode(), method="POST",
+                                     headers={"Content-Type": "application/json", "User-Agent": "Autology"})
+        try:
+            urllib.request.urlopen(req, timeout=5).close()
+        except Exception:  # best effort: the notification stays in the store either way
+            pass
+
+    def _fire(self, auto: Automation, inst: Instance, trigger: str) -> Firing:
+        firing = Firing(auto.name, inst.id, trigger)
+        if auto.run:
+            cfg = self.agents[auto.run["agent"]]
+            template = auto.run["case_template"]
+            with self.graph_lock:
+                case, sources = build_case(self.graph, template, inst.id)
+            with cfg.lock:
+                result = cfg.agent.run(auto.run["goal"], case, f"{auto.name}:{inst.id}")
+                firing.run_id, changed = self._store_result(
+                    result, cfg.name, sources=(template, inst.id, sources, bool(auto.run["write_back"])))
+            firing.status = result.status
+            firing.detail = result.escalation.reason if result.escalation else ""
+            self._changed(changed)
+        if auto.notify:
+            ref = {"automation": auto.name, "instance": inst.id, "run_id": firing.run_id, "status": firing.status}
+            firing.notification_id = self._notify("automation", auto.notify["roles"], auto.message(inst),
+                                                  ref)["notification_id"]
+            if not auto.run:
+                firing.status = "notified"
+        return firing
+
+    def tick(self) -> Dict[str, Any]:
+        """One scheduler pass: resume deferred runs whose retry time has come, then evaluate automations."""
+        resumed = []
+        for row in self.store.list_runs("deferred", limit=10 ** 9):
+            cfg = self.agents.get(row["agent"])
+            if cfg is None:
+                continue
+            with cfg.lock:
+                result = self.store.load_run(row["run_id"])
+                if result.status != "deferred" or (result.resume_at and cfg.agent.clock() < result.resume_at):
+                    continue
+                result = cfg.agent.resume(result)
+                _, changed = self._store_result(result, cfg.name, row["run_id"])
+            resumed.append({"run_id": row["run_id"], "status": result.status})
+            self._changed(changed)
+        firings = self.automator.tick() if self.automations else []
+        return {"resumed": resumed, "firings": [f.as_dict() for f in firings]}
+
+    def start_background(self, interval: Optional[float] = None) -> threading.Event:
+        """Tick every ``interval`` seconds in a daemon thread; set the returned event to stop."""
+        stop = threading.Event()
+        every = interval or self.automation_interval
+
+        def loop():
+            while not stop.wait(every):
+                try:
+                    self.tick()
+                except Exception:  # pragma: no cover - keep the scheduler alive
+                    pass
+
+        threading.Thread(target=loop, daemon=True, name="autology-scheduler").start()
+        return stop
+
+    def list_automations(self, user: User) -> Dict[str, Any]:
+        self.require(user, "read")
+        items = []
+        for a in self.automations.values():
+            recent = self.store.list_firings(a.name, limit=10)
+            for f in recent:  # the firing recorded the run's status then; show where it stands now
+                rows = self.store._query("SELECT status FROM runs WHERE run_id=?", (f["run_id"],)) if f["run_id"] else []
+                f["run_status"] = rows[0]["status"] if rows else None
+            items.append({**a.describe(), "recent": recent})
+        return {"items": items}
+
+    def run_automation(self, user: User, name: str, body: Dict[str, Any]) -> Dict[str, Any]:
+        self.require(user, "run")
+        if name not in self.automations:
+            raise ApiError(404, f"no automation {name!r}")
+        instance = body.get("instance")
+        if instance:
+            with self.graph_lock:
+                inst = self.graph._instances.get(instance)
+                if inst is None or not self.visible(inst, user):
+                    raise ApiError(404, f"no object {instance!r}")
+        try:
+            firings = self.automator.run_now(name, instance)
+        except KeyError:
+            raise ApiError(400, f"{instance!r} is not a {self.automations[name].entity}") from None
+        return {"firings": [f.as_dict() for f in firings]}
+
+    def list_notifications(self, user: User, since: Optional[str], limit: int) -> Dict[str, Any]:
+        self.require(user, "read")
+        roles = None if "admin" in user.permissions else user.roles | user.reviewer_roles
+        items = []
+        for note in self.store.list_notifications(roles, since, limit=10 ** 9):
+            if len(items) >= limit:
+                break
+            iid = note["ref"].get("instance")
+            with self.graph_lock:
+                inst = self.graph._instances.get(iid) if iid else None
+            if inst is not None and not self.visible(inst, user):
+                continue  # don't leak hidden rows through notification text
+            items.append(note)
+        return {"items": items}
 
     def start_run(self, user: User, body: Dict[str, Any]) -> Dict[str, Any]:
         self.require(user, "run")
@@ -306,15 +484,29 @@ class AutologyService:
         goal = body.get("goal") or (cfg.goals[0] if len(cfg.goals) == 1 else None)
         if goal not in cfg.goals:
             raise ApiError(400, f"agent {name} may pursue {cfg.goals}, not {goal!r}")
-        case = body.get("case")
-        if not isinstance(case, dict):
-            raise ApiError(400, "case must be an object")
+        sources = None
+        if body.get("case_template"):  # build the case from the knowledge graph
+            root = str(body.get("root") or "")
+            with self.graph_lock:
+                inst = self.graph._instances.get(root)
+                if inst is None or not self.visible(inst, user):
+                    raise ApiError(404, f"no object {root!r}")
+                try:
+                    case, found = build_case(self.graph, body["case_template"], root)
+                except OntologyError as exc:
+                    raise ApiError(400, str(exc)) from None
+            sources = (body["case_template"], root, found, body.get("write_back", True) is not False)
+        else:
+            case = body.get("case")
+            if not isinstance(case, dict):
+                raise ApiError(400, "case must be an object (or give case_template and root)")
         with cfg.lock:
             try:
-                result = cfg.agent.run(goal, case, str(body.get("case_id") or "case"))
+                result = cfg.agent.run(goal, case, str(body.get("case_id") or (sources[1] if sources else "case")))
             except OntologyError as exc:
                 raise ApiError(400, f"invalid case: {exc}") from None
-            run_id = self._store_result(result, name)
+            run_id, changed = self._store_result(result, name, sources=sources)
+        self._changed(changed)
         return self._summary(result, run_id, user)
 
     def list_runs(self, user: User, status: Optional[str], limit: int, offset: int) -> Dict[str, Any]:
@@ -356,7 +548,8 @@ class AutologyService:
                 result = cfg.agent.resume(result, force=force)
             except (ValueError, OntologyError) as exc:
                 raise ApiError(409, str(exc)) from None
-            self._store_result(result, cfg.name, run_id)
+            _, changed = self._store_result(result, cfg.name, run_id)
+        self._changed(changed)
         return self._summary(result, run_id, user)
 
     def list_reviews(self, user: User, status: Optional[str]) -> Dict[str, Any]:
@@ -387,7 +580,8 @@ class AutologyService:
             result = self.store.load_run(review["run_id"])
             decision = ReviewDecision(body["approved"], user.name, str(body.get("comment", "")))
             result = cfg.agent.resume(result, decision=decision)
-            self._store_result(result, cfg.name, review["run_id"])
+            _, changed = self._store_result(result, cfg.name, review["run_id"])
+        self._changed(changed)
         return self._summary(result, review["run_id"], user)
 
     def report(self, user: User) -> str:
@@ -476,6 +670,9 @@ def _handler(service: AutologyService):
                     ("POST", "runs"): lambda: service.start_run(user, body),
                     ("GET", "reviews"): lambda: service.list_reviews(user, query.get("status", "pending")),
                     ("GET", "score"): lambda: service.score(user),
+                    ("GET", "automations"): lambda: service.list_automations(user),
+                    ("GET", "notifications"): lambda: service.list_notifications(user, query.get("since"), limit),
+                    ("POST", "tick"): lambda: (service.require(user, "admin"), service.tick())[1],
                 }
                 key = (method, parts[0]) if len(parts) == 1 else None
                 if key in routes:
@@ -497,6 +694,8 @@ def _handler(service: AutologyService):
                         return self._send(200, service.run_audit(user, parts[1]))
                     if method == "POST" and parts[2] == "resume":
                         return self._send(200, service.resume_run(user, parts[1], bool(body.get("force"))))
+                if len(parts) == 3 and parts[0] == "automations" and parts[2] == "run" and method == "POST":
+                    return self._send(200, service.run_automation(user, parts[1], body))
                 if len(parts) == 3 and parts[0] == "reviews" and parts[2] == "decision" and method == "POST":
                     return self._send(200, service.decide(user, parts[1], body))
                 raise ApiError(404 if method == "GET" else 405, f"no route for {method} {path}")
@@ -525,11 +724,14 @@ def make_server(service: AutologyService, host: str = "127.0.0.1", port: int = 8
 def serve(config_path: str, host: str = "127.0.0.1", port: int = 8800) -> None:  # pragma: no cover - blocking
     service = AutologyService.from_file(config_path)
     server = make_server(service, host, port)
+    stop = service.start_background()
     print(f"Autology API for {service.ontology.ref} on http://{host}:{server.server_port} "
-          f"({len(service.agents)} agents, {len(service.users)} users, store {service.store.path})")
+          f"({len(service.agents)} agents, {len(service.users)} users, {len(service.automations)} automations, "
+          f"store {service.store.path})")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         pass
     finally:
+        stop.set()
         server.server_close()

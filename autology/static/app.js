@@ -70,7 +70,7 @@ function fmtValue(v) {
 }
 
 // -- tabs -----------------------------------------------------------------
-const TABS = ["reviews", "runs", "start", "objects"];
+const TABS = ["reviews", "runs", "start", "objects", "activity"];
 
 function selectTab(name) {
   for (const t of TABS) {
@@ -82,6 +82,7 @@ function selectTab(name) {
   if (name === "reviews") loadReviews();
   if (name === "runs") loadRuns();
   if (name === "objects") loadObjects();
+  if (name === "activity") loadActivity();
 }
 
 function setupTabs() {
@@ -277,6 +278,42 @@ async function loadObjects() {
 }
 
 // -- session -----------------------------------------------------------------------
+// -- activity: notifications and automations ---------------------------------
+async function loadActivity() {
+  try {
+    const [{ items: notes }, { items: autos }] = await Promise.all([api("GET", "notifications?limit=50"),
+                                                                      api("GET", "automations")]);
+    $("note-count").textContent = String(notes.length);
+    $("notifications").replaceChildren(...(notes.length ? notes.map((n) => el("li", {},
+      el("span", { class: "pill " + n.kind }, n.kind), " ", n.message,
+      el("span", { class: "muted" }, " · " + fmtTime(n.created_at)),
+      n.ref && n.ref.run_id ? el("button", { type: "button", class: "link", "data-run": n.ref.run_id }, "open run") : null,
+    )) : [el("li", { class: "empty" }, "No notifications for your roles.")]));
+    for (const b of $("notifications").querySelectorAll("button[data-run]")) {
+      b.addEventListener("click", () => { selectTab("runs"); showRun(b.dataset.run); });
+    }
+    $("automations").replaceChildren(...(autos.length ? autos.map((a) => el("div", { class: "card" },
+      el("h3", {}, a.name), el("p", {}, a.description || ""),
+      el("p", { class: "muted" }, `${a.entity} · when ${a.when || "always"} · ${a.trigger}` +
+        (a.run ? ` · runs ${a.run.agent}/${a.run.goal}` : "") + (a.notify ? ` · notifies ${a.notify.roles.join(", ")}` : "")),
+      a.recent.length ? el("p", { class: "history" }, "Recent: " + a.recent.map((f) =>
+        `${f.instance} ${f.run_status || f.status}`).join(", ")) : el("p", { class: "muted" }, "Not fired yet."),
+      can("run") ? el("button", { type: "button", "data-auto": a.name }, "Run now") : null,
+    )) : [el("p", { class: "empty" }, "No automations are configured.")]));
+    for (const b of $("automations").querySelectorAll("button[data-auto]")) {
+      b.addEventListener("click", async () => {
+        try {
+          const { firings } = await api("POST", `automations/${encodeURIComponent(b.dataset.auto)}/run`, {});
+          show(`${b.dataset.auto}: fired for ${firings.length} object(s)`, "ok");
+          loadActivity();
+        } catch (err) { show("Could not run automation: " + err.message, "error"); }
+      });
+    }
+  } catch (err) {
+    show("Could not load activity: " + err.message, "error");
+  }
+}
+
 function signOut(message) {
   saveToken(null);
   show("");
@@ -321,6 +358,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   $("sign-out").addEventListener("click", () => signOut());
   $("refresh-reviews").addEventListener("click", loadReviews);
+  $("refresh-activity").addEventListener("click", loadActivity);
   $("run-status").addEventListener("change", loadRuns);
   $("object-type").addEventListener("change", loadObjects);
   $("start-form").addEventListener("submit", startRun);

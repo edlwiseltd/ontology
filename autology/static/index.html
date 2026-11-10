@@ -33,6 +33,7 @@
         <button role="tab" id="tab-runs" aria-controls="panel-runs" aria-selected="false">Runs</button>
         <button role="tab" id="tab-start" aria-controls="panel-start" aria-selected="false">Start a run</button>
         <button role="tab" id="tab-objects" aria-controls="panel-objects" aria-selected="false">Objects</button>
+        <button role="tab" id="tab-activity" aria-controls="panel-activity" aria-selected="false">Activity <span class="badge" id="note-count">0</span></button>
       </nav>
 
       <p id="status" class="status" role="status" aria-live="polite"></p>
@@ -90,6 +91,16 @@
         </div>
         <p class="muted" id="object-total"></p>
         <div class="table-wrap"><table id="objects-table"><thead></thead><tbody></tbody></table></div>
+      </section>
+
+      <section role="tabpanel" id="panel-activity" aria-labelledby="tab-activity" hidden>
+        <div class="section-head">
+          <h2>Notifications</h2>
+          <button type="button" id="refresh-activity">Refresh</button>
+        </div>
+        <ul id="notifications" class="notes"></ul>
+        <h2>Automations</h2>
+        <div id="automations"></div>
       </section>
     </div>
   </main>

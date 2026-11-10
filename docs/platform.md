@@ -1,6 +1,6 @@
 # Running Autology as a shared service
 
-Tier 1 makes Autology usable by many projects and people at once. It adds five things:
+Tier 1 makes Autology usable by many projects and people at once. It adds five things (Tier 2 additions follow in later sections):
 
 | Capability | What it gives you | Module |
 |---|---|---|
@@ -139,7 +139,61 @@ A user's `roles` are ontology roles, and the row and field rules apply to everyt
 - token rotation and expiry;
 - rate limiting;
 - multi-tenant separation within one server;
-- notifications when a review arrives;
 - a PostgreSQL store.
 
-These are the natural next steps after Tier 1.
+## Automations and notifications (Tier 2)
+
+Automations start work when the knowledge graph changes, instead of waiting for someone to call an agent. They are deployment configuration, so they live in the server config and are validated against the ontology and the configured agents at start-up.
+
+```jsonc
+"automations": {
+  "fulfil_signed_contracts": {
+    "entity": "Contract", "when": "Contract.status == 'signed'", "trigger": "change",
+    "run": {"agent": "fulfilment", "goal": "fulfil_contract", "case_template": "contract_case"},
+    "notify": {"roles": ["logistics_manager"], "message": "Contract {id} is signed: fulfilment started"}
+  },
+  "large_order_watch": {
+    "entity": "Order", "when": "Order.amount > 50000 and Order.status == 'received'", "trigger": {"every": 3600},
+    "notify": {"roles": ["finance"], "message": "Order {id} for {amount} is still waiting for a credit check"}
+  }
+},
+"automation_interval": 60,
+"webhooks": [{"url": "https://hooks.example.com/autology", "kinds": ["review", "automation"]}]
+```
+
+**Triggers:**
+
+| Trigger | Fires |
+|---|---|
+| `"change"` (default) | Once when the condition *becomes* true for an instance. It fires again only after the condition has been false in between. Checked on every API write, every write-back from a run, and every scheduled tick, so conditions on `Params.now` (epoch seconds) work as deadlines. Which instances have fired is stored, so a restart does not fire everything again |
+| `{"every": seconds}` | On ticks, for every instance where the condition holds, at most once per interval per instance |
+
+A condition refers to the automation's entity only, plus `Params.now`. When a change automation is first switched on, it fires for every instance where its condition already holds.
+
+**Runs on graph data.** A `run` assembles its case from the graph with a *case template* declared in the ontology:
+
+```jsonc
+"case_templates": {
+  "contract_case": {"root": "Contract",
+                    "entities": {"Contract": "self", "Customer": "^hasContract", "Order": "covers"}}
+}
+```
+
+Each entity is reached from the root instance by a relationship path (`^` follows a link backwards). Multi-record entities take every instance reached; others take the first. The run is governed like any other: rules, reviews, row access and audit all apply. With `write_back` (on by default), the run's resulting state is written back to the instances the case came from, after every step that is saved, including after a review is decided later. Write-backs count as changes, so one automation can trigger the next. A pass stops after 200 firings to guard against loops.
+
+People can start the same kind of run from the API: `POST /api/runs` with `{"case_template": "contract_case", "root": "K-1"}` instead of `case`.
+
+**Notifications** go to everyone holding one of the listed roles (data roles or reviewer roles). A notification is recorded whenever a review is opened, addressed to its reviewer roles, and whenever an automation with `notify` fires. Notifications about a record are hidden from people who may not see that record, so message text cannot leak a hidden row. Each notification is also POSTed as JSON (`{"autology": {...}}`) to every configured webhook whose `kinds` match, on a background thread, best effort. The stored notification is the record of truth.
+
+**The scheduler.** `autology serve` ticks every `automation_interval` seconds. A tick resumes deferred runs whose retry time has come, then evaluates every automation. Admins can also tick by hand.
+
+| Method and path | Permission | Purpose |
+|---|---|---|
+| `GET /api/automations` | read | Automations with their recent firings and the current status of the runs they started |
+| `POST /api/automations/{name}/run` | run | Fire now: `{"instance": "K-1"}` for one instance (even if the condition is false), or `{}` for every instance where it holds |
+| `GET /api/notifications?since=&limit=` | read | Notifications for the caller's roles, newest first |
+| `POST /api/tick` | admin | Run one scheduler pass now |
+
+The inbox has an **Activity** tab with the caller's notifications and the automations, including a *Run now* button for users with the `run` permission.
+
+**Store.** The schema moves to version 2 with tables for automation state, firings, notifications and the instances each run came from. A version 1 store is upgraded in place on start-up.

@@ -8,7 +8,10 @@ One file holds everything a deployment needs to survive restarts:
 * ``audit``                 - every audit entry of every run, hash-chained. **Append-only**:
                               database triggers reject any UPDATE or DELETE, and saving a run
                               refuses if its history diverges from what is stored;
-* ``reviews``               - human review requests and the decisions taken on them (who, when, why).
+* ``reviews``               - human review requests and the decisions taken on them (who, when, why);
+* ``automation_state`` / ``automation_firings`` - which automations fired for which instance, and when;
+* ``notifications``         - messages for people holding given roles (reviews waiting, automations);
+* ``run_sources``           - for runs built from the graph: the instances to write results back to.
 
 SQLite suits a single-node deployment and pilots; the same interface can be implemented on
 PostgreSQL for larger ones. File databases use WAL mode; a lock makes the store thread-safe.
@@ -29,7 +32,7 @@ from .audit import GENESIS, AuditLog
 from .graph import KnowledgeGraph
 from .ontology import Ontology
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -56,6 +59,20 @@ CREATE TABLE IF NOT EXISTS reviews (
     status TEXT NOT NULL, request TEXT NOT NULL, decision TEXT, created_at TEXT NOT NULL,
     decided_at TEXT, decided_by TEXT);
 CREATE INDEX IF NOT EXISTS reviews_status ON reviews(status);
+CREATE TABLE IF NOT EXISTS automation_state (
+    automation TEXT NOT NULL, instance TEXT NOT NULL, active INTEGER NOT NULL, last_fired REAL,
+    PRIMARY KEY (automation, instance));
+CREATE TABLE IF NOT EXISTS automation_firings (
+    firing_id TEXT PRIMARY KEY, automation TEXT NOT NULL, instance TEXT NOT NULL, trigger TEXT NOT NULL,
+    fired_at TEXT NOT NULL, run_id TEXT, status TEXT NOT NULL, detail TEXT NOT NULL, notification_id TEXT);
+CREATE INDEX IF NOT EXISTS firings_automation ON automation_firings(automation, fired_at);
+CREATE TABLE IF NOT EXISTS notifications (
+    notification_id TEXT PRIMARY KEY, created_at TEXT NOT NULL, kind TEXT NOT NULL, roles TEXT NOT NULL,
+    message TEXT NOT NULL, ref TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS notifications_created ON notifications(created_at);
+CREATE TABLE IF NOT EXISTS run_sources (
+    run_id TEXT PRIMARY KEY, template TEXT NOT NULL, root TEXT NOT NULL, sources TEXT NOT NULL,
+    write_back INTEGER NOT NULL);
 """
 
 
@@ -83,6 +100,8 @@ class Store:
                 self._db.execute("INSERT INTO meta VALUES ('schema_version', ?)", (str(SCHEMA_VERSION),))
             elif int(row["value"]) > SCHEMA_VERSION:
                 raise StoreError(f"store schema {row['value']} is newer than this Autology ({SCHEMA_VERSION})")
+            elif int(row["value"]) < SCHEMA_VERSION:  # older store: the new tables were just created
+                self._db.execute("UPDATE meta SET value=? WHERE key='schema_version'", (str(SCHEMA_VERSION),))
 
     def close(self) -> None:
         with self._lock:
@@ -274,3 +293,72 @@ class Store:
             db.execute("UPDATE reviews SET status=?, decision=?, decided_at=?, decided_by=? WHERE review_id=?",
                        ("approved" if approved else "declined", json.dumps(decision), _now(), reviewer, review_id))
         return self.get_review(review_id)
+
+    # -- automations and notifications --------------------------------------
+    def automation_state(self, automation: str, instance: str) -> Optional[Dict[str, Any]]:
+        rows = self._query("SELECT active, last_fired FROM automation_state WHERE automation=? AND instance=?",
+                           (automation, instance))
+        return dict(rows[0]) if rows else None
+
+    def set_automation_state(self, automation: str, instance: str, active: bool,
+                             fired_at: Optional[float] = None) -> None:
+        with self._tx() as db:
+            db.execute("INSERT INTO automation_state VALUES (?, ?, ?, ?) ON CONFLICT(automation, instance) DO UPDATE "
+                       "SET active=excluded.active, last_fired=COALESCE(excluded.last_fired, last_fired)",
+                       (automation, instance, int(active), fired_at))
+
+    def record_firing(self, firing: Any) -> str:
+        firing_id = uuid.uuid4().hex[:12]
+        with self._tx() as db:
+            db.execute("INSERT INTO automation_firings VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                       (firing_id, firing.automation, firing.instance, firing.trigger, _now(), firing.run_id,
+                        firing.status, firing.detail, firing.notification_id))
+        return firing_id
+
+    def list_firings(self, automation: Optional[str] = None, limit: int = 100) -> List[Dict[str, Any]]:
+        sql, args = "SELECT * FROM automation_firings", ()
+        if automation:
+            sql, args = sql + " WHERE automation=?", (automation,)
+        return [dict(r) for r in self._query(sql + " ORDER BY fired_at DESC, firing_id LIMIT ?", args + (int(limit),))]
+
+    def add_notification(self, kind: str, roles: Iterable[str], message: str,
+                         ref: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        note = {"notification_id": uuid.uuid4().hex[:12], "created_at": _now(), "kind": kind,
+                "roles": sorted(set(roles)), "message": message, "ref": dict(ref or {})}
+        with self._tx() as db:
+            db.execute("INSERT INTO notifications VALUES (?, ?, ?, ?, ?, ?)",
+                       (note["notification_id"], note["created_at"], kind, json.dumps(note["roles"]), message,
+                        json.dumps(note["ref"], default=str)))
+        return note
+
+    def list_notifications(self, roles: Optional[Iterable[str]] = None, since: Optional[str] = None,
+                           limit: int = 100) -> List[Dict[str, Any]]:
+        """Newest first. ``roles`` = None returns all; otherwise those addressed to one of ``roles``."""
+        sql, args = "SELECT * FROM notifications", ()
+        if since:
+            sql, args = sql + " WHERE created_at > ?", (since,)
+        rows = self._query(sql + " ORDER BY created_at DESC, notification_id", args)
+        out = []
+        wanted = None if roles is None else set(roles)
+        for r in rows:
+            note = {**dict(r), "roles": json.loads(r["roles"]), "ref": json.loads(r["ref"])}
+            if wanted is None or wanted & set(note["roles"]):
+                out.append(note)
+            if len(out) >= limit:
+                break
+        return out
+
+    def link_run_sources(self, run_id: str, template: str, root: str, sources: Dict[str, Any],
+                         write_back: bool) -> None:
+        with self._tx() as db:
+            db.execute("INSERT OR REPLACE INTO run_sources VALUES (?, ?, ?, ?, ?)",
+                       (run_id, template, root, json.dumps(sources), int(write_back)))
+
+    def run_sources(self, run_id: str) -> Optional[Dict[str, Any]]:
+        rows = self._query("SELECT * FROM run_sources WHERE run_id=?", (run_id,))
+        if not rows:
+            return None
+        out = dict(rows[0])
+        out["sources"] = json.loads(out["sources"])
+        out["write_back"] = bool(out["write_back"])
+        return out

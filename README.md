@@ -8,7 +8,7 @@ It is **agnostic** in three ways:
 - **Model:** any LLM plugs in through a small `ChatModel` interface. Claude is the default adapter.
 - **Systems:** tools are Python callables, HTTP services or declarative decision tables, wired up in a JSON config.
 
-> Concept paper: [`docs/autology.md`](docs/autology.md) · Engineering methodology mapped to the code: [`docs/methodology.md`](docs/methodology.md) · Ontology + dual-agent scheduling: [`docs/scheduling.md`](docs/scheduling.md)
+> Concept paper: [`docs/autology.md`](docs/autology.md) · Engineering methodology mapped to the code: [`docs/methodology.md`](docs/methodology.md) · Ontology + dual-agent scheduling: [`docs/scheduling.md`](docs/scheduling.md) · Feature map against Palantir's platforms: [`docs/palantir-comparison.md`](docs/palantir-comparison.md)
 
 ```
             goal + case facts

@@ -197,3 +197,67 @@ People can start the same kind of run from the API: `POST /api/runs` with `{"cas
 The inbox has an **Activity** tab with the caller's notifications and the automations, including a *Run now* button for users with the `run` permission.
 
 **Store.** The schema moves to version 2 with tables for automation state, firings, notifications and the instances each run came from. A version 1 store is upgraded in place on start-up.
+
+## What-if scenarios (Tier 2)
+
+A scenario is a sandbox copy of the knowledge graph. You apply edits to the copy, compare the result with the live data, then commit or discard. Nothing reaches the live graph until a commit.
+
+```jsonc
+{
+  "name": "Northwind adds a large turbine order",
+  "edits": [
+    {"op": "add", "type": "Order", "id": "O-6", "attributes": {"amount": 95000, ...},
+     "links": [{"kind": "covers", "source": "K-1"}]},
+    {"op": "action", "action": "credit_check", "case_template": "contract_case", "root": "K-1",
+     "target": "O-6", "agent": "fulfilment"}
+  ],
+  "checks": [{"goal": "fulfil_contract", "case_template": "contract_case", "root": "K-1", "agent": "fulfilment"}]
+}
+```
+
+| Edit | Effect on the copy |
+|---|---|
+| `set` | Change attributes of an instance. Validated against the ontology, including states |
+| `add` | Add an instance, optionally with links (`{"kind", "target"}` or `{"kind", "source"}`) |
+| `link` | Add a link |
+| `action` | Simulate one ontology action on a case built from the copy. Governance decides as it would for an agent: a denied action is recorded and not applied; one that would need human review is applied and flagged with its reviewers. Mandatory steps done earlier in the scenario count. No tool is called |
+| `event` | Apply an event's impact rules, such as a machine alert setting the machine down, and record what it affects |
+
+**Comparison** against the unchanged live data covers:
+
+- every competency question whose answer changes;
+- for each check, the plan to a goal: its steps and which of them need human review, or which action and rule block it;
+- with `schedule`, schedule KPIs: jobs scheduled, jobs on hold and why, makespan, late jobs and tardiness. Jobs that lose their only machine go on hold, so a shorter makespan with fewer jobs is not an improvement; the report shows both.
+
+**Commit** writes the scenario's net changes. Each scenario records the live values it read when an edit first touched an instance. If any value it changes has moved since, the commit is refused with the list of conflicts, so a scenario can never silently overwrite newer data. Committed writes count as changes, so automations fire.
+
+**From the command line**, no server needed:
+
+```bash
+python -m autology scenario examples/order_fulfilment/ontology.json examples/order_fulfilment/data.json \
+    examples/order_fulfilment/scenario.json
+python -m autology scenario examples/scheduling/ontology.json examples/scheduling/data.json \
+    examples/scheduling/scenario_breakdown.json --schedule
+```
+
+`--json` prints the full comparison and `--commit OUT.json` writes the data with the scenario applied.
+
+**Through the API:**
+
+| Method and path | Permission | Purpose |
+|---|---|---|
+| `GET /api/scenarios?status=` | read | List scenarios |
+| `POST /api/scenarios` | run | Create: `{"name", "edits": [...]}` |
+| `GET /api/scenarios/{id}` | read | Edit results, net changes and conflicts with the live data |
+| `POST /api/scenarios/{id}/edits` | run (owner or admin) | Add edits: `{"edits": [...]}` |
+| `POST /api/scenarios/{id}/compare` | read | `{"checks": [...], "schedule": true}` |
+| `POST /api/scenarios/{id}/commit` | admin | Write to the live graph and store. 409 on conflicts |
+| `POST /api/scenarios/{id}/discard` | run (owner or admin) | Close without writing |
+
+Access rules apply throughout:
+
+- Edits that name a record the caller may not see are refused as if the record did not exist.
+- Simulated actions and plans use a configured agent's roles (`"agent": "fulfilment"`) or the caller's own roles. Only admins may name arbitrary roles.
+- Comparisons hide records, plan steps and blocking rules the caller may not see, and withhold aggregate answers that include hidden rows.
+
+A scenario is stored as its edits and replayed on the current live data each time it is read. If an edit no longer applies, for example because an instance it adds now exists, reading the scenario returns 409.

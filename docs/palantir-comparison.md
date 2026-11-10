@@ -26,8 +26,8 @@ Of the 58 feature areas compared below:
 
 | Status | Count | Meaning |
 |---|---|---|
-| **Have** | 15 | Autology has a working equivalent |
-| **Partial** | 21 | The concept exists but is narrower, or has no user interface |
+| **Have** | 16 | Autology has a working equivalent |
+| **Partial** | 20 | The concept exists but is narrower, or has no user interface |
 | **Missing** | 18 | Not present |
 | **Out of scope** | 4 | Not sensible to build here |
 
@@ -53,7 +53,7 @@ This is the heart of both systems.
 | Object sets and search | Filter, search and aggregate objects | `KnowledgeGraph.query` with filters, traversals and aggregates. No full-text search | **Partial** | High | M |
 | Ontology Manager | Visual editor for the ontology | JSON files plus validate, lint and diff on the CLI | **Partial** | Medium. A web editor is a user-interface project | L |
 | Ontology SDK (OSDK) | Generated, typed client libraries in TypeScript, Python and Java | Python API only. Nothing generated from the ontology | **Missing** | High. Generating typed Python and TypeScript clients from an ontology file is well defined | M |
-| Scenarios (what-if) | Apply edits in a sandbox, compare outcomes, then commit or discard | The planner simulates outcomes internally. Nothing is exposed to users | **Partial** | High. Fork a state, run actions, compare, commit | M |
+| Scenarios (what-if) | Apply edits in a sandbox, compare outcomes, then commit or discard | Scenarios fork the graph; edits, governed simulated actions and impact events; comparison of answers, plans and schedule KPIs; commit with conflict detection (Tier 2). API and CLI, no visual editor | **Have** | — | — |
 | Foundry Rules | Business users manage rule logic without code | Rules and decision-table tools are edited as JSON | **Partial** | Medium. Needs a rule-editing interface | M–L |
 
 ## 2. AI and agents (AIP)
@@ -153,7 +153,7 @@ The gaps differ a great deal in value. This order follows what each step unlocks
 |---|---|---|
 | 5 | Triggers and schedules (Automate) | Done: automations, case templates, write-back, notifications, webhooks |
 | 6 | Evaluation harness for reasoners (Evals) | M |
-| 7 | Scenarios: fork, simulate, compare, commit | M |
+| 7 | Scenarios: fork, simulate, compare, commit | Done: API, CLI, conflict-checked commit |
 | 8 | Generated typed SDK (OSDK) | M |
 | 9 | Chat front end over governed tools (Chatbot Studio) | M |
 | 10 | Tracing export, justification checkpoints, notifications, interfaces | S each |

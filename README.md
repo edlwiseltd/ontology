@@ -89,6 +89,7 @@ python examples/scheduling/run.py ALERT-11   # furnace breakdown: 14 jobs on hol
 | Readiness | Scorecard 0–100 (A–F), evidence coverage, roadmap gates, fixes ranked by points recovered | `scoring.py` |
 | Platform | Multi-record cases (`multiple`, `for_each`, `all_of`/`any_of`/`count_of`), row-level access, SQLite store with append-only audit, asynchronous reviews, REST API with token auth, web inbox | `state.py`, `store.py`, `server.py`, `static/` |
 | Automation | Triggers on data changes, deadlines and schedules; cases built from the graph with case templates; write-back; notifications and webhooks | `automation.py`, `graph.py` (`build_case`) |
+| Scenarios | What-if sandboxes over the graph: edits, governed simulated actions, impact events; compare answers, plans and schedule KPIs; conflict-checked commit | `scenarios.py` |
 | Scheduling | Impact rules with reasoning chains and event application; flexible job-shop model; CP-SAT and built-in solvers; post-solve validation; rework cloning; Gantt; RDF export of instance data for SPARQL | `impact.py`, `scheduling.py`, `export.py` |
 
 ## Quick start
@@ -96,7 +97,7 @@ python examples/scheduling/run.py ALERT-11   # furnace breakdown: 14 jobs on hol
 Requires Python 3.10 or later. No dependencies (`anthropic` is optional, for Claude).
 
 ```bash
-python -m unittest discover -s tests -t .             # 197 tests, 96% line coverage (OR-Tools and rdflib tests skip if not installed)
+python -m unittest discover -s tests -t .             # 211 tests, 96% line coverage (OR-Tools and rdflib tests skip if not installed)
 python examples/customer_onboarding/run.py financial  # narrated walkthrough
 python examples/manufacturing/run.py                  # full methodology: modules, CQs, agents, versioning, report, ROI, score
 ```
@@ -115,7 +116,7 @@ python -m autology score  $D/ontology.json --runs runs.jsonl --tools $D/all_tool
     --data $D/data.json --budget 25 --tco $D/tco.json --min-score 95           # exit 4 below 95: CI gate
 ```
 
-Other commands: `lint`, `describe`, `ask` (competency questions), `plan`, `diff` (exits 3 if the version bump is too small), `export --format jsonld|turtle`, `roi`.
+Other commands: `lint`, `describe`, `ask` (competency questions), `plan`, `scenario` (what-if comparison, optionally `--commit`), `diff` (exits 3 if the version bump is too small), `export --format jsonld|turtle`, `roi`, `serve`, `token`.
 
 ### Connecting real systems
 
@@ -255,7 +256,7 @@ examples/manufacturing/        modular enterprise ontology (core/procurement/pro
 examples/care_referral/        configuration-only deployment: ontology, decision-table tools, policy, pilot batch
 examples/scheduling/           aerospace plant: plant + replanning modules, generated knowledge graph, 16 events, narrated run
 examples/order_fulfilment/     many orders per contract, row-level access, a server config with four users and two automations
-tests/                         197 tests (stdlib unittest), including the >= 95 readiness gate for every example
+tests/                         211 tests (stdlib unittest), including the >= 95 readiness gate for every example
 docs/autology.md               the Autology concept and how it maps to this code
 docs/methodology.md            the engineering methodology, section by section, with the code that implements it
 ```

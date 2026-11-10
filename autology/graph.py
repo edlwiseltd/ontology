@@ -198,5 +198,35 @@ def build_case(graph: "KnowledgeGraph", template: str, root_id: str) -> Tuple[Di
     return case, sources
 
 
+def write_back(graph: "KnowledgeGraph", state: Any, sources: Mapping[str, Any]) -> List[str]:
+    """Copy a world state's values onto the graph instances a case was built from (see :func:`build_case`).
+
+    Only attributes the instance already has are written. Returns the ids of instances that changed.
+    """
+    changed = []
+    for entity, src in sources.items():
+        if isinstance(src, list):
+            pairs = [(iid, state.collections.get(entity, {}).get(iid)) for iid in src]
+        else:
+            pairs = [(src, state.entities.get(entity))]
+        for iid, values in pairs:
+            inst = graph._instances.get(iid)
+            if not values or inst is None:
+                continue
+            new = {k: v for k, v in values.items() if k in inst.attributes and inst.attributes[k] != v}
+            if new:
+                inst.attributes.update(new)
+                changed.append(iid)
+    return changed
+
+
+def fork(graph: "KnowledgeGraph") -> "KnowledgeGraph":
+    """An independent copy of ``graph``: changes to the copy never touch the original."""
+    copy = KnowledgeGraph(graph.ontology)
+    copy._instances = {i.id: Instance(i.type, i.id, dict(i.attributes)) for i in graph._instances.values()}
+    copy._links = list(graph._links)
+    return copy
+
+
 def _raise(exc: Exception):
     raise exc

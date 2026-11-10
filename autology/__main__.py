@@ -14,6 +14,7 @@
     python -m autology diff OLD NEW                              # semantic diff + required version bump
     python -m autology export ONTOLOGY [--format jsonld|turtle]
     python -m autology roi TCO.json
+    python -m autology scenario ONTOLOGY DATA.json SCENARIO.json [--schedule] [--json] [--commit OUT.json]
     python -m autology serve SERVER.json [--host 127.0.0.1] [--port 8800]   # REST API + web inbox
     python -m autology token                                               # new API token and its hash
 """
@@ -42,6 +43,30 @@ def _load(path: str) -> Ontology:
     except (OntologyError, OSError, json.JSONDecodeError) as exc:
         print(f"invalid ontology {path}: {exc}", file=sys.stderr)
         raise SystemExit(1)
+
+
+def _cmd_scenario(args, onto: Ontology) -> int:
+    from .scenarios import Scenario, render
+
+    spec = json.loads(Path(args.scenario).read_text(encoding="utf-8"))
+    if isinstance(spec, list):
+        spec = {"edits": spec}
+    graph = _graph(onto, args.data)
+    scenario = Scenario(graph, spec.get("name", Path(args.scenario).stem))
+    for edit in spec.get("edits", []):
+        result = scenario.apply(edit)
+        if result["op"] == "action" and not result["applied"]:
+            print(f"note: {result['action']} was denied: {'; '.join(result['reasons'])}", file=sys.stderr)
+    report = scenario.compare(spec.get("checks", []), schedule=args.schedule)
+    print(json.dumps(report, indent=2, default=str) if args.json else render(report), end="" if not args.json else "\n")
+    if args.commit:
+        scenario.commit(graph)
+        data = {"instances": [{"type": i.type, "id": i.id, **{k: v for k, v in i.attributes.items() if v is not None}}
+                              for i in graph.instances()],
+                "links": [list(l) for l in graph._links]}
+        Path(args.commit).write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+        print(f"wrote {args.commit}", file=sys.stderr)
+    return 0
 
 
 def _graph(onto: Ontology, path: str) -> KnowledgeGraph:
@@ -127,6 +152,13 @@ def _build_parser() -> argparse.ArgumentParser:
     e.add_argument("--format", choices=["jsonld", "turtle"], default="jsonld")
     r = sub.add_parser("roi", help="TCO / ROI from a JSON model")
     r.add_argument("model")
+    scn = sub.add_parser("scenario", help="what-if: apply edits to a copy of the data and compare outcomes")
+    scn.add_argument("ontology")
+    scn.add_argument("data")
+    scn.add_argument("scenario", help='JSON: {"name", "edits": [...], "checks": [...]} or a list of edits')
+    scn.add_argument("--schedule", action="store_true", help="also compare schedule KPIs")
+    scn.add_argument("--json", action="store_true", help="print the comparison as JSON")
+    scn.add_argument("--commit", metavar="OUT.json", help="write the data with the scenario applied")
     sv = sub.add_parser("serve", help="run the REST API and web inbox")
     sv.add_argument("config")
     sv.add_argument("--host", default="127.0.0.1")
@@ -275,6 +307,8 @@ def main(argv=None) -> int:
         return 0
     if args.command == "run":
         return _cmd_run(args, onto)
+    if args.command == "scenario":
+        return _cmd_scenario(args, onto)
     if args.command == "score":
         return _cmd_score(args, onto)
     if args.command == "report":

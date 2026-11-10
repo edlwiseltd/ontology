@@ -11,7 +11,8 @@ One file holds everything a deployment needs to survive restarts:
 * ``reviews``               - human review requests and the decisions taken on them (who, when, why);
 * ``automation_state`` / ``automation_firings`` - which automations fired for which instance, and when;
 * ``notifications``         - messages for people holding given roles (reviews waiting, automations);
-* ``run_sources``           - for runs built from the graph: the instances to write results back to.
+* ``run_sources``           - for runs built from the graph: the instances to write results back to;
+* ``scenarios``             - what-if scenarios: their edits and the base values they read.
 
 SQLite suits a single-node deployment and pilots; the same interface can be implemented on
 PostgreSQL for larger ones. File databases use WAL mode; a lock makes the store thread-safe.
@@ -70,6 +71,9 @@ CREATE TABLE IF NOT EXISTS notifications (
     notification_id TEXT PRIMARY KEY, created_at TEXT NOT NULL, kind TEXT NOT NULL, roles TEXT NOT NULL,
     message TEXT NOT NULL, ref TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS notifications_created ON notifications(created_at);
+CREATE TABLE IF NOT EXISTS scenarios (
+    scenario_id TEXT PRIMARY KEY, name TEXT NOT NULL, created_by TEXT NOT NULL, created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL, status TEXT NOT NULL, edits TEXT NOT NULL, snapshot TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS run_sources (
     run_id TEXT PRIMARY KEY, template TEXT NOT NULL, root TEXT NOT NULL, sources TEXT NOT NULL,
     write_back INTEGER NOT NULL);
@@ -362,3 +366,30 @@ class Store:
         out["sources"] = json.loads(out["sources"])
         out["write_back"] = bool(out["write_back"])
         return out
+
+    # -- scenarios ------------------------------------------------------------
+    def save_scenario(self, scenario_id: Optional[str], name: str, created_by: str, edits: List[Dict[str, Any]],
+                      snapshot: Dict[str, Any], status: str = "open") -> str:
+        scenario_id = scenario_id or uuid.uuid4().hex[:12]
+        now = _now()
+        with self._tx() as db:
+            db.execute("INSERT INTO scenarios VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(scenario_id) DO UPDATE SET "
+                       "name=excluded.name, updated_at=excluded.updated_at, status=excluded.status, "
+                       "edits=excluded.edits, snapshot=excluded.snapshot",
+                       (scenario_id, name, created_by, now, now, status, json.dumps(edits, default=str),
+                        json.dumps(snapshot, default=str)))
+        return scenario_id
+
+    def get_scenario(self, scenario_id: str) -> Dict[str, Any]:
+        rows = self._query("SELECT * FROM scenarios WHERE scenario_id=?", (scenario_id,))
+        if not rows:
+            raise KeyError(scenario_id)
+        out = dict(rows[0])
+        out["edits"], out["snapshot"] = json.loads(out["edits"]), json.loads(out["snapshot"])
+        return out
+
+    def list_scenarios(self, status: Optional[str] = None) -> List[Dict[str, Any]]:
+        sql, args = "SELECT scenario_id, name, created_by, created_at, updated_at, status FROM scenarios", ()
+        if status:
+            sql, args = sql + " WHERE status=?", (status,)
+        return [dict(r) for r in self._query(sql + " ORDER BY updated_at DESC, scenario_id", args)]

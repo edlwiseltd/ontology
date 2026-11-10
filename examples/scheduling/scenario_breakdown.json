@@ -1,0 +1,7 @@
+{
+  "name": "Machines EQ_05 and EQ_11 break down",
+  "edits": [
+    {"op": "event", "id": "ALERT-05"},
+    {"op": "event", "id": "ALERT-11"}
+  ]
+}

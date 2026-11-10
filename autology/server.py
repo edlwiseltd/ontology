@@ -51,7 +51,7 @@ from urllib.parse import parse_qs, urlparse
 from .agent import DeferredApprover, ReviewDecision, WorkAgent
 from .automation import Automation, Automator, Firing, load_automations
 from .governance import REDACTED, GovernanceLayer, Principal
-from .graph import Instance, KnowledgeGraph, build_case
+from .graph import Instance, KnowledgeGraph, build_case, write_back
 from .ontology import Ontology, OntologyError
 from .store import Store, StoreError
 
@@ -330,23 +330,11 @@ class AutologyService:
 
     def _write_back(self, result, sources: Dict[str, Any]) -> List[str]:
         """Copy the run's resulting state onto the graph instances its case was built from."""
-        changed = []
-        state = result.state
         with self.graph_lock:
-            for entity, src in sources.items():
-                if isinstance(src, list):
-                    pairs = [(iid, state.collections.get(entity, {}).get(iid)) for iid in src]
-                else:
-                    pairs = [(src, state.entities.get(entity))]
-                for iid, values in pairs:
-                    inst = self.graph._instances.get(iid)
-                    if not values or inst is None:
-                        continue
-                    new = {k: v for k, v in values.items() if k in inst.attributes and inst.attributes[k] != v}
-                    if new:
-                        inst.attributes.update(new)
-                        self.store.upsert_instance(inst.type, iid, inst.attributes)
-                        changed.append(iid)
+            changed = write_back(self.graph, result.state, sources)
+            for iid in changed:
+                inst = self.graph.get(iid)
+                self.store.upsert_instance(inst.type, iid, inst.attributes)
         return changed
 
     def _changed(self, instance_ids: List[str]) -> List[Firing]:
@@ -584,6 +572,183 @@ class AutologyService:
         self._changed(changed)
         return self._summary(result, review["run_id"], user)
 
+    # -- what-if scenarios -----------------------------------------------------------
+    def _roles_for(self, user: User, spec: Dict[str, Any]) -> List[str]:
+        """Roles a simulated action or plan uses: a configured agent's, or the caller's own."""
+        if spec.get("agent"):
+            if spec["agent"] not in self.agents:
+                raise ApiError(400, f"unknown agent {spec['agent']!r}")
+            return sorted(self.agents[spec["agent"]].agent.principal.roles)
+        if spec.get("roles") is not None and "admin" in user.permissions:
+            return list(spec["roles"])
+        return sorted(user.roles)
+
+    @staticmethod
+    def _edit_ids(edit: Dict[str, Any]) -> List[str]:
+        ids = [edit.get(k) for k in ("id", "source", "target", "root") if edit.get(k)]
+        if edit.get("op") == "add":
+            ids = [l.get("source") or l.get("target") for l in edit.get("links", [])]
+        return [str(i) for i in ids]
+
+    def _load_scenario(self, sid: str, user: User, write: bool = False):
+        from .scenarios import Scenario
+
+        try:
+            row = self.store.get_scenario(sid)
+        except KeyError:
+            raise ApiError(404, f"no scenario {sid!r}") from None
+        if write and "admin" not in user.permissions and row["created_by"] != user.name:
+            raise ApiError(403, f"scenario {sid} belongs to {row['created_by']}")
+        if write and row["status"] != "open":
+            raise ApiError(409, f"scenario {sid} is {row['status']}")
+        with self.graph_lock:
+            try:
+                scenario = Scenario(self.graph, row["name"], row["edits"], row["snapshot"])
+            except OntologyError as exc:  # the live data moved so far that an edit no longer applies
+                raise ApiError(409, f"scenario {sid} no longer applies to the live data: {exc}") from None
+        return row, scenario
+
+    def _apply_edits(self, scenario, edits: Any, user: User) -> None:
+        if not isinstance(edits, list):
+            raise ApiError(400, "edits must be a list")
+        for i, edit in enumerate(edits):
+            if not isinstance(edit, dict):
+                raise ApiError(400, f"edit {i} must be an object")
+            edit = dict(edit)
+            for iid in self._edit_ids(edit):
+                inst = scenario.graph._instances.get(iid)
+                if inst is not None and not self.visible(inst, user):
+                    raise ApiError(404, f"edit {i}: no object {iid!r}")
+            if edit.get("op") == "action":
+                edit["roles"] = self._roles_for(user, edit)
+                edit.pop("agent", None)
+            try:
+                scenario.apply(edit)
+            except (OntologyError, KeyError, TypeError) as exc:
+                raise ApiError(400, f"edit {i}: {exc}") from None
+
+    def _scenario_view(self, sid: str, row: Dict[str, Any], scenario, user: User) -> Dict[str, Any]:
+        def seen(iid):
+            inst = scenario.graph._instances.get(iid)
+            return inst is not None and self.visible(inst, user)
+
+        d = scenario.diff()
+        with self.graph_lock:
+            conflicts = scenario.conflicts(self.graph)
+        return {"scenario_id": sid, "name": row["name"], "status": row["status"], "created_by": row["created_by"],
+                "edits": len(scenario.edits),
+                "results": [r for r, e in zip(scenario.results, scenario.edits)
+                            if all(seen(i) for i in self._edit_ids(e) + ([e["id"]] if e.get("op") == "add" else []))],
+                "diff": {"changed": {i: v for i, v in d["changed"].items() if seen(i)},
+                         "added": [i for i in d["added"] if seen(i)],
+                         "added_status": {i: v for i, v in d["added_status"].items() if seen(i)},
+                         "links": [l for l in d["links"] if seen(l[0]) and seen(l[2])]},
+                "conflicts": [c for c in conflicts if seen(c["id"])]}
+
+    def list_scenarios(self, user: User, status: Optional[str]) -> Dict[str, Any]:
+        self.require(user, "read")
+        return {"items": self.store.list_scenarios(status)}
+
+    def create_scenario(self, user: User, body: Dict[str, Any]) -> Dict[str, Any]:
+        from .scenarios import Scenario
+
+        self.require(user, "run")
+        name = str(body.get("name") or "scenario")[:200]
+        with self.graph_lock:
+            scenario = Scenario(self.graph, name)
+        self._apply_edits(scenario, body.get("edits", []), user)
+        sid = self.store.save_scenario(None, name, user.name, scenario.edits, scenario.snapshot)
+        return self._scenario_view(sid, self.store.get_scenario(sid), scenario, user)
+
+    def get_scenario(self, user: User, sid: str) -> Dict[str, Any]:
+        self.require(user, "read")
+        row, scenario = self._load_scenario(sid, user)
+        return self._scenario_view(sid, row, scenario, user)
+
+    def add_scenario_edits(self, user: User, sid: str, body: Dict[str, Any]) -> Dict[str, Any]:
+        self.require(user, "run")
+        row, scenario = self._load_scenario(sid, user, write=True)
+        self._apply_edits(scenario, body.get("edits"), user)
+        self.store.save_scenario(sid, row["name"], row["created_by"], scenario.edits, scenario.snapshot)
+        return self._scenario_view(sid, self.store.get_scenario(sid), scenario, user)
+
+    def compare_scenario(self, user: User, sid: str, body: Dict[str, Any]) -> Dict[str, Any]:
+        from .scenarios import ScenarioError
+
+        self.require(user, "read")
+        row, scenario = self._load_scenario(sid, user)
+        checks = []
+        for c in body.get("checks") or []:
+            root = scenario.graph._instances.get(str(c.get("root")))
+            if root is not None and not self.visible(root, user):
+                raise ApiError(404, f"no object {c.get('root')!r}")
+            checks.append({"goal": c.get("goal"), "case_template": c.get("case_template"), "root": c.get("root"),
+                           "roles": self._roles_for(user, c)})
+        try:
+            with self.graph_lock:
+                report = scenario.compare(checks, schedule=bool(body.get("schedule")))
+        except OntologyError as exc:
+            raise ApiError(400, str(exc)) from None
+        if "admin" not in user.permissions:
+            report = self._redact_report(report, scenario, user)
+        report["diff"] = self._scenario_view(sid, row, scenario, user)["diff"]
+        return report
+
+    def _redact_report(self, report: Dict[str, Any], scenario, user: User) -> Dict[str, Any]:
+        """Remove what the caller may not see from a comparison: hidden ids and aggregates over hidden rows."""
+        def seen(graph, iid):
+            inst = graph._instances.get(iid)
+            return inst is None or self.visible(inst, user)
+
+        def answer(graph, value, qid):
+            q = next(q for q in self.ontology.questions if q.id == qid)
+            result = graph.ask(q)
+            hidden = [i for i in result.instances if not self.visible(i, user)]
+            if result.value is not None:
+                return "withheld: aggregates rows you may not see" if hidden else value
+            return [i for i in value if seen(graph, i)]
+
+        for q in report.get("questions", []):
+            if "error" in q:
+                continue
+            q["baseline"] = answer(scenario.base, q["baseline"], q["id"])
+            q["scenario"] = answer(scenario.graph, q["scenario"], q["id"])
+            q["changed"] = q["baseline"] != q["scenario"]
+        for plan in report.get("plans", []):
+            for side, graph in (("baseline", scenario.base), ("scenario", scenario.graph)):
+                p = plan[side]
+                for key in ("steps", "reviews"):
+                    if key in p:
+                        p[key] = [st if seen(graph, st.partition("@")[2]) else st.partition("@")[0] + "@(hidden)"
+                                  for st in p[key]]
+                if p.get("action") and not seen(graph, p["action"].partition("@")[2]):
+                    p["action"] = p["action"].partition("@")[0] + "@(hidden)"
+                    p["reasons"] = ["blocked by a rule on a record you may not see"]
+        return report
+
+    def commit_scenario(self, user: User, sid: str) -> Dict[str, Any]:
+        from .scenarios import ConflictError
+
+        self.require(user, "admin")
+        row, scenario = self._load_scenario(sid, user, write=True)
+        with self.graph_lock:
+            try:
+                written = scenario.commit(self.graph, self.store)
+            except ConflictError as exc:
+                raise ApiError(409, str(exc)) from None
+            except OntologyError as exc:
+                raise ApiError(409, f"cannot commit: {exc}") from None
+        self.store.save_scenario(sid, row["name"], row["created_by"], scenario.edits, scenario.snapshot, "committed")
+        fired = self._changed(written)
+        return {"scenario_id": sid, "status": "committed", "written": written,
+                "triggered": [f.as_dict() for f in fired]}
+
+    def discard_scenario(self, user: User, sid: str) -> Dict[str, Any]:
+        self.require(user, "run")
+        row, scenario = self._load_scenario(sid, user, write=True)
+        self.store.save_scenario(sid, row["name"], row["created_by"], scenario.edits, scenario.snapshot, "discarded")
+        return {"scenario_id": sid, "status": "discarded"}
+
     def report(self, user: User) -> str:
         self.require(user, "read")
         from .reporting import compliance_report
@@ -673,6 +838,8 @@ def _handler(service: AutologyService):
                     ("GET", "automations"): lambda: service.list_automations(user),
                     ("GET", "notifications"): lambda: service.list_notifications(user, query.get("since"), limit),
                     ("POST", "tick"): lambda: (service.require(user, "admin"), service.tick())[1],
+                    ("GET", "scenarios"): lambda: service.list_scenarios(user, query.get("status")),
+                    ("POST", "scenarios"): lambda: service.create_scenario(user, body),
                 }
                 key = (method, parts[0]) if len(parts) == 1 else None
                 if key in routes:
@@ -687,6 +854,8 @@ def _handler(service: AutologyService):
                         return self._send(200, service.get_run(user, ident))
                     if method == "GET" and kind == "reviews":
                         return self._send(200, service.get_review(user, ident))
+                    if method == "GET" and kind == "scenarios":
+                        return self._send(200, service.get_scenario(user, ident))
                     if method == "POST" and kind == "questions":
                         return self._send(200, service.answer(user, ident, body.get("params") or {}))
                 if len(parts) == 3 and parts[0] == "runs":
@@ -694,6 +863,14 @@ def _handler(service: AutologyService):
                         return self._send(200, service.run_audit(user, parts[1]))
                     if method == "POST" and parts[2] == "resume":
                         return self._send(200, service.resume_run(user, parts[1], bool(body.get("force"))))
+                if len(parts) == 3 and parts[0] == "scenarios" and method == "POST":
+                    sid, verb = parts[1], parts[2]
+                    handlers = {"edits": lambda: service.add_scenario_edits(user, sid, body),
+                                "compare": lambda: service.compare_scenario(user, sid, body),
+                                "commit": lambda: service.commit_scenario(user, sid),
+                                "discard": lambda: service.discard_scenario(user, sid)}
+                    if verb in handlers:
+                        return self._send(200, handlers[verb]())
                 if len(parts) == 3 and parts[0] == "automations" and parts[2] == "run" and method == "POST":
                     return self._send(200, service.run_automation(user, parts[1], body))
                 if len(parts) == 3 and parts[0] == "reviews" and parts[2] == "decision" and method == "POST":

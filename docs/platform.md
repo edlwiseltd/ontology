@@ -1,6 +1,6 @@
 # Running Autology as a shared service
 
-Tier 1 makes Autology usable by many projects and people at once. It adds five things (Tier 2 additions follow in later sections):
+Tier 1 makes Autology usable by many projects and people at once. It adds five things:
 
 | Capability | What it gives you | Module |
 |---|---|---|
@@ -9,6 +9,20 @@ Tier 1 makes Autology usable by many projects and people at once. It adds five t
 | **Persistent store** | The knowledge graph, every run, an append-only audit log and review decisions survive restarts | `store.py` (SQLite) |
 | **Asynchronous reviews** | A run pauses at a human review and resumes when someone decides, possibly hours later and after a restart | `agent.py` (`DeferredApprover`, `resume`) |
 | **REST API and web inbox** | Token authentication, per-user permissions and data access, plus a browser inbox for reviews and monitoring | `server.py`, `static/` |
+
+Tier 2 builds on it:
+
+| Capability | Section |
+|---|---|
+| Automations on data changes, deadlines and schedules; cases built from the graph; write-back; notifications and webhooks | [Automations and notifications](#automations-and-notifications-tier-2) |
+| What-if scenarios with conflict-checked commit | [What-if scenarios](#what-if-scenarios-tier-2) |
+| Typed Python and TypeScript clients | [Typed client libraries](#typed-client-libraries-tier-2) |
+| A governed assistant | [Governed assistant](#governed-assistant-tier-2) |
+| An append-only API access log | [Access log](#access-log-tier-2) |
+| Justification checkpoints | [Checkpoints](#checkpoints-tier-2) |
+| Ontology interfaces | [Interfaces](#interfaces-tier-2) |
+| OpenTelemetry trace export | [Tracing](#tracing-tier-2) |
+| Evaluation suites for reasoners | [`evals.md`](evals.md) |
 
 The core still needs no third-party dependencies. The store uses SQLite and the server uses `http.server`, both from the Python standard library.
 
@@ -338,3 +352,63 @@ Every API request, except the health check and the inbox's static files, is writ
 | Method and path | Permission | Purpose |
 |---|---|---|
 | `GET /api/access-log?principal=&limit=` | audit | Newest entries first |
+
+## Checkpoints (Tier 2)
+
+A `checkpoint` rule makes a person write down why before a sensitive operation. The reason is stored in an append-only `justifications` table with who, when and on what.
+
+```jsonc
+{"id": "CP-CREDIT", "type": "checkpoint", "on": "read_field", "field": "Customer.credit_limit", "min_length": 15,
+ "description": "Credit limits are commercially sensitive. Say why you need to see them."},
+{"id": "CP-DECLINE", "type": "checkpoint", "on": "decide", "action": "ship_order", "approved": false, "min_length": 15,
+ "description": "Declining a shipment stops the order. Record the reason for the customer file."}
+```
+
+| `on` | Filters | Where the justification goes |
+|---|---|---|
+| `read_field` | `field` (required) | `?justification=` on `GET /api/objects` and `/api/objects/{id}`. Without it the field reads `"***justification required***"` |
+| `start_run` | `goal` | `"justification"` in the request body |
+| `resume_run` | — | `"justification"` in the body |
+| `decide` | `action`, `approved` | `"justification"`, or the review `comment` |
+| `upsert_object` | `entity` | `"justification"` in the body |
+| `commit_scenario` | — | `"justification"` in the body |
+
+- **Missing or too short.** The API answers `428 Precondition Required` with `{"checkpoint": {"rules", "prompt", "min_length"}}` and does nothing. The inbox asks the person and retries.
+- **Order of checks.** Checkpoints come after access rules: a justification never reveals a field that a `data_access` rule hides from the person.
+- **Admins** are asked too.
+- **The assistant cannot justify for anyone.** Its tools never pass a justification, so a checkpointed operation fails there and the person has to act in the inbox.
+- `GET /api/justifications` (audit permission) lists the record, newest first.
+
+## Interfaces (Tier 2)
+
+An interface is a shape that several entity types share:
+
+```jsonc
+"interfaces": {"Regional": {"description": "Anything that belongs to a sales region", "attributes": {"region": "string"}}},
+"entities": {"Customer": {"implements": ["Regional"], ...}, "Order": {"implements": ["Regional"], ...}}
+```
+
+- **Validation.** Every implementer must have each interface attribute with the same type. An interface may not share a name with an entity.
+- **Questions and listings** can address the interface. `{"find": "Regional", "where": "Regional.region == 'EU'"}` covers customers and orders alike, and `GET /api/objects?type=Regional` lists both. Row and field access still apply per record.
+- **Generated clients** get a type per interface (the union of its implementers' object types) and a `list_regional` / `listRegional` helper.
+- **Versioning.** `autology diff` reports interfaces added or removed and entities that stop implementing one, and treats a new interface attribute as breaking.
+- **Not yet supported:** rules name concrete entity types, not interfaces.
+
+## Tracing (Tier 2)
+
+Each run's audit log can be exported as OpenTelemetry traces, so runs appear in Jaeger, Grafana Tempo, Honeycomb, Datadog or any OTLP collector:
+
+- one trace per run; resumed runs stay in the same trace;
+- a span per step, with the verdict, the rules that decided it, who proposed and executed it, the model and its cost, and the outcome;
+- tool calls as child spans; tool failures, declined reviews, governance denials and failed runs marked as errors;
+- reviews and deferrals as span events.
+
+Spans carry identifiers, rule ids and outcomes only, never case data or the facts behind a decision. Span ids are derived from the run, so exporting a run twice produces the same spans.
+
+```bash
+python -m autology trace --db autology.db --endpoint http://localhost:4318/v1/traces
+python -m autology trace runs.jsonl --out traces.json
+```
+
+- **Automatic export.** With `"tracing": {"endpoint": "...", "headers": {"x-api-key-env": "OTLP_KEY"}}` in the server config, each run is exported when it reaches a final status. A header ending in `-env` takes its value from that environment variable.
+- **Over the API,** `GET /api/runs/{id}/trace` (audit permission) returns the OTLP/JSON payload.

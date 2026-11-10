@@ -14,6 +14,7 @@ One file holds everything a deployment needs to survive restarts:
 * ``run_sources``           - for runs built from the graph: the instances to write results back to;
 * ``scenarios``             - what-if scenarios: their edits and the base values they read;
 * ``chats``                 - assistant conversations, per owner;
+* ``justifications``        - reasons people gave at checkpoints before sensitive operations (append-only);
 * ``access_log``            - every API request and assistant tool call: who, what, when, result.
                               **Append-only**, like ``audit``.
 
@@ -88,6 +89,13 @@ CREATE TRIGGER IF NOT EXISTS access_no_update BEFORE UPDATE ON access_log
     BEGIN SELECT RAISE(ABORT, 'access log is append-only'); END;
 CREATE TRIGGER IF NOT EXISTS access_no_delete BEFORE DELETE ON access_log
     BEGIN SELECT RAISE(ABORT, 'access log is append-only'); END;
+CREATE TABLE IF NOT EXISTS justifications (
+    seq INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT NOT NULL, principal TEXT NOT NULL, rule_id TEXT NOT NULL,
+    operation TEXT NOT NULL, target TEXT NOT NULL, text TEXT NOT NULL);
+CREATE TRIGGER IF NOT EXISTS justification_no_update BEFORE UPDATE ON justifications
+    BEGIN SELECT RAISE(ABORT, 'justifications are append-only'); END;
+CREATE TRIGGER IF NOT EXISTS justification_no_delete BEFORE DELETE ON justifications
+    BEGIN SELECT RAISE(ABORT, 'justifications are append-only'); END;
 CREATE TABLE IF NOT EXISTS run_sources (
     run_id TEXT PRIMARY KEY, template TEXT NOT NULL, root TEXT NOT NULL, sources TEXT NOT NULL,
     write_back INTEGER NOT NULL);
@@ -435,3 +443,12 @@ class Store:
         if principal:
             sql, args = sql + " WHERE principal=?", (principal,)
         return [dict(r) for r in self._query(sql + " ORDER BY seq DESC LIMIT ?", args + (int(limit),))]
+
+    # -- checkpoint justifications (append-only) ---------------------------------------
+    def add_justification(self, principal: str, rule_id: str, operation: str, target: str, text: str) -> None:
+        with self._tx() as db:
+            db.execute("INSERT INTO justifications (timestamp, principal, rule_id, operation, target, text) "
+                       "VALUES (?, ?, ?, ?, ?, ?)", (_now(), principal, rule_id, operation, target[:500], text[:2000]))
+
+    def list_justifications(self, limit: int = 200) -> List[Dict[str, Any]]:
+        return [dict(r) for r in self._query("SELECT * FROM justifications ORDER BY seq DESC LIMIT ?", (int(limit),))]

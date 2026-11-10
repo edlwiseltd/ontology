@@ -39,7 +39,9 @@ ID = "id"
 PARAMS = "Params"  # pseudo-entity for competency-question parameters
 
 RULE_KINDS = frozenset({"mandatory_step", "human_review", "data_access", "write_access", "action_access",
-                        "prohibition", "row_access"})
+                        "prohibition", "row_access", "checkpoint"})
+# operations a ``checkpoint`` rule can require a written justification for (see autology.server)
+CHECKPOINT_OPS = frozenset({"start_run", "resume_run", "decide", "read_field", "upsert_object", "commit_scenario"})
 AGGREGATES = frozenset({"count", "sum", "avg", "min", "max"})
 
 
@@ -72,6 +74,7 @@ class EntityType:
     description: str = ""
     external_states: Tuple[str, ...] = ()  # states set by outside systems (ETL, sensors), not by actions
     multiple: bool = False  # a case may hold many instances (e.g. several orders under one contract)
+    implements: Tuple[str, ...] = ()  # interfaces: shared shapes such as "Party" for Customer and Supplier
 
     def has_attribute(self, attr: str) -> bool:
         return attr in (STATUS, ID) or attr in self.attributes
@@ -254,6 +257,19 @@ class SchedulingSpec:
 
 
 @dataclass(frozen=True)
+class Interface:
+    """A shape several entity types share: the attributes every implementer has, with the same types.
+
+    Competency questions and API listings can address the interface (``find: "Party"``) to cover
+    all implementers at once.
+    """
+
+    name: str
+    attributes: Mapping[str, Attribute]
+    description: str = ""
+
+
+@dataclass(frozen=True)
 class CaseTemplate:
     """How to assemble an agent case from the knowledge graph, starting at one ``root`` instance.
 
@@ -287,6 +303,7 @@ class Ontology:
         impact_rules: Iterable[ImpactRule] = (),
         scheduling: Optional[SchedulingSpec] = None,
         case_templates: Optional[Mapping[str, CaseTemplate]] = None,
+        interfaces: Optional[Mapping[str, Interface]] = None,
     ):
         object.__setattr__(self, "_frozen", False)
         self.name = name
@@ -303,6 +320,7 @@ class Ontology:
         self.impact_rules = tuple(impact_rules)
         self.scheduling = scheduling
         self.case_templates = MappingProxyType(dict(case_templates or {}))
+        self.interfaces = MappingProxyType(dict(interfaces or {}))
         self.source = _freeze(copy.deepcopy(dict(source)) if source is not None else {"name": name})
         canonical = json.dumps(source if source is not None else {"name": name, "version": version},
                                sort_keys=True, separators=(",", ":"), default=str)
@@ -323,6 +341,12 @@ class Ontology:
         return f"{self.name}@{self.version}"
 
     # -- queries --------------------------------------------------------
+    def implementers(self, interface: str) -> Tuple[str, ...]:
+        """Entity types implementing ``interface`` (or just the entity itself, for an entity name)."""
+        if interface in self.entities:
+            return (interface,)
+        return tuple(e.name for e in self.entities.values() if interface in e.implements)
+
     def rules_of(self, kind: str) -> Tuple[Rule, ...]:
         return tuple(r for r in self.rules if r.kind == kind)
 
@@ -366,7 +390,11 @@ class Ontology:
     def _check_ref(self, entity: str, attr: str, where: str, allow_params: bool = False) -> None:
         if allow_params and entity == PARAMS:
             return
-        etype = self.entities.get(entity)
+        etype = self.entities.get(entity) or self.interfaces.get(entity)
+        if isinstance(etype, Interface):
+            if attr not in etype.attributes and attr not in (STATUS, ID):
+                raise OntologyError(f"{where}: interface {entity!r} has no attribute {attr!r}")
+            return
         if etype is None:
             raise OntologyError(f"{where}: unknown entity {entity!r}")
         if not etype.has_attribute(attr):
@@ -440,6 +468,21 @@ class Ontology:
             for fn, entities in expr.quantifiers:
                 if len(entities & multi) > 1:
                     raise OntologyError(f"{owner}: {fn}() may range over one multi-instance entity only")
+        for iface in self.interfaces.values():
+            if iface.name in self.entities:
+                raise OntologyError(f"interface {iface.name!r} has the same name as an entity")
+        for e in self.entities.values():
+            for iname in e.implements:
+                iface = self.interfaces.get(iname)
+                if iface is None:
+                    raise OntologyError(f"entity {e.name!r} implements unknown interface {iname!r}")
+                for a in iface.attributes.values():
+                    mine = e.attributes.get(a.name)
+                    if mine is None:
+                        raise OntologyError(f"entity {e.name!r} implements {iname} but has no attribute {a.name!r}")
+                    if mine.type != a.type:
+                        raise OntologyError(f"entity {e.name!r}: {a.name} is {mine.type}, interface {iname} "
+                                            f"declares {a.type}")
         seen = set()
         for r in self.rules:
             where = f"rule {r.id!r}"
@@ -472,6 +515,19 @@ class Ontology:
                     raise OntologyError(f"{where}: 'action' must name an action")
                 if r.kind == "human_review" and not p.get("reviewer"):
                     raise OntologyError(f"{where}: human_review needs a 'reviewer' role")
+            if r.kind == "checkpoint":
+                if p.get("on") not in CHECKPOINT_OPS:
+                    raise OntologyError(f"{where}: 'on' must be one of {sorted(CHECKPOINT_OPS)}")
+                if p["on"] == "read_field":
+                    self._check_field(p.get("field", ""), where)
+                for key, names in (("goal", self.goals), ("action", self.actions), ("entity", self.entities)):
+                    if p.get(key) is not None and p[key] not in names:
+                        raise OntologyError(f"{where}: unknown {key} {p[key]!r}")
+                if not isinstance(p.get("min_length", 10), int) or p.get("min_length", 10) < 1:
+                    raise OntologyError(f"{where}: min_length must be a positive integer")
+                if r.when is not None:
+                    raise OntologyError(f"{where}: checkpoints apply unconditionally; filter with on/goal/action/"
+                                        "entity/field instead of when")
             if r.kind in ("data_access", "write_access"):
                 self._check_field(p.get("field", ""), where)
             if r.kind in ("data_access", "write_access", "action_access", "row_access") and not p.get("roles"):
@@ -482,8 +538,10 @@ class Ontology:
             if q.id in qids:
                 raise OntologyError(f"{where}: duplicate id")
             qids.add(q.id)
-            if q.find not in self.entities:
+            if q.find not in self.entities and q.find not in self.interfaces:
                 raise OntologyError(f"{where}: unknown entity {q.find!r}")
+            if q.find in self.interfaces and q.follow:
+                raise OntologyError(f"{where}: a question on interface {q.find} cannot follow relationships")
             self._check_expr(q.where, where, allow_params=True, only=q.find)
             current = q.find
             for step in q.follow:
@@ -620,7 +678,15 @@ class Ontology:
             entities[name] = EntityType(name, MappingProxyType(attrs), states,
                                         spec.get("initial", states[0] if states else ""),
                                         spec.get("description", ""), tuple(spec.get("external_states", ())),
-                                        bool(spec.get("multiple", False)))
+                                        bool(spec.get("multiple", False)), tuple(spec.get("implements", ())))
+        interfaces = {}
+        for name, spec in (doc.get("interfaces") or {}).items():
+            iattrs = {}
+            for aname, aspec in spec.get("attributes", {}).items():
+                aspec = {"type": aspec} if isinstance(aspec, str) else aspec
+                iattrs[aname] = Attribute(aname, aspec.get("type", "string"), aspec.get("sensitivity"),
+                                          aspec.get("description", ""))
+            interfaces[name] = Interface(name, MappingProxyType(iattrs), spec.get("description", ""))
         relationships = [Relationship(r["from"], r["to"], r["type"], r.get("cardinality", "1..*"))
                          for r in doc.get("relationships", [])]
         actions: Dict[str, ActionType] = {}
@@ -703,7 +769,7 @@ class Ontology:
         return cls(doc["name"], str(doc.get("version", "0")), entities, relationships, actions, goals,
                    rules, doc.get("description", ""), source=source, questions=questions,
                    modules=doc.get("modules", ()), settings=doc.get("settings"), impact_rules=impact_rules,
-                   scheduling=scheduling, case_templates=templates)
+                   scheduling=scheduling, case_templates=templates, interfaces=interfaces)
 
     @classmethod
     def load(cls, path: str | Path) -> "Ontology":
@@ -712,8 +778,9 @@ class Ontology:
 
 
 # -- modules ------------------------------------------------------------------
-_MERGE_MAPS = ("entities", "actions", "goals", "case_templates")
-_SINGULAR = {"entities": "entity", "actions": "action", "goals": "goal", "case_templates": "case template"}
+_MERGE_MAPS = ("entities", "actions", "goals", "case_templates", "interfaces")
+_SINGULAR = {"entities": "entity", "actions": "action", "goals": "goal", "case_templates": "case template",
+             "interfaces": "interface"}
 
 
 def _read(path: Path) -> Dict[str, Any]:

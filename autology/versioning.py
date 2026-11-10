@@ -70,6 +70,12 @@ def diff(old: Ontology, new: Ontology) -> List[Change]:
         if o.initial_state != n.initial_state:
             changes.append(Change("major", "entity.initial_state_changed", name,
                                   f"{o.initial_state} -> {n.initial_state}"))
+        keyed("implements", {f"{name}:{i}": 1 for i in o.implements}, {f"{name}:{i}": 1 for i in n.implements})
+
+    for name in keyed("interface", dict(old.interfaces), dict(new.interfaces)):
+        keyed("interface_attribute", {f"{name}.{k}": v.type for k, v in old.interfaces[name].attributes.items()},
+              {f"{name}.{k}": v.type for k, v in new.interfaces[name].attributes.items()}, added="major")
+    keyed("case_template", dict(old.case_templates), dict(new.case_templates))
 
     rel = lambda onto: {f"{r.source}-{r.kind}->{r.target}": r for r in onto.relationships}  # noqa: E731
     keyed("relationship", rel(old), rel(new))

@@ -182,7 +182,11 @@ class ApiTests(unittest.TestCase):
         _, customer, _ = self.api.call("GET", "/api/objects/C-1", "olivia")
         self.assertEqual(customer["attributes"]["credit_limit"], "***redacted***")
         self.assertEqual({l["id"] for l in customer["links"]}, {"K-1"})
-        self.assertEqual(self.api.call("GET", "/api/objects/C-1", "audrey")[1]["attributes"]["credit_limit"], 250000)
+        gated = self.api.call("GET", "/api/objects/C-1", "audrey")[1]["attributes"]["credit_limit"]
+        self.assertEqual(gated, "***justification required***")  # checkpoint CP-CREDIT
+        why = "?justification=" + "quarterly%20credit%20review"
+        self.assertEqual(self.api.call("GET", "/api/objects/C-1" + why, "audrey")[1]["attributes"]["credit_limit"],
+                         250000)
         self.assertEqual(self.api.call("GET", "/api/objects?type=Ghost", "olivia")[0], 404)
         self.assertEqual(self.api.call("POST", "/api/questions/CQ-03", "olivia", {})[0], 403)  # sum over hidden rows
         self.assertEqual(self.api.call("POST", "/api/questions/CQ-03", "lena", {})[1]["answer"], 12000)

@@ -46,6 +46,17 @@ async function api(method, path, body) {
   });
   const type = response.headers.get("Content-Type") || "";
   const data = type.includes("json") ? await response.json() : await response.text();
+  if (response.status === 428 && data && data.checkpoint && !(body && body.justification)) {
+    // A checkpoint rule asks the person (never the assistant) why they need this. Ask, then retry once.
+    const cp = data.checkpoint;
+    const why = window.prompt(`${cp.prompt}\n\nJustification (at least ${cp.min_length} characters):`);
+    if (why && why.trim().length >= cp.min_length) {
+      if (method === "GET") {
+        return api(method, path + (path.includes("?") ? "&" : "?") + "justification=" + encodeURIComponent(why.trim()));
+      }
+      return api(method, path, { ...(body || {}), justification: why.trim() });
+    }
+  }
   if (!response.ok) {
     if (response.status === 401) signOut("Your session is no longer valid. Sign in again.");
     throw new Error((data && data.error) || response.statusText);
@@ -262,11 +273,16 @@ async function startRun(event) {
 }
 
 // -- objects ---------------------------------------------------------------------
-async function loadObjects() {
+const JUSTIFY = "***justification required***";
+
+async function loadObjects(justification) {
   const type = $("object-type").value;
   if (!type) return;
   try {
-    const { total, items } = await api("GET", "objects?type=" + encodeURIComponent(type) + "&limit=200");
+    const why = typeof justification === "string" ? "&justification=" + encodeURIComponent(justification) : "";
+    const { total, items } = await api("GET", "objects?type=" + encodeURIComponent(type) + "&limit=200" + why);
+    const gated = items.some((i) => Object.values(i.attributes).includes(JUSTIFY));
+    $("reveal-objects").hidden = !gated;
     const attrs = [...new Set(items.flatMap((i) => Object.keys(i.attributes)))];
     $("objects-table").tHead.replaceChildren(el("tr", {}, el("th", {}, "id"), ...attrs.map((a) => el("th", {}, a))));
     $("objects-table").tBodies[0].replaceChildren(...items.map((i) =>
@@ -394,7 +410,11 @@ document.addEventListener("DOMContentLoaded", () => {
   $("chat-form").addEventListener("submit", sendChat);
   $("chat-new").addEventListener("click", () => { state.chatId = null; $("chat-log").replaceChildren(); });
   $("run-status").addEventListener("change", loadRuns);
-  $("object-type").addEventListener("change", loadObjects);
+  $("object-type").addEventListener("change", () => loadObjects());
+  $("reveal-objects").addEventListener("click", () => {
+    const why = window.prompt("Some fields need a recorded justification. Why do you need to see them?");
+    if (why && why.trim()) loadObjects(why.trim());
+  });
   $("start-form").addEventListener("submit", startRun);
   const saved = readToken();
   if (saved) { state.token = saved; enter(); }

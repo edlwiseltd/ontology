@@ -234,7 +234,9 @@ def tools_for(service: Any, user: Any) -> List[Dict[str, Any]]:
                                                "case_template": {"type": "string", "enum": sorted(o.case_templates)},
                                                "root": {"type": "string"}},
                                               ["agent", "goal", "case_template", "root"]),
-                      "run": lambda a: service.start_run(user, dict(a))})
+                      # only these fields: a justification for a checkpoint must come from the person
+                      "run": lambda a: service.start_run(user, {k: a[k] for k in ("agent", "goal", "case_template",
+                                                                                  "root") if k in a})})
     if user.can("run"):
         tools.append({"name": "what_if", "permission": "run",
                       "description": "Simulate changes in a sandbox copy of the data and compare with the live data. "

@@ -1,9 +1,17 @@
 {
   "name": "order-fulfilment",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "One contract, many orders: credit check, picking, hazmat clearance, shipping and invoicing per order",
   "settings": {
     "max_violations": 3
+  },
+  "interfaces": {
+    "Regional": {
+      "description": "Anything that belongs to a sales region",
+      "attributes": {
+        "region": "string"
+      }
+    }
   },
   "entities": {
     "Customer": {
@@ -19,7 +27,10 @@
           "type": "number",
           "sensitivity": "confidential"
         }
-      }
+      },
+      "implements": [
+        "Regional"
+      ]
     },
     "Contract": {
       "description": "Framework agreement covering all orders",
@@ -50,7 +61,10 @@
         "hazardous": "boolean",
         "hazmat_cleared": "boolean",
         "tracking": "string"
-      }
+      },
+      "implements": [
+        "Regional"
+      ]
     }
   },
   "relationships": [
@@ -261,6 +275,23 @@
       "roles": [
         "finance"
       ]
+    },
+    {
+      "id": "CP-CREDIT",
+      "type": "checkpoint",
+      "on": "read_field",
+      "field": "Customer.credit_limit",
+      "min_length": 15,
+      "description": "Credit limits are commercially sensitive. Say why you need to see them."
+    },
+    {
+      "id": "CP-DECLINE",
+      "type": "checkpoint",
+      "on": "decide",
+      "action": "ship_order",
+      "approved": false,
+      "min_length": 15,
+      "description": "Declining a shipment stops the order. Record the reason for the customer file."
     }
   ],
   "competency_questions": [
@@ -297,6 +328,15 @@
         "sum": "Order.amount"
       },
       "expect": 12000
+    },
+    {
+      "id": "CQ-04",
+      "question": "Which customers and orders are in the EU?",
+      "find": "Regional",
+      "where": "Regional.region == 'EU'",
+      "expect": [
+        "O-3"
+      ]
     }
   ]
 }

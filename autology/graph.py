@@ -88,7 +88,11 @@ class KnowledgeGraph:
 
     # -- querying -------------------------------------------------------
     def instances(self, entity_type: Optional[str] = None) -> List[Instance]:
-        return [i for i in self._instances.values() if entity_type is None or i.type == entity_type]
+        """All instances, those of one entity type, or those of every type implementing an interface."""
+        if entity_type is None:
+            return list(self._instances.values())
+        types = set(self.ontology.implementers(entity_type))
+        return [i for i in self._instances.values() if i.type in types]
 
     def get(self, id: str) -> Instance:
         return self._instances[id]
@@ -100,15 +104,17 @@ class KnowledgeGraph:
             return [self._instances[s] for s, k, t in self._links if k == kind and t == inst.id]
         return [self._instances[t] for s, k, t in self._links if k == kind and s == inst.id]
 
-    @staticmethod
-    def _matches(expr: Optional[Expression], inst: Instance, params: Mapping[str, Any]) -> bool:
+    def _matches(self, expr: Optional[Expression], inst: Instance, params: Mapping[str, Any]) -> bool:
         if expr is None:
             return True
+        ontology_implements = lambda i: self.ontology.entities[i.type].implements  # noqa: E731
 
         def resolve(entity: str, attr: str) -> Any:
             if entity == PARAMS:
                 return params.get(attr)
-            return inst.get(attr) if entity == inst.type else None
+            if entity == inst.type or entity in ontology_implements(inst):
+                return inst.get(attr)
+            return None
 
         return expr.evaluate(resolve)
 

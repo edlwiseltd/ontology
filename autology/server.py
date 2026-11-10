@@ -22,7 +22,8 @@ Standard library only (``http.server``). Configuration (paths relative to the co
       "automations": {...},                  # optional: see autology.automation
       "automation_interval": 60,             # seconds between scheduled ticks (serve only)
       "webhooks": [{"url": "https://hooks.example.com/autology", "kinds": ["review", "automation"]}],
-      "chat": {"model": "claude-opus-5-5", "effort": "medium"}   # optional: governed assistant (autology.chat)
+      "chat": {"model": "claude-opus-5-5", "effort": "medium"},  # optional: governed assistant (autology.chat)
+      "tracing": {"endpoint": "http://localhost:4318/v1/traces"}  # optional: OpenTelemetry export of final runs
     }
 
 Permissions: ``read`` (ontology, objects, runs, reports), ``run`` (start / resume runs), ``review``
@@ -52,20 +53,24 @@ from urllib.parse import parse_qs, urlparse
 from .agent import DeferredApprover, ReviewDecision, WorkAgent
 from .automation import Automation, Automator, Firing, load_automations
 from .governance import REDACTED, GovernanceLayer, Principal
+
+JUSTIFY = "***justification required***"
 from .graph import Instance, KnowledgeGraph, build_case, write_back
 from .ontology import Ontology, OntologyError
 from .store import Store, StoreError
 
 PERMISSIONS = frozenset({"read", "run", "review", "audit", "admin"})
+FINAL_STATUSES = frozenset({"completed", "blocked", "escalated", "suspended"})
 MAX_BODY = 1_000_000
 STATIC = Path(__file__).resolve().parent / "static"
 
 
 class ApiError(Exception):
-    def __init__(self, status: int, message: str):
+    def __init__(self, status: int, message: str, extra: Optional[Dict[str, Any]] = None):
         super().__init__(message)
         self.status = status
         self.message = message
+        self.extra = dict(extra or {})
 
 
 @dataclass(frozen=True)
@@ -161,6 +166,9 @@ class AutologyService:
         self.automator = Automator(self.automations, self.store, self._graph_instances, self._fire)
         from .chat import GovernedChat, load_backend
 
+        self.tracing = dict(config.get("tracing") or {})
+        if self.tracing and urlparse(str(self.tracing.get("endpoint", ""))).scheme not in ("http", "https"):
+            raise ValueError("tracing endpoint must be an http or https URL")
         backend = load_backend(config.get("chat"), (str(base),))
         self.chat = GovernedChat(self, backend) if backend else None
 
@@ -204,15 +212,47 @@ class AutologyService:
                 return False
         return True
 
-    def object_view(self, inst: Instance, user: User) -> Dict[str, Any]:
+    def object_view(self, inst: Instance, user: User, justified: bool = False) -> Dict[str, Any]:
+        gated = {r.params["field"] for r in self.ontology.rules_of("checkpoint") if r.params["on"] == "read_field"}
         attrs = {}
         for attr, value in inst.attributes.items():
             ref = f"{inst.type}.{attr}"
             hidden = "admin" not in user.permissions and any(
                 r.params["field"] == ref and self._rule_applies(r, inst) and not user.roles & set(r.params["roles"])
                 for r in self.ontology.rules_of("data_access"))
-            attrs[attr] = REDACTED if hidden else value
+            attrs[attr] = REDACTED if hidden else (JUSTIFY if ref in gated and not justified else value)
         return {"id": inst.id, "type": inst.type, "attributes": attrs}
+
+    # -- checkpoints: a written justification before sensitive operations ------------------
+    def _checkpoints(self, op: str, **context: Any) -> List[Any]:
+        out = []
+        for rule in self.ontology.rules_of("checkpoint"):
+            p = rule.params
+            if p["on"] != op:
+                continue
+            if any(p.get(k) is not None and p[k] != v for k, v in context.items() if k != "fields"):
+                continue
+            if op == "read_field" and p["field"] not in context.get("fields", ()):
+                continue
+            out.append(rule)
+        return out
+
+    def checkpoint(self, user: User, op: str, target: str, justification: Any, **context: Any) -> bool:
+        """Enforce the checkpoint rules for an operation. Raises 428 with what to provide when the
+        justification is missing or too short; records it (append-only) when given. Returns whether
+        any checkpoint applied."""
+        rules = self._checkpoints(op, **context)
+        if not rules:
+            return False
+        text = str(justification or "").strip()
+        need = max(int(r.params.get("min_length", 10)) for r in rules)
+        if len(text) < need:
+            raise ApiError(428, f"{op} needs a justification of at least {need} characters", {"checkpoint": {
+                "rules": [r.id for r in rules], "prompt": " ".join(r.description for r in rules if r.description)
+                or "Why is this needed?", "min_length": need}})
+        for r in rules:
+            self.store.add_justification(user.name, r.id, op, target, text)
+        return True
 
     # -- endpoints --------------------------------------------------------------
     def me(self, user: User) -> Dict[str, Any]:
@@ -228,21 +268,35 @@ class AutologyService:
                              for e in o.entities.values()},
                 "actions": {a.name: {"description": a.description, "for_each": a.for_each} for a in o.actions.values()},
                 "goals": {g.name: {"description": g.description, "target": str(g.target)} for g in o.goals.values()},
+                "interfaces": {i.name: {"attributes": {a.name: a.type for a in i.attributes.values()},
+                                        "implementers": list(o.implementers(i.name))} for i in o.interfaces.values()},
                 "rules": [{"id": r.id, "kind": r.kind, "description": r.description} for r in o.rules],
                 "questions": [{"id": q.id, "question": q.question} for q in o.questions],
                 "agents": {n: {"goals": a.goals, "roles": sorted(a.agent.principal.roles)} for n, a in self.agents.items()}}
 
-    def list_objects(self, user: User, entity_type: Optional[str], limit: int, offset: int) -> Dict[str, Any]:
+    def _gated_fields(self, insts: List[Instance]) -> List[str]:
+        return sorted({f"{i.type}.{a}" for i in insts for a in i.attributes})
+
+    def _justified(self, user: User, insts: List[Instance], justification: Optional[str]) -> bool:
+        """Reveal checkpoint-gated fields only with a justification (otherwise they read JUSTIFY)."""
+        if not justification or not insts:
+            return False
+        return self.checkpoint(user, "read_field", ",".join(i.id for i in insts)[:400], justification,
+                               fields=self._gated_fields(insts))
+
+    def list_objects(self, user: User, entity_type: Optional[str], limit: int, offset: int,
+                     justification: Optional[str] = None) -> Dict[str, Any]:
         self.require(user, "read")
-        if entity_type and entity_type not in self.ontology.entities:
+        if entity_type and entity_type not in self.ontology.entities and entity_type not in self.ontology.interfaces:
             raise ApiError(404, f"unknown entity type {entity_type!r}")
         with self.graph_lock:
             found = [i for i in self.graph.instances(entity_type) if self.visible(i, user)]
             found.sort(key=lambda i: i.id)
             page = found[offset:offset + limit]
-            return {"total": len(found), "items": [self.object_view(i, user) for i in page]}
+            justified = self._justified(user, page, justification)
+            return {"total": len(found), "items": [self.object_view(i, user, justified) for i in page]}
 
-    def get_object(self, user: User, iid: str) -> Dict[str, Any]:
+    def get_object(self, user: User, iid: str, justification: Optional[str] = None) -> Dict[str, Any]:
         self.require(user, "read")
         with self.graph_lock:
             try:
@@ -251,7 +305,7 @@ class AutologyService:
                 raise ApiError(404, f"no object {iid!r}") from None
             if not self.visible(inst, user):
                 raise ApiError(404, f"no object {iid!r}")  # don't reveal that a hidden row exists
-            out = self.object_view(inst, user)
+            out = self.object_view(inst, user, self._justified(user, [inst], justification))
             links = []
             for s, k, t in self.graph._links:
                 other = t if s == iid else s if t == iid else None
@@ -266,6 +320,7 @@ class AutologyService:
         etype, iid, attrs = body.get("type"), body.get("id"), dict(body.get("attributes") or {})
         if not etype or not iid:
             raise ApiError(400, "type and id are required")
+        self.checkpoint(user, "upsert_object", str(iid), body.get("justification"), entity=etype)
         with self.graph_lock:
             candidate = KnowledgeGraph(self.ontology)
             try:
@@ -331,7 +386,34 @@ class AutologyService:
                          {"review_id": review_id, "run_id": run_id, "action": req.action})
         linked = self.store.run_sources(run_id)
         changed = self._write_back(result, linked["sources"]) if linked and linked["write_back"] else []
+        if self.tracing and result.status in FINAL_STATUSES:
+            self._export_trace(run_id, result)
         return run_id, changed
+
+    def _export_trace(self, run_id: str, result) -> None:
+        from .tracing import export, resolve_headers, to_otlp
+
+        payload = to_otlp([(run_id, result)], self.tracing.get("service_name", "autology"), self.ontology.ref)
+
+        def send():
+            try:
+                export(payload, self.tracing["endpoint"], resolve_headers(self.tracing.get("headers")))
+            except Exception:  # best effort: the audit log in the store stays the record of truth
+                pass
+
+        t = threading.Thread(target=send, daemon=True)
+        t.start()
+        self.deliveries.append(t)
+
+    def run_trace(self, user: User, run_id: str) -> Dict[str, Any]:
+        from .tracing import to_otlp
+
+        self.require(user, "audit")
+        try:
+            result = self.store.load_run(run_id)
+        except KeyError:
+            raise ApiError(404, f"no run {run_id!r}") from None
+        return to_otlp([(run_id, result)], "autology", self.ontology.ref)
 
     def _write_back(self, result, sources: Dict[str, Any]) -> List[str]:
         """Copy the run's resulting state onto the graph instances its case was built from."""
@@ -477,6 +559,8 @@ class AutologyService:
         goal = body.get("goal") or (cfg.goals[0] if len(cfg.goals) == 1 else None)
         if goal not in cfg.goals:
             raise ApiError(400, f"agent {name} may pursue {cfg.goals}, not {goal!r}")
+        self.checkpoint(user, "start_run", f"{name}/{goal}/{body.get('root') or body.get('case_id') or 'case'}",
+                        body.get("justification"), goal=goal)
         sources = None
         if body.get("case_template"):  # build the case from the knowledge graph
             root = str(body.get("root") or "")
@@ -530,9 +614,11 @@ class AutologyService:
             raise ApiError(409, f"run {run_id} belongs to agent {name!r}, which is not configured")
         return self.agents[name]
 
-    def resume_run(self, user: User, run_id: str, force: bool = False) -> Dict[str, Any]:
+    def resume_run(self, user: User, run_id: str, force: bool = False,
+                   justification: Optional[str] = None) -> Dict[str, Any]:
         self.require(user, "run")
         cfg = self._agent_for(run_id)
+        self.checkpoint(user, "resume_run", run_id, justification)
         with cfg.lock:
             result = self.store.load_run(run_id)
             if result.status not in ("deferred", "paused"):
@@ -565,6 +651,8 @@ class AutologyService:
         if "admin" not in user.permissions and not user.reviewer_roles & set(review["reviewers"]):
             raise ApiError(403, f"{user.name} may not decide reviews for {review['reviewers']}")
         cfg = self._agent_for(review["run_id"])
+        self.checkpoint(user, "decide", review_id, body.get("justification") or body.get("comment"),
+                        action=str(review["action"]).partition("@")[0], approved=body["approved"])
         with cfg.lock:
             try:
                 self.store.decide_review(review_id, body["approved"], user.name, str(body.get("comment", "")))
@@ -675,6 +763,10 @@ class AutologyService:
                 turns.append({"role": "assistant", "text": text, "tools": tools})
         return {"chat_id": chat_id, "turns": turns, "updated_at": convo["updated_at"]}
 
+    def justifications(self, user: User, limit: int) -> Dict[str, Any]:
+        self.require(user, "audit")
+        return {"items": self.store.list_justifications(limit)}
+
     def log_access(self, user: Optional[User], kind: str, target: str, status: int) -> None:
         self.store.log_access(user.name if user else "-", kind, target, status)
 
@@ -763,11 +855,12 @@ class AutologyService:
                     p["reasons"] = ["blocked by a rule on a record you may not see"]
         return report
 
-    def commit_scenario(self, user: User, sid: str) -> Dict[str, Any]:
+    def commit_scenario(self, user: User, sid: str, body: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         from .scenarios import ConflictError
 
         self.require(user, "admin")
         row, scenario = self._load_scenario(sid, user, write=True)
+        self.checkpoint(user, "commit_scenario", sid, (body or {}).get("justification"))
         with self.graph_lock:
             try:
                 written = scenario.commit(self.graph, self.store)
@@ -879,7 +972,9 @@ def _handler(service: AutologyService):
                 routes = {
                     ("GET", "me"): lambda: service.me(user),
                     ("GET", "ontology"): lambda: service.ontology_summary(user),
-                    ("GET", "objects"): lambda: service.list_objects(user, query.get("type"), limit, offset),
+                    ("GET", "objects"): lambda: service.list_objects(user, query.get("type"), limit, offset,
+                                                                     query.get("justification")),
+                    ("GET", "justifications"): lambda: service.justifications(user, limit),
                     ("POST", "objects"): lambda: service.upsert_object(user, body),
                     ("GET", "runs"): lambda: service.list_runs(user, query.get("status"), limit, offset),
                     ("POST", "runs"): lambda: service.start_run(user, body),
@@ -908,7 +1003,7 @@ def _handler(service: AutologyService):
                 if len(parts) == 2:
                     kind, ident = parts
                     if method == "GET" and kind == "objects":
-                        return self._send(200, service.get_object(user, ident))
+                        return self._send(200, service.get_object(user, ident, query.get("justification")))
                     if method == "GET" and kind == "runs":
                         return self._send(200, service.get_run(user, ident))
                     if method == "GET" and kind == "reviews":
@@ -922,13 +1017,16 @@ def _handler(service: AutologyService):
                 if len(parts) == 3 and parts[0] == "runs":
                     if method == "GET" and parts[2] == "audit":
                         return self._send(200, service.run_audit(user, parts[1]))
+                    if method == "GET" and parts[2] == "trace":
+                        return self._send(200, service.run_trace(user, parts[1]))
                     if method == "POST" and parts[2] == "resume":
-                        return self._send(200, service.resume_run(user, parts[1], bool(body.get("force"))))
+                        return self._send(200, service.resume_run(user, parts[1], bool(body.get("force")),
+                                                                  body.get("justification")))
                 if len(parts) == 3 and parts[0] == "scenarios" and method == "POST":
                     sid, verb = parts[1], parts[2]
                     handlers = {"edits": lambda: service.add_scenario_edits(user, sid, body),
                                 "compare": lambda: service.compare_scenario(user, sid, body),
-                                "commit": lambda: service.commit_scenario(user, sid),
+                                "commit": lambda: service.commit_scenario(user, sid, body),
                                 "discard": lambda: service.discard_scenario(user, sid)}
                     if verb in handlers:
                         return self._send(200, handlers[verb]())
@@ -938,7 +1036,7 @@ def _handler(service: AutologyService):
                     return self._send(200, service.decide(user, parts[1], body))
                 raise ApiError(404 if method == "GET" else 405, f"no route for {method} {path}")
             except ApiError as exc:
-                self._send(exc.status, {"error": exc.message})
+                self._send(exc.status, {"error": exc.message, **exc.extra})
             except ValueError as exc:
                 self._send(400, {"error": str(exc)})
             except Exception as exc:  # pragma: no cover - never leak a traceback to clients

@@ -92,6 +92,7 @@ def generate_python(ontology: Ontology) -> str:
         "",
         f"Redacted = Literal[{json.dumps(REDACTED)}]",
         f"EntityName = Literal[{_lit(o.entities)}]",
+        f"ObjectTypeName = Literal[{_lit(list(o.entities) + list(o.interfaces))}]",
         f"ActionName = Literal[{_lit(o.actions) or json.dumps('')}]",
         f"GoalName = Literal[{_lit(o.goals) or json.dumps('')}]",
         f"QuestionId = Literal[{_lit(q.id for q in o.questions) or json.dumps('')}]",
@@ -114,6 +115,14 @@ def generate_python(ontology: Ontology) -> str:
         out += _py_typed_dict(f"{p}Input", inputs, f"{e.name} as given in a case")
         out += [f"class {p}Object(TypedDict):", f'    """A {e.name} object as the API returns it."""',
                 "    id: str", f"    type: Literal[{json.dumps(e.name)}]", f"    attributes: {p}Attributes", "", ""]
+    for i in o.interfaces.values():
+        p = _pascal(i.name)
+        fields = [("status", "str")] + [(a.name, f"Union[{PY_TYPES.get(a.type, 'Any')}, Redacted, None]"
+                                         if a.type in PY_TYPES else "Any") for a in i.attributes.values()]
+        out += _py_typed_dict(f"{p}Attributes", fields, i.description or f"Attributes shared by {i.name} types")
+        members = [f"{_pascal(e)}Object" for e in o.implementers(i.name)]
+        out += [f"{p}Object = Union[{', '.join(members)}]" if len(members) > 1 else
+                f"{p}Object = {members[0] if members else 'Dict[str, Any]'}", ""]
     case_fields = [(e.name, f"List[{_pascal(e.name)}Input]" if e.multiple else f"{_pascal(e.name)}Input")
                    for e in o.entities.values()]
     out += _py_typed_dict("Case", case_fields, "Case data an agent run starts from")
@@ -173,12 +182,16 @@ def generate_python(ontology: Ontology) -> str:
         "            return None",
         '        return f"client generated for {ONTOLOGY_REF}, server runs {info.get(\'ref\')} (fingerprint differs)"',
         "",
-        "    def list_objects(self, type: Optional[EntityName] = None, limit: int = 100, offset: int = 0) -> Dict[str, Any]:",
-        '        return cast(Dict[str, Any], self._request("GET", "objects", query={"type": type, "limit": limit,',
-        '                                                                         "offset": offset}))',
+        "    def list_objects(self, type: Optional[ObjectTypeName] = None, limit: int = 100, offset: int = 0,",
+        "                     justification: Optional[str] = None) -> Dict[str, Any]:",
+        '        """Objects you may see. Fields behind a checkpoint read "***justification required***"',
+        '        unless you give a justification, which is recorded."""',
+        '        return cast(Dict[str, Any], self._request("GET", "objects", query={',
+        '            "type": type, "limit": limit, "offset": offset, "justification": justification}))',
         "",
-        "    def get_object(self, object_id: str) -> Dict[str, Any]:",
-        '        return cast(Dict[str, Any], self._request("GET", "objects/" + self._q(object_id)))',
+        "    def get_object(self, object_id: str, justification: Optional[str] = None) -> Dict[str, Any]:",
+        '        return cast(Dict[str, Any], self._request("GET", "objects/" + self._q(object_id),',
+        '                                                  query={"justification": justification}))',
         "",
         "    def upsert_object(self, type: EntityName, object_id: str, attributes: Dict[str, Any],",
         "                      links: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:",
@@ -190,8 +203,9 @@ def generate_python(ontology: Ontology) -> str:
         "",
         "    def start_run(self, goal: GoalName, case: Optional[Case] = None, *, agent: Optional[str] = None,",
         "                  case_id: Optional[str] = None, case_template: Optional[str] = None,",
-        "                  root: Optional[str] = None, write_back: bool = True) -> Dict[str, Any]:",
-        '        body: Dict[str, Any] = {"goal": goal, "agent": agent, "case_id": case_id}',
+        "                  root: Optional[str] = None, write_back: bool = True,",
+        "                  justification: Optional[str] = None) -> Dict[str, Any]:",
+        '        body: Dict[str, Any] = {"goal": goal, "agent": agent, "case_id": case_id, "justification": justification}',
         "        if case_template:",
         '            body.update(case_template=case_template, root=root, write_back=write_back)',
         "        else:",
@@ -279,6 +293,11 @@ def generate_python(ontology: Ontology) -> str:
             f"        return cast({p}Object, obj)",
             "",
         ]
+    for i in o.interfaces.values():
+        p, s_ = _pascal(i.name), _snake(i.name).rstrip("_")
+        out += [f"    def {_free('list_' + s_, taken, '_objects')}(self, limit: int = 100, offset: int = 0) -> List[{p}Object]:",
+                f'        """Objects of every type implementing {i.name}."""',
+                f'        return cast(List[{p}Object], self.list_objects({json.dumps(i.name)}, limit, offset)["items"])', ""]
     for q in o.questions:
         out += [f"    def {_free('ask_' + _snake(q.id), taken, '_')}(self, **params: Any) -> Any:",
                 f"        {json.dumps(q.question)}",
@@ -314,6 +333,7 @@ def generate_typescript(ontology: Ontology) -> str:
         "",
         f"export type Redacted = {json.dumps(REDACTED)};",
         f"export type EntityName = {union(o.entities)};",
+        f"export type ObjectTypeName = {union(list(o.entities) + list(o.interfaces))};",
         f"export type ActionName = {union(o.actions)};",
         f"export type GoalName = {union(o.goals)};",
         f"export type QuestionId = {union(q.id for q in o.questions)};",
@@ -342,6 +362,17 @@ def generate_typescript(ontology: Ontology) -> str:
         out.append("}")
         out.append(f"export interface {p}Object {{ id: string; type: {json.dumps(e.name)}; attributes: {p}Attributes;"
                    f" links?: JsonObject[] }}")
+        out.append("")
+    for i in o.interfaces.values():
+        p = _pascal(i.name)
+        out.append(f"/** {i.description or 'Attributes shared by ' + i.name + ' types'} */")
+        out.append(f"export interface {p}Attributes {{")
+        out.append("  status?: string;")
+        for a in i.attributes.values():
+            out.append(f"  {json.dumps(a.name)}?: {TS_TYPES.get(a.type, 'Json')} | Redacted | null;")
+        out.append("}")
+        members = [f"{_pascal(e)}Object" for e in o.implementers(i.name)] or ["JsonObject"]
+        out.append(f"export type {p}Object = {' | '.join(members)};")
         out.append("")
     out.append("export interface Case {")
     for e in o.entities.values():
@@ -398,10 +429,14 @@ def generate_typescript(ontology: Ontology) -> str:
         "    return info.fingerprint === ONTOLOGY_FINGERPRINT ? null",
         "      : `client generated for ${ONTOLOGY_REF}, server runs ${String(info.ref)} (fingerprint differs)`;",
         "  }",
-        "  listObjects(type?: EntityName, limit = 100, offset = 0): Promise<{ total: number; items: JsonObject[] }> {",
-        '    return this.request("GET", "objects", undefined, { type, limit, offset });',
+        "  /** Fields behind a checkpoint read \"***justification required***\" unless a justification is given. */",
+        "  listObjects(type?: ObjectTypeName, limit = 100, offset = 0, justification?: string):",
+        "    Promise<{ total: number; items: JsonObject[] }> {",
+        '    return this.request("GET", "objects", undefined, { type, limit, offset, justification });',
         "  }",
-        "  getObject(id: string): Promise<JsonObject> { return this.request(\"GET\", `objects/${AutologyClient.q(id)}`); }",
+        "  getObject(id: string, justification?: string): Promise<JsonObject> {",
+        "    return this.request(\"GET\", `objects/${AutologyClient.q(id)}`, undefined, { justification });",
+        "  }",
         "  upsertObject(type: EntityName, id: string, attributes: JsonObject, links: JsonObject[] = []): Promise<JsonObject> {",
         '    return this.request("POST", "objects", { type, id, attributes, links });',
         "  }",
@@ -410,8 +445,9 @@ def generate_typescript(ontology: Ontology) -> str:
         "    return r.answer;",
         "  }",
         "  startRun(goal: GoalName, opts: { case?: Case; agent?: string; caseId?: string; caseTemplate?: string;",
-        "    root?: string; writeBack?: boolean } = {}): Promise<JsonObject> {",
-        "    const body: JsonObject = { goal, agent: opts.agent ?? null, case_id: opts.caseId ?? null };",
+        "    root?: string; writeBack?: boolean; justification?: string } = {}): Promise<JsonObject> {",
+        "    const body: JsonObject = { goal, agent: opts.agent ?? null, case_id: opts.caseId ?? null,",
+        "      justification: opts.justification ?? null };",
         "    if (opts.caseTemplate) Object.assign(body, { case_template: opts.caseTemplate, root: opts.root ?? null,",
         "      write_back: opts.writeBack ?? true });",
         "    else body.case = (opts.case ?? {}) as unknown as JsonObject;",
@@ -479,6 +515,12 @@ def generate_typescript(ontology: Ontology) -> str:
             f"    return obj as unknown as {p}Object;",
             "  }",
         ]
+    for i in o.interfaces.values():
+        p = _pascal(i.name)
+        out += [f"  /** Objects of every type implementing {i.name}. */",
+                f"  async {_free('list' + p, taken, 'Objects')}(limit = 100, offset = 0): Promise<{p}Object[]> {{",
+                f"    return (await this.listObjects({json.dumps(i.name)}, limit, offset)).items as unknown as {p}Object[];",
+                "  }"]
     for q in o.questions:
         out += [f"  /** {q.question} */",
                 f"  {_free('ask' + _pascal(q.id), taken, 'Q')}(params: JsonObject = {{}}): Promise<Json> "

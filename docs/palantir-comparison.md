@@ -26,9 +26,9 @@ Of the 58 feature areas compared below:
 
 | Status | Count | Meaning |
 |---|---|---|
-| **Have** | 20 | Autology has a working equivalent |
-| **Partial** | 18 | The concept exists but is narrower, or has no user interface |
-| **Missing** | 16 | Not present |
+| **Have** | 23 | Autology has a working equivalent |
+| **Partial** | 17 | The concept exists but is narrower, or has no user interface |
+| **Missing** | 14 | Not present |
 | **Out of scope** | 4 | Not sensible to build here |
 
 The pattern is clear. Autology is strongest where Palantir's *ideas* are: an ontology that agents act through, governed actions, human review, audit, impact analysis and scheduling. It is weakest where Palantir's *product mass* is: data pipelines, a scalable object store, end-user applications, analytics and fine-grained security.
@@ -47,7 +47,7 @@ This is the heart of both systems.
 | Submission criteria | Conditions on the user, parameters and objects that decide whether an action may run | Governance rules: mandatory steps, prohibitions, read, write and action access, with conditions | **Have** | — | — |
 | Side effects: notifications and webhooks | Notify people or call external systems when an action runs. A writeback webhook runs first and blocks the edit if it fails | HTTP tools call external systems, and a failed tool blocks the step. Notifications by role for reviews and automations, delivered to webhooks (Tier 2) | **Partial** | Medium. An explicit "call before commit" ordering | S |
 | Functions | Code-based logic over objects, usable in actions and applications | Python tool handlers and decision tables. No reusable, versioned function registry | **Partial** | High. A function registry with typed inputs is a natural extension of the tool registry | M |
-| Interfaces | Shared shape that several object types implement | Not present | **Missing** | High. Add to the ontology schema and validator | S–M |
+| Interfaces | Shared shape that several object types implement | `interfaces` with typed attributes; entities declare `implements`; validated, versioned, queryable (competency questions, API listings) and typed in the generated SDKs (Tier 2). Rules still name concrete entities | **Have** | — | — |
 | Object storage and indexing | Scalable store for billions of objects, with search and incremental indexing | SQLite store for the graph, runs, audit and reviews (Tier 1). Single node, no search index | **Partial** | Medium. A PostgreSQL implementation of the same `Store` interface. Palantir-scale indexing is not realistic | L |
 | Multiple objects per case | Actions operate on object sets of any size | Multi-record entities, per-record actions (`for_each`), quantified goals, per-record mandatory steps (Tier 1) | **Have** | — | — |
 | Object sets and search | Filter, search and aggregate objects | `KnowledgeGraph.query` with filters, traversals and aggregates. No full-text search | **Partial** | High | M |
@@ -64,7 +64,7 @@ This is the heart of both systems.
 | AIP Chatbot Studio | Build chat assistants that use Ontology data and tools | A governed assistant in the API and inbox: tools run as the signed-in user with their permissions and row and field access; it can start governed runs and simulate scenarios but never decide reviews; provider-neutral backend, Claude by default (Tier 2). No builder interface | **Have** | — | — |
 | AIP Evals | Test suites for LLM functions: compare models and prompts, analyse failures | Evaluation suites for reasoners: expectations on status, actions, order, reviews and final state; pass rate, agreement, fallbacks, cost, latency and consistency per reasoner; failure analysis; CI gate (Tier 2, [`evals.md`](evals.md)) | **Have** | — | — |
 | Bring your own model | Register external or self-hosted models; many providers supported | `ChatModel` interface. The Anthropic adapter ships; others plug in through a function wrapper | **Have** | Add tested adapters for other providers | S each |
-| AIP Observability | Tracing, logs and run history for functions, actions and models | Hash-chained audit log, metrics and saved runs. No trace viewer or OpenTelemetry export | **Partial** | High. Export audit events as OpenTelemetry spans | S–M |
+| AIP Observability | Tracing, logs and run history for functions, actions and models | Hash-chained audit log, metrics, saved runs, API access log, and OpenTelemetry export: each run as a trace with step, tool, review and denial spans, to any OTLP collector (Tier 2). No built-in trace viewer | **Have** | — | — |
 | Automate | Run actions or send notifications when Ontology data changes | Automations on data changes, deadlines and schedules start governed runs on cases built from the graph, write results back and notify people (Tier 2) | **Have** | — | — |
 | Human review of AI edits | Stage AI-proposed changes for a person to approve | Human-review rules with context-rich requests; policy, console and HTTP approvers | **Have** | — | — |
 | AIP Threads and AIP Analyst | Ad-hoc chat with documents and data exploration | Not present | **Missing** | Low priority. Generic chat tools already do this | M |
@@ -79,7 +79,7 @@ This is the heart of both systems.
 | Dynamic Scheduling | Build scheduling and resource-allocation workflows on the Ontology | `ScheduleAgent`: ontology-driven job-shop scheduling with OR-Tools CP-SAT, validation and Gantt output | **Have** | Add calendars, downtime windows and schedule stability | M |
 | Change impact analysis | Trace what an event affects through the Ontology | `ImpactAgent` with declared impact rules and reasoning chains | **Have** | Incremental analysis for high event rates | M |
 | Approvals | Request, approve and then apply changes, with a decision record | Human-review gates on actions. No general request-and-approve workflow for ontology or config changes | **Partial** | High. Reuse the review mechanism for ontology releases | S–M |
-| Checkpoints | Ask for a justification before sensitive actions | Not present | **Missing** | High. A justification rule kind recorded in the audit log | S |
+| Checkpoints | Ask for a justification before sensitive actions | `checkpoint` rules require a written justification before revealing a field, starting or resuming a run, declining or approving a review, writing data or committing a scenario; recorded append-only; the assistant cannot supply one (Tier 2) | **Have** | — | — |
 
 ## 4. Security and governance
 
@@ -147,7 +147,7 @@ The gaps differ a great deal in value. This order follows what each step unlocks
 | 3 | REST API service with authentication | Lets many projects and applications use one deployment | Done: token auth, permissions, per-user data access |
 | 4 | Review and operations inbox (web) | People need somewhere to approve and monitor | Done: web inbox with asynchronous reviews |
 
-**Tier 2: close the AIP gaps.** These are well-defined and build directly on existing code. In progress — see [`platform.md`](platform.md).
+**Tier 2: close the AIP gaps.** These are well-defined and build directly on existing code. **Done** — see [`platform.md`](platform.md) and [`evals.md`](evals.md).
 
 | # | Build | Effort |
 |---|---|---|
@@ -156,7 +156,7 @@ The gaps differ a great deal in value. This order follows what each step unlocks
 | 7 | Scenarios: fork, simulate, compare, commit | Done: API, CLI, conflict-checked commit |
 | 8 | Generated typed SDK (OSDK) | Done: Python and TypeScript, `autology sdk` and `GET /api/sdk/{lang}` |
 | 9 | Chat front end over governed tools (Chatbot Studio) | Done: governed assistant, API and inbox |
-| 10 | Tracing export, justification checkpoints, notifications, interfaces | S each |
+| 10 | Tracing export, justification checkpoints, notifications, interfaces | Done, plus an append-only API access log |
 
 **Tier 3: integrate, do not build.** Mature open-source tools already cover these.
 

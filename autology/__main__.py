@@ -15,6 +15,7 @@
     python -m autology export ONTOLOGY [--format jsonld|turtle]
     python -m autology roi TCO.json
     python -m autology sdk ONTOLOGY --lang python|typescript [--out FILE]   # typed client library
+    python -m autology trace [RUNS.jsonl | --db DB] [--run ID] [--out FILE] [--endpoint URL]   # OpenTelemetry
     python -m autology eval SUITE.json [--reasoner NAME=SPEC ...] [--repeats N] [--json] [--min-pass 0.95]
     python -m autology scenario ONTOLOGY DATA.json SCENARIO.json [--schedule] [--json] [--commit OUT.json]
     python -m autology serve SERVER.json [--host 127.0.0.1] [--port 8800]   # REST API + web inbox
@@ -45,6 +46,36 @@ def _load(path: str) -> Ontology:
     except (OntologyError, OSError, json.JSONDecodeError) as exc:
         print(f"invalid ontology {path}: {exc}", file=sys.stderr)
         raise SystemExit(1)
+
+
+def _cmd_trace(args) -> int:
+    from .tracing import export, to_otlp
+
+    if args.db:
+        from .store import Store
+
+        store = Store(args.db)
+        ids = args.run or [r["run_id"] for r in store.list_runs(limit=10 ** 9)]
+        runs = [(rid, store.load_run(rid)) for rid in ids]
+    elif args.runs:
+        from .persistence import load_runs
+
+        runs = [(None, r) for r in load_runs(args.runs)]
+    else:
+        print("give a runs file or --db", file=sys.stderr)
+        return 2
+    payload = to_otlp(runs, args.service_name)
+    count = len(payload["resourceSpans"][0]["scopeSpans"][0]["spans"])
+    if args.out:
+        Path(args.out).write_text(json.dumps(payload, indent=1) + "\n", encoding="utf-8")
+    if args.endpoint:
+        status = export(payload, args.endpoint)
+        print(f"exported {count} spans from {len(runs)} runs to {args.endpoint} (HTTP {status})", file=sys.stderr)
+    if not args.out and not args.endpoint:
+        print(json.dumps(payload, indent=1))
+    elif args.out:
+        print(f"wrote {count} spans from {len(runs)} runs to {args.out}", file=sys.stderr)
+    return 0
 
 
 def _cmd_eval(args) -> int:
@@ -179,6 +210,13 @@ def _build_parser() -> argparse.ArgumentParser:
     sdk.add_argument("ontology")
     sdk.add_argument("--lang", choices=["python", "typescript"], default="python")
     sdk.add_argument("--out", help="write to this file instead of standard output")
+    tr = sub.add_parser("trace", help="export runs as OpenTelemetry traces (OTLP/JSON)")
+    tr.add_argument("runs", nargs="?", help="runs file written by `autology run --out`")
+    tr.add_argument("--db", help="read runs from this store instead")
+    tr.add_argument("--run", action="append", default=[], help="only these run ids (with --db)")
+    tr.add_argument("--out", help="write the OTLP/JSON payload to this file")
+    tr.add_argument("--endpoint", help="POST to this OTLP/HTTP traces endpoint, e.g. http://localhost:4318/v1/traces")
+    tr.add_argument("--service-name", default="autology")
     ev = sub.add_parser("eval", help="evaluate reasoners (models, prompts, routing) against a test suite")
     ev.add_argument("suite")
     ev.add_argument("--reasoner", action="append", default=[], metavar="NAME=SPEC",
@@ -309,6 +347,8 @@ def main(argv=None) -> int:
 
     if args.command == "eval":
         return _cmd_eval(args)
+    if args.command == "trace":
+        return _cmd_trace(args)
 
     onto = _load(args.ontology)
     if args.command == "validate":

@@ -47,7 +47,7 @@ ROI figures use the illustrative cost assumptions in each example's TCO file. On
 
 ## Run it as a shared service
 
-Autology runs as a REST API with a web inbox ([`docs/platform.md`](docs/platform.md)). Runs, the knowledge graph, the append-only audit log and review decisions persist in SQLite. Users authenticate with tokens, and each user sees only the records and fields their roles allow. Human reviews park a run until someone decides in the inbox, even hours later and after a restart. Cases can hold many records, such as many orders under one contract, with actions, rules and access applied per record. Automations start governed runs when data changes or on a schedule, build their cases from the knowledge graph, write results back, and notify people by role or by webhook.
+Autology runs as a REST API with a web inbox ([`docs/platform.md`](docs/platform.md)). Runs, the knowledge graph, the append-only audit log and review decisions persist in SQLite. Users authenticate with tokens, and each user sees only the records and fields their roles allow. Human reviews park a run until someone decides in the inbox, even hours later and after a restart. Cases can hold many records, such as many orders under one contract, with actions, rules and access applied per record. Automations start governed runs when data changes or on a schedule, build their cases from the knowledge graph, write results back, and notify people by role or by webhook. What-if scenarios simulate changes before they are committed. A governed assistant answers questions and starts work as the signed-in person, and cannot decide reviews. Checkpoints make people justify sensitive operations, every API request is logged append-only, runs export to OpenTelemetry, and typed Python and TypeScript clients are generated from the ontology.
 
 ```bash
 cd examples/order_fulfilment
@@ -93,6 +93,7 @@ python examples/scheduling/run.py ALERT-11   # furnace breakdown: 14 jobs on hol
 | Evaluation | Test suites for reasoners (models, prompts, routing): expectations, pass rate, agreement with the planner, fallbacks, cost, consistency; CI gate | `evals.py` |
 | Client SDKs | Typed Python and TypeScript clients generated from the ontology, with per-entity, per-question and per-goal helpers and a fingerprint check | `sdk.py` |
 | Assistant | Governed chat over the API: tools run as the signed-in user, can start runs and simulate, never decides reviews; append-only access log | `chat.py` |
+| Governance extras | Justification checkpoints (`checkpoint` rules), ontology interfaces, OpenTelemetry trace export | `server.py`, `ontology.py`, `tracing.py` |
 | Scheduling | Impact rules with reasoning chains and event application; flexible job-shop model; CP-SAT and built-in solvers; post-solve validation; rework cloning; Gantt; RDF export of instance data for SPARQL | `impact.py`, `scheduling.py`, `export.py` |
 
 ## Quick start
@@ -100,7 +101,7 @@ python examples/scheduling/run.py ALERT-11   # furnace breakdown: 14 jobs on hol
 Requires Python 3.10 or later. No dependencies (`anthropic` is optional, for Claude).
 
 ```bash
-python -m unittest discover -s tests -t .             # 236 tests, 96% line coverage (OR-Tools and rdflib tests skip if not installed)
+python -m unittest discover -s tests -t .             # 249 tests, 97% line coverage (OR-Tools and rdflib tests skip if not installed)
 python examples/customer_onboarding/run.py financial  # narrated walkthrough
 python examples/manufacturing/run.py                  # full methodology: modules, CQs, agents, versioning, report, ROI, score
 ```
@@ -119,7 +120,7 @@ python -m autology score  $D/ontology.json --runs runs.jsonl --tools $D/all_tool
     --data $D/data.json --budget 25 --tco $D/tco.json --min-score 95           # exit 4 below 95: CI gate
 ```
 
-Other commands: `lint`, `describe`, `ask` (competency questions), `plan`, `scenario` (what-if comparison, optionally `--commit`), `eval` (reasoner test suites, [`docs/evals.md`](docs/evals.md)), `sdk` (typed Python or TypeScript client), `diff` (exits 3 if the version bump is too small), `export --format jsonld|turtle`, `roi`, `serve`, `token`.
+Other commands: `lint`, `describe`, `ask` (competency questions), `plan`, `scenario` (what-if comparison, optionally `--commit`), `eval` (reasoner test suites, [`docs/evals.md`](docs/evals.md)), `sdk` (typed Python or TypeScript client), `trace` (OpenTelemetry export), `diff` (exits 3 if the version bump is too small), `export --format jsonld|turtle`, `roi`, `serve`, `token`.
 
 ### Connecting real systems
 
@@ -259,7 +260,7 @@ examples/manufacturing/        modular enterprise ontology (core/procurement/pro
 examples/care_referral/        configuration-only deployment: ontology, decision-table tools, policy, pilot batch
 examples/scheduling/           aerospace plant: plant + replanning modules, generated knowledge graph, 16 events, narrated run
 examples/order_fulfilment/     many orders per contract, row-level access, a server config with four users and two automations
-tests/                         236 tests (stdlib unittest), including the >= 95 readiness gate for every example
+tests/                         249 tests (stdlib unittest), including the >= 95 readiness gate for every example
 docs/autology.md               the Autology concept and how it maps to this code
 docs/methodology.md            the engineering methodology, section by section, with the code that implements it
 ```

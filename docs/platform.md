@@ -261,3 +261,40 @@ Access rules apply throughout:
 - Comparisons hide records, plan steps and blocking rules the caller may not see, and withhold aggregate answers that include hidden rows.
 
 A scenario is stored as its edits and replayed on the current live data each time it is read. If an edit no longer applies, for example because an instance it adds now exists, reading the scenario returns 409.
+
+## Typed client libraries (Tier 2)
+
+Applications talk to a deployment through a client generated from its ontology, so a typo in an entity, state, goal or question name is a compile error rather than a runtime surprise.
+
+```bash
+python -m autology sdk examples/order_fulfilment/ontology.json --lang python --out autology_client.py
+python -m autology sdk examples/order_fulfilment/ontology.json --lang typescript --out autologyClient.ts
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8800/api/sdk/typescript > autologyClient.ts
+```
+
+Each client is a single file with no dependencies: the Python one uses only the standard library, the TypeScript one uses `fetch` (browsers, Node 18 or later, Deno, Bun). It contains:
+
+- a type per entity for its attributes, with its states as a union of literals, and a type for the case shape agents accept;
+- literal unions of entity, action, goal and competency-question names;
+- typed helpers per entity (`list_order`, `get_order` / `listOrder`, `getOrder`), per question (`ask_cq_01` / `askCq01`) and per goal (`run_fulfil_contract` / `runFulfilContract`);
+- a method for every REST endpoint, and an error type carrying the HTTP status.
+
+```python
+from autology_client import AutologyClient
+api = AutologyClient("http://127.0.0.1:8800", token)
+assert api.check_compatibility() is None          # the server runs the ontology this client was built from
+for order in api.list_order():
+    print(order["id"], order["attributes"]["status"])   # status is typed: 'received' | 'credit_checked' | ...
+run = api.run_fulfil_contract(case, case_id="K-42")
+```
+
+```typescript
+import { AutologyClient } from "./autologyClient.ts";
+const api = new AutologyClient("http://127.0.0.1:8800", token);
+const orders = await api.listOrder();               // OrderObject[]
+const run = await api.runFulfilContract(caseData, { caseId: "K-42" });
+```
+
+Fields a data-access rule hides arrive as `"***redacted***"`, and the attribute types include that value. Every client carries the fingerprint of the ontology it was generated from. `check_compatibility()` / `checkCompatibility()` compares it with the server's and describes any drift, so a CI job can fail when a client needs regenerating. A typed helper whose name would clash with an endpoint method gets a suffix, for example `get_run_object` for an entity called `Run`.
+
+The generated code passes `mypy --strict` and `tsc --strict --erasableSyntaxOnly` for every example ontology.

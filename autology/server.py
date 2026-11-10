@@ -844,6 +844,13 @@ def _handler(service: AutologyService):
                 key = (method, parts[0]) if len(parts) == 1 else None
                 if key in routes:
                     return self._send(200, routes[key]())
+                if method == "GET" and len(parts) == 2 and parts[0] == "sdk":
+                    from .sdk import GENERATORS
+
+                    service.require(user, "read")
+                    if parts[1] not in GENERATORS:
+                        raise ApiError(404, f"no client for {parts[1]!r}; available: {sorted(GENERATORS)}")
+                    return self._send(200, GENERATORS[parts[1]](service.ontology), "text/plain")
                 if method == "GET" and parts == ["report"]:
                     return self._send(200, service.report(user), "text/markdown")
                 if len(parts) == 2:

@@ -14,6 +14,7 @@
     python -m autology diff OLD NEW                              # semantic diff + required version bump
     python -m autology export ONTOLOGY [--format jsonld|turtle]
     python -m autology roi TCO.json
+    python -m autology sdk ONTOLOGY --lang python|typescript [--out FILE]   # typed client library
     python -m autology eval SUITE.json [--reasoner NAME=SPEC ...] [--repeats N] [--json] [--min-pass 0.95]
     python -m autology scenario ONTOLOGY DATA.json SCENARIO.json [--schedule] [--json] [--commit OUT.json]
     python -m autology serve SERVER.json [--host 127.0.0.1] [--port 8800]   # REST API + web inbox
@@ -174,6 +175,10 @@ def _build_parser() -> argparse.ArgumentParser:
     e.add_argument("--format", choices=["jsonld", "turtle"], default="jsonld")
     r = sub.add_parser("roi", help="TCO / ROI from a JSON model")
     r.add_argument("model")
+    sdk = sub.add_parser("sdk", help="generate a typed client library from the ontology")
+    sdk.add_argument("ontology")
+    sdk.add_argument("--lang", choices=["python", "typescript"], default="python")
+    sdk.add_argument("--out", help="write to this file instead of standard output")
     ev = sub.add_parser("eval", help="evaluate reasoners (models, prompts, routing) against a test suite")
     ev.add_argument("suite")
     ev.add_argument("--reasoner", action="append", default=[], metavar="NAME=SPEC",
@@ -341,6 +346,16 @@ def main(argv=None) -> int:
         return _cmd_run(args, onto)
     if args.command == "scenario":
         return _cmd_scenario(args, onto)
+    if args.command == "sdk":
+        from .sdk import generate
+
+        code = generate(onto, args.lang)
+        if args.out:
+            Path(args.out).write_text(code, encoding="utf-8")
+            print(f"wrote {args.out} ({args.lang} client for {onto.ref})", file=sys.stderr)
+        else:
+            print(code, end="")
+        return 0
     if args.command == "score":
         return _cmd_score(args, onto)
     if args.command == "report":

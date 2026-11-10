@@ -26,9 +26,9 @@ Of the 58 feature areas compared below:
 
 | Status | Count | Meaning |
 |---|---|---|
-| **Have** | 17 | Autology has a working equivalent |
+| **Have** | 18 | Autology has a working equivalent |
 | **Partial** | 19 | The concept exists but is narrower, or has no user interface |
-| **Missing** | 18 | Not present |
+| **Missing** | 17 | Not present |
 | **Out of scope** | 4 | Not sensible to build here |
 
 The pattern is clear. Autology is strongest where Palantir's *ideas* are: an ontology that agents act through, governed actions, human review, audit, impact analysis and scheduling. It is weakest where Palantir's *product mass* is: data pipelines, a scalable object store, end-user applications, analytics and fine-grained security.
@@ -52,7 +52,7 @@ This is the heart of both systems.
 | Multiple objects per case | Actions operate on object sets of any size | Multi-record entities, per-record actions (`for_each`), quantified goals, per-record mandatory steps (Tier 1) | **Have** | — | — |
 | Object sets and search | Filter, search and aggregate objects | `KnowledgeGraph.query` with filters, traversals and aggregates. No full-text search | **Partial** | High | M |
 | Ontology Manager | Visual editor for the ontology | JSON files plus validate, lint and diff on the CLI | **Partial** | Medium. A web editor is a user-interface project | L |
-| Ontology SDK (OSDK) | Generated, typed client libraries in TypeScript, Python and Java | Python API only. Nothing generated from the ontology | **Missing** | High. Generating typed Python and TypeScript clients from an ontology file is well defined | M |
+| Ontology SDK (OSDK) | Generated, typed client libraries in TypeScript, Python and Java | Typed Python and TypeScript clients generated from the ontology (entities, states, case shape, per-entity, per-question and per-goal helpers, fingerprint check), from the CLI or the running server (Tier 2). No Java | **Have** | — | — |
 | Scenarios (what-if) | Apply edits in a sandbox, compare outcomes, then commit or discard | Scenarios fork the graph; edits, governed simulated actions and impact events; comparison of answers, plans and schedule KPIs; commit with conflict detection (Tier 2). API and CLI, no visual editor | **Have** | — | — |
 | Foundry Rules | Business users manage rule logic without code | Rules and decision-table tools are edited as JSON | **Partial** | Medium. Needs a rule-editing interface | M–L |
 
@@ -154,7 +154,7 @@ The gaps differ a great deal in value. This order follows what each step unlocks
 | 5 | Triggers and schedules (Automate) | Done: automations, case templates, write-back, notifications, webhooks |
 | 6 | Evaluation harness for reasoners (Evals) | Done: `autology eval`, see [`evals.md`](evals.md) |
 | 7 | Scenarios: fork, simulate, compare, commit | Done: API, CLI, conflict-checked commit |
-| 8 | Generated typed SDK (OSDK) | M |
+| 8 | Generated typed SDK (OSDK) | Done: Python and TypeScript, `autology sdk` and `GET /api/sdk/{lang}` |
 | 9 | Chat front end over governed tools (Chatbot Studio) | M |
 | 10 | Tracing export, justification checkpoints, notifications, interfaces | S each |
 

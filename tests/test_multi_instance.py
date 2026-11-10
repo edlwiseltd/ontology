@@ -220,3 +220,32 @@ class RowAccessTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PlannerPathTests(unittest.TestCase):
+    def setUp(self):
+        from autology.ontology import Goal
+
+        self.Goal = Goal
+        self.o = onto()
+        self.gov = GovernanceLayer(self.o)
+        self.who = Principal("p", ["ops", "eu_ops", "finance"])
+
+    def goal(self, source):
+        return self.Goal("g", "", compile_expression(source))
+
+    def test_goal_without_all_of_uses_full_search(self):
+        plan = Planner(self.o, self.gov).plan(WorldState.initial(self.o, CASE),
+                                              self.goal("count_of(Order.status == 'picked') >= 1"), self.who)
+        self.assertEqual(plan[-1].split("@")[0], "pick_order")
+
+    def test_remaining_conditions_after_instances(self):
+        done = {**CASE, "Order": [{**o, "status": "invoiced"} for o in CASE["Order"]]}
+        plan = Planner(self.o, self.gov).plan(WorldState.initial(self.o, done), self.o.goals["fulfil_contract"], self.who)
+        self.assertEqual(plan, ["approve_customer", "sign_contract"])  # orders already done; contract still open
+
+    def test_budget_and_depth_limits(self):
+        state = WorldState.initial(self.o, CASE)
+        self.assertIsNone(Planner(self.o, self.gov, max_expansions=1).plan(state, self.o.goals["fulfil_contract"],
+                                                                          self.who))
+        self.assertIsNone(Planner(self.o, self.gov, max_depth=1).plan(state, self.o.goals["fulfil_contract"], self.who))

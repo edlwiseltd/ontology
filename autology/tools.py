@@ -32,6 +32,7 @@ class ToolCall:
     inputs: Dict[str, Any]  # only the fields the action declares in ``reads``
     context: Mapping[str, Mapping[str, Any]]  # redacted view of the case
     attempt: int = 1
+    target: Optional[str] = None  # instance id for per-instance (for_each) actions
 
 
 @dataclass
@@ -55,8 +56,8 @@ class Tool:
     description: str = ""
     cost: float = 0.0
 
-    def matches(self, state: WorldState) -> bool:
-        return self.when is None or self.when.evaluate(state.get)
+    def matches(self, state: WorldState, binding: Optional[Mapping[str, str]] = None) -> bool:
+        return self.when is None or self.when.evaluate(state.resolver(binding))
 
 
 class ToolRegistry:
@@ -81,8 +82,9 @@ class ToolRegistry:
 
         return decorate
 
-    def candidates(self, capability: str, state: WorldState, allowed: Sequence[str] = ()) -> List[Tool]:
-        found = [t for t in self._tools if t.capability == capability and t.matches(state)
+    def candidates(self, capability: str, state: WorldState, allowed: Sequence[str] = (),
+                   binding: Optional[Mapping[str, str]] = None) -> List[Tool]:
+        found = [t for t in self._tools if t.capability == capability and t.matches(state, binding)
                  and (not allowed or t.name in allowed)]
         # context-specific tools beat generic ones; then explicit priority; then cheapest
         return sorted(found, key=lambda t: (t.when is None, -t.priority, t.cost))

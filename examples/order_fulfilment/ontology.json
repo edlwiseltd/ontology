@@ -1,0 +1,291 @@
+{
+  "name": "order-fulfilment",
+  "version": "1.0.0",
+  "description": "One contract, many orders: credit check, picking, hazmat clearance, shipping and invoicing per order",
+  "settings": {
+    "max_violations": 3
+  },
+  "entities": {
+    "Customer": {
+      "description": "Buying organisation",
+      "states": [
+        "prospect",
+        "approved"
+      ],
+      "attributes": {
+        "name": "string",
+        "region": "string",
+        "credit_limit": {
+          "type": "number",
+          "sensitivity": "confidential"
+        }
+      }
+    },
+    "Contract": {
+      "description": "Framework agreement covering all orders",
+      "states": [
+        "draft",
+        "signed"
+      ],
+      "attributes": {
+        "value": "number"
+      }
+    },
+    "Order": {
+      "description": "One order under the contract",
+      "multiple": true,
+      "states": [
+        "received",
+        "credit_checked",
+        "picked",
+        "shipped",
+        "invoiced",
+        "cancelled"
+      ],
+      "attributes": {
+        "sku": "string",
+        "quantity": "integer",
+        "amount": "number",
+        "region": "string",
+        "hazardous": "boolean",
+        "hazmat_cleared": "boolean",
+        "tracking": "string"
+      }
+    }
+  },
+  "relationships": [
+    {
+      "from": "Customer",
+      "to": "Contract",
+      "type": "hasContract",
+      "cardinality": "1"
+    },
+    {
+      "from": "Contract",
+      "to": "Order",
+      "type": "covers",
+      "cardinality": "1..*"
+    }
+  ],
+  "actions": {
+    "approve_customer": {
+      "description": "Approve the customer account",
+      "capability": "crm.approve",
+      "requires": [
+        "Customer.status == 'prospect'"
+      ],
+      "reads": [
+        "Customer.name"
+      ],
+      "effects": {
+        "Customer": {
+          "status": "approved"
+        }
+      }
+    },
+    "sign_contract": {
+      "description": "Sign the framework contract",
+      "capability": "contract.sign",
+      "requires": [
+        "Customer.status == 'approved'",
+        "Contract.status == 'draft'"
+      ],
+      "reads": [
+        "Contract.value"
+      ],
+      "effects": {
+        "Contract": {
+          "status": "signed"
+        }
+      }
+    },
+    "credit_check": {
+      "description": "Check the order against the customer's credit",
+      "capability": "credit.check",
+      "for_each": "Order",
+      "requires": [
+        "Order.status == 'received'",
+        "Contract.status == 'signed'"
+      ],
+      "reads": [
+        "Order.amount",
+        "Customer.credit_limit"
+      ],
+      "outcomes": {
+        "ok": {
+          "effects": {
+            "Order": {
+              "status": "credit_checked"
+            }
+          }
+        },
+        "declined": {
+          "effects": {
+            "Order": {
+              "status": "cancelled"
+            }
+          }
+        }
+      }
+    },
+    "pick_order": {
+      "description": "Pick and pack the order in the warehouse",
+      "capability": "warehouse.pick",
+      "for_each": "Order",
+      "requires": [
+        "Order.status == 'credit_checked'"
+      ],
+      "reads": [
+        "Order.sku",
+        "Order.quantity"
+      ],
+      "effects": {
+        "Order": {
+          "status": "picked"
+        }
+      }
+    },
+    "clear_hazmat": {
+      "description": "Dangerous-goods clearance for a hazardous order",
+      "capability": "hazmat.clear",
+      "for_each": "Order",
+      "requires": [
+        "Order.status == 'picked'",
+        "Order.hazardous == True",
+        "Order.hazmat_cleared != True"
+      ],
+      "reads": [
+        "Order.sku"
+      ],
+      "effects": {
+        "Order": {
+          "hazmat_cleared": true
+        }
+      }
+    },
+    "ship_order": {
+      "description": "Hand the order to the carrier",
+      "capability": "carrier.ship",
+      "for_each": "Order",
+      "requires": [
+        "Order.status == 'picked'"
+      ],
+      "reads": [
+        "Order.region",
+        "Order.quantity"
+      ],
+      "writes": [
+        "Order.tracking"
+      ],
+      "effects": {
+        "Order": {
+          "status": "shipped"
+        }
+      }
+    },
+    "invoice_order": {
+      "description": "Invoice the shipped order",
+      "capability": "billing.invoice",
+      "for_each": "Order",
+      "requires": [
+        "Order.status == 'shipped'"
+      ],
+      "reads": [
+        "Order.amount"
+      ],
+      "effects": {
+        "Order": {
+          "status": "invoiced"
+        }
+      }
+    }
+  },
+  "goals": {
+    "fulfil_contract": {
+      "description": "Every order under the contract is invoiced or cancelled",
+      "target": "Contract.status == 'signed' and all_of(Order.status in ['invoiced', 'cancelled'])"
+    }
+  },
+  "rules": [
+    {
+      "id": "R-HAZ-001",
+      "type": "mandatory_step",
+      "description": "Hazardous orders ship only after dangerous-goods clearance",
+      "when": "Order.hazardous == True",
+      "step": "clear_hazmat",
+      "before": "ship_order"
+    },
+    {
+      "id": "R-LOG-001",
+      "type": "human_review",
+      "description": "Orders of 50,000 or more need logistics manager approval before shipping",
+      "when": "Order.amount >= 50000",
+      "action": "ship_order",
+      "reviewer": "logistics_manager"
+    },
+    {
+      "id": "R-ROW-001",
+      "type": "row_access",
+      "description": "EU orders are handled by EU operations only (data residency)",
+      "entity": "Order",
+      "when": "Order.region == 'EU'",
+      "roles": [
+        "eu_ops"
+      ]
+    },
+    {
+      "id": "R-FIN-001",
+      "type": "data_access",
+      "description": "Credit limits are visible to finance only",
+      "field": "Customer.credit_limit",
+      "roles": [
+        "finance"
+      ]
+    },
+    {
+      "id": "R-FIN-002",
+      "type": "action_access",
+      "description": "Only finance runs credit checks",
+      "action": "credit_check",
+      "roles": [
+        "finance"
+      ]
+    }
+  ],
+  "competency_questions": [
+    {
+      "id": "CQ-01",
+      "question": "Which orders are covered by contract K-1?",
+      "find": "Contract",
+      "where": "Contract.id == 'K-1'",
+      "follow": [
+        "covers"
+      ],
+      "expect": [
+        "O-1",
+        "O-2",
+        "O-3"
+      ]
+    },
+    {
+      "id": "CQ-02",
+      "question": "How many hazardous orders are there?",
+      "find": "Order",
+      "where": "Order.hazardous == True",
+      "aggregate": {
+        "count": true
+      },
+      "expect": 1
+    },
+    {
+      "id": "CQ-03",
+      "question": "What is the total value of EU orders?",
+      "find": "Order",
+      "where": "Order.region == 'EU'",
+      "aggregate": {
+        "sum": "Order.amount"
+      },
+      "expect": 12000
+    }
+  ]
+}

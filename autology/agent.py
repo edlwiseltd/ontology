@@ -33,7 +33,7 @@ from .governance import Decision, GovernanceLayer, IntegrityError, Principal, Ve
 from .ontology import STATUS, ActionType, Ontology, OntologyError
 from .planner import Planner, apply_outcome
 from .reasoners import DecisionContext, PlanFollowingReasoner, Proposal, Reasoner
-from .state import WorldState
+from .state import GroundAction, WorldState, ground
 from .tools import ToolCall, ToolError, ToolRegistry, ToolResult
 
 
@@ -52,6 +52,7 @@ class ReviewRequest:
     facts: Dict[str, Any] = field(default_factory=dict)
     explanation: str = ""
     rule_ids: List[str] = field(default_factory=list)
+    binding: Dict[str, str] = field(default_factory=dict)  # instance the action works on, per entity
 
     def summary(self) -> str:
         lines = [f"{self.action} on case {self.case_id} needs {'/'.join(self.reviewers)} approval",
@@ -89,7 +90,8 @@ class AutoApprover:
 
     def review(self, request: ReviewRequest) -> ReviewDecision:
         self.requests.append(request)
-        rule = self.decisions.get(request.action, self.default)
+        base = request.action.partition("@")[0]  # per-instance actions are reviewed under their action name
+        rule = self.decisions.get(request.action, self.decisions.get(base, self.default))
         approved = bool(rule(request) if callable(rule) else rule)
         return ReviewDecision(approved, f"{self.reviewer}[{'/'.join(request.reviewers)}]",
                               "approved" if approved else "declined")
@@ -176,12 +178,20 @@ class RunResult:
 Observer = Callable[[str, Dict[str, Any]], None]
 
 
+def _statuses(state: WorldState) -> Dict[str, Any]:
+    out = {e: v.get(STATUS) for e, v in state.entities.items()}
+    for e, bucket in state.collections.items():
+        for iid, v in bucket.items():
+            out[f"{e}[{iid}]"] = v.get(STATUS)
+    return out
+
+
 class WorkAgent:
     def __init__(self, name: str, ontology: Ontology, tools: ToolRegistry, *, roles=(),
                  reasoner: Optional[Reasoner] = None, approver: Optional[Approver] = None,
                  delegates: Sequence["WorkAgent"] = (), governance: Optional[GovernanceLayer] = None,
                  registry=None, on_ontology_update: str = "continue",
-                 max_steps: int = 50, max_repeats: int = 3, max_inline_wait: float = 5.0,
+                 max_steps: Optional[int] = None, max_repeats: int = 3, max_inline_wait: float = 5.0,
                  clock: Callable[[], float] = time.time, sleep: Callable[[float], None] = time.sleep,
                  observer: Optional[Observer] = None):
         if on_ontology_update not in ("continue", "pause"):
@@ -208,6 +218,11 @@ class WorkAgent:
         return self.principal.name
 
     @property
+    def team(self) -> List[Principal]:
+        """This agent and its delegates; an action is plannable if one of them may perform it."""
+        return [self.principal] + [d.principal for d in self.delegates]
+
+    @property
     def team_principal(self) -> Principal:
         """Planning identity: what the agent *and its delegates* are collectively allowed to do."""
         if not self.delegates:
@@ -227,16 +242,23 @@ class WorkAgent:
         """Find the rule(s) standing between the current state and the goal."""
         if self.principal.name in self.governance.suspended:
             return [self.governance.suspended[self.principal.name]]
-        unconstrained = self.planner.plan_with_outcomes(state, goal, self.team_principal, enforce_rules=False)
+        # First relax only what makes a goal impossible (access, prohibitions) but keep mandatory steps, so the
+        # explanation names the real blocker; if even that fails, relax everything.
+        unconstrained = self.planner.plan_with_outcomes(state, goal, self.team, enforce_rules="steps")
+        if unconstrained is None:
+            unconstrained = self.planner.plan_with_outcomes(state, goal, self.team, enforce_rules=False)
         if unconstrained is None:
             return ["no sequence of ontology actions leads from the current state to the goal"]
         probe = state.copy()
         for name, outcome in unconstrained:
-            action = self.ontology.actions[name]
-            decision = self.governance.evaluate(action, probe, self.team_principal)
-            if decision.verdict is Verdict.DENY:
-                return [f"{name}: {r}" for r in decision.reasons]
-            probe = self.planner.simulate(probe, action, action.outcome(outcome))
+            ga = ground(self.ontology, name)
+            decisions = [self.governance.evaluate(ga, probe, m) for m in self.team]
+            if all(d.verdict is Verdict.DENY for d in decisions):
+                if len(decisions) == 1:
+                    return [f"{name}: {r}" for r in decisions[0].reasons]
+                # each member is blocked for its own reasons - roles are never pooled
+                return [f"{name}: {r}" for d in decisions for r in d.reasons]
+            probe = self.planner.simulate(probe, ga, ga.action.outcome(outcome))
         return ["the only paths to the goal violate governance rules"]  # pragma: no cover
 
     def _authorize(self, action: str, state: WorldState) -> Tuple[Optional["WorkAgent"], Decision]:
@@ -250,7 +272,7 @@ class WorkAgent:
                 return member, member_decision
         return None, decision
 
-    def _validate_result(self, action: ActionType, result: ToolResult, state: WorldState,
+    def _validate_result(self, action: GroundAction, result: ToolResult, state: WorldState,
                          executor: "WorkAgent") -> Optional[str]:
         names = [o.name for o in action.outcomes]
         if result.outcome is not None and result.outcome not in names:
@@ -260,31 +282,33 @@ class WorkAgent:
                 ref = f"{entity}.{attr}"
                 if ref not in action.writes:
                     return f"tool attempted to write undeclared field {ref}"
-                if not self.governance.can_write(ref, state, executor.principal):
+                if entity in state.collections and entity not in action.binding:
+                    return f"tool attempted to write {ref} on an instance the action is not working on"
+                if not self.governance.can_write(ref, state, executor.principal, action.binding):
                     return f"{executor.name} may not modify {ref}"
         return None
 
-    def _execute(self, run: RunState, action: ActionType, executor: "WorkAgent", audit: AuditLog):
+    def _execute(self, run: RunState, action: GroundAction, executor: "WorkAgent", audit: AuditLog):
         """Run the action's tools under its failure policy.
 
         Returns ("ok", tool, result) | ("deferred", tool, error) | ("failed", tool, error).
         """
         policy = action.on_failure
         state = run.state
-        candidates = executor.tools.candidates(action.capability, state, action.tools)
+        candidates = executor.tools.candidates(action.capability, state, action.tools, action.binding)
         if not candidates:
             extra = f" among allowed tools {list(action.tools)}" if action.tools else ""
             raise LookupError(f"no tool provides capability {action.capability!r} in this context{extra}")
         if not policy.fallback_tools:
             candidates = candidates[:1]
-        inputs = {ref: state.field(ref) for ref in action.reads}
+        inputs = {ref: state.field(ref, action.binding) for ref in action.reads}
         view = self.governance.redacted_view(state, executor.principal)
         error = "tool failed"
         while True:
             round_no = run.failures[action.name] + 1
             this_round = candidates if round_no > policy.fallback_after else candidates[:1]
             for tool in this_round:
-                call = ToolCall(action.name, action.capability, dict(inputs), view, round_no)
+                call = ToolCall(action.action.name, action.capability, dict(inputs), view, round_no, action.target)
                 self._log(audit, "tool.call", case=run.case_id, action=action.name, tool=tool.name,
                           attempt=round_no, executed_by=executor.name, cost=tool.cost)
                 run.costs["tools"] += tool.cost
@@ -360,7 +384,9 @@ class WorkAgent:
             return RunResult(status, run.goal, run.case_id, run.steps, state, audit, escalation, run.violations,
                              dict(run.costs), run.resume_at, run)
 
-        for _ in range(self.max_steps):
+        # default budget: 50 steps, plus 10 per instance of multi-instance entities
+        budget = self.max_steps or 50 + 10 * sum(len(b) for b in state.collections.values())
+        for _ in range(budget):
             index = len(run.steps) + 1
             problem = self._check_ontology(run, audit)
             if problem:
@@ -369,16 +395,16 @@ class WorkAgent:
                 return finish("suspended", Escalation(self.governance.suspended[self.principal.name],
                                                       "security", details=[f"{d.action}: {'; '.join(d.reasons)}"
                                                                            for d in run.violations[-3:]]))
-            if goal.target.evaluate(state.get):
+            if goal.target.evaluate(state.resolver()):
                 return finish("completed")
 
-            plan = self.planner.plan(state, goal, self.team_principal)
+            plan = self.planner.plan(state, goal, self.team)
             if plan is None:
                 return finish("escalated", Escalation("no compliant path to the goal", "operations",
                                                       details=self._explain_block(state, goal)))
             self._log(audit, "plan", case=run.case_id, step=index, plan=plan)
 
-            ctx = DecisionContext(self.ontology, goal, plan, self.planner.applicable(state, self.team_principal),
+            ctx = DecisionContext(self.ontology, goal, plan, self.planner.applicable(state, self.team),
                                   self.governance.redacted_view(state, self.principal), list(run.history))
             proposal = self.reasoner.propose(ctx)
             run.costs["llm_usd"] += proposal.cost_usd
@@ -400,7 +426,7 @@ class WorkAgent:
                     return finish("escalated", Escalation("planned step denied", action=plan[0],
                                                           details=decision.reasons))
 
-            action = self.ontology.actions[proposal.action]
+            action = ground(self.ontology, proposal.action)
             run.attempts[action.name] += 1
             if run.attempts[action.name] > self.max_repeats:
                 return finish("escalated", Escalation(
@@ -422,7 +448,8 @@ class WorkAgent:
             if decision.verdict is Verdict.REVIEW:
                 request = ReviewRequest(run.case_id, action.name, action.description, decision.reviewers,
                                         decision.reasons, self.governance.redacted_view(state, self.principal),
-                                        list(run.history), decision.facts, explanation, decision.rule_ids)
+                                        list(run.history), decision.facts, explanation, decision.rule_ids,
+                                        dict(action.binding))
                 review = self.approver.review(request)
                 record.reviewer = review.reviewer
                 self._log(audit, "review", case=run.case_id, action=action.name, approved=review.approved,
@@ -462,19 +489,19 @@ class WorkAgent:
                 return finish("escalated", Escalation(problem, "it-integration", action.name))
 
             outcome = action.outcome(result.outcome) if result.outcome else action.expected_outcome
-            before = {e: v.get(STATUS) for e, v in state.entities.items()}
+            before = _statuses(state)
             for entity, changes in result.updates.items():
                 for attr, value in changes.items():
-                    state.set(entity, attr, copy.deepcopy(value))
-            apply_outcome(state, outcome)
+                    state.set(entity, attr, copy.deepcopy(value), action.binding.get(entity))
+            apply_outcome(state, outcome, action.binding)
             self.governance.record_completion(action, outcome.name, state)
             run.failures.pop(action.name, None)
             record.outcome, record.message = outcome.name, result.message
             run.steps.append(record)
             run.history.append(f"{action.name}->{outcome.name}")
-            after = {e: v.get(STATUS) for e, v in state.entities.items()}
+            after = _statuses(state)
             self._log(audit, "step", case=run.case_id, step=index, action=action.name, tool=tool.name,
                       outcome=outcome.name, message=result.message, executed_by=executor.name,
-                      transitions={e: [before[e], after[e]] for e in after if before[e] != after[e]})
+                      transitions={e: [before.get(e), after[e]] for e in after if before.get(e) != after[e]})
 
-        return finish("escalated", Escalation(f"step budget of {self.max_steps} exhausted"))
+        return finish("escalated", Escalation(f"step budget of {budget} exhausted"))

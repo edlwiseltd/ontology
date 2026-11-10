@@ -1,0 +1,52 @@
+{
+  "Customer": {
+    "name": "Northwind",
+    "region": "US",
+    "credit_limit": 100000
+  },
+  "Contract": {
+    "value": 300000
+  },
+  "Order": [
+    {
+      "id": "O-1",
+      "sku": "PUMP-10",
+      "quantity": 4,
+      "amount": 9000,
+      "region": "US",
+      "hazardous": false
+    },
+    {
+      "id": "O-2",
+      "sku": "SOLVENT-5",
+      "quantity": 20,
+      "amount": 3000,
+      "region": "US",
+      "hazardous": true
+    },
+    {
+      "id": "O-3",
+      "sku": "VALVE-2",
+      "quantity": 50,
+      "amount": 12000,
+      "region": "EU",
+      "hazardous": false
+    },
+    {
+      "id": "O-4",
+      "sku": "TURBINE-1",
+      "quantity": 1,
+      "amount": 85000,
+      "region": "US",
+      "hazardous": false
+    },
+    {
+      "id": "O-5",
+      "sku": "PLANT-X",
+      "quantity": 1,
+      "amount": 180000,
+      "region": "US",
+      "hazardous": false
+    }
+  ]
+}

@@ -39,7 +39,7 @@ ID = "id"
 PARAMS = "Params"  # pseudo-entity for competency-question parameters
 
 RULE_KINDS = frozenset({"mandatory_step", "human_review", "data_access", "write_access", "action_access",
-                        "prohibition"})
+                        "prohibition", "row_access"})
 AGGREGATES = frozenset({"count", "sum", "avg", "min", "max"})
 
 
@@ -71,6 +71,7 @@ class EntityType:
     initial_state: str
     description: str = ""
     external_states: Tuple[str, ...] = ()  # states set by outside systems (ETL, sensors), not by actions
+    multiple: bool = False  # a case may hold many instances (e.g. several orders under one contract)
 
     def has_attribute(self, attr: str) -> bool:
         return attr in (STATUS, ID) or attr in self.attributes
@@ -122,6 +123,16 @@ class ActionType:
     cost: int = 1
     tools: Tuple[str, ...] = ()  # allow-list of tool names; empty = any tool with the capability
     on_failure: FailurePolicy = FailurePolicy()
+    for_each: Optional[str] = None  # multi-instance entity this action is applied to, one instance at a time
+
+    def touches(self) -> set:
+        """Entity types the action reads, writes, changes or tests."""
+        found = {ref.partition(".")[0] for ref in self.reads + self.writes}
+        found |= {e for o in self.outcomes for e in o.effects}
+        found |= {e for expr in self.requires for e, _ in expr.references}
+        if self.for_each:
+            found.add(self.for_each)
+        return found
 
     @property
     def expected_outcome(self) -> Outcome:
@@ -373,8 +384,16 @@ class Ontology:
             for end in (r.source, r.target):
                 if end not in self.entities:
                     raise OntologyError(f"relationship {r.kind!r}: unknown entity {end!r}")
+        multi = {e.name for e in self.entities.values() if e.multiple}
         for a in self.actions.values():
             where = f"action {a.name!r}"
+            if a.for_each is not None and a.for_each not in multi:
+                raise OntologyError(f"{where}: for_each must name an entity marked multiple, not {a.for_each!r}")
+            loose = {r.partition(".")[0] for r in a.reads + a.writes} | {e for o in a.outcomes for e in o.effects}
+            loose |= {e for x in a.requires for e, _ in x.free_references}
+            for entity in sorted((loose & multi) - {a.for_each}):
+                raise OntologyError(f"{where}: refers to multi-instance {entity} outside a quantifier; "
+                                    f"use for_each: {entity!r} or all_of/any_of/count_of")
             if not a.outcomes:
                 raise OntologyError(f"{where}: must declare at least one outcome")
             if a.on_failure.max_attempts < 1:
@@ -397,6 +416,14 @@ class Ontology:
                                 f"{where} outcome {o.name!r}: {value!r} is not a state of {entity!r}")
         for g in self.goals.values():
             self._check_expr(g.target, f"goal {g.name!r}")
+            for entity in sorted({e for e, _ in g.target.free_references} & multi):
+                raise OntologyError(f"goal {g.name!r}: refers to multi-instance {entity} outside "
+                                    "all_of/any_of/count_of")
+        for owner, expr in ([(f"goal {g.name!r}", g.target) for g in self.goals.values()]
+                            + [(f"action {a.name!r}", x) for a in self.actions.values() for x in a.requires]):
+            for fn, entities in expr.quantifiers:
+                if len(entities & multi) > 1:
+                    raise OntologyError(f"{owner}: {fn}() may range over one multi-instance entity only")
         seen = set()
         for r in self.rules:
             where = f"rule {r.id!r}"
@@ -419,6 +446,11 @@ class Ontology:
                         self.actions[p["step"]].outcome(p["outcome"])
                     except KeyError as exc:
                         raise OntologyError(f"{where}: {exc.args[0]}") from None
+            elif r.kind == "row_access":
+                if p.get("entity") not in self.entities:
+                    raise OntologyError(f"{where}: 'entity' must name an entity")
+                if r.when is not None and {e for e, _ in r.when.references} - {p["entity"]}:
+                    raise OntologyError(f"{where}: condition may only reference {p['entity']}")
             elif r.kind in ("human_review", "prohibition", "action_access"):
                 if p.get("action") not in self.actions:
                     raise OntologyError(f"{where}: 'action' must name an action")
@@ -426,7 +458,7 @@ class Ontology:
                     raise OntologyError(f"{where}: human_review needs a 'reviewer' role")
             if r.kind in ("data_access", "write_access"):
                 self._check_field(p.get("field", ""), where)
-            if r.kind in ("data_access", "write_access", "action_access") and not p.get("roles"):
+            if r.kind in ("data_access", "write_access", "action_access", "row_access") and not p.get("roles"):
                 raise OntologyError(f"{where}: {r.kind} needs a non-empty 'roles' list")
         qids = set()
         for q in self.questions:
@@ -559,7 +591,8 @@ class Ontology:
             states = tuple(spec.get("states", ()))
             entities[name] = EntityType(name, MappingProxyType(attrs), states,
                                         spec.get("initial", states[0] if states else ""),
-                                        spec.get("description", ""), tuple(spec.get("external_states", ())))
+                                        spec.get("description", ""), tuple(spec.get("external_states", ())),
+                                        bool(spec.get("multiple", False)))
         relationships = [Relationship(r["from"], r["to"], r["type"], r.get("cardinality", "1..*"))
                          for r in doc.get("relationships", [])]
         actions: Dict[str, ActionType] = {}
@@ -584,6 +617,7 @@ class Ontology:
                 writes=tuple(spec.get("writes", ())),
                 cost=int(spec.get("cost", 1)),
                 tools=tuple(spec.get("tools", ())),
+                for_each=spec.get("for_each"),
                 on_failure=FailurePolicy(int(failure.get("max_attempts", 3)),
                                          float(failure.get("backoff_seconds", 0)),
                                          bool(failure.get("fallback_tools", True)),

@@ -54,7 +54,8 @@ def result_from_dict(data: Dict[str, Any]) -> RunResult:
     if data.get("format") != FORMAT:
         raise ValueError(f"not an Autology run record (format {data.get('format')!r}, expected {FORMAT!r})")
     snap = data["state"]
-    state = WorldState(json.loads(json.dumps(snap["entities"])), snap.get("steps", {}))
+    state = WorldState(json.loads(json.dumps(snap["entities"])), snap.get("steps", {}),
+                       json.loads(json.dumps(snap.get("collections", {}))))
     steps = [StepRecord(**s) for s in data.get("steps", [])]
     escalation = Escalation(**data["escalation"]) if data.get("escalation") else None
     violations = [_decision_from_dict(d) for d in data.get("violations", [])]

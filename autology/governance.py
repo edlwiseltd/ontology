@@ -12,6 +12,8 @@ the action only runs if :meth:`GovernanceLayer.evaluate` allows it.
                     (e.g. "only Finance can modify payment terms").
 ``action_access``   ``action`` may only be executed by principals holding ``roles``.
 ``prohibition``     ``action`` must never run while ``when`` holds.
+``row_access``      instances of ``entity`` for which ``when`` holds are visible to, and
+                    can be acted on by, principals holding ``roles`` only (row-level security).
 
 Any rule may carry a ``when`` condition (attribute-based access control).
 Every decision carries provenance: which rules were satisfied, on which
@@ -26,8 +28,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, FrozenSet, List, Optional, Tuple
 
-from .ontology import ActionType, Ontology, Rule
-from .state import WorldState
+from .ontology import ID, ActionType, Ontology, Rule
+from .state import GroundAction, WorldState, ground, ground_name
 
 REDACTED = "***redacted***"
 
@@ -113,39 +115,77 @@ class GovernanceLayer:
         self.violations.pop(name, None)
 
     # -- rule evaluation ------------------------------------------------
-    @staticmethod
-    def _mandatory_satisfied(rule: Rule, state: WorldState) -> bool:
-        outcome = state.steps.get(rule.params["step"])
+    def _step_key(self, step: str, ga: GroundAction) -> str:
+        """Steps are tracked per instance when the step and the gated action range over the same entity."""
+        step_action = self.ontology.actions.get(step)
+        if ga.target and step_action is not None and step_action.for_each == ga.action.for_each:
+            return ground_name(step, ga.target)
+        return step
+
+    def _mandatory_satisfied(self, rule: Rule, state: WorldState, ga: GroundAction) -> bool:
+        outcome = state.steps.get(self._step_key(rule.params["step"], ga))
         if outcome is None:
             return False
         wanted = rule.params.get("outcome")
         return wanted is None or outcome == wanted
 
-    def _check(self, action: ActionType, state: WorldState, principal: Principal,
-               check_preconditions: bool = True) -> Tuple[List[Tuple[Optional[str], str]], List[str], set]:
+    def _instance_of(self, entity: str, state: WorldState, ga: GroundAction) -> Optional[str]:
+        """Instance id an action works on for ``entity``: its target, or the single instance's id."""
+        if entity in state.collections:
+            return ga.target if entity == ga.action.for_each else None
+        return state.entities.get(entity, {}).get(ID) or entity
+
+    def row_visible(self, entity: str, state: WorldState, principal: Principal,
+                    instance: Optional[str] = None) -> Tuple[bool, Optional[Rule]]:
+        """Row-level access: may ``principal`` see this instance at all?"""
+        binding = {entity: instance} if instance and entity in state.collections else {}
+        resolve = state.resolver(binding)
+        for rule in self.ontology.rules_of("row_access"):
+            if rule.params["entity"] == entity and rule.applies(resolve):
+                if not principal.roles & set(rule.params["roles"]):
+                    return False, rule
+        return True, None
+
+    def _check(self, action, state: WorldState, principal: Principal, check_preconditions: bool = True,
+               only_steps: bool = False) -> Tuple[List[Tuple[Optional[str], str]], List[str], set]:
+        """``only_steps`` checks mandatory steps only (used to explain blocks: access and prohibitions relaxed)."""
+        ga = ground(self.ontology, action)
+        act = ga.action
+        resolve = state.resolver(ga.binding)
         problems: List[Tuple[Optional[str], str]] = []
         satisfied: List[str] = []
         refs: set = set()
-        if principal.name in self.suspended:
+        if principal.name in self.suspended and not only_steps:
             problems.append((None, f"{principal.name} is {self.suspended[principal.name]}"))
+        if act.for_each and not ga.target:
+            problems.append((None, f"{act.name} works on one {act.for_each} at a time: name the instance"))
+        elif ga.target and ga.target not in state.collections.get(act.for_each or "", {}):
+            problems.append((None, f"{act.for_each} {ga.target!r} is not part of this case"))
         if check_preconditions:
-            for expr in action.requires:
+            for expr in act.requires:
                 refs |= expr.references
-                if not expr.evaluate(state.get):
+                if not expr.evaluate(resolve):
                     problems.append((None, f"precondition not met: {expr}"))
+        for entity in ([] if only_steps else sorted(act.touches())):
+            iid = self._instance_of(entity, state, ga)
+            if iid is None:
+                continue
+            visible, rule = self.row_visible(entity, state, principal, iid)
+            if not visible:
+                problems.append((rule.id, f"{principal.name} may not access {entity} {iid}: {rule.description}"))
         for rule in self.ontology.rules:
             p = rule.params
             applies_to_action = (
-                (rule.kind == "mandatory_step" and p["before"] == action.name)
-                or (rule.kind in ("prohibition", "action_access", "human_review") and p["action"] == action.name)
-                or (rule.kind == "data_access" and p["field"] in action.reads)
-                or (rule.kind == "write_access" and p["field"] in action.writes))
-            if not applies_to_action or not rule.applies(state.get):
+                (rule.kind == "mandatory_step" and p["before"] == act.name)
+                or (rule.kind in ("prohibition", "action_access", "human_review") and p["action"] == act.name)
+                or (rule.kind == "data_access" and p["field"] in act.reads)
+                or (rule.kind == "write_access" and p["field"] in act.writes))
+            if not applies_to_action or (only_steps and rule.kind != "mandatory_step") or not rule.applies(resolve):
                 continue
             if rule.when is not None:
                 refs |= rule.when.references
             if rule.kind == "mandatory_step":
-                if self._mandatory_satisfied(rule, state):
+                if self._mandatory_satisfied(rule, state, ga):
                     satisfied.append(rule.id)
                 else:
                     need = p["step"] + (f" (outcome {p['outcome']})" if p.get("outcome") else "")
@@ -157,59 +197,82 @@ class GovernanceLayer:
                     satisfied.append(rule.id)
                 else:
                     verb = {"data_access": f"read {p.get('field')}", "write_access": f"modify {p.get('field')}",
-                            "action_access": f"execute {action.name}"}[rule.kind]
+                            "action_access": f"execute {act.name}"}[rule.kind]
                     problems.append((rule.id, f"{principal.name} may not {verb}: {rule.description}"))
         return problems, satisfied, refs
 
-    def permits_in_plan(self, action: ActionType, state: WorldState, principal: Principal) -> bool:
+    def permits_in_plan(self, action, state: WorldState, principal: Principal, only_steps: bool = False) -> bool:
         """Planner hook: would the hard rules allow this action (ignoring human review)?"""
-        return not self._check(action, state, principal, check_preconditions=False)[0]
+        return not self._check(action, state, principal, check_preconditions=False, only_steps=only_steps)[0]
 
-    def evaluate(self, action: ActionType | str, state: WorldState, principal: Principal) -> Decision:
+    def evaluate(self, action, state: WorldState, principal: Principal) -> Decision:
+        """Decide on an action - an ActionType, a GroundAction, or a name such as ``ship_order@O-2``."""
         self.check_integrity()
-        if isinstance(action, str):
-            if action not in self.ontology.actions:
-                return Decision(Verdict.DENY, action, [f"{action!r} is not an action in the ontology"])
-            action = self.ontology.actions[action]
-        problems, satisfied, refs = self._check(action, state, principal)
-        facts = {f"{e}.{a}": (state.get(e, a) if self.can_read(f"{e}.{a}", state, principal) else REDACTED)
+        try:
+            ga = ground(self.ontology, action)
+        except KeyError:
+            return Decision(Verdict.DENY, str(action), [f"{action!r} is not an action in the ontology"])
+        resolve = state.resolver(ga.binding)
+        problems, satisfied, refs = self._check(ga, state, principal)
+        facts = {f"{e}.{a}": (resolve(e, a) if self.can_read(f"{e}.{a}", state, principal, ga.binding) else REDACTED)
                  for e, a in sorted(refs)}
         if problems:
-            return Decision(Verdict.DENY, action.name, [m for _, m in problems],
+            return Decision(Verdict.DENY, ga.name, [m for _, m in problems],
                             [rid for rid, _ in problems if rid], satisfied=satisfied, facts=facts)
         reviews = [r for r in self.ontology.rules_of("human_review")
-                   if r.params["action"] == action.name and r.applies(state.get)]
+                   if r.params["action"] == ga.action.name and r.applies(resolve)]
         if reviews:
-            return Decision(Verdict.REVIEW, action.name, [r.description for r in reviews],
+            return Decision(Verdict.REVIEW, ga.name, [r.description for r in reviews],
                             [r.id for r in reviews], tuple(dict.fromkeys(r.params["reviewer"] for r in reviews)),
                             satisfied, facts)
-        return Decision(Verdict.ALLOW, action.name, ["all rules satisfied"], satisfied=satisfied, facts=facts)
+        return Decision(Verdict.ALLOW, ga.name, ["all rules satisfied"], satisfied=satisfied, facts=facts)
 
-    def can_write(self, ref: str, state: WorldState, principal: Principal) -> bool:
+    def can_write(self, ref: str, state: WorldState, principal: Principal,
+                  binding: Optional[Dict[str, str]] = None) -> bool:
+        resolve = state.resolver(binding)
         for rule in self.ontology.rules_of("write_access"):
-            if rule.params["field"] == ref and rule.applies(state.get) and not principal.roles & set(rule.params["roles"]):
+            if rule.params["field"] == ref and rule.applies(resolve) and not principal.roles & set(rule.params["roles"]):
                 return False
         return True
 
-    def record_completion(self, action: ActionType, outcome: str, state: WorldState) -> None:
+    def record_completion(self, action, outcome: str, state: WorldState, target: Optional[str] = None) -> None:
         """Update step bookkeeping after an action ran (including resets)."""
+        ga = ground(self.ontology, action, target=target)
+        if target and not ga.target:
+            ga = GroundAction(ga.action, target)
         for rule in self.ontology.rules_of("mandatory_step"):
-            if action.name in rule.params.get("reset_by", ()):
-                state.steps.pop(rule.params["step"], None)
-        state.steps[action.name] = outcome
+            if ga.action.name in rule.params.get("reset_by", ()):
+                state.steps.pop(self._step_key(rule.params["step"], ga), None)
+        state.steps[ga.name] = outcome
 
     # -- data access ----------------------------------------------------
-    def can_read(self, ref: str, state: WorldState, principal: Principal) -> bool:
+    def can_read(self, ref: str, state: WorldState, principal: Principal,
+                 binding: Optional[Dict[str, str]] = None) -> bool:
+        resolve = state.resolver(binding)
         for rule in self.ontology.rules_of("data_access"):
-            if rule.params["field"] == ref and rule.applies(state.get):
+            if rule.params["field"] == ref and rule.applies(resolve):
                 if not principal.roles & set(rule.params["roles"]):
                     return False
         return True
 
     def redacted_view(self, state: WorldState, principal: Principal) -> Dict[str, Dict[str, Any]]:
-        """State as the principal is allowed to see it (used for reasoning / LLM prompts / reviews)."""
+        """State as the principal may see it (reasoning, LLM prompts, reviews).
+
+        Fields the principal may not read are redacted; instances hidden by ``row_access``
+        rules are left out entirely (single instances are fully redacted).
+        """
         view: Dict[str, Dict[str, Any]] = {}
         for entity, values in state.entities.items():
-            view[entity] = {attr: (val if self.can_read(f"{entity}.{attr}", state, principal) else REDACTED)
+            visible, _ = self.row_visible(entity, state, principal)
+            view[entity] = {attr: (val if visible and self.can_read(f"{entity}.{attr}", state, principal) else REDACTED)
                             for attr, val in values.items()}
+        for entity, bucket in state.collections.items():
+            shown: Dict[str, Any] = {}
+            for iid, values in sorted(bucket.items()):
+                if not self.row_visible(entity, state, principal, iid)[0]:
+                    continue
+                binding = {entity: iid}
+                shown[iid] = {attr: (val if self.can_read(f"{entity}.{attr}", state, principal, binding) else REDACTED)
+                              for attr, val in values.items()}
+            view[entity] = shown
         return view

@@ -221,7 +221,10 @@ def _condition(source: str):
 
     def decide(request: ReviewRequest) -> bool:
         def resolve(entity: str, attr: str):
-            value = request.view.get(entity, {}).get(attr)
+            values = request.view.get(entity, {})
+            if entity in request.binding:  # multi-instance entity: the instance under review
+                values = values.get(request.binding[entity], {})
+            value = values.get(attr)
             return None if value == REDACTED else value
 
         return expr.evaluate(resolve)

@@ -21,7 +21,8 @@ Standard library only (``http.server``). Configuration (paths relative to the co
       ],
       "automations": {...},                  # optional: see autology.automation
       "automation_interval": 60,             # seconds between scheduled ticks (serve only)
-      "webhooks": [{"url": "https://hooks.example.com/autology", "kinds": ["review", "automation"]}]
+      "webhooks": [{"url": "https://hooks.example.com/autology", "kinds": ["review", "automation"]}],
+      "chat": {"model": "claude-opus-5-5", "effort": "medium"}   # optional: governed assistant (autology.chat)
     }
 
 Permissions: ``read`` (ontology, objects, runs, reports), ``run`` (start / resume runs), ``review``
@@ -158,6 +159,10 @@ class AutologyService:
             self.webhooks.append({"url": hook["url"], "kinds": set(hook.get("kinds") or [])})
         self.deliveries: List[threading.Thread] = []  # webhook deliveries in flight (joined by tests)
         self.automator = Automator(self.automations, self.store, self._graph_instances, self._fire)
+        from .chat import GovernedChat, load_backend
+
+        backend = load_backend(config.get("chat"), (str(base),))
+        self.chat = GovernedChat(self, backend) if backend else None
 
     @classmethod
     def from_file(cls, path: str) -> "AutologyService":
@@ -645,6 +650,38 @@ class AutologyService:
                          "links": [l for l in d["links"] if seen(l[0]) and seen(l[2])]},
                 "conflicts": [c for c in conflicts if seen(c["id"])]}
 
+    # -- governed assistant and access log ------------------------------------------
+    def chat_send(self, user: User, body: Dict[str, Any]) -> Dict[str, Any]:
+        self.require(user, "read")
+        if self.chat is None:
+            raise ApiError(404, "the assistant is not configured on this server")
+        message = body.get("message")
+        if not isinstance(message, str) or not message.strip():
+            raise ApiError(400, "message must be a non-empty string")
+        return self.chat.send(user, message[:20_000], body.get("chat_id")).as_dict()
+
+    def chat_get(self, user: User, chat_id: str) -> Dict[str, Any]:
+        self.require(user, "read")
+        convo = self.store.get_chat(chat_id)
+        if convo is None or convo["owner"] != user.name:
+            raise ApiError(404, f"no chat {chat_id!r}")
+        turns = []
+        for m in convo["messages"]:  # the readable part: what the person asked and what the assistant said
+            if isinstance(m["content"], str):
+                turns.append({"role": m["role"], "text": m["content"]})
+            elif m["role"] == "assistant":
+                text = "\n".join(b.get("text", "") for b in m["content"] if b.get("type") == "text").strip()
+                tools = [b["name"] for b in m["content"] if b.get("type") == "tool_use"]
+                turns.append({"role": "assistant", "text": text, "tools": tools})
+        return {"chat_id": chat_id, "turns": turns, "updated_at": convo["updated_at"]}
+
+    def log_access(self, user: Optional[User], kind: str, target: str, status: int) -> None:
+        self.store.log_access(user.name if user else "-", kind, target, status)
+
+    def access_log(self, user: User, principal: Optional[str], limit: int) -> Dict[str, Any]:
+        self.require(user, "audit")
+        return {"items": self.store.access_log(principal, limit)}
+
     def list_scenarios(self, user: User, status: Optional[str]) -> Dict[str, Any]:
         self.require(user, "read")
         return {"items": self.store.list_scenarios(status)}
@@ -782,6 +819,7 @@ def _handler(service: AutologyService):
             data = body if isinstance(body, bytes) else (
                 body.encode() if isinstance(body, str) else json.dumps(body, default=str).encode())
             self.send_response(status)
+            self._status = status
             self.send_header("Content-Type", content_type + ("; charset=utf-8" if "text" in content_type
                                                              or "json" in content_type or "javascript" in content_type
                                                              else ""))
@@ -812,6 +850,17 @@ def _handler(service: AutologyService):
             url = urlparse(self.path)
             path = url.path.rstrip("/") or "/"
             query = {k: v[-1] for k, v in parse_qs(url.query).items()}
+            self._status, self._user = 500, None
+            try:
+                self._dispatch(method, path, query)
+            finally:
+                if path.startswith("/api/") and path != "/api/health":
+                    try:  # every API request, including failed sign-ins, goes to the append-only log
+                        service.log_access(self._user, "http", f"{method} {path}", self._status)
+                    except Exception:  # pragma: no cover - logging must never break a response
+                        pass
+
+        def _dispatch(self, method: str, path: str, query: Dict[str, str]) -> None:
             try:
                 if method == "GET" and path in ("/", "/index.html", "/app.js", "/app.css"):
                     name = {"/": "index.html"}.get(path, path.lstrip("/"))
@@ -822,6 +871,7 @@ def _handler(service: AutologyService):
                 if not path.startswith("/api/"):
                     raise ApiError(404, "not found")
                 user = service.authenticate(self.headers.get("Authorization"))
+                self._user = user
                 parts = path.split("/")[2:]
                 limit = max(1, min(int(query.get("limit", 100)), 1000))
                 offset = max(0, int(query.get("offset", 0)))
@@ -840,6 +890,8 @@ def _handler(service: AutologyService):
                     ("POST", "tick"): lambda: (service.require(user, "admin"), service.tick())[1],
                     ("GET", "scenarios"): lambda: service.list_scenarios(user, query.get("status")),
                     ("POST", "scenarios"): lambda: service.create_scenario(user, body),
+                    ("POST", "chat"): lambda: service.chat_send(user, body),
+                    ("GET", "access-log"): lambda: service.access_log(user, query.get("principal"), limit),
                 }
                 key = (method, parts[0]) if len(parts) == 1 else None
                 if key in routes:
@@ -863,6 +915,8 @@ def _handler(service: AutologyService):
                         return self._send(200, service.get_review(user, ident))
                     if method == "GET" and kind == "scenarios":
                         return self._send(200, service.get_scenario(user, ident))
+                    if method == "GET" and kind == "chat":
+                        return self._send(200, service.chat_get(user, ident))
                     if method == "POST" and kind == "questions":
                         return self._send(200, service.answer(user, ident, body.get("params") or {}))
                 if len(parts) == 3 and parts[0] == "runs":

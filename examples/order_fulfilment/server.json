@@ -26,5 +26,6 @@
       "notify": {"roles": ["finance"], "message": "Order {id} for {amount} is still waiting for a credit check"}
     }
   },
-  "automation_interval": 60
+  "automation_interval": 60,
+  "chat": {"model": "claude-opus-5-5", "effort": "medium"}
 }

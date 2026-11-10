@@ -26,9 +26,9 @@ Of the 58 feature areas compared below:
 
 | Status | Count | Meaning |
 |---|---|---|
-| **Have** | 18 | Autology has a working equivalent |
-| **Partial** | 19 | The concept exists but is narrower, or has no user interface |
-| **Missing** | 17 | Not present |
+| **Have** | 20 | Autology has a working equivalent |
+| **Partial** | 18 | The concept exists but is narrower, or has no user interface |
+| **Missing** | 16 | Not present |
 | **Out of scope** | 4 | Not sensible to build here |
 
 The pattern is clear. Autology is strongest where Palantir's *ideas* are: an ontology that agents act through, governed actions, human review, audit, impact analysis and scheduling. It is weakest where Palantir's *product mass* is: data pipelines, a scalable object store, end-user applications, analytics and fine-grained security.
@@ -61,7 +61,7 @@ This is the heart of both systems.
 | Palantir feature | What it does | Autology today | Status | Potential here | Effort |
 |---|---|---|---|---|---|
 | AIP Logic | No-code builder for LLM-powered functions that read the Ontology and call actions | Reasoners choose among ontology-valid actions under governance. Code and config only | **Partial** | Medium. The engine exists. The no-code builder is the missing part | L |
-| AIP Chatbot Studio | Build chat assistants that use Ontology data and tools | No conversational interface. Agents are goal-driven, not chat-driven | **Missing** | High. A chat front end over the same governed tools, using the model's tool-use | M |
+| AIP Chatbot Studio | Build chat assistants that use Ontology data and tools | A governed assistant in the API and inbox: tools run as the signed-in user with their permissions and row and field access; it can start governed runs and simulate scenarios but never decide reviews; provider-neutral backend, Claude by default (Tier 2). No builder interface | **Have** | — | — |
 | AIP Evals | Test suites for LLM functions: compare models and prompts, analyse failures | Evaluation suites for reasoners: expectations on status, actions, order, reviews and final state; pass rate, agreement, fallbacks, cost, latency and consistency per reasoner; failure analysis; CI gate (Tier 2, [`evals.md`](evals.md)) | **Have** | — | — |
 | Bring your own model | Register external or self-hosted models; many providers supported | `ChatModel` interface. The Anthropic adapter ships; others plug in through a function wrapper | **Have** | Add tested adapters for other providers | S each |
 | AIP Observability | Tracing, logs and run history for functions, actions and models | Hash-chained audit log, metrics and saved runs. No trace viewer or OpenTelemetry export | **Partial** | High. Export audit events as OpenTelemetry spans | S–M |
@@ -89,7 +89,7 @@ This is the heart of both systems.
 | Markings | Mandatory, all-or-nothing access labels that travel with derived data | Sensitivity tags on attributes and role-based read rules. Nothing propagates to derived data | **Missing** | Medium. Propagation needs data lineage, which is also missing | L |
 | Restricted views and granular policies | Row-level access by comparing user attributes with data values | `row_access` rules hide records from agents and API users; field rules redact attributes (Tier 1) | **Have** | — | — |
 | Classification-based access controls | Clearance-level controls for government use | Not present | **Out of scope** | — | — |
-| Audit logging | Append-only log of every read, write and permission change | Hash-chained audit of every agent decision, review and tool call, stored append-only (database triggers) with reviewer identities (Tier 1). API reads are not logged | **Partial** | High. Log API reads and logins too | S |
+| Audit logging | Append-only log of every read, write and permission change | Hash-chained audit of every agent decision, review and tool call, stored append-only (database triggers) with reviewer identities (Tier 1). Every API request, including failed sign-ins, and every assistant tool call in an append-only access log (Tier 2). Configuration changes are not logged | **Have** | — | — |
 | Sensitive Data Scanner | Scan datasets for sensitive patterns and apply markings | Lint flags tagged sensitive fields without access rules. No scanning of actual data | **Partial** | High. A regex and model-based scanner over graph data | S–M |
 | Download and export controls | Restrict and record data leaving the platform | Not present | **Missing** | Low until there is a service and user interface | M |
 | Agent suspension | Not a named Palantir feature | Agents that repeatedly propose forbidden actions are suspended | **Have** | — | — |
@@ -155,7 +155,7 @@ The gaps differ a great deal in value. This order follows what each step unlocks
 | 6 | Evaluation harness for reasoners (Evals) | Done: `autology eval`, see [`evals.md`](evals.md) |
 | 7 | Scenarios: fork, simulate, compare, commit | Done: API, CLI, conflict-checked commit |
 | 8 | Generated typed SDK (OSDK) | Done: Python and TypeScript, `autology sdk` and `GET /api/sdk/{lang}` |
-| 9 | Chat front end over governed tools (Chatbot Studio) | M |
+| 9 | Chat front end over governed tools (Chatbot Studio) | Done: governed assistant, API and inbox |
 | 10 | Tracing export, justification checkpoints, notifications, interfaces | S each |
 
 **Tier 3: integrate, do not build.** Mature open-source tools already cover these.

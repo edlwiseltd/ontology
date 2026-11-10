@@ -12,7 +12,10 @@ One file holds everything a deployment needs to survive restarts:
 * ``automation_state`` / ``automation_firings`` - which automations fired for which instance, and when;
 * ``notifications``         - messages for people holding given roles (reviews waiting, automations);
 * ``run_sources``           - for runs built from the graph: the instances to write results back to;
-* ``scenarios``             - what-if scenarios: their edits and the base values they read.
+* ``scenarios``             - what-if scenarios: their edits and the base values they read;
+* ``chats``                 - assistant conversations, per owner;
+* ``access_log``            - every API request and assistant tool call: who, what, when, result.
+                              **Append-only**, like ``audit``.
 
 SQLite suits a single-node deployment and pilots; the same interface can be implemented on
 PostgreSQL for larger ones. File databases use WAL mode; a lock makes the store thread-safe.
@@ -33,7 +36,7 @@ from .audit import GENESIS, AuditLog
 from .graph import KnowledgeGraph
 from .ontology import Ontology
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -74,6 +77,17 @@ CREATE INDEX IF NOT EXISTS notifications_created ON notifications(created_at);
 CREATE TABLE IF NOT EXISTS scenarios (
     scenario_id TEXT PRIMARY KEY, name TEXT NOT NULL, created_by TEXT NOT NULL, created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL, status TEXT NOT NULL, edits TEXT NOT NULL, snapshot TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS chats (
+    chat_id TEXT PRIMARY KEY, owner TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+    messages TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS access_log (
+    seq INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT NOT NULL, principal TEXT NOT NULL, kind TEXT NOT NULL,
+    target TEXT NOT NULL, status INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS access_principal ON access_log(principal, timestamp);
+CREATE TRIGGER IF NOT EXISTS access_no_update BEFORE UPDATE ON access_log
+    BEGIN SELECT RAISE(ABORT, 'access log is append-only'); END;
+CREATE TRIGGER IF NOT EXISTS access_no_delete BEFORE DELETE ON access_log
+    BEGIN SELECT RAISE(ABORT, 'access log is append-only'); END;
 CREATE TABLE IF NOT EXISTS run_sources (
     run_id TEXT PRIMARY KEY, template TEXT NOT NULL, root TEXT NOT NULL, sources TEXT NOT NULL,
     write_back INTEGER NOT NULL);
@@ -393,3 +407,31 @@ class Store:
         if status:
             sql, args = sql + " WHERE status=?", (status,)
         return [dict(r) for r in self._query(sql + " ORDER BY updated_at DESC, scenario_id", args)]
+
+    # -- assistant conversations ---------------------------------------------
+    def save_chat(self, chat_id: str, owner: str, messages: List[Dict[str, Any]]) -> None:
+        now = _now()
+        with self._tx() as db:
+            db.execute("INSERT INTO chats VALUES (?, ?, ?, ?, ?) ON CONFLICT(chat_id) DO UPDATE SET "
+                       "updated_at=excluded.updated_at, messages=excluded.messages",
+                       (chat_id, owner, now, now, json.dumps(messages, default=str)))
+
+    def get_chat(self, chat_id: str) -> Optional[Dict[str, Any]]:
+        rows = self._query("SELECT * FROM chats WHERE chat_id=?", (chat_id,))
+        if not rows:
+            return None
+        out = dict(rows[0])
+        out["messages"] = json.loads(out["messages"])
+        return out
+
+    # -- access log (append-only) -----------------------------------------------
+    def log_access(self, principal: str, kind: str, target: str, status: int) -> None:
+        with self._tx() as db:
+            db.execute("INSERT INTO access_log (timestamp, principal, kind, target, status) VALUES (?, ?, ?, ?, ?)",
+                       (_now(), principal, kind, target[:500], int(status)))
+
+    def access_log(self, principal: Optional[str] = None, limit: int = 200) -> List[Dict[str, Any]]:
+        sql, args = "SELECT * FROM access_log", ()
+        if principal:
+            sql, args = sql + " WHERE principal=?", (principal,)
+        return [dict(r) for r in self._query(sql + " ORDER BY seq DESC LIMIT ?", args + (int(limit),))]

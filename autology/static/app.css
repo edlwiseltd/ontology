@@ -95,3 +95,12 @@ tbody tr.clickable:hover, tbody tr.clickable:focus { background: var(--bg); }
 .notes li { padding: .5rem 0; border-bottom: 1px solid var(--line, #ddd); }
 .notes li .link { margin-left: .5rem; }
 .pill.automation { background: var(--ok-bg); color: var(--ok); }
+
+.chat-log { display: flex; flex-direction: column; gap: .75rem; margin: 1rem 0; }
+.bubble { max-width: 46rem; padding: .6rem .9rem; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); }
+.bubble p { margin: 0; white-space: pre-wrap; }
+.bubble.user { align-self: flex-end; background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+.bubble .tools { margin-top: .35rem; font-size: .85em; }
+.chat-form { display: flex; gap: .5rem; align-items: flex-end; }
+.chat-form textarea { flex: 1; font: inherit; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

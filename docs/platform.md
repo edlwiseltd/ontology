@@ -298,3 +298,43 @@ const run = await api.runFulfilContract(caseData, { caseId: "K-42" });
 Fields a data-access rule hides arrive as `"***redacted***"`, and the attribute types include that value. Every client carries the fingerprint of the ontology it was generated from. `check_compatibility()` / `checkCompatibility()` compares it with the server's and describes any drift, so a CI job can fail when a client needs regenerating. A typed helper whose name would clash with an endpoint method gets a suffix, for example `get_run_object` for an entity called `Run`.
 
 The generated code passes `mypy --strict` and `tsc --strict --erasableSyntaxOnly` for every example ontology.
+
+## Governed assistant (Tier 2)
+
+The inbox's **Assistant** tab, and `POST /api/chat`, give people a conversational way into the deployment. The assistant is a language model with tools, and the tools are the API itself, called as the signed-in person:
+
+| Tool | Offered to | Does |
+|---|---|---|
+| `describe_ontology`, `list_objects`, `get_object`, `ask_question` | read | Explore the ontology and the knowledge graph |
+| `list_runs`, `get_run`, `list_notifications` | read | Explain runs: steps, the rules behind each decision, escalations |
+| `list_reviews` | review | Explain the reviews waiting for the person |
+| `start_run` | run | Start a governed run on graph data with a case template |
+| `what_if` | run | Simulate changes in a scenario and compare. Never commits |
+
+What keeps it safe:
+
+- **It acts as the person.** Every tool call goes through the same permission, row-access and field-access checks as an API request by that person, so the model never receives a record or value the person may not see.
+- **Tools follow permissions.** A user without `run` is not offered `start_run` or `what_if`, and so on.
+- **It cannot decide reviews.** There is no tool for it. The assistant explains what is waiting and points to the Reviews tab, where a person decides.
+- **Runs it starts are ordinary governed runs:** rules, reviews, write-back and audit all apply.
+- **Everything is recorded.** Each tool call goes to the access log, and conversations are stored per owner. Nobody else can read them through the API.
+
+```jsonc
+"chat": {"model": "claude-opus-5-5", "effort": "medium"}     // Claude through the anthropic package
+"chat": {"backend": "my_module:factory"}                       // any object with turn(system, messages, tools)
+```
+
+With Claude, the backend runs the tool loop with the official SDK. It uses prompt caching on the system prompt, strict tool schemas where the parameters allow it, and the server-side refusal fallback. Thinking blocks go back to the model unchanged. If the `anthropic` package or credentials are missing, the server still starts and the assistant answers that it is unavailable. `ScriptedChatBackend` drives the same loop from a plain function, for tests, demos or another provider.
+
+| Method and path | Permission | Purpose |
+|---|---|---|
+| `POST /api/chat` | read | `{"message", "chat_id"}`. Returns the reply, the tools used and token usage |
+| `GET /api/chat/{id}` | read (owner) | The conversation's readable turns |
+
+## Access log (Tier 2)
+
+Every API request, except the health check and the inbox's static files, is written to an append-only `access_log` table: time, who (or `-` when sign-in failed), method and path, and the response status. Assistant tool calls are logged the same way. Database triggers reject any UPDATE or DELETE, as for the agent audit log.
+
+| Method and path | Permission | Purpose |
+|---|---|---|
+| `GET /api/access-log?principal=&limit=` | audit | Newest entries first |

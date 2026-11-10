@@ -70,7 +70,7 @@ function fmtValue(v) {
 }
 
 // -- tabs -----------------------------------------------------------------
-const TABS = ["reviews", "runs", "start", "objects", "activity"];
+const TABS = ["reviews", "runs", "start", "objects", "activity", "assistant"];
 
 function selectTab(name) {
   for (const t of TABS) {
@@ -314,8 +314,40 @@ async function loadActivity() {
   }
 }
 
+// -- assistant ----------------------------------------------------------------
+function chatBubble(role, text, tools) {
+  return el("div", { class: "bubble " + role },
+    el("p", {}, text || (role === "assistant" ? "(no answer)" : "")),
+    tools && tools.length ? el("p", { class: "muted tools" }, "Looked up: " + tools.join(", ")) : null);
+}
+
+async function sendChat(event) {
+  event.preventDefault();
+  const input = $("chat-input");
+  const message = input.value.trim();
+  if (!message) return;
+  input.value = "";
+  $("chat-log").append(chatBubble("user", message));
+  const button = $("chat-form").querySelector("button");
+  button.disabled = true;
+  show("The assistant is working…");
+  try {
+    const out = await api("POST", "chat", { message, chat_id: state.chatId || undefined });
+    state.chatId = out.chat_id;
+    $("chat-log").append(chatBubble("assistant", out.reply, out.tool_calls.map((c) => c.name)));
+    show("");
+  } catch (err) {
+    show("The assistant could not answer: " + err.message, "error");
+  } finally {
+    button.disabled = false;
+    input.focus();
+  }
+}
+
 function signOut(message) {
   saveToken(null);
+  state.chatId = null;
+  $("chat-log").replaceChildren();
   show("");
   state.me = null;
   $("app").hidden = true;
@@ -359,6 +391,8 @@ document.addEventListener("DOMContentLoaded", () => {
   $("sign-out").addEventListener("click", () => signOut());
   $("refresh-reviews").addEventListener("click", loadReviews);
   $("refresh-activity").addEventListener("click", loadActivity);
+  $("chat-form").addEventListener("submit", sendChat);
+  $("chat-new").addEventListener("click", () => { state.chatId = null; $("chat-log").replaceChildren(); });
   $("run-status").addEventListener("change", loadRuns);
   $("object-type").addEventListener("change", loadObjects);
   $("start-form").addEventListener("submit", startRun);

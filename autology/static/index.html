@@ -34,6 +34,7 @@
         <button role="tab" id="tab-start" aria-controls="panel-start" aria-selected="false">Start a run</button>
         <button role="tab" id="tab-objects" aria-controls="panel-objects" aria-selected="false">Objects</button>
         <button role="tab" id="tab-activity" aria-controls="panel-activity" aria-selected="false">Activity <span class="badge" id="note-count">0</span></button>
+        <button role="tab" id="tab-assistant" aria-controls="panel-assistant" aria-selected="false">Assistant</button>
       </nav>
 
       <p id="status" class="status" role="status" aria-live="polite"></p>
@@ -101,6 +102,20 @@
         <ul id="notifications" class="notes"></ul>
         <h2>Automations</h2>
         <div id="automations"></div>
+      </section>
+
+      <section role="tabpanel" id="panel-assistant" aria-labelledby="tab-assistant" hidden>
+        <div class="section-head">
+          <h2>Assistant</h2>
+          <button type="button" id="chat-new">New conversation</button>
+        </div>
+        <p class="muted">Ask about your data, runs and reviews, or ask it to start work. It acts as you: it sees only what you may see, and it cannot decide reviews.</p>
+        <div id="chat-log" class="chat-log" aria-live="polite"></div>
+        <form id="chat-form" class="chat-form">
+          <label for="chat-input" class="visually-hidden">Message</label>
+          <textarea id="chat-input" rows="2" placeholder="e.g. Which orders are still waiting, and why?" required></textarea>
+          <button type="submit" class="primary">Send</button>
+        </form>
       </section>
     </div>
   </main>

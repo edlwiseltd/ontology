@@ -33,7 +33,7 @@ jobs:
       - name: Install test dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install "ortools==9.15.6755" "rdflib==7.1.4" "coverage==7.17.2"
+          python -m pip install "ortools==9.15.6755" "rdflib==7.1.4" "coverage==7.16.2"
           npm install --global "typescript@6.0.2"
           tsc --version
           node --version

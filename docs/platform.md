@@ -214,7 +214,7 @@ A condition refers to the automation's entity only, plus `Params.now`. When a ch
 }
 ```
 
-Each entity is reached from the root instance by a relationship path (`^` follows a link backwards). Multi-record entities take every instance reached; others take the first. The run is governed like any other: rules, reviews, row access and audit all apply. With `write_back` (on by default), the run's resulting state is written back to the instances the case came from, after every step that is saved, including after a review is decided later. Write-backs count as changes, so one automation can trigger the next. A pass stops after 200 firings to guard against loops.
+Each entity is reached from the root instance by a relationship path (`^` follows a link backwards). Multi-record entities take every instance reached; others take the first. The run is governed like any other: rules, reviews, row access and audit all apply. With `write_back` (on by default), the fields the run changed are written back to the instances the case came from each time the run is saved, including after a review is decided later. Fields the run did not change are never touched, so edits made while a run waits for a review survive. If a field the run changed has also changed on the live record since the case was built, the live value is kept, the conflict is recorded on the run (`write_back_conflicts` in the run summary) and a `conflict` notification goes to admins. This is the same rule as a scenario commit. Write-backs count as changes, so one automation can trigger the next. A pass stops after 200 firings to guard against loops.
 
 People can start the same kind of run from the API: `POST /api/runs` with `{"case_template": "contract_case", "root": "K-1"}` instead of `case`.
 

@@ -35,7 +35,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 from .governance import GovernanceLayer, Principal, Verdict
-from .graph import KnowledgeGraph, build_case, fork, write_back
+from .graph import KnowledgeGraph, build_case, fork, snapshot, write_back
 from .ontology import ID, OntologyError
 from .planner import Planner
 from .state import WorldState, ground
@@ -163,7 +163,8 @@ class Scenario:
         after = planner.simulate(state, ga, outcome)
         for iid in [v for src in sources.values() for v in (src if isinstance(src, list) else [src])]:
             self._touch(iid, record)
-        out.update(applied=True, outcome=outcome.name, changed=write_back(self.graph, after, sources))
+        changed, _ = write_back(self.graph, after, sources, snapshot(self.graph, sources))
+        out.update(applied=True, outcome=outcome.name, changed=changed)
         if decision.verdict is Verdict.REVIEW:
             out["needs_review_by"] = list(decision.reviewers)
         self.steps[(template, root)] = dict(after.steps)

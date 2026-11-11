@@ -205,12 +205,20 @@ def build_case(graph: "KnowledgeGraph", template: str, root_id: str) -> Tuple[Di
     return case, sources
 
 
-def write_back(graph: "KnowledgeGraph", state: Any, sources: Mapping[str, Any]) -> List[str]:
-    """Copy a world state's values onto the graph instances a case was built from (see :func:`build_case`).
+def write_back(graph: "KnowledgeGraph", state: Any, sources: Mapping[str, Any],
+               base: Dict[str, Dict[str, Any]]) -> Tuple[List[str], List[Dict[str, Any]]]:
+    """Write a run's results back to the graph instances its case was built from (see :func:`build_case`).
 
-    Only attributes the instance already has are written. Returns the ids of instances that changed.
+    ``base`` holds each source instance's values as the case read them. Only fields the run changed
+    (its value differs from ``base``) are written, so live edits to other fields survive. If a field the
+    run changed has also moved on the live record since, it is a **conflict**: the live value is kept and
+    the conflict returned for a person to resolve. ``base`` advances to what was written, so a run saved
+    several times (for example before and after a review) does not mistake its own writes for conflicts.
+
+    Returns ``(changed instance ids, conflicts)``.
     """
-    changed = []
+    changed: List[str] = []
+    conflicts: List[Dict[str, Any]] = []
     for entity, src in sources.items():
         if isinstance(src, list):
             pairs = [(iid, state.collections.get(entity, {}).get(iid)) for iid in src]
@@ -220,11 +228,36 @@ def write_back(graph: "KnowledgeGraph", state: Any, sources: Mapping[str, Any]) 
             inst = graph._instances.get(iid)
             if not values or inst is None:
                 continue
-            new = {k: v for k, v in values.items() if k in inst.attributes and inst.attributes[k] != v}
-            if new:
-                inst.attributes.update(new)
+            seen = base.get(iid)
+            if seen is None:  # no record of what the case read: never guess
+                conflicts.append({"id": iid, "type": inst.type, "attribute": None, "base": None, "live": None,
+                                  "run": None, "reason": "no snapshot of the values the case was built from"})
+                continue
+            wrote = False
+            for attr, new in values.items():
+                if attr not in inst.attributes or new == seen.get(attr):
+                    continue  # the run did not change this field
+                live = inst.attributes.get(attr)
+                if live == new:
+                    seen[attr] = new
+                    continue
+                if live != seen.get(attr):
+                    conflicts.append({"id": iid, "type": inst.type, "attribute": attr, "base": seen.get(attr),
+                                      "live": live, "run": new, "reason": "changed on the live record since the "
+                                                                        "case was built"})
+                    continue
+                inst.attributes[attr] = new
+                seen[attr] = new
+                wrote = True
+            if wrote:
                 changed.append(iid)
-    return changed
+    return changed, conflicts
+
+
+def snapshot(graph: "KnowledgeGraph", sources: Mapping[str, Any]) -> Dict[str, Dict[str, Any]]:
+    """The current values of the instances named by ``sources`` (the base for :func:`write_back`)."""
+    ids = [i for src in sources.values() for i in (src if isinstance(src, list) else [src])]
+    return {i: dict(graph.get(i).attributes) for i in ids if i in graph._instances}
 
 
 def fork(graph: "KnowledgeGraph") -> "KnowledgeGraph":

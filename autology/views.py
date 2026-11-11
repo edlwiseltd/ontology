@@ -110,6 +110,10 @@ class ViewPolicy:
                               "details": [self.scrub(d, refs) for d in esc.details]} if esc else None,
                "costs": result.costs, "audit_verified": self.svc.store.verify_audit(run_id),
                "state": self.state_view(user, result.state)}
+        linked = self.svc.store.run_sources(run_id)
+        out["write_back_conflicts"] = [
+            {**c, **({k: REDACTED for k in ("base", "live", "run")} if f"{c['type']}.{c['attribute']}" in refs else {})}
+            for c in (linked["conflicts"] if linked else [])]
         pending = [r for r in self.svc.store.list_reviews("pending") if r["run_id"] == run_id]
         out["pending_review"] = pending[0]["review_id"] if pending and self.review_view(user, pending[0]) else None
         return out

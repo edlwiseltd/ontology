@@ -37,7 +37,7 @@ from .audit import GENESIS, AuditLog
 from .graph import KnowledgeGraph
 from .ontology import Ontology
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -99,7 +99,7 @@ CREATE TRIGGER IF NOT EXISTS justification_no_delete BEFORE DELETE ON justificat
     BEGIN SELECT RAISE(ABORT, 'justifications are append-only'); END;
 CREATE TABLE IF NOT EXISTS run_sources (
     run_id TEXT PRIMARY KEY, template TEXT NOT NULL, root TEXT NOT NULL, sources TEXT NOT NULL,
-    write_back INTEGER NOT NULL);
+    write_back INTEGER NOT NULL, base TEXT, conflicts TEXT);
 """
 
 
@@ -131,6 +131,10 @@ class Store:
                 columns = {r["name"] for r in self._db.execute("PRAGMA table_info(runs)")}
                 if "started_by" not in columns:  # schema 4: who started each run
                     self._db.execute("ALTER TABLE runs ADD COLUMN started_by TEXT")
+                source_columns = {r["name"] for r in self._db.execute("PRAGMA table_info(run_sources)")}
+                for col in ("base", "conflicts"):  # schema 5: write-back snapshots and conflicts
+                    if col not in source_columns:
+                        self._db.execute(f"ALTER TABLE run_sources ADD COLUMN {col} TEXT")
                 self._db.execute("UPDATE meta SET value=? WHERE key='schema_version'", (str(SCHEMA_VERSION),))
 
     def close(self) -> None:
@@ -381,10 +385,17 @@ class Store:
         return out
 
     def link_run_sources(self, run_id: str, template: str, root: str, sources: Dict[str, Any],
-                         write_back: bool) -> None:
+                         write_back: bool, base: Optional[Dict[str, Any]] = None) -> None:
         with self._tx() as db:
-            db.execute("INSERT OR REPLACE INTO run_sources VALUES (?, ?, ?, ?, ?)",
-                       (run_id, template, root, json.dumps(sources), int(write_back)))
+            db.execute("INSERT OR REPLACE INTO run_sources (run_id, template, root, sources, write_back, base, "
+                       "conflicts) VALUES (?, ?, ?, ?, ?, ?, '[]')",
+                       (run_id, template, root, json.dumps(sources), int(write_back),
+                        json.dumps(base, default=str) if base is not None else None))
+
+    def update_write_back(self, run_id: str, base: Dict[str, Any], conflicts: List[Dict[str, Any]]) -> None:
+        with self._tx() as db:
+            db.execute("UPDATE run_sources SET base=?, conflicts=? WHERE run_id=?",
+                       (json.dumps(base, default=str), json.dumps(conflicts, default=str), run_id))
 
     def run_sources(self, run_id: str) -> Optional[Dict[str, Any]]:
         rows = self._query("SELECT * FROM run_sources WHERE run_id=?", (run_id,))
@@ -393,6 +404,8 @@ class Store:
         out = dict(rows[0])
         out["sources"] = json.loads(out["sources"])
         out["write_back"] = bool(out["write_back"])
+        out["base"] = json.loads(out["base"]) if out.get("base") else None
+        out["conflicts"] = json.loads(out["conflicts"]) if out.get("conflicts") else []
         return out
 
     # -- scenarios ------------------------------------------------------------

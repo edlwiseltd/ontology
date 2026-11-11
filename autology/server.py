@@ -55,7 +55,7 @@ from .automation import Automation, Automator, Firing, load_automations
 from .governance import REDACTED, GovernanceLayer, Principal
 
 JUSTIFY = "***justification required***"
-from .graph import Instance, KnowledgeGraph, build_case, write_back
+from .graph import Instance, KnowledgeGraph, build_case, snapshot, write_back
 from .ontology import Ontology, OntologyError
 from .store import Store, StoreError
 
@@ -417,7 +417,7 @@ class AutologyService:
             self._notify("review", req.reviewers, f"Review needed: {req.action} in run {run_id} ({', '.join(req.rule_ids) or 'policy'})",
                          {"review_id": review_id, "run_id": run_id, "action": req.action})
         linked = self.store.run_sources(run_id)
-        changed = self._write_back(result, linked["sources"]) if linked and linked["write_back"] else []
+        changed = self._write_back(run_id, result, linked) if linked and linked["write_back"] else []
         if self.tracing and result.status in FINAL_STATUSES:
             self._export_trace(run_id, result)
         return run_id, changed
@@ -447,13 +447,21 @@ class AutologyService:
             raise ApiError(404, f"no run {run_id!r}") from None
         return to_otlp([(run_id, result)], "autology", self.ontology.ref)
 
-    def _write_back(self, result, sources: Dict[str, Any]) -> List[str]:
-        """Copy the run's resulting state onto the graph instances its case was built from."""
+    def _write_back(self, run_id: str, result, linked: Dict[str, Any]) -> List[str]:
+        """Write the fields the run changed back to the graph; flag fields that moved meanwhile as conflicts."""
+        base = linked["base"] or {}
         with self.graph_lock:
-            changed = write_back(self.graph, result.state, sources)
+            changed, conflicts = write_back(self.graph, result.state, linked["sources"], base)
             for iid in changed:
                 inst = self.graph.get(iid)
                 self.store.upsert_instance(inst.type, iid, inst.attributes)
+        known = linked["conflicts"]
+        new = [c for c in conflicts if c not in known]
+        self.store.update_write_back(run_id, base, known + new)
+        if new:  # kept the live values: a person decides which is right
+            fields = ", ".join(f"{c['id']}.{c['attribute']}" if c["attribute"] else c["id"] for c in new)
+            self._notify("conflict", [], f"Run {run_id} could not write back {fields}: the live data changed "
+                                         f"while the run was in progress", {"run_id": run_id})
         return changed
 
     def _changed(self, instance_ids: List[str]) -> List[Firing]:
@@ -492,10 +500,11 @@ class AutologyService:
             template = auto.run["case_template"]
             with self.graph_lock:
                 case, sources = build_case(self.graph, template, inst.id)
+                base = snapshot(self.graph, sources)
             with cfg.lock:
                 result = cfg.agent.run(auto.run["goal"], case, f"{auto.name}:{inst.id}")
                 firing.run_id, changed = self._store_result(
-                    result, cfg.name, sources=(template, inst.id, sources, bool(auto.run["write_back"])),
+                    result, cfg.name, sources=(template, inst.id, sources, bool(auto.run["write_back"]), base),
                     started_by=f"automation:{auto.name}")
             firing.status = result.status
             firing.detail = result.escalation.reason if result.escalation else ""
@@ -605,7 +614,8 @@ class AutologyService:
                     case, found = build_case(self.graph, body["case_template"], root)
                 except OntologyError as exc:
                     raise ApiError(400, str(exc)) from None
-            sources = (body["case_template"], root, found, body.get("write_back", True) is not False)
+                base = snapshot(self.graph, found)  # what the case read: write-back compares against it
+            sources = (body["case_template"], root, found, body.get("write_back", True) is not False, base)
         else:
             if "admin" not in user.permissions and not self.simulation:
                 # the facts that trigger reviews and rules must come from the system of record, not the requester

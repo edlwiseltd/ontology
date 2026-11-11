@@ -57,6 +57,8 @@ class Automation:
     run: Optional[Mapping[str, Any]] = None
     notify: Optional[Mapping[str, Any]] = None
     description: str = ""
+    retry_seconds: float = 300.0  # wait before retrying a firing that errored
+    max_retries: int = 5  # attempts in all before giving up on an instance
 
     @property
     def trigger(self) -> str:
@@ -139,8 +141,13 @@ def load_automations(specs: Mapping[str, Any], ontology: Ontology,
             for ph in PLACEHOLDER.findall(str(notify.get("message", ""))):
                 if ph != ID and not etype.has_attribute(ph):
                     raise OntologyError(f"{where}: message placeholder {{{ph}}} is not an attribute of {entity}")
+        retry = dict(spec.get("retry") or {})
+        retry_after, max_retries = retry.get("after", 300), retry.get("max", 5)
+        if not isinstance(retry_after, (int, float)) or retry_after < 0 or not isinstance(max_retries, int) \
+                or isinstance(max_retries, bool) or max_retries < 1:
+            raise OntologyError(f"{where}: retry needs after >= 0 seconds and max >= 1 attempts")
         out[name] = Automation(name, entity, when, float(every) if every else None, run, notify,
-                               spec.get("description", ""))
+                               spec.get("description", ""), float(retry_after), max_retries)
     return out
 
 
@@ -238,20 +245,41 @@ class Automator:
             holds = auto.holds(inst, now)
             state = self.store.automation_state(auto.name, inst.id)
             active = bool(state and state["active"])
+            failures = int(state.get("failures") or 0) if state else 0
             if holds and not active:
-                fired.append(self._fire(auto, inst, "change", now))
+                if failures and state["last_fired"] is not None and now - state["last_fired"] < auto.retry_seconds:
+                    continue  # the last attempt errored: wait before retrying
+                fired.append(self._fire(auto, inst, "change" if not failures else "retry", now))
             elif not holds and active:
                 self.store.set_automation_state(auto.name, inst.id, False)
         return fired
 
     def _fire(self, auto: Automation, inst: Instance, trigger: str, now: float) -> Firing:
+        """Fire once. A firing that raises is not done: it stays armed and is retried after
+        ``retry_seconds``, up to ``max_retries`` attempts; then the automation gives up on that instance."""
+        import logging
+
+        log = logging.getLogger("autology.automation")
+        state = self.store.automation_state(auto.name, inst.id)
+        failures = int(state.get("failures") or 0) if state else 0
         self.store.set_automation_state(auto.name, inst.id, True, now)  # before firing: no double fire on re-entry
         try:
             firing = self.fire(auto, inst, trigger)
+            if failures:
+                self.store.set_automation_failures(auto.name, inst.id, 0)
         except Exception as exc:  # an automation failing must not stop the others
-            import logging
-
-            logging.getLogger("autology.automation").exception("automation %s on %s failed", auto.name, inst.id)
-            firing = Firing(auto.name, inst.id, trigger, status="error", detail=f"{type(exc).__name__}: {exc}")
+            log.exception("automation %s on %s failed", auto.name, inst.id)
+            failures += 1
+            detail = f"{type(exc).__name__}: {exc}"
+            if failures >= auto.max_retries:  # stays active: no more attempts until the condition re-arms
+                log.warning("automation %s: giving up on %s after %d failed attempts", auto.name, inst.id, failures)
+                firing = Firing(auto.name, inst.id, trigger, status="gave_up",
+                                detail=f"{detail}; giving up after {failures} attempts")
+            else:
+                self.store.set_automation_state(auto.name, inst.id, False, now)  # re-arm for a retry
+                firing = Firing(auto.name, inst.id, trigger, status="error",
+                                detail=f"{detail}; retry {failures + 1} of {auto.max_retries} after "
+                                       f"{auto.retry_seconds:g}s")
+            self.store.set_automation_failures(auto.name, inst.id, failures)
         self.store.record_firing(firing)
         return firing

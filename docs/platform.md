@@ -232,6 +232,8 @@ Automations start work when the knowledge graph changes, instead of waiting for 
 
 A condition refers to the automation's entity only, plus `Params.now`. When a change automation is first switched on, it fires for every instance where its condition already holds.
 
+**When a firing fails.** A firing *errors* when firing itself raises, for example when the case cannot be built or the store is unavailable. A run that ends escalated or blocked is a normal result, not an error. An errored firing is not counted as done: the instance stays armed and is retried after `retry.after` seconds (default 300), up to `retry.max` attempts in all (default 5): `"retry": {"after": 300, "max": 5}`. Each failure is logged with its traceback and recorded as a firing with status `error`, saying which retry is next. After the last attempt the firing is recorded as `gave_up`, a warning is logged, and nothing more happens for that instance until its condition turns false and true again.
+
 **Runs on graph data.** A `run` assembles its case from the graph with a *case template* declared in the ontology:
 
 ```jsonc

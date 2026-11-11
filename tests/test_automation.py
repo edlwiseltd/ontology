@@ -200,7 +200,8 @@ class AutomatorTests(unittest.TestCase):
             raise RuntimeError("tool down")
 
         firing = self._engine(broken).run_now("big", "O-1")[0]
-        self.assertEqual((firing.status, firing.detail), ("error", "RuntimeError: tool down"))
+        self.assertEqual((firing.status, firing.detail),
+                         ("error", "RuntimeError: tool down; retry 2 of 5 after 300s"))
 
     def test_firings_that_write_back_are_queued(self):
         def cascade(auto, inst, trigger):

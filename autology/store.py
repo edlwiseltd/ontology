@@ -39,7 +39,7 @@ from .audit import GENESIS, AuditLog
 from .graph import KnowledgeGraph
 from .ontology import Ontology
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS reviews (
 CREATE INDEX IF NOT EXISTS reviews_status ON reviews(status);
 CREATE TABLE IF NOT EXISTS automation_state (
     automation TEXT NOT NULL, instance TEXT NOT NULL, active INTEGER NOT NULL, last_fired REAL,
-    PRIMARY KEY (automation, instance));
+    failures INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (automation, instance));
 CREATE TABLE IF NOT EXISTS automation_firings (
     firing_id TEXT PRIMARY KEY, automation TEXT NOT NULL, instance TEXT NOT NULL, trigger TEXT NOT NULL,
     fired_at TEXT NOT NULL, run_id TEXT, status TEXT NOT NULL, detail TEXT NOT NULL, notification_id TEXT);
@@ -145,6 +145,8 @@ class Store:
                 for col in ("base", "conflicts"):  # schema 5: write-back snapshots and conflicts
                     if col not in source_columns:
                         self._db.execute(f"ALTER TABLE run_sources ADD COLUMN {col} TEXT")
+                if "failures" not in {r["name"] for r in self._db.execute("PRAGMA table_info(automation_state)")}:
+                    self._db.execute("ALTER TABLE automation_state ADD COLUMN failures INTEGER NOT NULL DEFAULT 0")
                 if "alg" not in {r["name"] for r in self._db.execute("PRAGMA table_info(audit)")}:  # schema 6
                     self._db.execute("ALTER TABLE audit ADD COLUMN alg TEXT NOT NULL DEFAULT 'sha256'")
                 self._db.execute("UPDATE meta SET value=? WHERE key='schema_version'", (str(SCHEMA_VERSION),))
@@ -361,16 +363,22 @@ class Store:
 
     # -- automations and notifications --------------------------------------
     def automation_state(self, automation: str, instance: str) -> Optional[Dict[str, Any]]:
-        rows = self._query("SELECT active, last_fired FROM automation_state WHERE automation=? AND instance=?",
-                           (automation, instance))
+        rows = self._query("SELECT active, last_fired, failures FROM automation_state WHERE automation=? AND "
+                           "instance=?", (automation, instance))
         return dict(rows[0]) if rows else None
 
     def set_automation_state(self, automation: str, instance: str, active: bool,
                              fired_at: Optional[float] = None) -> None:
         with self._tx() as db:
-            db.execute("INSERT INTO automation_state VALUES (?, ?, ?, ?) ON CONFLICT(automation, instance) DO UPDATE "
+            db.execute("INSERT INTO automation_state (automation, instance, active, last_fired) VALUES (?, ?, ?, ?) "
+                       "ON CONFLICT(automation, instance) DO UPDATE "
                        "SET active=excluded.active, last_fired=COALESCE(excluded.last_fired, last_fired)",
                        (automation, instance, int(active), fired_at))
+
+    def set_automation_failures(self, automation: str, instance: str, failures: int) -> None:
+        with self._tx() as db:
+            db.execute("UPDATE automation_state SET failures=? WHERE automation=? AND instance=?",
+                       (failures, automation, instance))
 
     def record_firing(self, firing: Any) -> str:
         firing_id = uuid.uuid4().hex[:12]

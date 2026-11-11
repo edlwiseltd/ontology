@@ -64,27 +64,46 @@ def diff(old: Ontology, new: Ontology) -> List[Change]:
             if oa.type != na.type:
                 changes.append(Change("major", "attribute.type_changed", attr, f"{oa.type} -> {na.type}"))
             if oa.sensitivity != na.sensitivity:
-                changes.append(Change("minor", "attribute.sensitivity_changed", attr,
+                # marking a field sensitive only adds protection; removing or relabelling it can drop
+                # protections that depend on the label (redaction, lint, assistant redaction)
+                level = "minor" if oa.sensitivity is None else "major"
+                changes.append(Change(level, "attribute.sensitivity_changed", attr,
                                       f"{oa.sensitivity} -> {na.sensitivity}"))
         keyed("state", {f"{name}:{s}": 1 for s in o.states}, {f"{name}:{s}": 1 for s in n.states})
         if o.initial_state != n.initial_state:
             changes.append(Change("major", "entity.initial_state_changed", name,
                                   f"{o.initial_state} -> {n.initial_state}"))
         keyed("implements", {f"{name}:{i}": 1 for i in o.implements}, {f"{name}:{i}": 1 for i in n.implements})
+        if o.multiple != n.multiple:  # cases switch between one record and a list: every client breaks
+            changes.append(Change("major", "entity.multiple_changed", name, f"{o.multiple} -> {n.multiple}"))
 
     for name in keyed("interface", dict(old.interfaces), dict(new.interfaces)):
-        keyed("interface_attribute", {f"{name}.{k}": v.type for k, v in old.interfaces[name].attributes.items()},
-              {f"{name}.{k}": v.type for k, v in new.interfaces[name].attributes.items()}, added="major")
-    keyed("case_template", dict(old.case_templates), dict(new.case_templates))
+        oi, ni = old.interfaces[name].attributes, new.interfaces[name].attributes
+        for attr in keyed("interface_attribute", {f"{name}.{k}": 1 for k in oi}, {f"{name}.{k}": 1 for k in ni},
+                          added="major"):
+            short = attr.split(".", 1)[1]
+            if oi[short].type != ni[short].type:
+                changes.append(Change("major", "interface_attribute.type_changed", attr,
+                                      f"{oi[short].type} -> {ni[short].type}"))
+    for name in keyed("case_template", dict(old.case_templates), dict(new.case_templates)):
+        ot, nt = old.case_templates[name], new.case_templates[name]
+        if ot.root != nt.root or dict(ot.entities) != dict(nt.entities):  # automations and API callers rely on it
+            changes.append(Change("major", "case_template.changed", name))
 
     rel = lambda onto: {f"{r.source}-{r.kind}->{r.target}": r for r in onto.relationships}  # noqa: E731
-    keyed("relationship", rel(old), rel(new))
+    orel, nrel = rel(old), rel(new)
+    for key in keyed("relationship", orel, nrel):
+        if orel[key].cardinality != nrel[key].cardinality:
+            changes.append(Change("major", "relationship.cardinality_changed", key,
+                                  f"{orel[key].cardinality} -> {nrel[key].cardinality}"))
 
     for name in keyed("action", dict(old.actions), dict(new.actions)):
         o, n = old.actions[name], new.actions[name]
         keyed("outcome", {f"{name}:{x.name}": 1 for x in o.outcomes}, {f"{name}:{x.name}": 1 for x in n.outcomes})
         if o.capability != n.capability:
             changes.append(Change("major", "action.capability_changed", name, f"{o.capability} -> {n.capability}"))
+        if o.for_each != n.for_each:  # per-record (action@id) versus whole-case: names and tool calls change
+            changes.append(Change("major", "action.for_each_changed", name, f"{o.for_each} -> {n.for_each}"))
         if [str(e) for e in o.requires] != [str(e) for e in n.requires]:
             changes.append(Change("minor", "action.preconditions_changed", name))
         if o.outcomes and n.outcomes and o.expected_outcome.name != n.expected_outcome.name:
@@ -165,11 +184,13 @@ class OntologyRegistry:
         if ontology.version in versions:
             raise VersionError(f"{ontology.ref} is already published")
         changes: List[Change] = []
-        latest = self.latest(ontology.name)
-        if latest is not None:
-            if parse_version(ontology.version) < parse_version(latest.version):
-                raise VersionError(f"{ontology.ref} is older than the latest {latest.ref}")
-            changes = check_release(latest, ontology)
+        if versions:
+            # compare with the highest version ever published, withdrawn or not: consumers may have pinned it
+            highest = versions[max(versions, key=parse_version)]
+            if parse_version(ontology.version) < parse_version(highest.version):
+                raise VersionError(f"{ontology.ref} is older than {highest.ref}, which was published"
+                                   f"{' (since withdrawn)' if not self.available(ontology.name, highest.version) else ''}")
+            changes = check_release(highest, ontology)
         versions[ontology.version] = ontology
         self.changelog[ontology.ref] = changes
         return changes

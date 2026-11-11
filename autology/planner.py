@@ -30,6 +30,10 @@ def apply_outcome(state: WorldState, outcome: Outcome, binding: Optional[Dict[st
             state.set(entity, attr, value, binding.get(entity))
 
 
+class SearchBudgetExceeded(RuntimeError):
+    """The search stopped at its expansion budget before finding a path or proving there is none."""
+
+
 class Planner:
     """Cheapest compliant path to a goal.
 
@@ -96,14 +100,19 @@ class Planner:
             if decomposed is not False:
                 return decomposed
         found = self._search(state, lambda st: goal.target.evaluate(st.resolver()), principal, enforce_rules)
+        if found is False:  # out of budget: unknown whether a path exists, which is not "no path"
+            raise SearchBudgetExceeded(f"planning stopped at its limits (max_expansions {self.max_expansions}, "
+                                       f"max_depth {self.max_depth}) before finding a path or ruling one out")
         return found[0] if found else None
 
     def _search(self, state: WorldState, is_goal, principal, enforce_rules, allowed=None):
-        """Uniform-cost search. Returns ``(path, final_state)``, ``None`` if exhausted, ``False`` if out of budget."""
+        """Uniform-cost search. Returns ``(path, final_state)``, ``None`` if the space is exhausted (no path),
+        ``False`` if it stopped at a limit (expansion budget or depth) without settling the question."""
         tie = itertools.count()
         frontier = [(0, next(tie), state, [])]
         best = {state.key(): 0}
         expansions = 0
+        cut_by_depth = False
         while frontier:
             if expansions >= self.max_expansions:
                 return False
@@ -111,6 +120,7 @@ class Planner:
             if is_goal(current):
                 return path, current
             if len(path) >= self.max_depth:
+                cut_by_depth = True
                 continue
             expansions += 1
             for ga in self.applicable(current, principal, enforce_rules):
@@ -124,7 +134,7 @@ class Planner:
                         continue
                     best[key] = new_cost
                     heapq.heappush(frontier, (new_cost, next(tie), nxt, path + [(ga.name, outcome.name)]))
-        return None
+        return False if cut_by_depth else None
 
     def _plan_by_instance(self, state: WorldState, goal: Goal, principal, enforce_rules):
         """Plan ``all_of`` goals one instance at a time on the evolving state.

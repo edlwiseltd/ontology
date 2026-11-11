@@ -418,7 +418,13 @@ def main(argv=None) -> int:
     governance = GovernanceLayer(onto)
     principal = Principal("cli", _roles(args.roles))
     state = WorldState.initial(onto, case)
-    steps = Planner(onto, governance).plan_with_outcomes(state, onto.goals[args.goal], principal)
+    from .planner import SearchBudgetExceeded
+
+    try:
+        steps = Planner(onto, governance).plan_with_outcomes(state, onto.goals[args.goal], principal)
+    except SearchBudgetExceeded as exc:
+        print(f"no plan found within the search budget: {exc}")
+        return 2
     if steps is None:
         print("no compliant plan from this state")
         return 2

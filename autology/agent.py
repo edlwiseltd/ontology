@@ -32,7 +32,7 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Protocol, Seque
 from .audit import AuditLog
 from .governance import Decision, GovernanceLayer, IntegrityError, Principal, Verdict
 from .ontology import STATUS, ActionType, Ontology, OntologyError
-from .planner import Planner, apply_outcome
+from .planner import Planner, SearchBudgetExceeded, apply_outcome
 from .reasoners import DecisionContext, PlanFollowingReasoner, Proposal, Reasoner
 from .state import GroundAction, WorldState, ground
 from .tools import ToolCall, ToolError, ToolRegistry, ToolResult
@@ -269,9 +269,12 @@ class WorkAgent:
             return [self.governance.suspended[self.principal.name]]
         # First relax only what makes a goal impossible (access, prohibitions) but keep mandatory steps, so the
         # explanation names the real blocker; if even that fails, relax everything.
-        unconstrained = self.planner.plan_with_outcomes(state, goal, self.team, enforce_rules="steps")
-        if unconstrained is None:
-            unconstrained = self.planner.plan_with_outcomes(state, goal, self.team, enforce_rules=False)
+        try:
+            unconstrained = self.planner.plan_with_outcomes(state, goal, self.team, enforce_rules="steps")
+            if unconstrained is None:
+                unconstrained = self.planner.plan_with_outcomes(state, goal, self.team, enforce_rules=False)
+        except SearchBudgetExceeded as exc:
+            return [f"could not work out which rule blocks the way: {exc}"]
         if unconstrained is None:
             return ["no sequence of ontology actions leads from the current state to the goal"]
         probe = state.copy()
@@ -486,7 +489,12 @@ class WorkAgent:
             if goal.target.evaluate(state.resolver()):
                 return finish("completed")
 
-            plan = self.planner.plan(state, goal, self.team)
+            try:
+                plan = self.planner.plan(state, goal, self.team)
+            except SearchBudgetExceeded as exc:
+                return finish("escalated", Escalation(f"planning search budget exhausted: {exc}", "operations",
+                                                      details=["raise the planner's max_expansions, or simplify "
+                                                               "the case"]))
             if plan is None:
                 return finish("escalated", Escalation("no compliant path to the goal", "operations",
                                                       details=self._explain_block(state, goal)))

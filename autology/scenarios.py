@@ -37,7 +37,7 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 from .governance import GovernanceLayer, Principal, Verdict
 from .graph import KnowledgeGraph, build_case, fork, snapshot, write_back
 from .ontology import ID, OntologyError
-from .planner import Planner
+from .planner import Planner, SearchBudgetExceeded
 from .state import WorldState, ground
 
 OPS = ("set", "add", "link", "action", "event")
@@ -247,7 +247,10 @@ class Scenario:
         state = WorldState.initial(self.ontology, case)
         principal = Principal("scenario", frozenset(check.get("roles") or ()))
         planner = Planner(self.ontology, GovernanceLayer(self.ontology, max_violations=0))
-        detailed = planner.plan_with_outcomes(state, goal, principal)
+        try:
+            detailed = planner.plan_with_outcomes(state, goal, principal)
+        except SearchBudgetExceeded as exc:
+            return {"status": "budget_exhausted", "reason": str(exc)}
         if detailed is not None:
             governance, probe, reviews = GovernanceLayer(self.ontology, max_violations=0), state, []
             for name, outcome in detailed:  # which steps would wait for a person
@@ -259,9 +262,12 @@ class Scenario:
             return {"status": "reached" if not plan else "plan", "steps": plan, "length": len(plan),
                     "reviews": reviews}
         # as the agent explains blocks: relax access rules first but keep mandatory steps, then relax everything
-        relaxed = planner.plan(state, goal, principal, enforce_rules="steps")
-        if relaxed is None:
-            relaxed = planner.plan(state, goal, principal, enforce_rules=False)
+        try:
+            relaxed = planner.plan(state, goal, principal, enforce_rules="steps")
+            if relaxed is None:
+                relaxed = planner.plan(state, goal, principal, enforce_rules=False)
+        except SearchBudgetExceeded as exc:
+            return {"status": "blocked", "reason": f"blocked; the blocking rule was not identified: {exc}"}
         if relaxed is None:
             return {"status": "unreachable", "reason": "no sequence of actions leads to the goal"}
         governance = GovernanceLayer(self.ontology, max_violations=0)

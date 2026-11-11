@@ -246,6 +246,9 @@ class PlannerPathTests(unittest.TestCase):
 
     def test_budget_and_depth_limits(self):
         state = WorldState.initial(self.o, CASE)
-        self.assertIsNone(Planner(self.o, self.gov, max_expansions=1).plan(state, self.o.goals["fulfil_contract"],
-                                                                          self.who))
-        self.assertIsNone(Planner(self.o, self.gov, max_depth=1).plan(state, self.o.goals["fulfil_contract"], self.who))
+        from autology.planner import SearchBudgetExceeded
+
+        # hitting a limit is not proof that no path exists: the planner says so instead of returning None
+        for planner in (Planner(self.o, self.gov, max_expansions=1), Planner(self.o, self.gov, max_depth=1)):
+            with self.assertRaises(SearchBudgetExceeded):
+                planner.plan(state, self.o.goals["fulfil_contract"], self.who)

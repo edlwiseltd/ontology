@@ -6,7 +6,7 @@ Tier 1 makes Autology usable by many projects and people at once. It adds five t
 |---|---|---|
 | **Multiple records per case** | One case can hold many orders, lines or shipments. Actions run once per record, and rules and access apply per record | `state.py`, `planner.py`, `governance.py` |
 | **Row-level access** | Records can be hidden from people and agents without the right role, such as EU orders visible to EU staff only | `governance.py` (`row_access` rule) |
-| **Persistent store** | The knowledge graph, every run, an append-only audit log and review decisions survive restarts | `store.py` (SQLite) |
+| **Persistent store** | The knowledge graph, every run, a tamper-evident audit log and review decisions survive restarts | `store.py` (SQLite) |
 | **Asynchronous reviews** | A run pauses at a human review and resumes when someone decides, possibly hours later and after a restart | `agent.py` (`DeferredApprover`, `resume`) |
 | **REST API and web inbox** | Token authentication, per-user permissions and data access, plus a browser inbox for reviews and monitoring | `server.py`, `static/` |
 
@@ -18,7 +18,7 @@ Tier 2 builds on it:
 | What-if scenarios with conflict-checked commit | [What-if scenarios](#what-if-scenarios-tier-2) |
 | Typed Python and TypeScript clients | [Typed client libraries](#typed-client-libraries-tier-2) |
 | A governed assistant | [Governed assistant](#governed-assistant-tier-2) |
-| An append-only API access log | [Access log](#access-log-tier-2) |
+| An API access log | [Access log](#access-log-tier-2) |
 | Justification checkpoints | [Checkpoints](#checkpoints-tier-2) |
 | Ontology interfaces | [Interfaces](#interfaces-tier-2) |
 | OpenTelemetry trace export | [Tracing](#tracing-tier-2) |
@@ -34,6 +34,7 @@ export AUTOLOGY_TOKEN_OLIVIA=$(python -c "import secrets; print(secrets.token_ur
 export AUTOLOGY_TOKEN_LENA=$(python -c "import secrets; print(secrets.token_urlsafe(24))")
 export AUTOLOGY_TOKEN_AUDREY=$(python -c "import secrets; print(secrets.token_urlsafe(24))")
 export AUTOLOGY_TOKEN_ADMIN=$(python -c "import secrets; print(secrets.token_urlsafe(24))")
+export AUTOLOGY_AUDIT_KEY=$(python -c "import secrets; print(secrets.token_urlsafe(32))")   # keep it: needed to verify logs later
 echo "olivia: $AUTOLOGY_TOKEN_OLIVIA   lena: $AUTOLOGY_TOKEN_LENA"
 python -m autology serve server.json --port 8800
 ```
@@ -116,8 +117,15 @@ store.save_graph(graph); graph = store.load_graph(ontology)
 run_id = store.save_run(result, agent="fulfilment"); result = store.load_run(run_id)
 ```
 
-- **The audit log is append-only.** Database triggers reject any UPDATE or DELETE on audit rows. Saving a run appends only its new entries, and refuses if the stored history and the run's history diverge, or if the run's own hash chain doesn't verify.
-- **Loaded runs** rebuild their audit trail from the append-only table, not from the run record.
+- **The audit log is tamper-evident, not tamper-proof.** What protects it, and what does not:
+  - **Keyed chain.** Each entry is chained to the one before with HMAC-SHA256 under a secret from `AUTOLOGY_AUDIT_KEY`. A server refuses to start without the key unless the config sets `"simulation": true`, and `GET /api/health` reports `audit_keyed`. Someone who can edit the database but lacks the key cannot rewrite an entry and recompute the chain.
+  - **Recorded heads.** The store records every run's chain head (length, last hash and a keyed MAC), so deleting entries from the end is detected. Run files carry the head too.
+  - **Resumable state is bound to the chain.** Before a parked run continues, its stored status and case state must equal what its last `run.end` entry recorded. Every stored review decision must point to the `review.decision` audit entry that granted it. Otherwise the run is escalated to `security` instead of acting.
+  - **Triggers** reject UPDATE and DELETE on audit rows, but anyone with direct database access can drop them. They guard against mistakes, not attackers.
+  - **Not an external anchor.** Whoever holds the key can rewrite everything consistently. Publish the heads from `GET /api/audit-heads` (audit permission) to WORM storage or a timestamping service if third parties must be able to check them.
+  - **Existing logs.** Logs recorded without a key do not verify once a key is set: verification cannot tell an old unkeyed log from a forged one.
+- **Saving a run** appends only its new entries, and refuses if the stored history and the run's history diverge, or if the run's own chain doesn't verify.
+- **Loaded runs** rebuild their audit trail from the audit table, not from the run record.
 - **The CLI** writes to and reads from a store with `--db`: `autology run ... --db autology.db`, `autology report ONTOLOGY --db autology.db`, `autology score ONTOLOGY --db autology.db`.
 - **Scale:** SQLite suits one server and pilots. File databases use WAL mode, and a lock makes the store thread-safe. The `Store` interface is small, so a PostgreSQL implementation is the path to larger deployments.
 
@@ -374,7 +382,7 @@ With Claude, the backend runs the tool loop with the official SDK. It uses promp
 
 ## Access log (Tier 2)
 
-Every API request, except the health check and the inbox's static files, is written to an append-only `access_log` table: time, who (or `-` when sign-in failed), method and path, and the response status. Assistant tool calls are logged the same way. Database triggers reject any UPDATE or DELETE, as for the agent audit log.
+Every API request, except the health check and the inbox's static files, is written to an `access_log` table: time, who (or `-` when sign-in failed), method and path, and the response status. Assistant tool calls are logged the same way. Database triggers reject any UPDATE or DELETE. As with the audit log's triggers, this guards against mistakes, not against someone with direct database access.
 
 | Method and path | Permission | Purpose |
 |---|---|---|
@@ -382,7 +390,7 @@ Every API request, except the health check and the inbox's static files, is writ
 
 ## Checkpoints (Tier 2)
 
-A `checkpoint` rule makes a person write down why before a sensitive operation. The reason is stored in an append-only `justifications` table with who, when and on what.
+A `checkpoint` rule makes a person write down why before a sensitive operation. The reason is stored in a `justifications` table that rejects updates and deletes, with who, when and on what.
 
 ```jsonc
 {"id": "CP-CREDIT", "type": "checkpoint", "on": "read_field", "field": "Customer.credit_limit", "min_length": 15,

@@ -5,9 +5,11 @@ One file holds everything a deployment needs to survive restarts:
 * ``instances`` / ``links`` - the knowledge graph (load with :meth:`Store.load_graph`);
 * ``runs``                  - every agent run, including deferred / paused / awaiting-review runs
                               with what is needed to resume them;
-* ``audit``                 - every audit entry of every run, hash-chained. **Append-only**:
-                              database triggers reject any UPDATE or DELETE, and saving a run
-                              refuses if its history diverges from what is stored;
+* ``audit``                 - every audit entry of every run, in an HMAC-keyed hash chain whose head
+                              is recorded in ``audit_heads``: tamper-evident (see autology.audit).
+                              Triggers reject UPDATE and DELETE, which guards against mistakes, not
+                              against someone with database access; saving a run refuses if its
+                              history diverges from what is stored;
 * ``reviews``               - human review requests and the decisions taken on them (who, when, why);
 * ``automation_state`` / ``automation_firings`` - which automations fired for which instance, and when;
 * ``notifications``         - messages for people holding given roles (reviews waiting, automations);
@@ -37,7 +39,7 @@ from .audit import GENESIS, AuditLog
 from .graph import KnowledgeGraph
 from .ontology import Ontology
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -54,7 +56,9 @@ CREATE TABLE IF NOT EXISTS runs (
 CREATE INDEX IF NOT EXISTS runs_status ON runs(status);
 CREATE TABLE IF NOT EXISTS audit (
     run_id TEXT NOT NULL, seq INTEGER NOT NULL, timestamp TEXT NOT NULL, event TEXT NOT NULL, data TEXT NOT NULL,
-    prev_hash TEXT NOT NULL, hash TEXT NOT NULL, PRIMARY KEY (run_id, seq));
+    prev_hash TEXT NOT NULL, hash TEXT NOT NULL, alg TEXT NOT NULL DEFAULT 'sha256', PRIMARY KEY (run_id, seq));
+CREATE TABLE IF NOT EXISTS audit_heads (
+    run_id TEXT PRIMARY KEY, length INTEGER NOT NULL, hash TEXT NOT NULL, mac TEXT, updated_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS audit_event ON audit(event);
 CREATE TRIGGER IF NOT EXISTS audit_no_update BEFORE UPDATE ON audit
     BEGIN SELECT RAISE(ABORT, 'audit log is append-only'); END;
@@ -135,6 +139,8 @@ class Store:
                 for col in ("base", "conflicts"):  # schema 5: write-back snapshots and conflicts
                     if col not in source_columns:
                         self._db.execute(f"ALTER TABLE run_sources ADD COLUMN {col} TEXT")
+                if "alg" not in {r["name"] for r in self._db.execute("PRAGMA table_info(audit)")}:  # schema 6
+                    self._db.execute("ALTER TABLE audit ADD COLUMN alg TEXT NOT NULL DEFAULT 'sha256'")
                 self._db.execute("UPDATE meta SET value=? WHERE key='schema_version'", (str(SCHEMA_VERSION),))
 
     def close(self) -> None:
@@ -220,9 +226,14 @@ class Store:
                 if row["seq"] >= len(entries) or entries[row["seq"]]["hash"] != row["hash"]:
                     raise StoreError(f"run {run_id}: audit history diverges from the stored log at entry {row['seq']}")
             for e in entries[len(stored):]:
-                db.execute("INSERT INTO audit VALUES (?, ?, ?, ?, ?, ?, ?)",
+                db.execute("INSERT INTO audit (run_id, seq, timestamp, event, data, prev_hash, hash, alg) "
+                           "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                            (run_id, e["seq"], e["timestamp"], e["event"], json.dumps(e["data"], default=str),
-                            e["prev_hash"], e["hash"]))
+                            e["prev_hash"], e["hash"], e.get("alg") or "sha256"))
+            head = result.audit.head()
+            db.execute("INSERT INTO audit_heads VALUES (?, ?, ?, ?, ?) ON CONFLICT(run_id) DO UPDATE SET "
+                       "length=excluded.length, hash=excluded.hash, mac=excluded.mac, updated_at=excluded.updated_at",
+                       (run_id, head["length"], head["hash"], head["mac"], now))
             exists = db.execute("SELECT 1 FROM runs WHERE run_id=?", (run_id,)).fetchone()
             if exists:
                 db.execute("UPDATE runs SET status=?, updated_at=?, record=?, agent=COALESCE(?, agent) WHERE run_id=?",
@@ -237,9 +248,15 @@ class Store:
 
     def audit_log(self, run_id: str) -> AuditLog:
         rows = self._query("SELECT * FROM audit WHERE run_id=? ORDER BY seq", (run_id,))
+        heads = self._query("SELECT length, hash, mac FROM audit_heads WHERE run_id=?", (run_id,))
         return AuditLog.from_list([{"seq": r["seq"], "timestamp": r["timestamp"], "event": r["event"],
-                                    "data": json.loads(r["data"]), "prev_hash": r["prev_hash"], "hash": r["hash"]}
-                                   for r in rows])
+                                    "data": json.loads(r["data"]), "prev_hash": r["prev_hash"], "hash": r["hash"],
+                                    "alg": r["alg"]} for r in rows],
+                                  dict(heads[0]) if heads else None)
+
+    def audit_heads(self) -> List[Dict[str, Any]]:
+        """Every run's chain head (length, last hash, MAC): publish these somewhere the operators cannot edit."""
+        return [dict(r) for r in self._query("SELECT * FROM audit_heads ORDER BY run_id")]
 
     def load_run(self, run_id: str) -> RunResult:
         from .persistence import result_from_dict

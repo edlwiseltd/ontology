@@ -125,6 +125,11 @@ class AutologyService:
         # simulation mode: requesters may supply case data, and automatic approvers may decide reviews.
         # It is shown in /api/health and in every report and score.
         self.simulation = bool(config.get("simulation", False))
+        from .audit import KEY_ENV, audit_key
+
+        if audit_key() is None and not self.simulation:
+            raise ValueError(f"set {KEY_ENV} to a secret so the audit chain is keyed (HMAC); without it anyone who "
+                             "can edit the store can rewrite the log undetected")
         self.agents: Dict[str, AgentConfig] = {}
         for name, spec in (config.get("agents") or {}).items():
             delegates = [WorkAgent(d["name"], self.ontology, load_tools(rel(d["tools"])), roles=d.get("roles", []))
@@ -1069,8 +1074,10 @@ def _handler(service: AutologyService):
                     ctype = {"html": "text/html", "js": "application/javascript", "css": "text/css"}[name.rsplit(".")[-1]]
                     return self._send(200, (STATIC / name).read_bytes(), ctype)
                 if path == "/api/health":
+                    from .audit import audit_key
+
                     return self._send(200, {"status": "ok", "ontology": service.ontology.ref,
-                                            "simulation": service.simulation})
+                                            "simulation": service.simulation, "audit_keyed": audit_key() is not None})
                 if not path.startswith("/api/"):
                     raise ApiError(404, "not found")
                 user = service.authenticate(self.headers.get("Authorization"))
@@ -1085,6 +1092,8 @@ def _handler(service: AutologyService):
                     ("GET", "objects"): lambda: service.list_objects(user, query.get("type"), limit, offset,
                                                                      query.get("justification")),
                     ("GET", "justifications"): lambda: service.justifications(user, limit),
+                    ("GET", "audit-heads"): lambda: (service.require(user, "audit"),
+                                                     {"items": service.store.audit_heads()})[1],
                     ("POST", "objects"): lambda: service.upsert_object(user, body),
                     ("GET", "runs"): lambda: service.list_runs(user, query.get("status"), limit, offset),
                     ("POST", "runs"): lambda: service.start_run(user, body),

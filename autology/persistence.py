@@ -43,6 +43,7 @@ def result_to_dict(result: RunResult) -> Dict[str, Any]:
         "violations": [_decision_to_dict(d) for d in result.violations],
         "costs": dict(result.costs), "resume_at": result.resume_at,
         "audit": result.audit.to_list(),
+        "audit_head": result.audit.head(),  # length, last hash and keyed MAC: detects a cut-off tail
         "run": None if run is None else {
             "history": list(run.history), "attempts": dict(run.attempts), "failures": dict(run.failures),
             "ontology_ref": run.ontology_ref, "update_noticed": run.update_noticed,
@@ -61,7 +62,7 @@ def result_from_dict(data: Dict[str, Any]) -> RunResult:
     escalation = Escalation(**data["escalation"]) if data.get("escalation") else None
     violations = [_decision_from_dict(d) for d in data.get("violations", [])]
     costs = dict(data.get("costs", {}))
-    audit = AuditLog.from_list(data.get("audit", []))
+    audit = AuditLog.from_list(data.get("audit", []), data.get("audit_head"))
     run = None
     if data.get("run") is not None:
         r = data["run"]

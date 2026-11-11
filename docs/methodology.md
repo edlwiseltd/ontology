@@ -105,7 +105,7 @@ The ontology is the single source of truth for business logic, data and rules. I
 
 > **In this repo**
 > - *Enforcement:* `GovernanceLayer.evaluate` runs on every proposal, whoever made it. It checks preconditions, mandatory steps (with `reset_by`), prohibitions, data, write and action access, and human review.
-> - *Audit:* `AuditLog` chains SHA-256 hashes, so any edit breaks `verify()`. That gives the same tamper evidence as a blockchain without a consensus network. Anchor the head hash in an external timestamping service or WORM storage if third parties must be able to verify it.
+> - *Audit:* `AuditLog` chains entries with HMAC-SHA256 under a secret key (`AUTOLOGY_AUDIT_KEY`), and stores record each chain's head (length, last hash, MAC), so an edited entry or a cut-off tail breaks `verify()` for anyone without the key. It is tamper-evident, not tamper-proof: whoever holds the key can rewrite a chain consistently. Anchor the heads (`GET /api/audit-heads`) in an external timestamping service or WORM storage if third parties must be able to verify them.
 > - *Reports:* `reporting.compliance_report(results, ontology)` produces markdown with KPIs, per-rule counts (applied, satisfied, reviewed, denied), hand-offs and ontology gaps. Executed actions show 100% adherence because nothing can run with an unsatisfied rule. The meaningful signals are the **denials and reviews**.
 > - *Access revocation:* with `settings.max_violations`, a principal that keeps proposing forbidden actions is **suspended**. Suspension persists across cases until `governance.reinstate()`. The demo's rogue reasoner is suspended after three attempts to sign early.
 

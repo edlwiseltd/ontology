@@ -23,6 +23,7 @@ unavailable (fail safe: pause, never guess).
 from __future__ import annotations
 
 import copy
+import json
 import time
 from collections import Counter
 from dataclasses import dataclass, field
@@ -255,10 +256,11 @@ class WorkAgent:
         return Principal(f"{self.name}+team", roles)
 
     # -- helpers --------------------------------------------------------
-    def _log(self, audit: AuditLog, event: str, **data: Any) -> None:
-        audit.record(event, **data)
+    def _log(self, audit: AuditLog, event: str, **data: Any):
+        entry = audit.record(event, **data)
         if self.observer:
             self.observer(event, data)
+        return entry
 
     def _explain_block(self, state: WorldState, goal) -> List[str]:
         """Find the rule(s) standing between the current state and the goal."""
@@ -380,13 +382,26 @@ class WorkAgent:
         run = previous.run
         if previous.status == "deferred" and not force and run.resume_at and self.clock() < run.resume_at:
             return previous
+        problem = self._tampering(previous)
+        if problem:  # the resumable state lives outside the chain: it must match what the chain recorded
+            audit = previous.audit
+            self._log(audit, "integrity.violation", case=run.case_id, reason=problem)
+            escalation = Escalation(f"stored run does not match its audit log: {problem}", "security")
+            self._log(audit, "run.end", case=run.case_id, status="escalated", escalation=escalation.__dict__,
+                      state=run.state.snapshot(), costs=dict(run.costs), resume_at=None)
+            return RunResult("escalated", run.goal, run.case_id, run.steps, run.state, audit, escalation,
+                             run.violations, dict(run.costs), None, run)
         if previous.status == "awaiting_review":
             if decision is None:
                 raise ValueError("this run is waiting for a review decision")
             pending = run.pending_review or {}
+            entry = self._log(previous.audit, "review.decision", case=run.case_id, action=pending.get("action", ""),
+                              approved=bool(decision.approved), reviewer=decision.reviewer,
+                              comment=decision.comment, automatic=bool(getattr(decision, "automatic", False)))
             run.review_decisions[pending.get("action", "")] = {
                 "approved": bool(decision.approved), "reviewer": decision.reviewer, "comment": decision.comment,
-                "automatic": bool(getattr(decision, "automatic", False))}
+                "automatic": bool(getattr(decision, "automatic", False)),
+                "audit_seq": entry.seq, "audit_hash": entry.hash}  # bound to the entry that granted it
             run.pending_review = None
         if run.ontology_ref != self.ontology.ref:
             raise OntologyError(f"run was started on {run.ontology_ref}; this agent uses {self.ontology.ref}")
@@ -394,6 +409,35 @@ class WorkAgent:
         audit = previous.audit
         self._log(audit, "run.resume", case=run.case_id, agent=self.name, previous_status=previous.status)
         return self._loop(run, audit)
+
+    @staticmethod
+    def _normal(value: Any) -> Any:
+        return json.loads(json.dumps(value, default=str))
+
+    @staticmethod
+    def _decision_entry_ok(audit: AuditLog, action: str, stored: Dict[str, Any]) -> bool:
+        entry = audit.entry(stored.get("audit_seq", -1)) if isinstance(stored.get("audit_seq"), int) else None
+        return bool(entry and entry.hash == stored.get("audit_hash") and entry.event == "review.decision"
+                    and entry.data.get("action") == action and entry.data.get("approved") == stored.get("approved")
+                    and entry.data.get("reviewer") == stored.get("reviewer"))
+
+    def _tampering(self, previous: RunResult) -> Optional[str]:
+        """Why the stored, resumable run cannot be trusted, or None."""
+        audit, run = previous.audit, previous.run
+        if not audit.verify():
+            return "the audit chain does not verify"
+        ends = audit.events("run.end")
+        if not ends:
+            return "no run.end entry records where the run stopped"
+        last = ends[-1].data
+        if last.get("status") != previous.status:
+            return f"status {previous.status!r} differs from the recorded {last.get('status')!r}"
+        if self._normal(run.state.snapshot()) != last.get("state"):
+            return "the case state differs from the state recorded when the run stopped"
+        for action, stored in run.review_decisions.items():
+            if not self._decision_entry_ok(audit, action, stored):
+                return f"the stored review decision for {action} has no matching review.decision entry"
+        return None
 
     # -- main loop ------------------------------------------------------
     def _check_ontology(self, run: RunState, audit: AuditLog) -> Optional[Escalation]:
@@ -494,7 +538,12 @@ class WorkAgent:
                                         list(run.history), decision.facts, explanation, decision.rule_ids,
                                         dict(action.binding))
                 stored = run.review_decisions.pop(action.name, None)
-                review = ReviewDecision(**stored) if stored else self.approver.review(request)
+                if stored and not self._decision_entry_ok(audit, action.name, stored):
+                    return finish("escalated", Escalation(
+                        f"stored review decision for {action.name} does not match the audit log", "security",
+                        action.name))
+                review = ReviewDecision(**{k: v for k, v in stored.items() if k in ReviewDecision.__dataclass_fields__}) \
+                    if stored else self.approver.review(request)
                 if review is None:  # the reviewer will answer later (inbox, ticket, ...): park the run
                     run.attempts[action.name] -= 1
                     run.pending_review = dict(request.__dict__)

@@ -47,11 +47,12 @@ ROI figures use the illustrative cost assumptions in each example's TCO file. On
 
 ## Run it as a shared service
 
-Autology runs as a REST API with a web inbox ([`docs/platform.md`](docs/platform.md)). Runs, the knowledge graph, the append-only audit log and review decisions persist in SQLite. Users authenticate with tokens, and each user sees only the records and fields their roles allow. Human reviews park a run until someone decides in the inbox, even hours later and after a restart. Cases can hold many records, such as many orders under one contract, with actions, rules and access applied per record. Automations start governed runs when data changes or on a schedule, build their cases from the knowledge graph, write results back, and notify people by role or by webhook. What-if scenarios simulate changes before they are committed. A governed assistant answers questions and starts work as the signed-in person, and cannot decide reviews. Checkpoints make people justify sensitive operations, every API request is logged append-only, runs export to OpenTelemetry, and typed Python and TypeScript clients are generated from the ontology.
+Autology runs as a REST API with a web inbox ([`docs/platform.md`](docs/platform.md)). Runs, the knowledge graph, the tamper-evident audit log (HMAC-keyed hash chain) and review decisions persist in SQLite. Users authenticate with tokens, and each user sees only the records and fields their roles allow. Human reviews park a run until someone decides in the inbox, even hours later and after a restart. Cases can hold many records, such as many orders under one contract, with actions, rules and access applied per record. Automations start governed runs when data changes or on a schedule, build their cases from the knowledge graph, write results back, and notify people by role or by webhook. What-if scenarios simulate changes before they are committed. A governed assistant answers questions and starts work as the signed-in person, and cannot decide reviews. Checkpoints make people justify sensitive operations, every API request is logged in a tamper-evident access log, runs export to OpenTelemetry, and typed Python and TypeScript clients are generated from the ontology.
 
 ```bash
 cd examples/order_fulfilment
 export AUTOLOGY_TOKEN_OLIVIA=... AUTOLOGY_TOKEN_LENA=... AUTOLOGY_TOKEN_AUDREY=... AUTOLOGY_TOKEN_ADMIN=...
+export AUTOLOGY_AUDIT_KEY=...   # secret that keys the audit chain; keep it to verify logs later
 python -m autology serve server.json        # then open http://127.0.0.1:8800
 ```
 
@@ -87,12 +88,12 @@ python examples/scheduling/run.py ALERT-11   # furnace breakdown: 14 jobs on hol
 | | Saved runs (JSONL) with intact hash chains, resumable in another process | `persistence.py` |
 | Cost | Model routing (none / small / large), decision cache, prompt caching, token cost; TCO/ROI from measured rates | `reasoners.py`, `economics.py` |
 | Readiness | Scorecard 0–100 (A–F), evidence coverage, roadmap gates, fixes ranked by points recovered | `scoring.py` |
-| Platform | Multi-record cases (`multiple`, `for_each`, `all_of`/`any_of`/`count_of`), row-level access, SQLite store with append-only audit, asynchronous reviews, REST API with token auth, web inbox | `state.py`, `store.py`, `server.py`, `static/` |
+| Platform | Multi-record cases (`multiple`, `for_each`, `all_of`/`any_of`/`count_of`), row-level access, SQLite store with tamper-evident audit (keyed hash chain, recorded heads), asynchronous reviews, REST API with token auth, web inbox | `state.py`, `store.py`, `server.py`, `static/` |
 | Automation | Triggers on data changes, deadlines and schedules; cases built from the graph with case templates; write-back; notifications and webhooks | `automation.py`, `graph.py` (`build_case`) |
 | Scenarios | What-if sandboxes over the graph: edits, governed simulated actions, impact events; compare answers, plans and schedule KPIs; conflict-checked commit | `scenarios.py` |
 | Evaluation | Test suites for reasoners (models, prompts, routing): expectations, pass rate, agreement with the planner, fallbacks, cost, consistency; CI gate | `evals.py` |
 | Client SDKs | Typed Python and TypeScript clients generated from the ontology, with per-entity, per-question and per-goal helpers and a fingerprint check | `sdk.py` |
-| Assistant | Governed chat over the API: tools run as the signed-in user, can start runs and simulate, never decides reviews; append-only access log | `chat.py` |
+| Assistant | Governed chat over the API: tools run as the signed-in user, can start runs and simulate, never decides reviews; access log | `chat.py` |
 | Governance extras | Justification checkpoints (`checkpoint` rules), ontology interfaces, OpenTelemetry trace export | `server.py`, `ontology.py`, `tracing.py` |
 | Scheduling | Impact rules with reasoning chains and event application; flexible job-shop model; CP-SAT and built-in solvers; post-solve validation; rework cloning; Gantt; RDF export of instance data for SPARQL | `impact.py`, `scheduling.py`, `export.py` |
 

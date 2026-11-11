@@ -79,7 +79,7 @@ This is the heart of both systems.
 | Dynamic Scheduling | Build scheduling and resource-allocation workflows on the Ontology | `ScheduleAgent`: ontology-driven job-shop scheduling with OR-Tools CP-SAT, validation and Gantt output | **Have** | Add calendars, downtime windows and schedule stability | M |
 | Change impact analysis | Trace what an event affects through the Ontology | `ImpactAgent` with declared impact rules and reasoning chains | **Have** | Incremental analysis for high event rates | M |
 | Approvals | Request, approve and then apply changes, with a decision record | Human-review gates on actions. No general request-and-approve workflow for ontology or config changes | **Partial** | High. Reuse the review mechanism for ontology releases | S–M |
-| Checkpoints | Ask for a justification before sensitive actions | `checkpoint` rules require a written justification before revealing a field, starting or resuming a run, declining or approving a review, writing data or committing a scenario; recorded append-only; the assistant cannot supply one (Tier 2) | **Have** | — | — |
+| Checkpoints | Ask for a justification before sensitive actions | `checkpoint` rules require a written justification before revealing a field, starting or resuming a run, declining or approving a review, writing data or committing a scenario; recorded in a tamper-evident table; the assistant cannot supply one (Tier 2) | **Have** | — | — |
 
 ## 4. Security and governance
 
@@ -89,7 +89,7 @@ This is the heart of both systems.
 | Markings | Mandatory, all-or-nothing access labels that travel with derived data | Sensitivity tags on attributes and role-based read rules. Nothing propagates to derived data | **Missing** | Medium. Propagation needs data lineage, which is also missing | L |
 | Restricted views and granular policies | Row-level access by comparing user attributes with data values | `row_access` rules hide records from agents and API users; field rules redact attributes (Tier 1) | **Have** | — | — |
 | Classification-based access controls | Clearance-level controls for government use | Not present | **Out of scope** | — | — |
-| Audit logging | Append-only log of every read, write and permission change | Hash-chained audit of every agent decision, review and tool call, stored append-only (database triggers) with reviewer identities (Tier 1). Every API request, including failed sign-ins, and every assistant tool call in an append-only access log (Tier 2). Configuration changes are not logged | **Have** | — | — |
+| Audit logging | Append-only log of every read, write and permission change | HMAC-keyed hash chain of every agent decision, review and tool call, with recorded chain heads and reviewer identities: tamper-evident, not tamper-proof (Tier 1, hardened after review). Every API request, including failed sign-ins, and every assistant tool call in an access log whose tables reject updates and deletes (Tier 2). Configuration changes are not logged | **Have** | — | — |
 | Sensitive Data Scanner | Scan datasets for sensitive patterns and apply markings | Lint flags tagged sensitive fields without access rules. No scanning of actual data | **Partial** | High. A regex and model-based scanner over graph data | S–M |
 | Download and export controls | Restrict and record data leaving the platform | Not present | **Missing** | Low until there is a service and user interface | M |
 | Agent suspension | Not a named Palantir feature | Agents that repeatedly propose forbidden actions are suspended | **Have** | — | — |
@@ -142,7 +142,7 @@ The gaps differ a great deal in value. This order follows what each step unlocks
 
 | # | Build | Why | Status |
 |---|---|---|---|
-| 1 | Persistent store for the graph, runs and audit log | Nothing survived a restart | Done: SQLite store with an append-only audit table |
+| 1 | Persistent store for the graph, runs and audit log | Nothing survived a restart | Done: SQLite store with a tamper-evident audit log |
 | 2 | Multiple objects per case, with row-level access | The largest functional gap against Palantir's object model | Done: multi-record entities, per-record actions, `row_access` |
 | 3 | REST API service with authentication | Lets many projects and applications use one deployment | Done: token auth, permissions, per-user data access |
 | 4 | Review and operations inbox (web) | People need somewhere to approve and monitor | Done: web inbox with asynchronous reviews |
@@ -156,7 +156,7 @@ The gaps differ a great deal in value. This order follows what each step unlocks
 | 7 | Scenarios: fork, simulate, compare, commit | Done: API, CLI, conflict-checked commit |
 | 8 | Generated typed SDK (OSDK) | Done: Python and TypeScript, `autology sdk` and `GET /api/sdk/{lang}` |
 | 9 | Chat front end over governed tools (Chatbot Studio) | Done: governed assistant, API and inbox |
-| 10 | Tracing export, justification checkpoints, notifications, interfaces | Done, plus an append-only API access log |
+| 10 | Tracing export, justification checkpoints, notifications, interfaces | Done, plus an API access log |
 
 **Tier 3: integrate, do not build.** Mature open-source tools already cover these.
 

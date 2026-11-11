@@ -102,7 +102,7 @@ python examples/scheduling/run.py ALERT-11   # furnace breakdown: 14 jobs on hol
 Requires Python 3.10 or later. No dependencies (`anthropic` is optional, for Claude).
 
 ```bash
-python -m unittest discover -s tests -t .             # 249 tests, 97% line coverage (OR-Tools and rdflib tests skip if not installed)
+python -m unittest discover -s tests -t .             # 327 tests, 97% line coverage (OR-Tools, rdflib, Node and tsc tests skip if not installed; CI installs them)
 python examples/customer_onboarding/run.py financial  # narrated walkthrough
 python examples/manufacturing/run.py                  # full methodology: modules, CQs, agents, versioning, report, ROI, score
 ```
@@ -261,7 +261,7 @@ examples/manufacturing/        modular enterprise ontology (core/procurement/pro
 examples/care_referral/        configuration-only deployment: ontology, decision-table tools, policy, pilot batch
 examples/scheduling/           aerospace plant: plant + replanning modules, generated knowledge graph, 16 events, narrated run
 examples/order_fulfilment/     many orders per contract, row-level access, a server config with four users and two automations
-tests/                         249 tests (stdlib unittest), including the >= 95 readiness gate for every example
+tests/                         327 tests (stdlib unittest), including the >= 95 readiness gate for every example
 docs/autology.md               the Autology concept and how it maps to this code
 docs/methodology.md            the engineering methodology, section by section, with the code that implements it
 ```

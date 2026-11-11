@@ -1,0 +1,52 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash  # bash -eo pipefail: a failing test run is not hidden by tee
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # Optional dependencies, so the OR-Tools, SPARQL and TypeScript SDK tests run instead of skipping
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "ortools==9.15.6755" "rdflib==7.1.4" "coverage==7.17.2"
+          npm install --global "typescript@6.0.2"
+          tsc --version
+          node --version
+
+      - name: Run the test suite (no test may be skipped)
+        env:
+          AUTOLOGY_AUDIT_KEY: ci-audit-key
+        run: |
+          python -m coverage run --source=autology -m unittest discover -s tests -t . -v 2>&1 | tee test.log
+          if grep -E "skipped '" test.log; then
+            echo "::error::tests were skipped; CI installs every optional dependency, so nothing may skip"
+            exit 1
+          fi
+
+      - name: Coverage
+        run: python -m coverage report --fail-under=95

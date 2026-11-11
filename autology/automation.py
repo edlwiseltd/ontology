@@ -249,6 +249,9 @@ class Automator:
         try:
             firing = self.fire(auto, inst, trigger)
         except Exception as exc:  # an automation failing must not stop the others
+            import logging
+
+            logging.getLogger("autology.automation").exception("automation %s on %s failed", auto.name, inst.id)
             firing = Firing(auto.name, inst.id, trigger, status="error", detail=f"{type(exc).__name__}: {exc}")
         self.store.record_firing(firing)
         return firing

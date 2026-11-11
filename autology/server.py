@@ -41,6 +41,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import logging
 import secrets
 import threading
 import time
@@ -59,6 +60,7 @@ from .graph import Instance, KnowledgeGraph, build_case, snapshot, write_back
 from .ontology import Ontology, OntologyError
 from .store import Store, StoreError
 
+log = logging.getLogger("autology.server")
 PERMISSIONS = frozenset({"read", "run", "review", "audit", "admin"})
 FINAL_STATUSES = frozenset({"completed", "blocked", "escalated", "suspended"})
 MAX_BODY = 1_000_000
@@ -87,6 +89,12 @@ class User:
     @property
     def principal(self) -> Principal:
         return Principal(self.name, self.roles)
+
+
+def _utcnow() -> str:
+    from datetime import datetime, timezone
+
+    return datetime.now(timezone.utc).isoformat()
 
 
 def hash_token(token: str) -> str:
@@ -125,6 +133,15 @@ class AutologyService:
         # simulation mode: requesters may supply case data, and automatic approvers may decide reviews.
         # It is shown in /api/health and in every report and score.
         self.simulation = bool(config.get("simulation", False))
+        self.scheduler_status: Dict[str, Any] = {"last_tick": None, "last_error": None}
+        if config.get("log_file"):  # the server log: failures with tracebacks (also on stderr under serve)
+            path = str((base / config["log_file"]).resolve())
+            root = logging.getLogger("autology")
+            if not any(getattr(h, "baseFilename", None) == path for h in root.handlers):
+                handler = logging.FileHandler(path, encoding="utf-8")
+                handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+                root.addHandler(handler)
+            root.setLevel(min(root.level or logging.INFO, logging.INFO))
         from .audit import KEY_ENV, audit_key
 
         if audit_key() is None and not self.simulation:
@@ -452,7 +469,8 @@ class AutologyService:
             try:
                 export(payload, self.tracing["endpoint"], resolve_headers(self.tracing.get("headers")))
             except Exception:  # best effort: the audit log in the store stays the record of truth
-                pass
+                log.warning("trace export of run %s to %s failed", run_id,
+                            urlparse(self.tracing["endpoint"]).netloc, exc_info=True)
 
         t = threading.Thread(target=send, daemon=True)
         t.start()
@@ -512,7 +530,7 @@ class AutologyService:
         try:
             urllib.request.urlopen(req, timeout=5).close()
         except Exception:  # best effort: the notification stays in the store either way
-            pass
+            log.warning("webhook delivery to %s failed", urlparse(url).netloc, exc_info=True)  # no path: may hold tokens
 
     def _fire(self, auto: Automation, inst: Instance, trigger: str) -> Firing:
         firing = Firing(auto.name, inst.id, trigger)
@@ -566,8 +584,10 @@ class AutologyService:
             while not stop.wait(every):
                 try:
                     self.tick()
-                except Exception:  # pragma: no cover - keep the scheduler alive
-                    pass
+                    self.scheduler_status["last_tick"] = _utcnow()
+                except Exception as exc:  # keep the scheduler alive, but never silently
+                    self.log_error("scheduler tick")
+                    self.scheduler_status["last_error"] = {"at": _utcnow(), "error": f"{type(exc).__name__}: {exc}"}
 
         threading.Thread(target=loop, daemon=True, name="autology-scheduler").start()
         return stop
@@ -936,9 +956,7 @@ class AutologyService:
 
     def log_error(self, context: str) -> None:
         """Record the exception being handled, with its traceback, in the server log."""
-        import logging
-
-        logging.getLogger("autology.server").exception("%s failed", context)
+        log.exception("%s failed", context)
 
     def log_access(self, user: Optional[User], kind: str, target: str, status: int) -> None:
         self.store.log_access(user.name if user else "-", kind, target, status)
@@ -1138,8 +1156,8 @@ def _handler(service: AutologyService):
                 if path.startswith("/api/") and path != "/api/health":
                     try:  # every API request, including failed sign-ins, goes to the append-only log
                         service.log_access(self._user, "http", f"{method} {path}", self._status)
-                    except Exception:  # pragma: no cover - logging must never break a response
-                        pass
+                    except Exception:  # logging must never break a response
+                        log.exception("writing the access log failed")
 
         def _dispatch(self, method: str, path: str, query: Dict[str, str]) -> None:
             try:
@@ -1151,7 +1169,8 @@ def _handler(service: AutologyService):
                     from .audit import audit_key
 
                     return self._send(200, {"status": "ok", "ontology": service.ontology.ref,
-                                            "simulation": service.simulation, "audit_keyed": audit_key() is not None})
+                                            "simulation": service.simulation, "audit_keyed": audit_key() is not None,
+                                            "scheduler": service.scheduler_status})
                 if not path.startswith("/api/"):
                     raise ApiError(404, "not found")
                 user = service.authenticate(self.headers.get("Authorization"))
@@ -1239,7 +1258,8 @@ def _handler(service: AutologyService):
                 self._send(exc.status, {"error": exc.message, **exc.extra})
             except ValueError as exc:
                 self._send(400, {"error": str(exc)})
-            except Exception as exc:  # pragma: no cover - never leak a traceback to clients
+            except Exception as exc:  # never leak a traceback to clients; keep it in the server log
+                service.log_error(f"{self.command} {urlparse(self.path).path}")
                 self._send(500, {"error": f"internal error: {type(exc).__name__}"})
 
         def do_GET(self):  # noqa: N802
@@ -1258,6 +1278,7 @@ def make_server(service: AutologyService, host: str = "127.0.0.1", port: int = 8
 
 
 def serve(config_path: str, host: str = "127.0.0.1", port: int = 8800) -> None:  # pragma: no cover - blocking
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     service = AutologyService.from_file(config_path)
     server = make_server(service, host, port)
     stop = service.start_background()

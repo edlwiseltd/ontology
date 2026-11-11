@@ -83,6 +83,10 @@ Three safeguards stop a requester from steering which rules apply:
 - **Types are checked.** Case data and graph data must match each attribute's declared type: `string`, `number`, `integer`, `boolean`, `date`. A string amount such as `"80000"` is rejected rather than compared as text. Missing values are allowed.
 - **Unknown facts do not switch rules off.** A `human_review`, `prohibition`, `row_access` or `data_access` rule whose condition cannot be evaluated, because a value is missing or of the wrong type, applies. The decision says why, for example "(applied because Order.amount is unknown)". `mandatory_step`, `action_access` and `write_access` rules, and action preconditions, keep ordinary true-or-false evaluation. The planner is optimistic about facts that tools will set later; the check when the action is about to run is the one that holds.
 
+## Failures are logged
+
+Nothing fails silently. The scheduler, webhook deliveries, trace exports, automation firings, the access log and unexpected errors in any endpoint are logged with a traceback to the `autology` logger. `autology serve` prints the log to standard error, and `"log_file": "autology.log"` in the server config also writes it to a file. Clients still get only `internal error: <ExceptionType>`. `GET /api/health` shows the scheduler's last successful tick and its last error.
+
 ## Agent suspension
 
 An agent whose proposals governance refuses `settings.max_violations` times **within one run** is suspended. Violations are counted per run, so separate runs of the same agent never add up. The suspension is stored, so it survives restarts, and it applies to every later run of that agent until an admin lifts it:

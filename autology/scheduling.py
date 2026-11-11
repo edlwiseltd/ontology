@@ -118,6 +118,7 @@ class Schedule:
     lower_bound: int = 0
     wall_ms: float = 0.0
     note: str = ""
+    stopped: str = ""  # why the search ended: lower_bound | optimal (proof) | time_limit | iterations
 
     @property
     def gap(self) -> Optional[float]:
@@ -139,7 +140,7 @@ class Schedule:
 
     def as_dict(self) -> Dict[str, Any]:
         return {"status": self.status, "makespan": self.makespan, "lower_bound": self.lower_bound, "gap": self.gap,
-                "solver": self.solver, "wall_ms": self.wall_ms, "note": self.note,
+                "solver": self.solver, "wall_ms": self.wall_ms, "note": self.note, "stopped": self.stopped,
                 "assignments": [a.__dict__ for a in sorted(self.assignments.values(), key=lambda a: (a.start, a.task))]}
 
 
@@ -264,7 +265,9 @@ class ListScheduler:
             if not j.tasks:
                 done_jobs[j.id] = j.release
         while pending:
-            ready = [j for j in pending if all(a in done_jobs for a in problem.jobs[j].after)]
+            # sorted: a set of strings iterates in a per-process hash order, and the random draws in key()
+            # follow this order, so an unsorted list gives different schedules for the same input
+            ready = sorted(j for j in pending if all(a in done_jobs for a in problem.jobs[j].after))
             if not ready:  # pragma: no cover - cycles are rejected by lower_bound()
                 raise OntologyError("job precedence cycle")
 
@@ -317,17 +320,27 @@ class ListScheduler:
                     total += max(0, max(ends) - job.due)
             return total
 
+        stopped, passes = "iterations", 0
         for i in range(self.iterations):
             makespan, out = self._pass(problem, rng, 0.0 if i == 0 else 0.35)
+            passes = i + 1
             if best is None or (makespan, lateness(out)) < (best[0], lateness(best[1])):
                 best = (makespan, out)
-            if makespan <= lb or time.perf_counter() - t0 > time_limit:
+            if makespan <= lb:
+                stopped = "lower_bound"
+                break
+            if time.perf_counter() - t0 > time_limit:
+                stopped = "time_limit"
                 break
         makespan, out = best if best else (0, {})
         status = "optimal" if makespan <= lb else "feasible"
+        gap = round(100 * (makespan - lb) / makespan, 1) if makespan else 0
+        why = {"lower_bound": "proven optimal: meets the lower bound",
+               "time_limit": f"stopped at the time limit after {passes} of {self.iterations} passes, not on proof; "
+                             f"within {gap}% of the lower bound",
+               "iterations": f"heuristic: best of {passes} passes, not proven; within {gap}% of the lower bound"}
         return Schedule(status, makespan, out, self.name, lb, round((time.perf_counter() - t0) * 1000, 1),
-                        "proven optimal: meets lower bound" if status == "optimal" else
-                        f"heuristic; within {round(100 * (makespan - lb) / makespan, 1) if makespan else 0}% of lower bound")
+                        why[stopped], stopped)
 
 
 class CpSatSolver:
@@ -393,7 +406,8 @@ class CpSatSolver:
                 cp_model.INFEASIBLE: "infeasible"}.get(status, "unknown")
         if name not in ("optimal", "feasible"):
             wall = round((time.perf_counter() - t0) * 1000, 1)
-            return Schedule(name, None, {}, self.name, problem.lower_bound(), wall, solver.StatusName(status))
+            return Schedule(name, None, {}, self.name, problem.lower_bound(), wall, solver.StatusName(status),
+                            "infeasible" if name == "infeasible" else "time_limit")
         lb = max(int(solver.BestObjectiveBound()), problem.lower_bound())
         best = int(solver.ObjectiveValue()) if ends else 0
         tardiness_note = ""
@@ -429,8 +443,10 @@ class CpSatSolver:
                         res.append(r)
                         break
             out[task.id] = Assignment(task.id, task.job, solver.Value(starts[task.id]), solver.Value(ends[task.id]), res)
-        note = "makespan optimality proven by CP-SAT" if name == "optimal" else f"time limit reached; bound {lb}"
-        return Schedule(name, best, out, self.name, lb, wall, note + tardiness_note)
+        note = "makespan optimality proven by CP-SAT" if name == "optimal" else \
+            f"stopped at the time limit, not on proof; best bound {lb}"
+        return Schedule(name, best, out, self.name, lb, wall, note + tardiness_note,
+                        "optimal" if name == "optimal" else "time_limit")
 
 
 def default_solver(kind: str = "auto"):

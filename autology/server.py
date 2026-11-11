@@ -166,6 +166,9 @@ class AutologyService:
             self.webhooks.append({"url": hook["url"], "kinds": set(hook.get("kinds") or [])})
         self.deliveries: List[threading.Thread] = []  # webhook deliveries in flight (joined by tests)
         self.automator = Automator(self.automations, self.store, self._graph_instances, self._fire)
+        from .views import ViewPolicy
+
+        self.views = ViewPolicy(self)  # what each user may see of runs and reviews
         from .chat import GovernedChat, load_backend
 
         self.tracing = dict(config.get("tracing") or {})
@@ -214,15 +217,22 @@ class AutologyService:
                 return False
         return True
 
+    def field_hidden(self, inst: Instance, attr: str, user: User) -> bool:
+        """Does a data_access rule hide this field of this record from the user?"""
+        ref = f"{inst.type}.{attr}"
+        return "admin" not in user.permissions and any(
+            r.params["field"] == ref and self._rule_applies(r, inst) and not user.roles & set(r.params["roles"])
+            for r in self.ontology.rules_of("data_access"))
+
+    def field_value(self, inst: Instance, attr: str, user: User, justified: bool = False) -> Any:
+        if self.field_hidden(inst, attr, user):
+            return REDACTED
+        if f"{inst.type}.{attr}" in self.views.gated and not justified:
+            return JUSTIFY
+        return inst.attributes.get(attr)
+
     def object_view(self, inst: Instance, user: User, justified: bool = False) -> Dict[str, Any]:
-        gated = {r.params["field"] for r in self.ontology.rules_of("checkpoint") if r.params["on"] == "read_field"}
-        attrs = {}
-        for attr, value in inst.attributes.items():
-            ref = f"{inst.type}.{attr}"
-            hidden = "admin" not in user.permissions and any(
-                r.params["field"] == ref and self._rule_applies(r, inst) and not user.roles & set(r.params["roles"])
-                for r in self.ontology.rules_of("data_access"))
-            attrs[attr] = REDACTED if hidden else (JUSTIFY if ref in gated and not justified else value)
+        attrs = {attr: self.field_value(inst, attr, user, justified) for attr in inst.attributes}
         return {"id": inst.id, "type": inst.type, "attributes": attrs}
 
     # -- checkpoints: a written justification before sensitive operations ------------------
@@ -345,9 +355,28 @@ class AutologyService:
             out["triggered"] = [f.as_dict() for f in fired]
         return out
 
-    def answer(self, user: User, qid: str, params: Dict[str, Any]) -> Dict[str, Any]:
+    def answer(self, user: User, qid: str, params: Dict[str, Any],
+               justification: Optional[str] = None) -> Dict[str, Any]:
         self.require(user, "read")
+        question = next((q for q in self.ontology.questions if q.id == qid), None)
+        if question is None:
+            raise ApiError(404, f"unknown competency question {qid!r}")
         with self.graph_lock:
+            # filters and aggregates reveal the fields they use: those fields must be readable on every record
+            refs = set()
+            for expr in (question.where, question.result_where):
+                refs |= {(e, a) for e, a in (expr.references if expr else ()) if e != "Params"}
+            if question.aggregate and question.aggregate[1]:
+                refs.add(tuple(question.aggregate[1].split(".", 1)))
+            gated = set()
+            for entity, attr in refs:
+                for inst in self.graph.instances(entity):
+                    if self.field_hidden(inst, attr, user):
+                        raise ApiError(403, f"the answer depends on {entity}.{attr}, which you may not read")
+                    if f"{inst.type}.{attr}" in self.views.gated:
+                        gated.add(f"{inst.type}.{attr}")
+            if gated:
+                self.checkpoint(user, "read_field", qid, justification, fields=sorted(gated))
             try:
                 result = self.graph.ask(qid, **params)
             except OntologyError as exc:
@@ -357,27 +386,26 @@ class AutologyService:
                 raise ApiError(403, "the answer aggregates rows you may not see")
             return {"question": qid, "answer": result.value if result.value is not None else ids}
 
-    def _summary(self, result, run_id: str, user: User) -> Dict[str, Any]:
-        out = {"run_id": run_id, "case_id": result.case_id, "goal": result.goal, "status": result.status,
-               "steps": [{"index": s.index, "action": s.action, "verdict": s.verdict, "outcome": s.outcome,
-                          "executed_by": s.executed_by, "reviewer": s.reviewer, "message": s.message,
-                          "explanation": s.explanation} for s in result.steps],
-               "escalation": result.escalation.__dict__ if result.escalation else None,
-               "costs": result.costs, "audit_verified": self.store.verify_audit(run_id)}
-        out["state"] = self.access.redacted_view(result.state, user.principal) if "admin" not in user.permissions \
-            else {**result.state.entities, **result.state.collections}
-        pending = [r for r in self.store.list_reviews("pending") if r["run_id"] == run_id]
-        out["pending_review"] = pending[0]["review_id"] if pending else None
-        return out
+    def _summary(self, result, run_id: str, user: User, receipt: bool = False) -> Dict[str, Any]:
+        """The run as this user may see it (see :mod:`autology.views`). A run over records the user may not
+        see is 404 for them; the person who just started or resumed it gets a bare receipt instead."""
+        view = self.views.run_view(user, result, run_id)
+        if view is None:
+            if receipt:
+                return {"run_id": run_id, "case_id": result.case_id, "status": result.status, "hidden": True,
+                        "detail": "this run involves records you may not see"}
+            raise ApiError(404, f"no run {run_id!r}")
+        return view
 
     def _store_result(self, result, agent_name: str, run_id: Optional[str] = None,
-                      sources: Optional[Tuple[str, str, Dict[str, Any], bool]] = None) -> Tuple[str, List[str]]:
+                      sources: Optional[Tuple[str, str, Dict[str, Any], bool]] = None,
+                      started_by: Optional[str] = None) -> Tuple[str, List[str]]:
         """Save a run, open its review (and notify reviewers), write results back to the graph.
 
         Returns ``(run_id, changed instance ids)``. Callers pass the changed ids to :meth:`_changed`
         once they have released the agent's lock, so automations never wait on a running agent.
         """
-        run_id = self.store.save_run(result, run_id, agent_name)
+        run_id = self.store.save_run(result, run_id, agent_name, started_by)
         if sources:
             self.store.link_run_sources(run_id, *sources)
         if result.status == "awaiting_review" and result.run and result.run.pending_review:
@@ -467,7 +495,8 @@ class AutologyService:
             with cfg.lock:
                 result = cfg.agent.run(auto.run["goal"], case, f"{auto.name}:{inst.id}")
                 firing.run_id, changed = self._store_result(
-                    result, cfg.name, sources=(template, inst.id, sources, bool(auto.run["write_back"])))
+                    result, cfg.name, sources=(template, inst.id, sources, bool(auto.run["write_back"])),
+                    started_by=f"automation:{auto.name}")
             firing.status = result.status
             firing.detail = result.escalation.reason if result.escalation else ""
             self._changed(changed)
@@ -590,13 +619,21 @@ class AutologyService:
                 result = cfg.agent.run(goal, case, str(body.get("case_id") or (sources[1] if sources else "case")))
             except OntologyError as exc:
                 raise ApiError(400, f"invalid case: {exc}") from None
-            run_id, changed = self._store_result(result, name, sources=sources)
+            run_id, changed = self._store_result(result, name, sources=sources, started_by=user.name)
         self._changed(changed)
-        return self._summary(result, run_id, user)
+        return self._summary(result, run_id, user, receipt=True)
 
     def list_runs(self, user: User, status: Optional[str], limit: int, offset: int) -> Dict[str, Any]:
         self.require(user, "read")
-        return {"items": self.store.list_runs(status, limit, offset)}
+        if "admin" in user.permissions:
+            return {"items": self.store.list_runs(status, limit, offset)}
+        rows = [r for r in self.store.list_runs(status, limit=10 ** 9)
+                if self.views.can_see_run(user, self.store.load_run(r["run_id"]))]
+        return {"items": rows[offset:offset + limit]}
+
+    def _visible_runs(self, user: User) -> List[Any]:
+        runs = self.store.all_runs()
+        return runs if "admin" in user.permissions else [r for r in runs if self.views.can_see_run(user, r)]
 
     def get_run(self, user: User, run_id: str) -> Dict[str, Any]:
         self.require(user, "read")
@@ -637,19 +674,23 @@ class AutologyService:
                 raise ApiError(409, str(exc)) from None
             _, changed = self._store_result(result, cfg.name, run_id)
         self._changed(changed)
-        return self._summary(result, run_id, user)
+        return self._summary(result, run_id, user, receipt=True)
 
     def list_reviews(self, user: User, status: Optional[str]) -> Dict[str, Any]:
         self.require(user, "review" if status in (None, "pending") else "read")
-        roles = None if "admin" in user.permissions else user.reviewer_roles
-        return {"items": self.store.list_reviews(status, roles)}
+        views = (self.views.review_view(user, r) for r in self.store.list_reviews(status))
+        return {"items": [v for v in views if v is not None]}
 
     def get_review(self, user: User, review_id: str) -> Dict[str, Any]:
         self.require(user, "read")
         try:
-            return self.store.get_review(review_id)
+            review = self.store.get_review(review_id)
         except KeyError:
             raise ApiError(404, f"no review {review_id!r}") from None
+        view = self.views.review_view(user, review)
+        if view is None:  # readable by admins, the review's reviewers and the run's starter only
+            raise ApiError(404, f"no review {review_id!r}")
+        return view
 
     def decide(self, user: User, review_id: str, body: Dict[str, Any]) -> Dict[str, Any]:
         self.require(user, "review")
@@ -671,7 +712,7 @@ class AutologyService:
             result = cfg.agent.resume(result, decision=decision)
             _, changed = self._store_result(result, cfg.name, review["run_id"])
         self._changed(changed)
-        return self._summary(result, review["run_id"], user)
+        return self._summary(result, review["run_id"], user, receipt=True)
 
     # -- what-if scenarios -----------------------------------------------------------
     def _roles_for(self, user: User, spec: Dict[str, Any]) -> List[str]:
@@ -740,7 +781,8 @@ class AutologyService:
                 "edits": len(scenario.edits),
                 "results": [r for r, e in zip(scenario.results, scenario.edits)
                             if all(seen(i) for i in self._edit_ids(e) + ([e["id"]] if e.get("op") == "add" else []))],
-                "diff": {"changed": {i: v for i, v in d["changed"].items() if seen(i)},
+                "diff": {"changed": {i: {a: self._diff_values(scenario, i, a, v, user) for a, v in delta.items()}
+                                     for i, delta in d["changed"].items() if seen(i)},
                          "added": [i for i in d["added"] if seen(i)],
                          "added_status": {i: v for i, v in d["added_status"].items() if seen(i)},
                          "links": [l for l in d["links"] if seen(l[0]) and seen(l[2])]},
@@ -781,6 +823,15 @@ class AutologyService:
     def access_log(self, user: User, principal: Optional[str], limit: int) -> Dict[str, Any]:
         self.require(user, "audit")
         return {"items": self.store.access_log(principal, limit)}
+
+    def _diff_values(self, scenario, iid: str, attr: str, values: List[Any], user: User) -> List[Any]:
+        """Before/after values of a scenario change, through the user's field access on each side."""
+        out = []
+        for graph, value in ((scenario.base, values[0]), (scenario.graph, values[1])):
+            inst = graph._instances.get(iid) or scenario.graph._instances[iid]
+            shown = self.field_value(inst, attr, user)
+            out.append(value if shown == inst.attributes.get(attr) else shown)
+        return out
 
     def list_scenarios(self, user: User, status: Optional[str]) -> Dict[str, Any]:
         self.require(user, "read")
@@ -891,7 +942,7 @@ class AutologyService:
         self.require(user, "read")
         from .reporting import compliance_report
 
-        return compliance_report(self.store.all_runs(), self.ontology)
+        return compliance_report(self._visible_runs(user), self.ontology)
 
     def score(self, user: User) -> Dict[str, Any]:
         self.require(user, "read")
@@ -904,7 +955,7 @@ class AutologyService:
                 for t in member.tools:
                     merged._tools.append(t)
         with self.graph_lock:
-            return score_deployment(self.ontology, self.store.all_runs(), tools=merged, graph=self.graph).as_dict()
+            return score_deployment(self.ontology, self._visible_runs(user), tools=merged, graph=self.graph).as_dict()
 
 
 # -- HTTP layer ------------------------------------------------------------------------
@@ -1021,7 +1072,8 @@ def _handler(service: AutologyService):
                     if method == "GET" and kind == "chat":
                         return self._send(200, service.chat_get(user, ident))
                     if method == "POST" and kind == "questions":
-                        return self._send(200, service.answer(user, ident, body.get("params") or {}))
+                        return self._send(200, service.answer(user, ident, body.get("params") or {},
+                                                              body.get("justification")))
                 if len(parts) == 3 and parts[0] == "runs":
                     if method == "GET" and parts[2] == "audit":
                         return self._send(200, service.run_audit(user, parts[1]))

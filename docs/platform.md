@@ -90,6 +90,17 @@ A `row_access` rule hides the records of an entity matching its `when` condition
 - **API users:** hidden records are absent from listings, and fetching one returns 404, so its existence isn't revealed. A competency question that would aggregate over hidden records is refused.
 - **Field rules still apply on top:** `data_access` redacts individual fields.
 
+### Runs, reviews and answers
+
+One policy (`autology/views.py`) decides what a user sees of runs and reviews, and every endpoint and assistant tool uses it:
+
+- **Runs over hidden records are hidden.** If a run's case holds a record the user may not see, the run is absent from their listings, reports and scores, and fetching it returns 404. The person who just started or resumed such a run gets a receipt with its id and status only.
+- **Visible runs go through the user's field access.** State fields they may not read are redacted, and checkpoint-gated fields read `"***justification required***"`. Restricted facts are scrubbed from step explanations and escalation details. The message of a step whose action reads or writes a restricted field is withheld.
+- **Reviews are readable only by** admins, holders of one of the review's reviewer roles, and the person who started the run. Each sees the case through their own field access. Anyone else gets 404, and the run summary shows them no review id.
+- **Answers check the fields they use.** A competency question that filters or aggregates on a field the user may not read on some record is refused (403). A checkpoint-gated field needs a `"justification"` in the request.
+- **Scenario diffs** show restricted before and after values as redacted.
+- **Admins** see every record and field, but they too must justify checkpoint-gated fields.
+
 ## Persistent store
 
 ```python
@@ -132,7 +143,7 @@ Every request needs `Authorization: Bearer <token>`, except `/api/health` and th
 | `GET /api/runs/{id}/audit` | audit | Raw audit entries |
 | `POST /api/runs/{id}/resume` | run | Resume a deferred or paused run (`{"force": true}` skips the retry window) |
 | `GET /api/reviews?status=pending` | review | Reviews the caller may decide |
-| `GET /api/reviews/{id}` | read | One review |
+| `GET /api/reviews/{id}` | read | One review, for admins, its reviewers and the run's starter only |
 | `POST /api/reviews/{id}/decision` | review | `{"approved": true/false, "comment": "..."}`. Resumes the run, and can be decided once only |
 | `GET /api/report` | read | Compliance report (markdown) |
 | `GET /api/score` | read | Readiness scorecard over all stored runs |

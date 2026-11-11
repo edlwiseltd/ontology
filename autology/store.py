@@ -37,7 +37,7 @@ from .audit import GENESIS, AuditLog
 from .graph import KnowledgeGraph
 from .ontology import Ontology
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -49,7 +49,8 @@ CREATE TABLE IF NOT EXISTS links (
 CREATE INDEX IF NOT EXISTS links_target ON links(target, kind);
 CREATE TABLE IF NOT EXISTS runs (
     run_id TEXT PRIMARY KEY, case_id TEXT NOT NULL, goal TEXT NOT NULL, ontology TEXT NOT NULL,
-    agent TEXT, status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, record TEXT NOT NULL);
+    agent TEXT, status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, record TEXT NOT NULL,
+    started_by TEXT);
 CREATE INDEX IF NOT EXISTS runs_status ON runs(status);
 CREATE TABLE IF NOT EXISTS audit (
     run_id TEXT NOT NULL, seq INTEGER NOT NULL, timestamp TEXT NOT NULL, event TEXT NOT NULL, data TEXT NOT NULL,
@@ -127,6 +128,9 @@ class Store:
             elif int(row["value"]) > SCHEMA_VERSION:
                 raise StoreError(f"store schema {row['value']} is newer than this Autology ({SCHEMA_VERSION})")
             elif int(row["value"]) < SCHEMA_VERSION:  # older store: the new tables were just created
+                columns = {r["name"] for r in self._db.execute("PRAGMA table_info(runs)")}
+                if "started_by" not in columns:  # schema 4: who started each run
+                    self._db.execute("ALTER TABLE runs ADD COLUMN started_by TEXT")
                 self._db.execute("UPDATE meta SET value=? WHERE key='schema_version'", (str(SCHEMA_VERSION),))
 
     def close(self) -> None:
@@ -194,7 +198,8 @@ class Store:
         return self._query("SELECT COUNT(*) c FROM instances")[0]["c"]
 
     # -- runs and audit ---------------------------------------------------
-    def save_run(self, result: RunResult, run_id: Optional[str] = None, agent: Optional[str] = None) -> str:
+    def save_run(self, result: RunResult, run_id: Optional[str] = None, agent: Optional[str] = None,
+                 started_by: Optional[str] = None) -> str:
         """Insert or update a run; append its new audit entries. Returns the run id."""
         from .persistence import result_to_dict
 
@@ -219,9 +224,10 @@ class Store:
                 db.execute("UPDATE runs SET status=?, updated_at=?, record=?, agent=COALESCE(?, agent) WHERE run_id=?",
                            (result.status, now, json.dumps(record, default=str), agent, run_id))
             else:
-                db.execute("INSERT INTO runs VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                db.execute("INSERT INTO runs (run_id, case_id, goal, ontology, agent, status, created_at, updated_at, "
+                           "record, started_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                            (run_id, result.case_id, result.goal, ontology_ref, agent, result.status, now, now,
-                            json.dumps(record, default=str)))
+                            json.dumps(record, default=str), started_by))
         result.run_id = run_id
         return run_id
 
@@ -244,7 +250,7 @@ class Store:
         return result
 
     def list_runs(self, status: Optional[str] = None, limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:
-        sql = "SELECT run_id, case_id, goal, ontology, agent, status, created_at, updated_at FROM runs"
+        sql = "SELECT run_id, case_id, goal, ontology, agent, status, created_at, updated_at, started_by FROM runs"
         args: tuple = ()
         if status:
             sql += " WHERE status=?"
@@ -452,3 +458,7 @@ class Store:
 
     def list_justifications(self, limit: int = 200) -> List[Dict[str, Any]]:
         return [dict(r) for r in self._query("SELECT * FROM justifications ORDER BY seq DESC LIMIT ?", (int(limit),))]
+
+    def run_starter(self, run_id: str) -> Optional[str]:
+        rows = self._query("SELECT started_by FROM runs WHERE run_id=?", (run_id,))
+        return rows[0]["started_by"] if rows else None

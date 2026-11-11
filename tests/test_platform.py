@@ -310,7 +310,8 @@ class DeferredResumeApiTests(unittest.TestCase):
         cfg = {"ontology": "ontology.json", "store": "s.db",
                "agents": {"ops": {"roles": ["ops", "eu_ops", "finance"], "tools": "tools.json", "approver": "auto"}},
                "simulation": True,
-               "users": [{"name": "op", "token_sha256": digest, "permissions": ["read", "run"]}]}
+               "users": [{"name": "op", "token_sha256": digest, "permissions": ["read", "run"],
+                          "roles": ["ops", "eu_ops"]}]}
         api = _Api(AutologyService(cfg, tmp))
         try:
             TOKENS["op"] = token

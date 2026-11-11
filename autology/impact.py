@@ -84,13 +84,19 @@ class ImpactAgent:
             return True
         return expr.evaluate(lambda e, a: inst.get(a) if e == inst.type else None)
 
+    def rules_for(self, event: Instance) -> list:
+        """The impact rules that apply to this event: its type, and a ``when`` that holds on it."""
+        resolve = lambda e, a: event.get(a) if e == event.type else None  # noqa: E731
+        return [r for r in self.ontology.impact_rules
+                if r.event == event.type and (r.when is None or r.when.evaluate(resolve))]
+
     def apply_event(self, event_id: str) -> List[str]:
-        """Apply the event's declared state changes to the graph (e.g. alert -> machine down). Returns touched ids."""
+        """Apply the event's declared state changes to the graph (e.g. alert -> machine down). Returns touched ids.
+
+        Only rules whose ``when`` holds on the event apply, exactly as in :meth:`analyze`."""
         event = self.graph.get(event_id)
         touched = []
-        for rule in self.ontology.impact_rules:
-            if rule.event != event.type:
-                continue
+        for rule in self.rules_for(event):
             for path, values in rule.apply:
                 frontier = [event]
                 for step in path:
@@ -109,9 +115,7 @@ class ImpactAgent:
             raise OntologyError(f"unknown event instance {event_id!r}") from None
         if apply:
             self.apply_event(event_id)
-        resolve = lambda e, a: event.get(a) if e == event.type else None  # noqa: E731
-        rules = [r for r in self.ontology.impact_rules
-                 if r.event == event.type and (r.when is None or r.when.evaluate(resolve))]
+        rules = self.rules_for(event)
         report = ImpactReport(event.id, event.type, [r.id for r in rules])
         if not rules:
             return report

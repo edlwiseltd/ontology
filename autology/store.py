@@ -317,6 +317,12 @@ class Store:
             rows = [r for r in rows if roles & set(r["reviewers"])]
         return rows[:limit]
 
+    def reopen_review(self, review_id: str) -> None:
+        """Undo a decision whose run could not be saved, so the review can be decided again."""
+        with self._tx() as db:
+            db.execute("UPDATE reviews SET status='pending', decision=NULL, decided_at=NULL, decided_by=NULL "
+                       "WHERE review_id=?", (review_id,))
+
     def decide_review(self, review_id: str, approved: bool, reviewer: str, comment: str = "") -> Dict[str, Any]:
         """Record a decision on a pending review exactly once."""
         with self._tx() as db:

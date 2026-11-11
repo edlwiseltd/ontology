@@ -307,7 +307,9 @@ class WorkAgent:
     def _execute(self, run: RunState, action: GroundAction, executor: "WorkAgent", audit: AuditLog):
         """Run the action's tools under its failure policy.
 
-        Returns ("ok", tool, result) | ("deferred", tool, error) | ("failed", tool, error).
+        Returns ("ok", tool, result) | ("deferred", tool, error) | ("failed", tool, error)
+        | ("crashed", tool, error). A tool that raises anything other than ToolError has crashed: it may
+        have acted partly, so it is not retried and the run escalates with the error on record.
         """
         policy = action.on_failure
         state = run.state
@@ -334,6 +336,11 @@ class WorkAgent:
                     error = str(exc)
                     self._log(audit, "tool.error", case=run.case_id, action=action.name, tool=tool.name,
                               attempt=round_no, error=error)
+                except Exception as exc:  # a bug or an unexpected failure in the tool: stop, keep the record
+                    error = f"{type(exc).__name__}: {exc}"
+                    self._log(audit, "tool.exception", case=run.case_id, action=action.name, tool=tool.name,
+                              attempt=round_no, error=error)
+                    return "crashed", tool, error
             run.failures[action.name] += 1
             if run.failures[action.name] >= policy.max_attempts:
                 return "failed", candidates[0], error
@@ -505,6 +512,13 @@ class WorkAgent:
                 run.steps.append(record)
                 return finish("escalated", Escalation(str(exc), "it-integration", action.name))
             record.tool = tool.name
+            if status == "crashed":
+                run.attempts[action.name] -= 1
+                record.message = payload
+                run.steps.append(record)
+                return finish("escalated", Escalation(
+                    f"{action.name}: tool {tool.name} raised {payload}; it may have acted partly, check before "
+                    f"retrying", "it-integration", action.name))
             if status != "ok":
                 run.attempts[action.name] -= 1  # the action did not run; don't count it as a repeat
                 if status == "deferred":

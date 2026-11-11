@@ -712,15 +712,32 @@ class AutologyService:
         cfg = self._agent_for(review["run_id"])
         self.checkpoint(user, "decide", review_id, body.get("justification") or body.get("comment"),
                         action=str(review["action"]).partition("@")[0], approved=body["approved"])
+        comment = str(body.get("comment", ""))
         with cfg.lock:
+            # Order matters: the review is marked decided only once the run has resumed, and reopened if
+            # saving fails, so the review and the run can never disagree (no stranded awaiting_review run).
+            if self.store.get_review(review_id)["status"] != "pending":
+                raise ApiError(409, f"review {review_id} was already decided")
+            stored = self.store.load_run(review["run_id"])
             try:
-                self.store.decide_review(review_id, body["approved"], user.name, str(body.get("comment", "")))
+                result = cfg.agent.resume(stored, decision=ReviewDecision(body["approved"], user.name, comment))
+            except (ValueError, OntologyError) as exc:
+                raise ApiError(409, f"the run cannot continue: {exc}") from None
+            except Exception as exc:
+                self.log_error(f"resuming run {review['run_id']} after review {review_id}")
+                raise ApiError(500, f"the run could not continue ({type(exc).__name__}); the review is still "
+                                    "open") from None
+            try:
+                self.store.decide_review(review_id, body["approved"], user.name, comment)
             except StoreError as exc:
                 raise ApiError(409, str(exc)) from None
-            result = self.store.load_run(review["run_id"])
-            decision = ReviewDecision(body["approved"], user.name, str(body.get("comment", "")))
-            result = cfg.agent.resume(result, decision=decision)
-            _, changed = self._store_result(result, cfg.name, review["run_id"])
+            try:
+                _, changed = self._store_result(result, cfg.name, review["run_id"])
+            except Exception as exc:
+                self.store.reopen_review(review_id)
+                self.log_error(f"saving run {review['run_id']} after review {review_id}")
+                raise ApiError(500, f"the decision could not be saved ({type(exc).__name__}); the review is "
+                                    "still open") from None
         self._changed(changed)
         return self._summary(result, review["run_id"], user, receipt=True)
 
@@ -826,6 +843,12 @@ class AutologyService:
     def justifications(self, user: User, limit: int) -> Dict[str, Any]:
         self.require(user, "audit")
         return {"items": self.store.list_justifications(limit)}
+
+    def log_error(self, context: str) -> None:
+        """Record the exception being handled, with its traceback, in the server log."""
+        import logging
+
+        logging.getLogger("autology.server").exception("%s failed", context)
 
     def log_access(self, user: Optional[User], kind: str, target: str, status: int) -> None:
         self.store.log_access(user.name if user else "-", kind, target, status)

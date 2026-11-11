@@ -157,6 +157,8 @@ class AutologyService:
         self.automations = load_automations(config.get("automations") or {}, self.ontology,
                                             {n: a.goals for n, a in self.agents.items()})
         self.automation_interval = float(config.get("automation_interval", 60))
+        # simulation mode: requesters may supply case data themselves (and, see item 5, auto approvers run)
+        self.simulation = bool(config.get("simulation", False))
         self.webhooks: List[Dict[str, Any]] = []
         for hook in config.get("webhooks", []):
             if urlparse(str(hook.get("url", ""))).scheme not in ("http", "https"):
@@ -201,7 +203,7 @@ class AutologyService:
             return True
         if {e for e, _ in rule.when.references} - {inst.type}:
             return True  # depends on other entities: be conservative and apply it
-        return rule.when.evaluate(lambda e, a: inst.get(a) if e == inst.type else None)
+        return rule.check(lambda e, a: inst.get(a) if e == inst.type else None)[0]  # unknown facts: applies
 
     def visible(self, inst: Instance, user: User) -> bool:
         if "admin" in user.permissions:
@@ -263,6 +265,8 @@ class AutologyService:
         self.require(user, "read")
         o = self.ontology
         return {"ref": o.ref, "fingerprint": o.fingerprint, "description": o.description, "modules": list(o.modules),
+                "free_form_cases": self.simulation or "admin" in user.permissions,
+                "case_templates": {t.name: {"root": t.root} for t in o.case_templates.values()},
                 "entities": {e.name: {"states": list(e.states), "multiple": e.multiple,
                                       "attributes": {a.name: a.type for a in e.attributes.values()}}
                              for e in o.entities.values()},
@@ -574,6 +578,10 @@ class AutologyService:
                     raise ApiError(400, str(exc)) from None
             sources = (body["case_template"], root, found, body.get("write_back", True) is not False)
         else:
+            if "admin" not in user.permissions and not self.simulation:
+                # the facts that trigger reviews and rules must come from the system of record, not the requester
+                raise ApiError(403, "start runs from a case_template and a root object; free-form case data is "
+                                    "accepted only from admins or on a server configured for simulation")
             case = body.get("case")
             if not isinstance(case, dict):
                 raise ApiError(400, "case must be an object (or give case_template and root)")

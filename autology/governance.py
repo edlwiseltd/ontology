@@ -135,19 +135,29 @@ class GovernanceLayer:
             return ga.target if entity == ga.action.for_each else None
         return state.entities.get(entity, {}).get(ID) or entity
 
+    @staticmethod
+    def _applies(rule: Rule, resolve, unknown_applies: bool = True) -> bool:
+        """At execution, restrictive rules apply when a fact is unknown. While *planning*, facts that
+        tools will set later are unknown in the simulated future, so the planner is optimistic and
+        the check at execution time is the one that holds."""
+        if unknown_applies or rule.when is None:
+            return rule.applies(resolve)
+        return rule.when.evaluate(resolve)
+
     def row_visible(self, entity: str, state: WorldState, principal: Principal,
-                    instance: Optional[str] = None) -> Tuple[bool, Optional[Rule]]:
+                    instance: Optional[str] = None, unknown_applies: bool = True) -> Tuple[bool, Optional[Rule]]:
         """Row-level access: may ``principal`` see this instance at all?"""
         binding = {entity: instance} if instance and entity in state.collections else {}
         resolve = state.resolver(binding)
         for rule in self.ontology.rules_of("row_access"):
-            if rule.params["entity"] == entity and rule.applies(resolve):
+            if rule.params["entity"] == entity and self._applies(rule, resolve, unknown_applies):
                 if not principal.roles & set(rule.params["roles"]):
                     return False, rule
         return True, None
 
     def _check(self, action, state: WorldState, principal: Principal, check_preconditions: bool = True,
-               only_steps: bool = False) -> Tuple[List[Tuple[Optional[str], str]], List[str], set]:
+               only_steps: bool = False, unknown_applies: bool = True
+               ) -> Tuple[List[Tuple[Optional[str], str]], List[str], set]:
         """``only_steps`` checks mandatory steps only (used to explain blocks: access and prohibitions relaxed)."""
         ga = ground(self.ontology, action)
         act = ga.action
@@ -170,9 +180,11 @@ class GovernanceLayer:
             iid = self._instance_of(entity, state, ga)
             if iid is None:
                 continue
-            visible, rule = self.row_visible(entity, state, principal, iid)
+            visible, rule = self.row_visible(entity, state, principal, iid, unknown_applies)
             if not visible:
-                problems.append((rule.id, f"{principal.name} may not access {entity} {iid}: {rule.description}"))
+                binding = {entity: iid} if entity in state.collections else {}
+                problems.append((rule.id, f"{principal.name} may not access {entity} {iid}: {rule.description}"
+                                          f"{rule.unknown_note(state.resolver(binding))}"))
         for rule in self.ontology.rules:
             p = rule.params
             applies_to_action = (
@@ -180,7 +192,8 @@ class GovernanceLayer:
                 or (rule.kind in ("prohibition", "action_access", "human_review") and p["action"] == act.name)
                 or (rule.kind == "data_access" and p["field"] in act.reads)
                 or (rule.kind == "write_access" and p["field"] in act.writes))
-            if not applies_to_action or (only_steps and rule.kind != "mandatory_step") or not rule.applies(resolve):
+            if not applies_to_action or (only_steps and rule.kind != "mandatory_step") \
+                    or not self._applies(rule, resolve, unknown_applies):
                 continue
             if rule.when is not None:
                 refs |= rule.when.references
@@ -191,19 +204,21 @@ class GovernanceLayer:
                     need = p["step"] + (f" (outcome {p['outcome']})" if p.get("outcome") else "")
                     problems.append((rule.id, f"mandatory step {need} has not been completed: {rule.description}"))
             elif rule.kind == "prohibition":
-                problems.append((rule.id, f"prohibited: {rule.description}"))
+                problems.append((rule.id, f"prohibited: {rule.description}{rule.unknown_note(resolve)}"))
             elif rule.kind in ("data_access", "write_access", "action_access"):
                 if principal.roles & set(p["roles"]):
                     satisfied.append(rule.id)
                 else:
                     verb = {"data_access": f"read {p.get('field')}", "write_access": f"modify {p.get('field')}",
                             "action_access": f"execute {act.name}"}[rule.kind]
-                    problems.append((rule.id, f"{principal.name} may not {verb}: {rule.description}"))
+                    problems.append((rule.id, f"{principal.name} may not {verb}: {rule.description}"
+                                              f"{rule.unknown_note(resolve)}"))
         return problems, satisfied, refs
 
     def permits_in_plan(self, action, state: WorldState, principal: Principal, only_steps: bool = False) -> bool:
         """Planner hook: would the hard rules allow this action (ignoring human review)?"""
-        return not self._check(action, state, principal, check_preconditions=False, only_steps=only_steps)[0]
+        return not self._check(action, state, principal, check_preconditions=False, only_steps=only_steps,
+                               unknown_applies=False)[0]
 
     def evaluate(self, action, state: WorldState, principal: Principal) -> Decision:
         """Decide on an action - an ActionType, a GroundAction, or a name such as ``ship_order@O-2``."""
@@ -222,7 +237,7 @@ class GovernanceLayer:
         reviews = [r for r in self.ontology.rules_of("human_review")
                    if r.params["action"] == ga.action.name and r.applies(resolve)]
         if reviews:
-            return Decision(Verdict.REVIEW, ga.name, [r.description for r in reviews],
+            return Decision(Verdict.REVIEW, ga.name, [r.description + r.unknown_note(resolve) for r in reviews],
                             [r.id for r in reviews], tuple(dict.fromkeys(r.params["reviewer"] for r in reviews)),
                             satisfied, facts)
         return Decision(Verdict.ALLOW, ga.name, ["all rules satisfied"], satisfied=satisfied, facts=facts)

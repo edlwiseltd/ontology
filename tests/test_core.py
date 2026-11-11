@@ -102,9 +102,18 @@ class GovernanceTests(unittest.TestCase):
 
     def state(self, **statuses):
         state = WorldState.initial(self.onto, retail_case())
+        state.set("Customer", "sanctions_hit", False)  # screened: an unknown result would block signing
         for entity, status in statuses.items():
             state.set(entity, "status", status)
         return state
+
+    def test_unknown_sanctions_result_blocks_signing(self):
+        state = self.state(Customer="verified", Contract="approved")
+        state.steps.update(legal_review="approved", verify_signatory="done")
+        state.set("Customer", "sanctions_hit", None)
+        decision = self.gov.evaluate("sign_contract", state, self.agent)
+        self.assertEqual((decision.verdict, decision.rule_ids), (Verdict.DENY, ["R-SANC-001"]))
+        self.assertIn("Customer.sanctions_hit is unknown", decision.reasons[0])
 
     def test_cannot_sign_without_legal_approval(self):
         state = self.state(Customer="verified", Contract="approved")  # status forged, no review on record

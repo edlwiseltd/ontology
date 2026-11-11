@@ -16,7 +16,7 @@ from autology.__main__ import main as cli
 from autology.sdk import _free, _pascal, _snake, generate, names
 
 from .helpers import ROOT
-from .test_platform import CASE, EX, TOKENS, _Api, service
+from .test_platform import BIG_ORDER_RUN, EX, TOKENS, _Api, add_big_order, service
 
 ONTOLOGIES = [EX / "ontology.json", ROOT / "examples/scheduling/ontology.json",
               ROOT / "examples/manufacturing/enterprise.json", ROOT / "examples/customer_onboarding/ontology.json",
@@ -81,6 +81,7 @@ class RoundTripTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.svc = service(automations={})
+        add_big_order(cls.svc)
         cls.api = _Api(cls.svc)
 
     @classmethod
@@ -94,7 +95,7 @@ class RoundTripTests(unittest.TestCase):
         olivia = mod.AutologyClient(self.api.base, TOKENS["olivia"])
         lena = mod.AutologyClient(self.api.base, TOKENS["lena"])
         self.assertIsNone(olivia.check_compatibility())
-        self.assertEqual([o["id"] for o in olivia.list_order()], ["O-1", "O-2"])  # EU order hidden
+        self.assertEqual([o["id"] for o in olivia.list_order()], ["O-1", "O-2", "O-4"])  # EU order hidden
         self.assertEqual(olivia.get_customer("C-1")["attributes"]["credit_limit"], "***redacted***")
         with self.assertRaises(mod.AutologyApiError) as cm:
             olivia.get_order("C-1")
@@ -103,7 +104,7 @@ class RoundTripTests(unittest.TestCase):
             olivia.get_order("O-3")
         self.assertEqual(cm.exception.status, 404)
         self.assertEqual(olivia.ask_cq_01(), ["O-1", "O-2"])
-        run = olivia.run_fulfil_contract(CASE, case_id="sdk")
+        run = olivia.run_fulfil_contract(root="K-2", case_template="contract_case", case_id="sdk")
         self.assertEqual(run["status"], "awaiting_review")
         review = lena.list_reviews()[0]
         done = lena.decide(review["review_id"], True, "ok from the SDK")
@@ -138,7 +139,7 @@ out.orders = (await olivia.listOrder()).map((o) => o.id);
 out.credit = (await olivia.getCustomer("C-1")).attributes.credit_limit;
 out.answer = await olivia.askCq01();
 try {{ await olivia.getOrder("O-3"); }} catch (e) {{ out.hidden = e instanceof AutologyApiError ? e.status : -1; }}
-const run = await olivia.runFulfilContract({json.dumps(CASE)}, {{ caseId: "ts" }});
+const run = await olivia.runFulfilContract(null, {{ caseTemplate: "contract_case", root: "K-2", caseId: "ts" }});
 out.status = run.status;
 console.log(JSON.stringify(out));
 """)
@@ -146,8 +147,10 @@ console.log(JSON.stringify(out));
                               capture_output=True, text=True, timeout=60)
         self.assertEqual(proc.returncode, 0, proc.stderr)
         out = json.loads(proc.stdout.strip().splitlines()[-1])
-        self.assertEqual(out, {"compatible": None, "orders": ["O-1", "O-2"], "credit": "***redacted***",
-                               "answer": ["O-1", "O-2"], "hidden": 404, "status": "awaiting_review"})
+        # the Python test may already have taken K-2 through its review on this shared server
+        self.assertIn(out.pop("status"), ("awaiting_review", "completed"))
+        self.assertEqual(out, {"compatible": None, "orders": ["O-1", "O-2", "O-4"], "credit": "***redacted***",
+                               "answer": ["O-1", "O-2"], "hidden": 404})
 
 
 class SdkCliTests(unittest.TestCase):

@@ -244,25 +244,37 @@ function fillStartForm() {
   };
   agentSel.addEventListener("change", fillGoals);
   fillGoals();
+  const templates = (state.ontology && state.ontology.case_templates) || {};
+  $("start-template").replaceChildren(...Object.entries(templates).map(([t, spec]) =>
+    el("option", { value: t }, `${t} (starts at a ${spec.root})`)));
+  $("free-form").hidden = !(state.ontology && state.ontology.free_form_cases);
 }
 
 async function startRun(event) {
   event.preventDefault();
-  let caseData;
-  try {
-    caseData = JSON.parse($("start-case").value);
-  } catch (err) {
-    show("The case data is not valid JSON: " + err.message, "error");
-    $("start-case").focus();
-    return;
+  const raw = $("start-case").value.trim();
+  let body;
+  if (raw && !$("free-form").hidden) {
+    try {
+      body = { case: JSON.parse(raw), case_id: $("start-case-id").value || "case" };
+    } catch (err) {
+      show("The case data is not valid JSON: " + err.message, "error");
+      $("start-case").focus();
+      return;
+    }
+  } else {
+    if (!$("start-root").value.trim()) {
+      show("Give the id of the object to start from.", "error");
+      $("start-root").focus();
+      return;
+    }
+    body = { case_template: $("start-template").value, root: $("start-root").value.trim() };
   }
   const button = event.submitter || $("start-form").querySelector("button");
   button.disabled = true;
   show("Running…");
   try {
-    const run = await api("POST", "runs", {
-      agent: $("start-agent").value, goal: $("start-goal").value, case_id: $("start-case-id").value || "case", case: caseData,
-    });
+    const run = await api("POST", "runs", { agent: $("start-agent").value, goal: $("start-goal").value, ...body });
     show(`Run ${run.run_id} is ${run.status.replace("_", " ")}` + (run.escalation ? `: ${run.escalation.reason}` : "."), run.status === "completed" ? "ok" : "");
     loadReviews();
   } catch (err) {

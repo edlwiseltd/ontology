@@ -77,10 +77,17 @@
           <select id="start-agent" required></select>
           <label for="start-goal">Goal</label>
           <select id="start-goal" required></select>
-          <label for="start-case-id">Case id</label>
-          <input id="start-case-id" value="case">
-          <label for="start-case">Case data (JSON)</label>
-          <textarea id="start-case" rows="12" spellcheck="false" required>{}</textarea>
+          <label for="start-template">Case template</label>
+          <select id="start-template"></select>
+          <label for="start-root">Start from object (id)</label>
+          <input id="start-root" placeholder="e.g. K-1" autocomplete="off">
+          <p class="muted">The case is assembled from the stored data, so the facts that trigger reviews and rules come from the system of record.</p>
+          <div id="free-form" hidden>
+            <label for="start-case-id">Case id</label>
+            <input id="start-case-id" value="case">
+            <label for="start-case">Or: case data (JSON) instead of a template</label>
+            <textarea id="start-case" rows="10" spellcheck="false"></textarea>
+          </div>
           <button type="submit" class="primary">Run</button>
         </form>
       </section>

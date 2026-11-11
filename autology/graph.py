@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 from .expressions import Expression, compile_expression
-from .ontology import ID, PARAMS, STATUS, CompetencyQuestion, Ontology, OntologyError
+from .ontology import ID, PARAMS, STATUS, CompetencyQuestion, Ontology, OntologyError, check_types
 
 
 @dataclass
@@ -57,6 +57,7 @@ class KnowledgeGraph:
         unknown = [k for k in attributes if not etype.has_attribute(k) or k == ID]
         if unknown:
             raise OntologyError(f"{entity_type} {id!r}: unknown attributes {unknown}")
+        check_types(etype, attributes, f"{entity_type} {id!r}")
         status = attributes.get(STATUS, etype.initial_state)
         if status not in etype.states:
             raise OntologyError(f"{entity_type} {id!r}: {status!r} is not a valid state")

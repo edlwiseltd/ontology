@@ -19,7 +19,7 @@ import copy
 import json
 from typing import Any, Dict, List, Mapping, Optional, Tuple
 
-from .ontology import ID, STATUS, Ontology, OntologyError
+from .ontology import ID, STATUS, Ontology, OntologyError, check_types
 
 
 def ground_name(action: str, target: Optional[str]) -> str:
@@ -69,6 +69,7 @@ class WorldState:
         unknown = [k for k in given if not etype.has_attribute(k)]
         if unknown:
             raise OntologyError(f"case data for {where} has unknown attributes {unknown}")
+        check_types(etype, given, f"case data for {where}")
         values = {attr: None for attr in etype.attributes}
         values.update(given)
         if values.get(STATUS) is None:

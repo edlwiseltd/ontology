@@ -154,10 +154,28 @@ def service(**overrides):
     return AutologyService(cfg, EX)
 
 
+BIG_ORDER_RUN = {"case_template": "contract_case", "root": "K-2"}
+
+
+def add_big_order(svc):
+    """Load, as an admin would, a second contract whose 85,000 order needs a logistics review.
+    Returns the body that starts a run on it from the graph (free-form cases are admin-only)."""
+    admin = next(u for u in svc.users if "admin" in u.permissions)
+    svc.upsert_object(admin, {"type": "Order", "id": "O-4", "attributes": {
+        "sku": "TURBINE-1", "quantity": 1, "amount": 85000, "region": "US", "hazardous": False}})
+    svc.upsert_object(admin, {"type": "Contract", "id": "K-2", "attributes": {"value": 120000},
+                              "links": [{"kind": "covers", "target": "O-4"}]})
+    svc.upsert_object(admin, {"type": "Customer", "id": "C-2", "attributes": {
+        "name": "Contoso Power", "region": "US", "credit_limit": 500000, "status": "approved"},
+        "links": [{"kind": "hasContract", "target": "K-2"}]})
+    return dict(BIG_ORDER_RUN)
+
+
 class ApiTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.svc = service()
+        cls.svc = service(automations={})
+        cls.big = add_big_order(cls.svc)
         cls.api = _Api(cls.svc)
 
     @classmethod
@@ -195,13 +213,14 @@ class ApiTests(unittest.TestCase):
 
     def test_run_review_resume_flow(self):
         self.assertEqual(self.api.call("POST", "/api/runs", "lena", {"case": CASE})[0], 403)  # no run permission
-        self.assertEqual(self.api.call("POST", "/api/runs", "olivia", {"case": "nope"})[0], 400)
-        self.assertEqual(self.api.call("POST", "/api/runs", "olivia", {"case": {"Ghost": {}}})[0], 400)
-        self.assertEqual(self.api.call("POST", "/api/runs", "olivia", {"agent": "ghost", "case": CASE})[0], 400)
-        self.assertEqual(self.api.call("POST", "/api/runs", "olivia", {"goal": "ghost", "case": CASE})[0], 400)
-        status, run, _ = self.api.call("POST", "/api/runs", "olivia", {"case": CASE, "case_id": "K-9"})
+        self.assertEqual(self.api.call("POST", "/api/runs", "olivia", {"case": CASE})[0], 403)  # free-form: admin only
+        self.assertEqual(self.api.call("POST", "/api/runs", "admin", {"case": "nope"})[0], 400)
+        self.assertEqual(self.api.call("POST", "/api/runs", "admin", {"case": {"Ghost": {}}})[0], 400)
+        self.assertEqual(self.api.call("POST", "/api/runs", "olivia", {"agent": "ghost", **self.big})[0], 400)
+        self.assertEqual(self.api.call("POST", "/api/runs", "olivia", {"goal": "ghost", **self.big})[0], 400)
+        status, run, _ = self.api.call("POST", "/api/runs", "olivia", {**self.big, "case_id": "K-9"})
         self.assertEqual((status, run["status"]), (200, "awaiting_review"))
-        self.assertNotIn("O-3", run["state"]["Order"])  # olivia's view of the run state
+        self.assertEqual(run["state"]["Customer"]["credit_limit"], "***redacted***")  # olivia's view of the run
         review_id = run["pending_review"]
         self.assertEqual(self.api.call("GET", "/api/reviews", "olivia")[0], 403)
         self.assertIn(review_id, [r["review_id"] for r in self.api.call("GET", "/api/reviews", "lena")[1]["items"]])
@@ -290,6 +309,7 @@ class DeferredResumeApiTests(unittest.TestCase):
         self.assertEqual(hash_token(token), digest)
         cfg = {"ontology": "ontology.json", "store": "s.db",
                "agents": {"ops": {"roles": ["ops", "eu_ops", "finance"], "tools": "tools.json", "approver": "auto"}},
+               "simulation": True,
                "users": [{"name": "op", "token_sha256": digest, "permissions": ["read", "run"]}]}
         api = _Api(AutologyService(cfg, tmp))
         try:

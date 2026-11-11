@@ -303,11 +303,13 @@ def generate_python(ontology: Ontology) -> str:
                 f"        {json.dumps(q.question)}",
                 f"        return self.ask({json.dumps(q.id)}, **params)", ""]
     for g in o.goals.values():
-        out += [f"    def {_free('run_' + _snake(g.name).rstrip('_'), taken, '_goal')}(self, case: Case, *,"
-                " agent: Optional[str] = None,",
-                "                 case_id: Optional[str] = None) -> Dict[str, Any]:",
-                f"        {json.dumps(g.description or g.name)}",
-                f"        return self.start_run({json.dumps(g.name)}, case, agent=agent, case_id=case_id)", ""]
+        out += [f"    def {_free('run_' + _snake(g.name).rstrip('_'), taken, '_goal')}(self, case: Optional[Case] = None,"
+                " *, root: Optional[str] = None,",
+                "                 case_template: Optional[str] = None, agent: Optional[str] = None,",
+                "                 case_id: Optional[str] = None, justification: Optional[str] = None) -> Dict[str, Any]:",
+                f'        """{g.description or g.name}. Give case_template and root (case data is admin-only)."""',
+                f"        return self.start_run({json.dumps(g.name)}, case, agent=agent, case_id=case_id,",
+                "                              case_template=case_template, root=root, justification=justification)", ""]
     return "\n".join(out).rstrip() + "\n"
 
 
@@ -527,9 +529,9 @@ def generate_typescript(ontology: Ontology) -> str:
                 f"{{ return this.ask({json.dumps(q.id)}, params); }}"]
     for g in o.goals.values():
         out += [f"  /** {g.description or g.name} */",
-                f"  {_free('run' + _pascal(g.name), taken, 'Goal')}(c: Case, opts: {{ agent?: string; caseId?: string }} = {{}})"
-                ": Promise<JsonObject> {",
-                f"    return this.startRun({json.dumps(g.name)}, {{ ...opts, case: c }});",
+                f"  {_free('run' + _pascal(g.name), taken, 'Goal')}(c?: Case | null, opts: {{ agent?: string; caseId?: string;"
+                " caseTemplate?: string; root?: string; justification?: string } = {}): Promise<JsonObject> {",
+                f"    return this.startRun({json.dumps(g.name)}, c ? {{ ...opts, case: c }} : opts);",
                 "  }"]
     out.append("}")
     return "\n".join(out) + "\n"

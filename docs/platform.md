@@ -38,7 +38,9 @@ echo "olivia: $AUTOLOGY_TOKEN_OLIVIA   lena: $AUTOLOGY_TOKEN_LENA"
 python -m autology serve server.json --port 8800
 ```
 
-Open `http://127.0.0.1:8800`, sign in with Olivia's token, and start a run from **Start a run**, pasting `case.json`. The run pauses because order O-4 is worth more than 50,000. Sign in as Lena, who holds the logistics-manager reviewer role: the review is in her inbox with the rule, the facts and the history. Approve it and the run completes.
+Open `http://127.0.0.1:8800` and sign in with the admin token. Start a run from **Start a run** by pasting `case.json` as case data: only admins may hand an agent case data directly. The run pauses because order O-4 is worth more than 50,000. Sign in as Lena, who holds the logistics-manager reviewer role: the review is in her inbox with the rule, the facts and the history. Approve it and the run completes.
+
+Everyone else starts runs from the stored data: Olivia picks the `contract_case` template and an object to start from, such as `K-1`, and the case is assembled from the knowledge graph.
 
 The example has four users, each showing a different access level:
 
@@ -71,6 +73,14 @@ Mark an entity `"multiple": true`, give actions that work on one record at a tim
 - **Mandatory steps are tracked per record** when the step and the gated action are bound to the same entity. In the example, `clear_hazmat@O-2` unlocks `ship_order@O-2` only.
 - **Planning** works one record at a time for `all_of` goals, using small exact searches, so many records don't explode the search. The combined plan is compliant, but not guaranteed to be the cheapest overall.
 - **Delegation never pools roles.** An action is plannable only if one team member may perform it on its own. Explanations list each member's reason.
+
+## The facts behind rules come from the system of record
+
+Three safeguards stop a requester from steering which rules apply:
+
+- **No hand-written cases.** A user with `run` starts runs from a case template and a root object, so amounts, regions and other facts come from the stored data. Posting a free-form `case` returns 403, unless the user is an admin or the server config sets `"simulation": true`, which is meant for test and training servers.
+- **Types are checked.** Case data and graph data must match each attribute's declared type: `string`, `number`, `integer`, `boolean`, `date`. A string amount such as `"80000"` is rejected rather than compared as text. Missing values are allowed.
+- **Unknown facts do not switch rules off.** A `human_review`, `prohibition`, `row_access` or `data_access` rule whose condition cannot be evaluated, because a value is missing or of the wrong type, applies. The decision says why, for example "(applied because Order.amount is unknown)". `mandatory_step`, `action_access` and `write_access` rules, and action preconditions, keep ordinary true-or-false evaluation. The planner is optimistic about facts that tools will set later; the check when the action is about to run is the one that holds.
 
 ## Row-level access
 
@@ -116,7 +126,7 @@ Every request needs `Authorization: Bearer <token>`, except `/api/health` and th
 | `GET /api/objects/{id}` | read | One object with its visible links |
 | `POST /api/objects` | admin | Create or update an object and its outgoing links, validated against the ontology |
 | `POST /api/questions/{id}` | read | Answer a competency question, with `{"params": {...}}` |
-| `POST /api/runs` | run | Start a run: `{"agent", "goal", "case", "case_id"}` |
+| `POST /api/runs` | run | Start a run from the graph: `{"agent", "goal", "case_template", "root"}`. Free-form `{"case", "case_id"}` only for admins or with `"simulation": true` |
 | `GET /api/runs?status=` | read | List runs |
 | `GET /api/runs/{id}` | read | Steps, status, escalation, the caller's view of the state, audit verification |
 | `GET /api/runs/{id}/audit` | audit | Raw audit entries |

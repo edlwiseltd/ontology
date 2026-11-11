@@ -43,6 +43,27 @@ RULE_KINDS = frozenset({"mandatory_step", "human_review", "data_access", "write_
 # operations a ``checkpoint`` rule can require a written justification for (see autology.server)
 CHECKPOINT_OPS = frozenset({"start_run", "resume_run", "decide", "read_field", "upsert_object", "commit_scenario"})
 AGGREGATES = frozenset({"count", "sum", "avg", "min", "max"})
+# Rules that restrict: when their condition cannot be evaluated (a fact is missing or wrongly typed)
+# they apply rather than lapse, so a missing amount cannot skip a review or a hidden region expose a row.
+FAIL_CLOSED_KINDS = frozenset({"human_review", "prohibition", "row_access", "data_access"})
+_PY_TYPES = {"string": (str,), "date": (str,), "datetime": (str,), "number": (int, float), "integer": (int,),
+             "boolean": (bool,)}
+
+
+def type_ok(attr_type: str, value: Any) -> bool:
+    """Does ``value`` fit the declared attribute type? ``None`` (unknown) always fits; unknown types accept anything."""
+    if value is None or attr_type not in _PY_TYPES:
+        return True
+    if isinstance(value, bool) and attr_type != "boolean":
+        return False
+    return isinstance(value, _PY_TYPES[attr_type])
+
+
+def check_types(etype: "EntityType", values: Mapping[str, Any], where: str) -> None:
+    for name, value in values.items():
+        attr = etype.attributes.get(name)
+        if attr is not None and not type_ok(attr.type, value):
+            raise OntologyError(f"{where}: {name} must be {attr.type}, got {type(value).__name__} {value!r}")
 
 
 class OntologyError(ValueError):
@@ -164,7 +185,23 @@ class Rule:
     params: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
 
     def applies(self, resolve) -> bool:
-        return self.when is None or self.when.evaluate(resolve)
+        return self.check(resolve)[0]
+
+    def check(self, resolve) -> Tuple[bool, List[str]]:
+        """``(applies, unknown facts)``. Restrictive kinds (:data:`FAIL_CLOSED_KINDS`) apply when their
+        condition cannot be evaluated; the second element then names the facts that were unknown."""
+        if self.when is None:
+            return True, []
+        if self.kind not in FAIL_CLOSED_KINDS:
+            return self.when.evaluate(resolve), []
+        known = self.when.evaluate_known(resolve)
+        if known is None:
+            return True, self.when.unknown_references(resolve) or ["a fact the condition depends on"]
+        return known, []
+
+    def unknown_note(self, resolve) -> str:
+        unknown = self.check(resolve)[1]
+        return f" (applied because {', '.join(unknown)} is unknown)" if unknown else ""
 
 
 @dataclass(frozen=True)

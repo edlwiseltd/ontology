@@ -20,7 +20,7 @@ from autology.server import ApiError
 from autology.tracing import _ns, resolve_headers, run_spans, to_otlp
 from autology.versioning import diff
 
-from .test_platform import CASE, EX, _Api, service
+from .test_platform import CASE, EX, _Api, add_big_order, service
 
 DOC = json.loads((EX / "ontology.json").read_text())
 DATA = json.loads((EX / "data.json").read_text())
@@ -118,7 +118,7 @@ class CheckpointTests(unittest.TestCase):
 
     def test_declining_a_shipment_needs_a_reason(self):
         olivia, lena = self.users["olivia"], self.users["lena"]
-        self.svc.start_run(olivia, {"case": CASE})
+        self.svc.start_run(olivia, add_big_order(self.svc))
         review = self.svc.list_reviews(lena, "pending")["items"][0]
         with self.assertRaises(ApiError) as cm:
             self.svc.decide(lena, review["review_id"], {"approved": False, "comment": "no"})
@@ -134,7 +134,7 @@ class CheckpointTests(unittest.TestCase):
                          for op in ("start_run", "resume_run", "upsert_object", "commit_scenario")]
         tmp = Path(tempfile.mkdtemp())
         (tmp / "ontology.json").write_text(json.dumps(doc))
-        svc = service(ontology=str(tmp / "ontology.json"), automations={}, chat=None)
+        svc = service(ontology=str(tmp / "ontology.json"), automations={}, chat=None, simulation=True)
         u = {x.name: x for x in svc.users}
         api = _Api(svc)
         try:
@@ -286,7 +286,7 @@ class TracingTests(unittest.TestCase):
                                                               "headers": {"x-api-key-env": "OTLP_TEST_KEY"}})
             api = _Api(svc)
             try:
-                _, run, _ = api.call("POST", "/api/runs", "olivia", {"case": CASE})  # parks for review: not final
+                _, run, _ = api.call("POST", "/api/runs", "olivia", add_big_order(svc))  # parks for review: not final
                 for t in list(svc.deliveries):
                     t.join(5)
                 self.assertEqual(len(received), 1)

@@ -21,7 +21,7 @@ from __future__ import annotations
 import ast
 import operator
 from functools import lru_cache
-from typing import Any, Callable, FrozenSet, Optional, Tuple
+from typing import Any, Callable, FrozenSet, List, Optional, Tuple
 
 Resolver = Callable[[str, str], Any]
 
@@ -147,6 +147,59 @@ class Expression:
             return sum(results)
         raise ExpressionError(f"cannot evaluate {type(node).__name__}")  # pragma: no cover
 
+    # -- three-valued evaluation: True, False or None (unknown) -------------------------
+    def evaluate_known(self, resolve: Resolver) -> Optional[bool]:
+        """Like :meth:`evaluate`, but a comparison on a missing or wrongly typed value is *unknown*
+        (``None``) instead of false. Unknown propagates with Kleene logic (``False and unknown`` is False,
+        ``True or unknown`` is True). Comparing with an explicit ``None`` literal stays a normal comparison.
+        Used for rules that must apply when the facts they depend on are unknown.
+        """
+        out = self._eval3(self._tree, resolve)
+        return None if out is _UNKNOWN else bool(out)
+
+    def unknown_references(self, resolve: Resolver) -> List[str]:
+        """``Entity.attr`` references (outside quantifiers) whose value is missing."""
+        return [f"{e}.{a}" for e, a in sorted(self.free_references) if resolve(e, a) is None]
+
+    def _eval3(self, node: ast.AST, resolve: Resolver) -> Any:
+        if isinstance(node, ast.BoolOp):
+            values = [self._truth3(v, resolve) for v in node.values]
+            if isinstance(node.op, ast.And):
+                return False if False in values else (_UNKNOWN if _UNKNOWN in values else True)
+            return True if True in values else (_UNKNOWN if _UNKNOWN in values else False)
+        if isinstance(node, ast.UnaryOp):
+            inner = self._truth3(node.operand, resolve)
+            return inner if inner is _UNKNOWN else not inner
+        if isinstance(node, ast.Compare):
+            left, left_node = self._eval3(node.left, resolve), node.left
+            for op, comparator in zip(node.ops, node.comparators):
+                right = self._eval3(comparator, resolve)
+                if _UNKNOWN in (left, right) or (left is None and not _is_none(left_node)) \
+                        or (right is None and not _is_none(comparator)):
+                    return _UNKNOWN
+                try:
+                    if not _COMPARATORS[type(op)](left, right):
+                        return False
+                except TypeError:  # e.g. "80000" >= 50000: a wrongly typed fact is not a fact
+                    return _UNKNOWN
+                left, left_node = right, comparator
+            return True
+        if isinstance(node, ast.Call):
+            results = [self._truth3(node.args[0], scope) for scope in self._scopes(node, resolve)]
+            fn = node.func.id
+            if fn == "all_of":
+                return False if False in results else (_UNKNOWN if _UNKNOWN in results else True)
+            if fn == "any_of":
+                return True if True in results else (_UNKNOWN if _UNKNOWN in results else False)
+            return _UNKNOWN if _UNKNOWN in results else sum(1 for r in results if r)
+        return self._eval(node, resolve)  # attributes, constants, collections: plain values
+
+    def _truth3(self, node: ast.AST, resolve: Resolver) -> Any:
+        value = self._eval3(node, resolve)
+        if value is _UNKNOWN or (value is None and isinstance(node, ast.Attribute)):
+            return _UNKNOWN
+        return bool(value)
+
     def _scopes(self, node: ast.Call, resolve: Resolver) -> list:
         """One resolver per instance of the multi-instance entity the quantifier ranges over."""
         each = getattr(resolve, "each", None)
@@ -191,6 +244,13 @@ class Expression:
 
     def __str__(self) -> str:
         return self.source
+
+
+_UNKNOWN = object()
+
+
+def _is_none(node: ast.AST) -> bool:
+    return isinstance(node, ast.Constant) and node.value is None
 
 
 @lru_cache(maxsize=1024)

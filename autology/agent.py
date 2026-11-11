@@ -68,6 +68,7 @@ class ReviewDecision:
     approved: bool
     reviewer: str
     comment: str = ""
+    automatic: bool = False  # decided by a script or policy, not a person (reports flag it)
 
 
 class Approver(Protocol):
@@ -107,7 +108,12 @@ class AutoApprover:
         rule = self.decisions.get(request.action, self.decisions.get(base, self.default))
         approved = bool(rule(request) if callable(rule) else rule)
         return ReviewDecision(approved, f"{self.reviewer}[{'/'.join(request.reviewers)}]",
-                              "approved" if approved else "declined")
+                              "approved" if approved else "declined", automatic=True)
+
+    @property
+    def can_approve(self) -> bool:
+        """Whether this approver ever approves (a deny-everything approver never does)."""
+        return bool(self.default) or any(v is not False for v in self.decisions.values())
 
 
 class ConsoleApprover:
@@ -351,14 +357,15 @@ class WorkAgent:
                 self.sleep(policy.backoff_seconds)
 
     # -- public API -----------------------------------------------------
-    def run(self, goal_name: str, case: Mapping[str, Mapping[str, Any]], case_id: str = "case") -> RunResult:
+    def run(self, goal_name: str, case: Mapping[str, Mapping[str, Any]], case_id: str = "case",
+            started_by: Optional[str] = None) -> RunResult:
         if goal_name not in self.ontology.goals:
             raise OntologyError(f"unknown goal {goal_name!r}")
         run = RunState(goal_name, case_id, WorldState.initial(self.ontology, case), ontology_ref=self.ontology.ref)
         audit = AuditLog()
         self._log(audit, "run.start", case=case_id, agent=self.name, roles=sorted(self.principal.roles),
                   delegates=[d.name for d in self.delegates], goal=goal_name, ontology=self.ontology.ref,
-                  fingerprint=self.ontology.fingerprint)
+                  fingerprint=self.ontology.fingerprint, started_by=started_by)
         return self._loop(run, audit)
 
     def resume(self, previous: RunResult, force: bool = False,
@@ -378,7 +385,8 @@ class WorkAgent:
                 raise ValueError("this run is waiting for a review decision")
             pending = run.pending_review or {}
             run.review_decisions[pending.get("action", "")] = {
-                "approved": bool(decision.approved), "reviewer": decision.reviewer, "comment": decision.comment}
+                "approved": bool(decision.approved), "reviewer": decision.reviewer, "comment": decision.comment,
+                "automatic": bool(getattr(decision, "automatic", False))}
             run.pending_review = None
         if run.ontology_ref != self.ontology.ref:
             raise OntologyError(f"run was started on {run.ontology_ref}; this agent uses {self.ontology.ref}")
@@ -498,7 +506,7 @@ class WorkAgent:
                 record.reviewer = review.reviewer
                 self._log(audit, "review", case=run.case_id, action=action.name, approved=review.approved,
                           reviewer=review.reviewer, roles=list(decision.reviewers), comment=review.comment,
-                          rules=decision.rule_ids)
+                          rules=decision.rule_ids, automatic=bool(getattr(review, "automatic", False)))
                 if not review.approved:
                     record.message = f"declined by {review.reviewer}"
                     run.steps.append(record)

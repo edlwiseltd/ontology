@@ -329,6 +329,7 @@ class ServiceAutomationTests(unittest.TestCase):
                                                     "registries": ["flaky_auto_tools:build"]}))
         cfg = {"ontology": "ontology.json", "store": "s.db", "data": "data.json",
                "agents": {"ops": {"roles": ["ops", "eu_ops", "finance"], "tools": "tools.json", "approver": "auto"}},
+               "simulation": True,
                "users": [{"name": "admin", "token_env": "AUTOLOGY_TOKEN_ADMIN", "permissions": ["admin"]}]}
         from autology.server import AutologyService
 

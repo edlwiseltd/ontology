@@ -167,8 +167,13 @@ def compliance_report(results: Iterable[RunResult], ontology, title: Optional[st
     lines = [f"# {title or 'Autology compliance report'}", "",
              f"Ontology: {ontology.ref} (fingerprint {ontology.fingerprint[:16]})  ",
              f"Tasks: {m.tasks} - " + ", ".join(f"{k} {v}" for k, v in sorted(m.by_status.items())) + "  ",
-             f"Audit trails intact: {'yes' if chain_ok else 'NO - TAMPERING DETECTED'}", "",
-             "## KPIs", "",
+             f"Audit trails intact: {'yes' if chain_ok else 'NO - TAMPERING DETECTED'}", ""]
+    automatic = sum(1 for r in results for e in r.audit if e.event == "review" and e.data.get("automatic"))
+    if automatic:
+        lines += [f"> **{automatic} human review{'s were' if automatic != 1 else ' was'} decided automatically** "
+                  "(by a script or policy, not a person). Treat these runs as a simulation, not evidence that "
+                  "reviews took place.", ""]
+    lines += ["## KPIs", "",
              "| Metric | Value |", "|---|---|",
              f"| Success rate (completed) | {m.success_rate:.0%} |",
              f"| Resolution rate (completed or correctly stopped by policy) | {m.resolution_rate:.0%} |",

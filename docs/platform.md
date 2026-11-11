@@ -82,6 +82,12 @@ Three safeguards stop a requester from steering which rules apply:
 - **Types are checked.** Case data and graph data must match each attribute's declared type: `string`, `number`, `integer`, `boolean`, `date`. A string amount such as `"80000"` is rejected rather than compared as text. Missing values are allowed.
 - **Unknown facts do not switch rules off.** A `human_review`, `prohibition`, `row_access` or `data_access` rule whose condition cannot be evaluated, because a value is missing or of the wrong type, applies. The decision says why, for example "(applied because Order.amount is unknown)". `mandatory_step`, `action_access` and `write_access` rules, and action preconditions, keep ordinary true-or-false evaluation. The planner is optimistic about facts that tools will set later; the check when the action is about to run is the one that holds.
 
+## Reviews are decided by people
+
+- **Automatic approvers need the simulation flag.** In a server config, an agent's `approver` of `auto`, or a policy file that can approve, is refused at start-up unless the config sets `"simulation": true`. `inbox`, `deny` and HTTP approvers are allowed. The flag shows in `GET /api/health`, at the top of `GET /api/report`, and as `"simulation": true` in `GET /api/score`.
+- **Automatic decisions are flagged.** Every review decided by a script or policy is marked `automatic` in the audit log, and the compliance report warns how many there were, also for runs made with `autology run --approver auto`.
+- **No self-approval by default.** Each run records who started it, on the run and in its `run.start` audit entry; automations record `automation:<name>`. That person may not decide the run's review. A `human_review` rule can allow it with `"allow_self_review": true`.
+
 ## Row-level access
 
 A `row_access` rule hides the records of an entity matching its `when` condition from anyone without one of its `roles`:

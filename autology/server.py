@@ -122,6 +122,9 @@ class AutologyService:
         self.graph = self.store.load_graph(self.ontology)
         self.graph_lock = threading.RLock()
         self.access = GovernanceLayer(self.ontology, max_violations=0)  # row/field rules for API callers
+        # simulation mode: requesters may supply case data, and automatic approvers may decide reviews.
+        # It is shown in /api/health and in every report and score.
+        self.simulation = bool(config.get("simulation", False))
         self.agents: Dict[str, AgentConfig] = {}
         for name, spec in (config.get("agents") or {}).items():
             delegates = [WorkAgent(d["name"], self.ontology, load_tools(rel(d["tools"])), roles=d.get("roles", []))
@@ -129,6 +132,9 @@ class AutologyService:
             approver_spec = spec.get("approver", "inbox")
             approver = DeferredApprover() if approver_spec == "inbox" else load_approver(
                 rel(approver_spec) if str(approver_spec).endswith(".json") else approver_spec)
+            if getattr(approver, "can_approve", False) and not self.simulation:
+                raise ValueError(f"agent {name}: approver {approver_spec!r} approves human reviews without a "
+                                 "person; use \"inbox\", or set \"simulation\": true for a test server")
             agent = WorkAgent(name, self.ontology, load_tools(rel(spec["tools"])), roles=spec.get("roles", []),
                               delegates=delegates, approver=approver,
                               reasoner=load_reasoner(spec.get("reasoner"), (str(base),)))
@@ -157,8 +163,6 @@ class AutologyService:
         self.automations = load_automations(config.get("automations") or {}, self.ontology,
                                             {n: a.goals for n, a in self.agents.items()})
         self.automation_interval = float(config.get("automation_interval", 60))
-        # simulation mode: requesters may supply case data themselves (and, see item 5, auto approvers run)
-        self.simulation = bool(config.get("simulation", False))
         self.webhooks: List[Dict[str, Any]] = []
         for hook in config.get("webhooks", []):
             if urlparse(str(hook.get("url", ""))).scheme not in ("http", "https"):
@@ -502,7 +506,8 @@ class AutologyService:
                 case, sources = build_case(self.graph, template, inst.id)
                 base = snapshot(self.graph, sources)
             with cfg.lock:
-                result = cfg.agent.run(auto.run["goal"], case, f"{auto.name}:{inst.id}")
+                result = cfg.agent.run(auto.run["goal"], case, f"{auto.name}:{inst.id}",
+                                       started_by=f"automation:{auto.name}")
                 firing.run_id, changed = self._store_result(
                     result, cfg.name, sources=(template, inst.id, sources, bool(auto.run["write_back"]), base),
                     started_by=f"automation:{auto.name}")
@@ -626,7 +631,8 @@ class AutologyService:
                 raise ApiError(400, "case must be an object (or give case_template and root)")
         with cfg.lock:
             try:
-                result = cfg.agent.run(goal, case, str(body.get("case_id") or (sources[1] if sources else "case")))
+                result = cfg.agent.run(goal, case, str(body.get("case_id") or (sources[1] if sources else "case")),
+                                       started_by=user.name)
             except OntologyError as exc:
                 raise ApiError(400, f"invalid case: {exc}") from None
             run_id, changed = self._store_result(result, name, sources=sources, started_by=user.name)
@@ -709,6 +715,11 @@ class AutologyService:
         review = self.get_review(user, review_id)
         if "admin" not in user.permissions and not user.reviewer_roles & set(review["reviewers"]):
             raise ApiError(403, f"{user.name} may not decide reviews for {review['reviewers']}")
+        if self.store.run_starter(review["run_id"]) == user.name:
+            rules = [r for r in self.ontology.rules if r.id in (review["request"].get("rule_ids") or [])]
+            if not rules or not all(r.params.get("allow_self_review") for r in rules):
+                raise ApiError(403, "you started this run: another reviewer must decide its review "
+                                    "(a rule can allow this with \"allow_self_review\": true)")
         cfg = self._agent_for(review["run_id"])
         self.checkpoint(user, "decide", review_id, body.get("justification") or body.get("comment"),
                         action=str(review["action"]).partition("@")[0], approved=body["approved"])
@@ -975,7 +986,11 @@ class AutologyService:
         self.require(user, "read")
         from .reporting import compliance_report
 
-        return compliance_report(self._visible_runs(user), self.ontology)
+        report = compliance_report(self._visible_runs(user), self.ontology)
+        if self.simulation:
+            report = (f"> **SIMULATION SERVER.** Case data may be supplied by requesters and reviews may be decided "
+                      f"automatically. These results are not evidence of governed operation.\n\n{report}")
+        return report
 
     def score(self, user: User) -> Dict[str, Any]:
         self.require(user, "read")
@@ -988,7 +1003,9 @@ class AutologyService:
                 for t in member.tools:
                     merged._tools.append(t)
         with self.graph_lock:
-            return score_deployment(self.ontology, self._visible_runs(user), tools=merged, graph=self.graph).as_dict()
+            card = score_deployment(self.ontology, self._visible_runs(user), tools=merged, graph=self.graph).as_dict()
+        card["simulation"] = self.simulation
+        return card
 
 
 # -- HTTP layer ------------------------------------------------------------------------
@@ -1052,7 +1069,8 @@ def _handler(service: AutologyService):
                     ctype = {"html": "text/html", "js": "application/javascript", "css": "text/css"}[name.rsplit(".")[-1]]
                     return self._send(200, (STATIC / name).read_bytes(), ctype)
                 if path == "/api/health":
-                    return self._send(200, {"status": "ok", "ontology": service.ontology.ref})
+                    return self._send(200, {"status": "ok", "ontology": service.ontology.ref,
+                                            "simulation": service.simulation})
                 if not path.startswith("/api/"):
                     raise ApiError(404, "not found")
                 user = service.authenticate(self.headers.get("Authorization"))

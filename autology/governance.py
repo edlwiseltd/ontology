@@ -101,12 +101,18 @@ class GovernanceLayer:
             raise IntegrityError("ontology fingerprint changed; refusing to execute")
 
     # -- suspension -----------------------------------------------------
-    def record_violation(self, principal: Principal, decision: Decision) -> bool:
-        """Count a denied proposal; returns True if the principal is now suspended."""
+    def record_violation(self, principal: Principal, decision: Decision, count: Optional[int] = None) -> bool:
+        """Count a denied proposal; returns True if the principal is now suspended.
+
+        ``count`` is the number of violations in the current run: suspension is decided per run, so
+        concurrent or earlier runs of the same agent do not add up. Without it the agent-wide total is used.
+        A suspension then holds for every later run until an admin reinstates the agent.
+        """
         self.violations[principal.name] += 1
-        if self.max_violations and self.violations[principal.name] >= self.max_violations:
-            self.suspended.setdefault(principal.name, f"suspended after {self.violations[principal.name]} "
-                                                      f"governance violations (last: {decision.action})")
+        n = self.violations[principal.name] if count is None else count
+        if self.max_violations and n >= self.max_violations:
+            self.suspended.setdefault(principal.name, f"suspended after {n} governance violations in one run "
+                                                      f"(last: {decision.action})")
             return True
         return False
 

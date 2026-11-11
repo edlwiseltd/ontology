@@ -39,7 +39,7 @@ from .audit import GENESIS, AuditLog
 from .graph import KnowledgeGraph
 from .ontology import Ontology
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -101,6 +101,9 @@ CREATE TRIGGER IF NOT EXISTS justification_no_update BEFORE UPDATE ON justificat
     BEGIN SELECT RAISE(ABORT, 'justifications are append-only'); END;
 CREATE TRIGGER IF NOT EXISTS justification_no_delete BEFORE DELETE ON justifications
     BEGIN SELECT RAISE(ABORT, 'justifications are append-only'); END;
+CREATE TABLE IF NOT EXISTS suspensions (
+    seq INTEGER PRIMARY KEY AUTOINCREMENT, agent TEXT NOT NULL, suspended_at TEXT NOT NULL, reason TEXT NOT NULL,
+    run_id TEXT, reinstated_at TEXT, reinstated_by TEXT, reinstate_reason TEXT);
 CREATE TABLE IF NOT EXISTS run_sources (
     run_id TEXT PRIMARY KEY, template TEXT NOT NULL, root TEXT NOT NULL, sources TEXT NOT NULL,
     write_back INTEGER NOT NULL, base TEXT, conflicts TEXT);
@@ -498,3 +501,24 @@ class Store:
     def run_starter(self, run_id: str) -> Optional[str]:
         rows = self._query("SELECT started_by FROM runs WHERE run_id=?", (run_id,))
         return rows[0]["started_by"] if rows else None
+
+    # -- agent suspensions ------------------------------------------------------
+    def active_suspension(self, agent: str) -> Optional[Dict[str, Any]]:
+        rows = self._query("SELECT * FROM suspensions WHERE agent=? AND reinstated_at IS NULL ORDER BY seq DESC",
+                           (agent,))
+        return dict(rows[0]) if rows else None
+
+    def suspend(self, agent: str, reason: str, run_id: Optional[str] = None) -> None:
+        with self._tx() as db:
+            if db.execute("SELECT 1 FROM suspensions WHERE agent=? AND reinstated_at IS NULL", (agent,)).fetchone():
+                return
+            db.execute("INSERT INTO suspensions (agent, suspended_at, reason, run_id) VALUES (?, ?, ?, ?)",
+                       (agent, _now(), reason, run_id))
+
+    def reinstate(self, agent: str, by: str, reason: str) -> None:
+        with self._tx() as db:
+            db.execute("UPDATE suspensions SET reinstated_at=?, reinstated_by=?, reinstate_reason=? "
+                       "WHERE agent=? AND reinstated_at IS NULL", (_now(), by, reason, agent))
+
+    def suspension_history(self, agent: str) -> List[Dict[str, Any]]:
+        return [dict(r) for r in self._query("SELECT * FROM suspensions WHERE agent=? ORDER BY seq DESC", (agent,))]

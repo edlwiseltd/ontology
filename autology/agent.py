@@ -500,7 +500,7 @@ class WorkAgent:
             executor, decision = self._authorize(proposal.action, state)
             if executor is None:
                 run.violations.append(decision)
-                suspended = self.governance.record_violation(self.principal, decision)
+                suspended = self.governance.record_violation(self.principal, decision, len(run.violations))
                 self._log(audit, "governance.deny", case=run.case_id, action=proposal.action,
                           proposed_by=proposal.source, reasons=decision.reasons, rules=decision.rule_ids,
                           principal=self.name, suspended=suspended)

@@ -148,6 +148,9 @@ class AutologyService:
             if unknown:
                 raise OntologyError(f"agent {name}: unknown goals {unknown}")
             self.agents[name] = AgentConfig(name, agent, goals)
+            held = self.store.active_suspension(name)
+            if held:  # a suspension outlives restarts: only an admin reinstates the agent
+                agent.governance.suspended[agent.principal.name] = held["reason"]
         self.users: List[User] = []
         for u in config.get("users", []):
             perms = frozenset(u.get("permissions", ["read"]))
@@ -415,6 +418,9 @@ class AutologyService:
         once they have released the agent's lock, so automations never wait on a running agent.
         """
         run_id = self.store.save_run(result, run_id, agent_name, started_by)
+        cfg = self.agents.get(agent_name)
+        if cfg is not None and cfg.agent.principal.name in cfg.agent.governance.suspended:
+            self.store.suspend(agent_name, cfg.agent.governance.suspended[cfg.agent.principal.name], run_id)
         if sources:
             self.store.link_run_sources(run_id, *sources)
         if result.status == "awaiting_review" and result.run and result.run.pending_review:
@@ -860,6 +866,28 @@ class AutologyService:
         self.require(user, "audit")
         return {"items": self.store.list_justifications(limit)}
 
+    def list_agents(self, user: User) -> Dict[str, Any]:
+        self.require(user, "read")
+        items = {}
+        for name, cfg in self.agents.items():
+            reason = cfg.agent.governance.suspended.get(cfg.agent.principal.name)
+            items[name] = {"goals": cfg.goals, "roles": sorted(cfg.agent.principal.roles),
+                           "suspended": reason is not None, "reason": reason}
+        return {"items": items}
+
+    def reinstate_agent(self, user: User, name: str, body: Dict[str, Any]) -> Dict[str, Any]:
+        self.require(user, "admin")
+        if name not in self.agents:
+            raise ApiError(404, f"no agent {name!r}")
+        reason = str(body.get("reason") or "").strip()
+        if len(reason) < 10:
+            raise ApiError(400, "give a reason of at least 10 characters for reinstating the agent")
+        cfg = self.agents[name]
+        with cfg.lock:
+            cfg.agent.governance.reinstate(cfg.agent.principal.name)
+            self.store.reinstate(name, user.name, reason)
+        return {"agent": name, "suspended": False, "reinstated_by": user.name, "reason": reason}
+
     def log_error(self, context: str) -> None:
         """Record the exception being handled, with its traceback, in the server log."""
         import logging
@@ -1106,6 +1134,7 @@ def _handler(service: AutologyService):
                     ("POST", "scenarios"): lambda: service.create_scenario(user, body),
                     ("POST", "chat"): lambda: service.chat_send(user, body),
                     ("GET", "access-log"): lambda: service.access_log(user, query.get("principal"), limit),
+                    ("GET", "agents"): lambda: service.list_agents(user),
                 }
                 key = (method, parts[0]) if len(parts) == 1 else None
                 if key in routes:
@@ -1150,6 +1179,8 @@ def _handler(service: AutologyService):
                                 "discard": lambda: service.discard_scenario(user, sid)}
                     if verb in handlers:
                         return self._send(200, handlers[verb]())
+                if len(parts) == 3 and parts[0] == "agents" and parts[2] == "reinstate" and method == "POST":
+                    return self._send(200, service.reinstate_agent(user, parts[1], body))
                 if len(parts) == 3 and parts[0] == "automations" and parts[2] == "run" and method == "POST":
                     return self._send(200, service.run_automation(user, parts[1], body))
                 if len(parts) == 3 and parts[0] == "reviews" and parts[2] == "decision" and method == "POST":

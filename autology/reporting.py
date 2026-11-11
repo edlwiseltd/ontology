@@ -29,13 +29,14 @@ def classify(result: RunResult) -> str:
     ``policy_stop``  - correctly stopped by governance: a human reviewer declined, or the only
                        paths to the goal violate a prohibition / mandatory-step rule (e.g. a
                        sanctioned party, a failed due-diligence check). This is the system working;
-    ``pending``      - deferred (waiting for a retry window) or awaiting a human review decision;
-    ``unplanned``    - everything else: tool failures, unmodelled outcomes, missing capabilities
-                       or permissions, loops, paused or suspended agents.
+    ``pending``      - awaiting a human review decision (a planned hand-off, still open);
+    ``unplanned``    - everything else: tool failures (including runs deferred for a retry after
+                       one), unmodelled outcomes, missing capabilities or permissions, loops,
+                       paused or suspended agents.
     """
     if result.status == "completed":
         return "completed"
-    if result.status in ("deferred", "awaiting_review"):
+    if result.status == "awaiting_review":
         return "pending"
     if result.status == "blocked":
         return "policy_stop"
@@ -62,12 +63,14 @@ class Metrics:
     tool_cost: float
     llm_calls: int
     cost_per_task: float
-    cost_per_completed_task: float = 0.0  # what outcome-based pricing should be benchmarked against
+    cost_per_completed_task: Optional[float] = None  # None when nothing completed: it cannot be measured
     avg_latency_ms: float = 0.0
     violations_by_principal: Dict[str, int] = field(default_factory=dict)
     by_outcome: Dict[str, int] = field(default_factory=dict)  # see classify()
     resolution_rate: float = 0.0  # (completed + correctly stopped by policy) / tasks
     unplanned_handoff_rate: float = 0.0  # unplanned / tasks
+    llm_unpriced_tokens: int = 0  # tokens of models with no registered price: their cost is unknown
+    unpriced_models: List[str] = field(default_factory=list)
 
     def as_dict(self) -> Dict:
         return dict(self.__dict__)
@@ -92,7 +95,9 @@ def metrics(results: Iterable[RunResult]) -> Metrics:
     n = len(results)
     by_status = Counter(r.status for r in results)
     reviewed = [r for r in results if r.audit.events("review")]
-    human = [r for r in results if r.audit.events("review") or r.status in HUMAN_STATUSES]
+    # a run parked for a review needs a person before it can finish: that is a human intervention too
+    human = [r for r in results if r.audit.events("review") or r.status in HUMAN_STATUSES
+             or r.status == "awaiting_review"]
     straight = [r for r in results if r.completed and not r.audit.events("review")]
     escalations = Counter(r.escalation.to for r in results if r.escalation and r.status in HUMAN_STATUSES)
     llm = sum(r.costs.get("llm_usd", 0.0) for r in results)
@@ -112,12 +117,15 @@ def metrics(results: Iterable[RunResult]) -> Metrics:
         llm_cost_usd=round(llm, 6), tool_cost=round(tools, 4),
         llm_calls=int(sum(r.costs.get("llm_calls", 0) for r in results)),
         cost_per_task=round((llm + tools) / n, 6) if n else 0.0,
-        cost_per_completed_task=round((llm + tools) / by_status["completed"], 6) if by_status["completed"] else 0.0,
+        cost_per_completed_task=round((llm + tools) / by_status["completed"], 6) if by_status["completed"] else None,
         avg_latency_ms=round(sum(_latency_ms(r) for r in results) / n, 3) if n else 0.0,
         violations_by_principal=dict(violators),
         by_outcome=dict(outcomes),
         resolution_rate=_rate(outcomes["completed"] + outcomes["policy_stop"], n),
         unplanned_handoff_rate=_rate(outcomes["unplanned"], n),
+        llm_unpriced_tokens=int(sum(r.costs.get("llm_unpriced_tokens", 0) for r in results)),
+        unpriced_models=sorted({e.data.get("model") for r in results for e in r.audit.events("decision")
+                                if e.data.get("unpriced_tokens")} - {None}),
     )
 
 
@@ -168,6 +176,9 @@ def compliance_report(results: Iterable[RunResult], ontology, title: Optional[st
              f"Ontology: {ontology.ref} (fingerprint {ontology.fingerprint[:16]})  ",
              f"Tasks: {m.tasks} - " + ", ".join(f"{k} {v}" for k, v in sorted(m.by_status.items())) + "  ",
              f"Audit trails intact: {'yes' if chain_ok else 'NO - TAMPERING DETECTED'}", ""]
+    if m.llm_unpriced_tokens:
+        lines += [f"> **Model cost unknown:** {m.llm_unpriced_tokens} tokens came from models with no price "
+                  f"({', '.join(m.unpriced_models) or 'unnamed'}). Costs below leave them out; register a price.", ""]
     automatic = sum(1 for r in results for e in r.audit if e.event == "review" and e.data.get("automatic"))
     if automatic:
         lines += [f"> **{automatic} human review{'s were' if automatic != 1 else ' was'} decided automatically** "
@@ -186,20 +197,18 @@ def compliance_report(results: Iterable[RunResult], ontology, title: Optional[st
              f"| Avg steps per task | {m.avg_steps} |",
              f"| LLM calls / cost | {m.llm_calls} / ${m.llm_cost_usd:.4f} |",
              f"| Tool cost | {m.tool_cost:.2f} |",
-             f"| Cost per task / per completed task | {m.cost_per_task:.4f} / {m.cost_per_completed_task:.4f} |",
+             f"| Cost per task / per completed task | {m.cost_per_task:.4f} / "
+             f"{'n/a (nothing completed)' if m.cost_per_completed_task is None else f'{m.cost_per_completed_task:.4f}'} |",
              f"| Avg agent latency | {m.avg_latency_ms:.1f} ms |", "",
-             "## Rule adherence", "",
-             "| Rule | Kind | Applied | Satisfied | Reviewed (ok/declined) | Denied | Adherence |",
-             "|---|---|---|---|---|---|---|"]
+             "## Rule activity", "",
+             "| Rule | Kind | Applied | Satisfied | Reviewed (ok/declined) | Denied |",
+             "|---|---|---|---|---|---|"]
     for s in stats.values():
-        executed = s.satisfied + s.reviews_approved
-        # governance checks every rule before an action runs, so executed actions always comply
-        adherence = "100%" if executed else "-"
         lines.append(f"| {s.rule_id} | {s.kind} | {s.applications} | {s.satisfied} | "
-                     f"{s.reviews_approved}/{s.reviews_declined} | {s.denied} | {adherence} |")
-    lines += ["", "Adherence counts executed actions only: governance evaluates every rule before an action "
-                  "runs, so an action cannot execute with an unsatisfied rule. Denials show where agents or "
-                  "cases were stopped by the rule.", ""]
+                     f"{s.reviews_approved}/{s.reviews_declined} | {s.denied} |")
+    lines += ["", "Counts come from the audit logs: *Satisfied* is how often an executed action met the rule, "
+                  "*Denied* how often the rule stopped an action. Governance checks every rule before an action "
+                  "runs; whether the logs themselves are intact is the audit line above.", ""]
     if m.escalations:
         lines += ["## Hand-offs to humans", "", "| To | Count |", "|---|---|"]
         lines += [f"| {k} | {v} |" for k, v in sorted(m.escalations.items())]

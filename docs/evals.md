@@ -38,7 +38,7 @@ Paths are relative to the suite file. `approver` takes the same values as `autol
 | `max_fallbacks` | A model fell back to the planner at most this many times |
 | `max_cost_usd` | Model spend stayed within this amount |
 
-Without `expect`, a case must complete.
+Without `expect`, a case must complete. Expectations are type-checked when the suite loads: a string where a list belongs, an empty list or a non-integer count is an error, never a vacuous pass. A case with nothing checked does not pass. `max_cost_usd` fails when any model used has no price, because an unknown cost cannot be shown to be within a limit.
 
 ## Running it
 

@@ -117,6 +117,9 @@ def from_metrics(model: TCOModel, measured) -> TCOModel:
     """
     if not measured.tasks:
         return model
+    if getattr(measured, "llm_unpriced_tokens", 0):
+        raise ValueError(f"the runs used models without a price ({', '.join(measured.unpriced_models)}): their "
+                         "cost is unknown, so ROI cannot be computed; register a price first")
     llm = measured.llm_cost_usd / measured.tasks if measured.llm_calls else model.llm_cost_per_task
     return replace(model, intervention_rate=measured.human_intervention_rate, llm_cost_per_task=llm,
                    tool_cost_per_task=measured.tool_cost / measured.tasks)

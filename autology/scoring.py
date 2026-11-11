@@ -306,13 +306,22 @@ def _agent_pillar(results: List, budget: Optional[float]) -> Pillar:
                   f"{_pct(m.straight_through_rate)} completed with no human (target 70%)",
                   "review whether human-review thresholds can be raised for low-risk cases"),
     ]
-    if budget:
-        cpt = m.cost_per_completed_task
+    cpt = m.cost_per_completed_task
+    if m.llm_unpriced_tokens:  # an unknown cost is not a low cost
+        crit.append(Criterion("Cost efficiency", 15, 0,
+                              f"cost unknown: {m.llm_unpriced_tokens} tokens from models with no price "
+                              f"({', '.join(m.unpriced_models) or 'unnamed'})",
+                              "register a price for every model (reasoners.register_price or the suite's prices)"))
+    elif budget and cpt is None:
+        crit.append(Criterion("Cost efficiency", 15, 0, "no completed tasks: cost per completed task cannot be "
+                              "measured", "make tasks complete before judging their cost"))
+    elif budget:
         crit.append(Criterion("Cost efficiency", 15, 15 * _linear(cpt, 2 * budget, budget),
                               f"{cpt:.2f} per completed task (budget {budget:.2f})",
                               "lower cost per task: cheaper tools first, route simple decisions to small models"))
     else:
-        crit.append(Criterion("Cost efficiency", 15, None, f"{m.cost_per_completed_task:.2f} per completed task; "
+        shown = "n/a (nothing completed)" if cpt is None else f"{cpt:.2f}"
+        crit.append(Criterion("Cost efficiency", 15, None, f"{shown} per completed task; "
                               "no budget given", "set a cost budget per completed task to score cost efficiency"))
     healed_pool = [r for r in results if r.audit.events("tool.error")]
     if healed_pool:

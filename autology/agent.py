@@ -162,7 +162,8 @@ class RunState:
     attempts: Counter = field(default_factory=Counter)  # executions per action
     failures: Counter = field(default_factory=Counter)  # failed tool rounds per action
     violations: List[Decision] = field(default_factory=list)
-    costs: Dict[str, float] = field(default_factory=lambda: {"llm_usd": 0.0, "tools": 0.0, "llm_calls": 0})
+    costs: Dict[str, float] = field(default_factory=lambda: {"llm_usd": 0.0, "tools": 0.0, "llm_calls": 0,
+                                                             "llm_unpriced_tokens": 0})
     resume_at: Optional[float] = None
     ontology_ref: str = ""
     update_noticed: bool = False
@@ -495,6 +496,8 @@ class WorkAgent:
                                   self.governance.redacted_view(state, self.principal), list(run.history))
             proposal = self.reasoner.propose(ctx)
             run.costs["llm_usd"] += proposal.cost_usd
+            if proposal.unpriced_tokens:  # a model without a price: its cost is unknown, never counted as free
+                run.costs["llm_unpriced_tokens"] = run.costs.get("llm_unpriced_tokens", 0) + proposal.unpriced_tokens
             if proposal.usage:
                 run.costs["llm_calls"] += 1
             executor, decision = self._authorize(proposal.action, state)
@@ -527,7 +530,7 @@ class WorkAgent:
                       verdict=decision.verdict.value, proposed_by=proposal.source, model=proposal.model,
                       rationale=proposal.rationale, rules=decision.rule_ids, satisfied_rules=decision.satisfied,
                       facts=decision.facts, explanation=explanation, executed_by=executor.name,
-                      llm_cost_usd=proposal.cost_usd)
+                      llm_cost_usd=proposal.cost_usd, unpriced_tokens=proposal.unpriced_tokens)
             if executor is not self:
                 self._log(audit, "delegate", case=run.case_id, action=action.name, from_agent=self.name,
                           to_agent=executor.name)

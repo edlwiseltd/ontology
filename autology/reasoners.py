@@ -49,7 +49,18 @@ def register_price(model: str, input_per_mtok: float, output_per_mtok: float) ->
     PRICES[model] = (float(input_per_mtok), float(output_per_mtok))
 
 
+def is_priced(model: Optional[str]) -> bool:
+    return model in PRICES
+
+
+def billable_tokens(usage: Mapping[str, int]) -> int:
+    return sum(int(usage.get(k, 0) or 0) for k in ("input_tokens", "output_tokens", "cache_read_input_tokens",
+                                                     "cache_creation_input_tokens"))
+
+
 def estimate_cost(model: str, usage: Mapping[str, int]) -> float:
+    """USD cost of ``usage``. A model missing from PRICES returns 0.0 here: callers must check
+    :func:`is_priced` and report its tokens as *unpriced* rather than free (see LLMReasoner)."""
     price_in, price_out = PRICES.get(model, (0.0, 0.0))
     return (usage.get("input_tokens", 0) * price_in
             + usage.get("cache_read_input_tokens", 0) * price_in * CACHE_READ_FACTOR
@@ -75,6 +86,7 @@ class Proposal:
     model: Optional[str] = None
     usage: Dict[str, int] = field(default_factory=dict)
     cost_usd: float = 0.0
+    unpriced_tokens: int = 0  # tokens of a model with no registered price: cost unknown, not zero
 
 
 class Reasoner(Protocol):
@@ -262,11 +274,14 @@ class LLMReasoner:
                               [a.name for a in ctx.candidates], ctx.plan], sort_keys=True, default=str)
         return hashlib.sha256(payload.encode()).hexdigest()
 
-    def _fallback(self, ctx: DecisionContext, why: str, usage=None, cost: float = 0.0) -> Proposal:
+    def _fallback(self, ctx: DecisionContext, why: str, usage=None, cost: float = 0.0, unpriced: int = 0,
+                  model: Optional[str] = None) -> Proposal:
         self.last_error = why
         proposal = self.fallback.propose(ctx)
         proposal.rationale = f"{proposal.rationale} (LLM fallback: {why})"
-        proposal.usage, proposal.cost_usd = dict(usage or {}), cost
+        proposal.usage, proposal.cost_usd, proposal.unpriced_tokens = dict(usage or {}), cost, unpriced
+        if usage:
+            proposal.model = model  # the model that was called, even though the planner chose
         return proposal
 
     def propose(self, ctx: DecisionContext) -> Proposal:
@@ -282,19 +297,22 @@ class LLMReasoner:
         self.calls += 1
         response = self.chat.complete_json(system=self.system_prompt(ctx), prompt=self.user_prompt(ctx),
                                            schema=self.schema(names), effort=self.effort)
-        cost = estimate_cost(response.model or self.model, response.usage)
+        served = response.model or self.model
+        cost = estimate_cost(served, response.usage)
+        unpriced = 0 if is_priced(served) else billable_tokens(response.usage)  # unknown cost, not zero
         self.total_cost_usd += cost
+        spent = (response.usage, cost, unpriced, served)
         if response.error and response.stop_reason == "error":
-            return self._fallback(ctx, response.error, response.usage, cost)
+            return self._fallback(ctx, response.error, *spent)
         if response.stop_reason != "end_turn":
-            return self._fallback(ctx, f"stop_reason={response.stop_reason}", response.usage, cost)
+            return self._fallback(ctx, f"stop_reason={response.stop_reason}", *spent)
         if response.error or response.data is None:
-            return self._fallback(ctx, response.error or "empty reply", response.usage, cost)
+            return self._fallback(ctx, response.error or "empty reply", *spent)
         action, rationale = response.data.get("action"), response.data.get("rationale", "")
         if action not in names:
-            return self._fallback(ctx, f"model chose non-candidate {action!r}", response.usage, cost)
+            return self._fallback(ctx, f"model chose non-candidate {action!r}", *spent)
         self.last_error = None
-        proposal = Proposal(action, str(rationale), "llm", response.model or self.model, response.usage, cost)
+        proposal = Proposal(action, str(rationale), "llm", served, response.usage, cost, unpriced)
         self._cache[key] = proposal
         if len(self._cache) > self.cache_size:
             self._cache.popitem(last=False)

@@ -52,6 +52,29 @@ from .ontology import Ontology, OntologyError
 
 EXPECT_KEYS = {"status", "contains", "excludes", "order", "max_steps", "reviews", "final", "escalation",
                "max_fallbacks", "max_cost_usd"}
+_LISTS = ("contains", "excludes", "order", "final")
+_INTS = ("max_steps", "reviews", "max_fallbacks")
+
+
+def _check_expect(cid: str, expect: Dict[str, Any]) -> None:
+    """Reject expectations that would pass vacuously (a string where a list belongs, an empty list...)."""
+    where = f"suite case {cid}"
+    for key in _LISTS:
+        if key in expect and (not isinstance(expect[key], list) or not expect[key]
+                              or not all(isinstance(x, str) and x for x in expect[key])):
+            raise OntologyError(f"{where}: {key} must be a non-empty list of strings")
+    for key in _INTS:
+        if key in expect and (isinstance(expect[key], bool) or not isinstance(expect[key], int)):
+            raise OntologyError(f"{where}: {key} must be an integer")
+    if "max_cost_usd" in expect and (isinstance(expect["max_cost_usd"], bool)
+                                     or not isinstance(expect["max_cost_usd"], (int, float))):
+        raise OntologyError(f"{where}: max_cost_usd must be a number")
+    status = expect.get("status")
+    if "status" in expect and not (isinstance(status, str) or (isinstance(status, list) and status
+                                                             and all(isinstance(x, str) for x in status))):
+        raise OntologyError(f"{where}: status must be a string or a non-empty list of strings")
+    if "escalation" in expect and not (isinstance(expect["escalation"], str) and expect["escalation"]):
+        raise OntologyError(f"{where}: escalation must be a non-empty string")
 
 
 @dataclass
@@ -104,7 +127,7 @@ class CaseResult:
 
     @property
     def passed(self) -> bool:
-        return all(c.passed for c in self.checks)
+        return bool(self.checks) and all(c.passed for c in self.checks)  # nothing checked is not a pass
 
     def as_dict(self) -> Dict[str, Any]:
         out = dict(self.__dict__)
@@ -136,6 +159,7 @@ def load_suite(path: Union[str, Path]) -> EvalSuite:
         unknown = set(expect) - EXPECT_KEYS
         if unknown:
             raise OntologyError(f"suite case {cid}: unknown expectations {sorted(unknown)}")
+        _check_expect(cid, expect)
         for cond in expect.get("final", []):
             compile_expression(cond)  # fail at load time, not mid-run
         if spec.get("goal") and spec["goal"] not in onto.goals:
@@ -217,8 +241,12 @@ def check(expect: Mapping[str, Any], result: Any, metrics: Mapping[str, Any]) ->
         checks.append(Check(f"max_fallbacks {expect['max_fallbacks']}",
                             metrics["fallbacks"] <= expect["max_fallbacks"], f"got {metrics['fallbacks']}"))
     if "max_cost_usd" in expect:
-        checks.append(Check(f"max_cost_usd {expect['max_cost_usd']}",
-                            metrics["cost_usd"] <= expect["max_cost_usd"], f"spent {metrics['cost_usd']:.4f}"))
+        if metrics.get("unpriced_tokens"):  # an unknown cost cannot be shown to be within a limit
+            checks.append(Check(f"max_cost_usd {expect['max_cost_usd']}", False,
+                                f"cost unknown: {metrics['unpriced_tokens']} tokens from models with no price"))
+        else:
+            checks.append(Check(f"max_cost_usd {expect['max_cost_usd']}",
+                                metrics["cost_usd"] <= expect["max_cost_usd"], f"spent {metrics['cost_usd']:.4f}"))
     return checks
 
 
@@ -236,6 +264,7 @@ def _metrics(result: Any) -> Dict[str, Any]:
             "fallbacks": sum(1 for s in result.steps if "LLM fallback" in (s.rationale or "")),
             "overrides": sum(1 for s in result.steps if s.proposed_by == "override"),
             "llm_calls": int(result.costs.get("llm_calls", 0)),
+            "unpriced_tokens": int(result.costs.get("llm_unpriced_tokens", 0)),
             "cost_usd": round(float(result.costs.get("llm_usd", 0.0)), 6)}
 
 

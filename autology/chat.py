@@ -145,6 +145,11 @@ class AnthropicChatBackend:
             return ChatTurn([], "", [], "error", error="the anthropic package is not installed")
         except api_errors as exc:  # type: ignore[misc]
             return ChatTurn([], "", [], "error", error=f"{type(exc).__name__}: {exc}")
+        except Exception as exc:  # missing credentials, an SDK that rejects a parameter, a transport bug...
+            import logging
+
+            logging.getLogger("autology.chat").warning("assistant backend failed", exc_info=True)
+            return ChatTurn([], "", [], "error", error=type(exc).__name__)
         from .reasoners import AnthropicChatModel
 
         content = echo_content([_block_dict(b) for b in response.content])
@@ -204,7 +209,7 @@ def tools_for(service: Any, user: Any) -> List[Dict[str, Any]]:
          "input_schema": _schema({"question_id": {"type": "string", "enum": [q.id for q in o.questions] or [""]},
                                   "params": {"type": "object", "additionalProperties": True}},
                                  ["question_id", "params"]),
-         "run": lambda a: service.answer(user, a["question_id"], a.get("params") or {})},
+         "run": lambda a: _answer(service, user, a)},
         {"name": "list_runs", "permission": "read",
          "description": "Recent agent runs, optionally filtered by status (completed, awaiting_review, blocked, "
                         "escalated, deferred, paused, suspended).",
@@ -227,16 +232,19 @@ def tools_for(service: Any, user: Any) -> List[Dict[str, Any]]:
                       "run": lambda a: service.list_reviews(user, "pending")})
     if user.can("run") and o.case_templates and service.agents:
         tools.append({"name": "start_run", "permission": "run",
-                      "description": "Start a governed agent run on data from the knowledge graph: a case template "
-                                     "assembles the case starting at the root object. Results are written back.",
+                      "description": "Propose a governed agent run on data from the knowledge graph: a case template "
+                                     "assembles the case starting at the root object, and results are written back. "
+                                     "Nothing runs until the person confirms the proposal in the inbox.",
                       "input_schema": _schema({"agent": {"type": "string", "enum": sorted(service.agents)},
                                                "goal": {"type": "string", "enum": sorted(o.goals)},
                                                "case_template": {"type": "string", "enum": sorted(o.case_templates)},
                                                "root": {"type": "string"}},
                                               ["agent", "goal", "case_template", "root"]),
-                      # only these fields: a justification for a checkpoint must come from the person
-                      "run": lambda a: service.start_run(user, {k: a[k] for k in ("agent", "goal", "case_template",
-                                                                                  "root") if k in a})})
+                      # only these fields: a justification for a checkpoint must come from the person, and the
+                      # person confirms the run (and its write-back) before anything happens
+                      "run": lambda a: service.create_proposal(user, {k: a[k] for k in ("agent", "goal",
+                                                                                        "case_template", "root")
+                                                                      if k in a})})
     if user.can("run"):
         tools.append({"name": "what_if", "permission": "run",
                       "description": "Simulate changes in a sandbox copy of the data and compare with the live data. "
@@ -251,6 +259,71 @@ def tools_for(service: Any, user: Any) -> List[Dict[str, Any]]:
                                               ["name", "edits", "checks"]),
                       "run": lambda a: _what_if(service, user, a)})
     return tools
+
+
+def redacted_refs(service: Any) -> set:
+    """``Entity.attr`` references never sent to the model provider (config ``chat_redact``)."""
+    o = service.ontology
+    refs = set(getattr(service, "chat_redact_fields", set()))
+    sensitivities = getattr(service, "chat_redact_sensitivities", {"confidential"})
+    for e in o.entities.values():
+        refs |= {f"{e.name}.{a.name}" for a in e.attributes.values() if a.sensitivity in sensitivities}
+    return refs
+
+
+def _answer(service: Any, user: Any, a: Dict[str, Any]) -> Any:
+    from .server import ApiError
+
+    q = next((q for q in service.ontology.questions if q.id == a.get("question_id")), None)
+    if q is not None:
+        used = {f"{e}.{x}" for expr in (q.where, q.result_where) if expr for e, x in expr.references}
+        if q.aggregate and q.aggregate[1]:
+            used.add(q.aggregate[1])
+        if used & redacted_refs(service):
+            raise ApiError(403, "this answer uses fields that are not sent to the model provider; ask in the inbox")
+    return service.answer(user, a["question_id"], a.get("params") or {})
+
+
+def redact_for_provider(service: Any, payload: Any, refs: set) -> Any:
+    """Remove the values of ``refs`` from a tool result before it leaves the server, wherever they appear:
+    object attributes, case states (single and per-record), review facts, scenario diffs and free text."""
+    from .governance import REDACTED
+    from .views import ViewPolicy
+
+    if not refs:
+        return payload
+    entities = set(service.ontology.entities)
+    instances = service.graph._instances
+    hidden = "***not sent to the model provider***"
+
+    def attrs(entity: str, values: Dict[str, Any]) -> Dict[str, Any]:
+        return {k: (hidden if f"{entity}.{k}" in refs and v not in (None, REDACTED) else walk(v))
+                for k, v in values.items()}
+
+    def walk(node: Any) -> Any:
+        if isinstance(node, str):
+            return ViewPolicy.scrub(node, refs)
+        if isinstance(node, list):
+            return [walk(v) for v in node]
+        if not isinstance(node, dict):
+            return node
+        if node.get("type") in entities and isinstance(node.get("attributes"), dict):
+            return {**{k: walk(v) for k, v in node.items() if k != "attributes"},
+                    "attributes": attrs(node["type"], node["attributes"])}
+        out = {}
+        for key, value in node.items():
+            if key in refs:  # facts keyed "Entity.attr"
+                out[key] = hidden
+            elif key in entities and isinstance(value, dict):  # state views: Entity -> values or id -> values
+                records = all(isinstance(v, dict) for v in value.values()) and value
+                out[key] = {i: attrs(key, v) for i, v in value.items()} if records else attrs(key, value)
+            elif key in instances and isinstance(value, dict):  # diffs and per-record maps keyed by id
+                out[key] = attrs(instances[key].type, value)
+            else:
+                out[key] = walk(value)
+        return out
+
+    return walk(payload)
 
 
 def _what_if(service: Any, user: Any, a: Dict[str, Any]) -> Dict[str, Any]:
@@ -306,8 +379,13 @@ class GovernedChat:
         calls: List[Dict[str, Any]] = []
         usage: Dict[str, int] = {}
         turn = None
+        refs = redacted_refs(self.service)
         for _ in range(self.max_rounds):
-            turn = self.backend.turn(system, messages, tools)
+            try:
+                turn = self.backend.turn(system, messages, tools)
+            except Exception as exc:  # any backend failure is an "unavailable" reply, never a server error
+                self.service.log_error("assistant backend turn")
+                turn = ChatTurn([], "", [], "error", error=f"{type(exc).__name__}")
             for k, v in turn.usage.items():
                 usage[k] = usage.get(k, 0) + v
             if turn.content:
@@ -328,6 +406,7 @@ class GovernedChat:
                     ok, payload = False, f"error {exc.status}: {exc.message}"
                 except (KeyError, TypeError, ValueError) as exc:
                     ok, payload = False, f"invalid input: {exc}"
+                payload = redact_for_provider(self.service, payload, refs)
                 text = payload if isinstance(payload, str) else json.dumps(payload, default=str)
                 if len(text) > MAX_RESULT_CHARS:
                     text = text[:MAX_RESULT_CHARS] + " ...[truncated]"

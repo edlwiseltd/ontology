@@ -366,7 +366,7 @@ The inbox's **Assistant** tab, and `POST /api/chat`, give people a conversationa
 | `describe_ontology`, `list_objects`, `get_object`, `ask_question` | read | Explore the ontology and the knowledge graph |
 | `list_runs`, `get_run`, `list_notifications` | read | Explain runs: steps, the rules behind each decision, escalations |
 | `list_reviews` | review | Explain the reviews waiting for the person |
-| `start_run` | run | Start a governed run on graph data with a case template |
+| `start_run` | run | *Propose* a governed run on graph data with a case template. Nothing runs until the person confirms |
 | `what_if` | run | Simulate changes in a scenario and compare. Never commits |
 
 What keeps it safe:
@@ -374,7 +374,9 @@ What keeps it safe:
 - **It acts as the person.** Every tool call goes through the same permission, row-access and field-access checks as an API request by that person, so the model never receives a record or value the person may not see.
 - **Tools follow permissions.** A user without `run` is not offered `start_run` or `what_if`, and so on.
 - **It cannot decide reviews.** There is no tool for it. The assistant explains what is waiting and points to the Reviews tab, where a person decides.
-- **Runs it starts are ordinary governed runs:** rules, reviews, write-back and audit all apply.
+- **It proposes runs; the person starts them.** A run changes data (write-back), so the assistant's `start_run` only records a proposal. The person confirms or declines it in the Assistant tab or with `POST /api/proposals/{id}/decision` `{"confirm": true}`. Only that person can, once. A confirmed proposal is an ordinary governed run started by them: rules, reviews, checkpoints, write-back and audit all apply.
+- **Confidential data stays on the server.** Tool results are scrubbed before they are sent to the model provider, whatever the user may see: attribute values, case states, review facts, scenario diffs and facts in free text. By default every attribute marked `"sensitivity": "confidential"` is withheld. `"chat_redact": {"sensitivities": [...], "fields": ["Entity.attr"]}` in the server config changes the list. Questions that filter or aggregate on such a field are refused to the assistant.
+- **Failures are soft.** Any backend failure, such as missing credentials, an SDK that rejects a parameter or a dropped connection, gives the "assistant is unavailable" reply, and the details go to the server log.
 - **Everything is recorded.** Each tool call goes to the access log, and conversations are stored per owner. Nobody else can read them through the API.
 
 ```jsonc
@@ -388,6 +390,8 @@ With Claude, the backend runs the tool loop with the official SDK. It uses promp
 |---|---|---|
 | `POST /api/chat` | read | `{"message", "chat_id"}`. Returns the reply, the tools used and token usage |
 | `GET /api/chat/{id}` | read (owner) | The conversation's readable turns |
+| `GET /api/proposals` | read | The caller's run proposals from the assistant |
+| `POST /api/proposals/{id}/decision` | run (owner) | `{"confirm": true/false, "justification": "..."}`: start the proposed run, or decline it |
 
 ## Access log (Tier 2)
 

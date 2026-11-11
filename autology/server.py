@@ -186,6 +186,12 @@ class AutologyService:
         self.tracing = dict(config.get("tracing") or {})
         if self.tracing and urlparse(str(self.tracing.get("endpoint", ""))).scheme not in ("http", "https"):
             raise ValueError("tracing endpoint must be an http or https URL")
+        redact = dict(config.get("chat_redact") or {})
+        # never sent to the model provider by the assistant, whatever the user may see (default: confidential)
+        self.chat_redact_sensitivities = set(redact.get("sensitivities", ["confidential"]))
+        self.chat_redact_fields = set(redact.get("fields", []))
+        for ref in self.chat_redact_fields:
+            self.ontology._check_field(ref, "chat_redact")
         backend = load_backend(config.get("chat"), (str(base),))
         self.chat = GovernedChat(self, backend) if backend else None
 
@@ -866,6 +872,46 @@ class AutologyService:
         self.require(user, "audit")
         return {"items": self.store.list_justifications(limit)}
 
+    # -- run proposals: the assistant proposes, the person confirms ------------------------
+    def create_proposal(self, user: User, body: Dict[str, Any]) -> Dict[str, Any]:
+        self.require(user, "run")
+        name, goal = body.get("agent"), body.get("goal")
+        if name not in self.agents or goal not in self.agents[name].goals:
+            raise ApiError(400, f"agent {name!r} with goal {goal!r} is not available")
+        if body.get("case_template") not in self.ontology.case_templates:
+            raise ApiError(400, f"unknown case template {body.get('case_template')!r}")
+        with self.graph_lock:
+            inst = self.graph._instances.get(str(body.get("root")))
+            if inst is None or not self.visible(inst, user):
+                raise ApiError(404, f"no object {body.get('root')!r}")
+        proposal = self.store.add_proposal(user.name, {k: body[k] for k in ("agent", "goal", "case_template", "root")})
+        self._notify("proposal", [], f"The assistant proposes {goal} on {body['root']} for {user.name}",
+                     {"proposal_id": proposal["proposal_id"], "owner": user.name})
+        return {"proposal_id": proposal["proposal_id"], "status": "pending",
+                "message": "Proposed, not started. The person confirms or declines it in the inbox (Assistant tab)."}
+
+    def list_proposals(self, user: User) -> Dict[str, Any]:
+        self.require(user, "read")
+        return {"items": self.store.list_proposals(user.name)}
+
+    def confirm_proposal(self, user: User, pid: str, body: Dict[str, Any]) -> Dict[str, Any]:
+        self.require(user, "run")
+        proposal = self.store.get_proposal(pid)
+        if proposal is None or proposal["owner"] != user.name:  # only the person the assistant was working for
+            raise ApiError(404, f"no proposal {pid!r}")
+        if not self.store.claim_proposal(pid):
+            raise ApiError(409, f"proposal {pid} is {proposal['status']}")
+        if body.get("confirm") is not True:
+            self.store.settle_proposal(pid, "declined")
+            return {"proposal_id": pid, "status": "declined"}
+        try:
+            run = self.start_run(user, {**proposal["body"], "justification": body.get("justification")})
+        except Exception:
+            self.store.settle_proposal(pid, "pending")  # nothing ran: the person can try again
+            raise
+        self.store.settle_proposal(pid, "confirmed", run["run_id"])
+        return run
+
     def list_agents(self, user: User) -> Dict[str, Any]:
         self.require(user, "read")
         items = {}
@@ -1135,6 +1181,7 @@ def _handler(service: AutologyService):
                     ("POST", "chat"): lambda: service.chat_send(user, body),
                     ("GET", "access-log"): lambda: service.access_log(user, query.get("principal"), limit),
                     ("GET", "agents"): lambda: service.list_agents(user),
+                    ("GET", "proposals"): lambda: service.list_proposals(user),
                 }
                 key = (method, parts[0]) if len(parts) == 1 else None
                 if key in routes:
@@ -1179,6 +1226,8 @@ def _handler(service: AutologyService):
                                 "discard": lambda: service.discard_scenario(user, sid)}
                     if verb in handlers:
                         return self._send(200, handlers[verb]())
+                if len(parts) == 3 and parts[0] == "proposals" and parts[2] == "decision" and method == "POST":
+                    return self._send(200, service.confirm_proposal(user, parts[1], body))
                 if len(parts) == 3 and parts[0] == "agents" and parts[2] == "reinstate" and method == "POST":
                     return self._send(200, service.reinstate_agent(user, parts[1], body))
                 if len(parts) == 3 and parts[0] == "automations" and parts[2] == "run" and method == "POST":

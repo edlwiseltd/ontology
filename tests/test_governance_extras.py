@@ -176,9 +176,16 @@ class CheckpointTests(unittest.TestCase):
         step = iter([{"tool_calls": [{"name": "start_run", "input": {
             "agent": "fulfilment", "goal": "fulfil_contract", "case_template": "contract_case", "root": "K-1",
             "justification": "the model made this up"}}]}, {"text": "You need to give a reason in the inbox."}])
-        reply = GovernedChat(svc, ScriptedChatBackend(lambda m, t: next(step))).send(olivia, "run K-1")
-        self.assertEqual(reply.tool_calls[0]["ok"], False)
+        GovernedChat(svc, ScriptedChatBackend(lambda m, t: next(step))).send(olivia, "run K-1")
+        pid = svc.list_proposals(olivia)["items"][0]["proposal_id"]
+        self.assertNotIn("justification", svc.store.get_proposal(pid)["body"])  # the model's reason is dropped
+        with self.assertRaises(ApiError) as cm:
+            svc.confirm_proposal(olivia, pid, {"confirm": True})  # the person has not given one yet
+        self.assertEqual(cm.exception.status, 428)
         self.assertEqual(svc.store.list_runs(), [])
+        self.assertEqual(svc.store.get_proposal(pid)["status"], "pending")  # can still be confirmed
+        run = svc.confirm_proposal(olivia, pid, {"confirm": True, "justification": "month-end fulfilment"})
+        self.assertIn(run["status"], ("completed", "awaiting_review"))
 
 
 class TracingTests(unittest.TestCase):

@@ -39,7 +39,7 @@ from .audit import GENESIS, AuditLog
 from .graph import KnowledgeGraph
 from .ontology import Ontology
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -104,6 +104,9 @@ CREATE TRIGGER IF NOT EXISTS justification_no_delete BEFORE DELETE ON justificat
 CREATE TABLE IF NOT EXISTS suspensions (
     seq INTEGER PRIMARY KEY AUTOINCREMENT, agent TEXT NOT NULL, suspended_at TEXT NOT NULL, reason TEXT NOT NULL,
     run_id TEXT, reinstated_at TEXT, reinstated_by TEXT, reinstate_reason TEXT);
+CREATE TABLE IF NOT EXISTS proposals (
+    proposal_id TEXT PRIMARY KEY, owner TEXT NOT NULL, created_at TEXT NOT NULL, status TEXT NOT NULL,
+    body TEXT NOT NULL, run_id TEXT, decided_at TEXT);
 CREATE TABLE IF NOT EXISTS run_sources (
     run_id TEXT PRIMARY KEY, template TEXT NOT NULL, root TEXT NOT NULL, sources TEXT NOT NULL,
     write_back INTEGER NOT NULL, base TEXT, conflicts TEXT);
@@ -522,3 +525,30 @@ class Store:
 
     def suspension_history(self, agent: str) -> List[Dict[str, Any]]:
         return [dict(r) for r in self._query("SELECT * FROM suspensions WHERE agent=? ORDER BY seq DESC", (agent,))]
+
+    # -- run proposals from the assistant -----------------------------------------
+    def add_proposal(self, owner: str, body: Dict[str, Any]) -> Dict[str, Any]:
+        pid = uuid.uuid4().hex[:12]
+        with self._tx() as db:
+            db.execute("INSERT INTO proposals (proposal_id, owner, created_at, status, body) VALUES (?, ?, ?, ?, ?)",
+                       (pid, owner, _now(), "pending", json.dumps(body)))
+        return self.get_proposal(pid)
+
+    def get_proposal(self, pid: str) -> Optional[Dict[str, Any]]:
+        rows = self._query("SELECT * FROM proposals WHERE proposal_id=?", (pid,))
+        return {**dict(rows[0]), "body": json.loads(rows[0]["body"])} if rows else None
+
+    def list_proposals(self, owner: str, limit: int = 50) -> List[Dict[str, Any]]:
+        rows = self._query("SELECT * FROM proposals WHERE owner=? ORDER BY created_at DESC LIMIT ?", (owner, limit))
+        return [{**dict(r), "body": json.loads(r["body"])} for r in rows]
+
+    def claim_proposal(self, pid: str) -> bool:
+        """Move a pending proposal to 'starting'; False if someone else got there first."""
+        with self._tx() as db:
+            return db.execute("UPDATE proposals SET status='starting' WHERE proposal_id=? AND status='pending'",
+                              (pid,)).rowcount == 1
+
+    def settle_proposal(self, pid: str, status: str, run_id: Optional[str] = None) -> None:
+        with self._tx() as db:
+            db.execute("UPDATE proposals SET status=?, run_id=?, decided_at=? WHERE proposal_id=?",
+                       (status, run_id, _now() if status != "pending" else None, pid))

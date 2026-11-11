@@ -94,6 +94,7 @@ function selectTab(name) {
   if (name === "runs") loadRuns();
   if (name === "objects") loadObjects();
   if (name === "activity") loadActivity();
+  if (name === "assistant") loadProposals();
 }
 
 function setupTabs() {
@@ -349,6 +350,32 @@ function chatBubble(role, text, tools) {
     tools && tools.length ? el("p", { class: "muted tools" }, "Looked up: " + tools.join(", ")) : null);
 }
 
+async function loadProposals() {
+  try {
+    const { items } = await api("GET", "proposals");
+    const pending = items.filter((p) => p.status === "pending");
+    $("proposals").replaceChildren(...pending.map((p) => {
+      const confirm = el("button", { type: "button", class: "primary" }, "Run it");
+      const decline = el("button", { type: "button" }, "Decline");
+      const decide = async (yes) => {
+        try {
+          const out = await api("POST", `proposals/${encodeURIComponent(p.proposal_id)}/decision`, { confirm: yes });
+          show(yes ? `Run ${out.run_id} is ${String(out.status).replace("_", " ")}.` : "Proposal declined.", "ok");
+          loadProposals();
+        } catch (err) { show("Could not decide the proposal: " + err.message, "error"); }
+      };
+      confirm.addEventListener("click", () => decide(true));
+      decline.addEventListener("click", () => decide(false));
+      return el("div", { class: "card proposal" },
+        el("p", {}, `The assistant proposes: ${p.body.goal} on ${p.body.root} (agent ${p.body.agent}). ` +
+          "Results are written back to the data. Nothing has run yet."),
+        el("div", { class: "decide" }, confirm, decline));
+    }));
+  } catch (err) {
+    show("Could not load proposals: " + err.message, "error");
+  }
+}
+
 async function sendChat(event) {
   event.preventDefault();
   const input = $("chat-input");
@@ -363,6 +390,7 @@ async function sendChat(event) {
     const out = await api("POST", "chat", { message, chat_id: state.chatId || undefined });
     state.chatId = out.chat_id;
     $("chat-log").append(chatBubble("assistant", out.reply, out.tool_calls.map((c) => c.name)));
+    if (out.tool_calls.some((c) => c.name === "start_run")) loadProposals();
     show("");
   } catch (err) {
     show("The assistant could not answer: " + err.message, "error");

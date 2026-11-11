@@ -101,7 +101,10 @@ class ChatTests(unittest.TestCase):
             {"text": "Run completed; the scenario changes O-1."})
         reply = chat.send(self.users["olivia"], "Fulfil K-1 and try a price change")
         self.assertEqual([c["ok"] for c in reply.tool_calls], [True, True, False, False])
-        self.assertEqual(self.svc.store.list_runs()[0]["status"], "completed")
+        self.assertEqual(self.svc.store.list_runs(), [])  # proposed, not started
+        pid = self.svc.list_proposals(self.users["olivia"])["items"][0]["proposal_id"]
+        run = self.svc.confirm_proposal(self.users["olivia"], pid, {"confirm": True})  # the person confirms
+        self.assertEqual(self.svc.store.load_run(run["run_id"]).status, "completed")
         self.assertEqual(self.svc.graph.get("O-3").attributes["status"], "invoiced")  # written back
         self.assertEqual(len(self.svc.store.list_scenarios("open")), 1)  # simulated, never committed
         chat2, backend = self.chat({"tool_calls": [{"name": "list_reviews", "input": {}},

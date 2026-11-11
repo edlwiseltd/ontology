@@ -73,6 +73,25 @@ class Problem:
         return sum(t.duration for t in self.tasks.values()) + max(
             [t.release for t in self.tasks.values()] + [j.release for j in self.jobs.values()] + [0])
 
+    def effective_predecessors(self, job_id: str) -> Tuple[List[str], int]:
+        """Predecessors that have tasks, found by looking *through* jobs without tasks, and the latest
+        release met on the way. ``A -> B (no tasks) -> C`` makes C wait for A (and for B's release)."""
+        found: Dict[str, None] = {}
+        floor = 0
+        stack, seen = list(self.jobs[job_id].after), set()
+        while stack:
+            pred = stack.pop()
+            if pred in seen or pred not in self.jobs:
+                continue
+            seen.add(pred)
+            job = self.jobs[pred]
+            if job.tasks:
+                found[pred] = None
+            else:
+                floor = max(floor, job.release)
+                stack.extend(job.after)
+        return sorted(found), floor
+
     def lower_bound(self) -> int:
         """Valid lower bound on the makespan: longest job chain, or busiest mandatory resource."""
         memo: Dict[str, int] = {}
@@ -261,13 +280,11 @@ class ListScheduler:
         done_jobs: Dict[str, int] = {}
         out: Dict[str, Assignment] = {}
         pending = {j.id for j in problem.jobs.values() if j.tasks}
-        for j in problem.jobs.values():
-            if not j.tasks:
-                done_jobs[j.id] = j.release
+        preds = {jid: problem.effective_predecessors(jid) for jid in pending}  # through jobs without tasks
         while pending:
             # sorted: a set of strings iterates in a per-process hash order, and the random draws in key()
             # follow this order, so an unsorted list gives different schedules for the same input
-            ready = sorted(j for j in pending if all(a in done_jobs for a in problem.jobs[j].after))
+            ready = sorted(j for j in pending if all(a in done_jobs for a in preds[j][0]))
             if not ready:  # pragma: no cover - cycles are rejected by lower_bound()
                 raise OntologyError("job precedence cycle")
 
@@ -282,7 +299,7 @@ class ListScheduler:
             job = problem.jobs[jid]
             task = problem.tasks[job.tasks[nxt[jid]]]
             if jid not in job_ready:
-                job_ready[jid] = max([job.release] + [done_jobs[a] for a in job.after])
+                job_ready[jid] = max([job.release, preds[jid][1]] + [done_jobs[a] for a in preds[jid][0]])
             t = max(job_ready[jid], prev_end[jid], task.release)
             for _ in range(10_000):
                 picks, latest = [], t
@@ -391,9 +408,11 @@ class CpSatSolver:
             for a, b in zip(job.tasks, job.tasks[1:]):
                 model.Add(ends[a] <= starts[b])
             if job.tasks:
-                for pred in job.after:
-                    if problem.jobs[pred].tasks:
-                        model.Add(ends[problem.jobs[pred].tasks[-1]] <= starts[job.tasks[0]])
+                preds, floor = problem.effective_predecessors(job.id)  # through jobs without tasks
+                for pred in preds:
+                    model.Add(ends[problem.jobs[pred].tasks[-1]] <= starts[job.tasks[0]])
+                if floor:
+                    model.Add(starts[job.tasks[0]] >= floor)
         makespan = model.NewIntVar(0, horizon, "makespan")
         if ends:
             model.AddMaxEquality(makespan, list(ends.values()))
@@ -472,6 +491,24 @@ class ScheduleWarning:
 _TEMPLATE = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\}")
 
 
+def precedence_violations(problem: Problem, schedule: Schedule) -> List[str]:
+    """Jobs that start before a predecessor finishes, including predecessors reached through jobs without tasks."""
+    out = []
+    for job in problem.jobs.values():
+        first = schedule.assignments.get(job.tasks[0]) if job.tasks else None
+        if first is None:
+            continue
+        preds, floor = problem.effective_predecessors(job.id)
+        for pred in preds:
+            end = schedule.job_end(pred)
+            if end is not None and first.start < end:
+                via = "" if pred in job.after else " (through jobs without tasks)"
+                out.append(f"{job.id} starts at {first.start} before predecessor {pred} finishes at {end}{via}")
+        if first.start < floor:
+            out.append(f"{job.id} starts at {first.start}, before the release {floor} of a job it follows")
+    return out
+
+
 def validate_schedule(ontology: Ontology, graph: KnowledgeGraph, problem: Problem,
                       schedule: Schedule) -> List[ScheduleWarning]:
     """Check a schedule against the ontology: solver invariants first, then the declared semantic checks."""
@@ -502,11 +539,8 @@ def validate_schedule(ontology: Ontology, graph: KnowledgeGraph, problem: Proble
         for x, y in zip(seq, seq[1:]):
             if y.start < x.end:
                 warnings.append(ScheduleWarning("critical", "INV-SEQUENCE", y.task, f"{y.task} starts before {x.task} ends"))
-        for pred in job.after:
-            end = schedule.job_end(pred)
-            if seq and end is not None and seq[0].start < end:
-                warnings.append(ScheduleWarning("critical", "INV-PRECEDENCE", seq[0].task,
-                                                f"{job.id} starts before predecessor {pred} finishes"))
+    for message in precedence_violations(problem, schedule):
+        warnings.append(ScheduleWarning("critical", "INV-PRECEDENCE", None, message))
     for jid, late in sorted(schedule.tardiness(problem).items()):
         warnings.append(ScheduleWarning("warning", "DUE-DATE", None,
                                         f"{jid} finishes {late}{spec.time_unit} after its due date"))

@@ -23,6 +23,7 @@
     python -m autology reporting SERVER.json [--out reporting.db] [--roles analyst]   # governed tables for BI tools
     python -m autology serve SERVER.json [--host 127.0.0.1] [--port 8800] [--store PATH]   # REST API + web inbox
     python -m autology backup SERVER.json OUT.db [--store PATH]          # consistent online backup, verified
+    python -m autology console --engine http://127.0.0.1:8800 [--port 8900]   # separate UI to talk to the engine
     python -m autology token                                               # new API token and its hash
 """
 
@@ -258,6 +259,10 @@ def _build_parser() -> argparse.ArgumentParser:
     sv.add_argument("--store", help="store file, overriding the config (e.g. a container volume)")
     sv.add_argument("--host", default="127.0.0.1")
     sv.add_argument("--port", type=int, default=8800)
+    co = sub.add_parser("console", help="run the Autology Console: a separate conversational UI for an engine")
+    co.add_argument("--engine", default="http://127.0.0.1:8800", help="the engine's base URL")
+    co.add_argument("--host", default="127.0.0.1")
+    co.add_argument("--port", type=int, default=8900)
     sub.add_parser("token", help="generate an API token and the hash to put in the server config")
     return parser
 
@@ -409,6 +414,11 @@ def main(argv=None) -> int:
         token, digest = new_token()
         print(f"token (give to the user; shown once): {token}")
         print(f"token_sha256 (put in server config):  {digest}")
+        return 0
+    if args.command == "console":  # pragma: no cover - blocking
+        from .console import serve as serve_console
+
+        serve_console(args.engine, args.host, args.port)
         return 0
     if args.command == "serve":  # pragma: no cover - blocking
         from .server import serve

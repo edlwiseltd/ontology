@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Autology Console</title>
+  <link rel="stylesheet" href="/console.css">
+  <script src="/commands.js" defer></script>
+  <script src="/console.js" defer></script>
+</head>
+<body>
+  <header class="bar">
+    <div class="brand"><span class="logo" aria-hidden="true">◆</span> Autology Console
+      <span class="muted" id="engine-ref"></span></div>
+    <div class="who" id="who" hidden>
+      <span id="who-name"></span>
+      <button type="button" class="link" id="sign-out">Sign out</button>
+    </div>
+  </header>
+
+  <section id="signin" class="signin" aria-labelledby="signin-title">
+    <h1 id="signin-title">Talk to the engine</h1>
+    <p class="muted" id="signin-note">Sign in with the API token your administrator gave you. It stays in this browser tab.</p>
+    <p class="muted small" id="engine-at"></p>
+    <form id="signin-form">
+      <label for="token">API token</label>
+      <input id="token" type="password" autocomplete="off" required>
+      <button type="submit" class="primary">Connect</button>
+    </form>
+    <div id="sso" hidden>
+      <p class="muted or">or</p>
+      <button type="button" class="primary wide" id="sso-button">Sign in with your company account</button>
+    </div>
+  </section>
+
+  <div id="app" class="app" hidden>
+    <aside class="side" aria-label="What the engine knows">
+      <section>
+        <h2>Engine</h2>
+        <p id="side-ontology" class="small"></p>
+        <p id="side-assistant" class="small muted"></p>
+      </section>
+      <section>
+        <h2>Waiting for you</h2>
+        <button type="button" class="chip" id="side-reviews">Reviews <span class="badge" id="review-count">0</span></button>
+      </section>
+      <section>
+        <h2>Questions it can answer</h2>
+        <ul id="side-questions" class="links"></ul>
+      </section>
+      <section>
+        <h2>Things it knows about</h2>
+        <ul id="side-entities" class="links"></ul>
+      </section>
+      <section>
+        <h2>Goals</h2>
+        <ul id="side-goals" class="plain small"></ul>
+      </section>
+    </aside>
+
+    <main class="talk">
+      <div id="thread" class="thread" role="log" aria-live="polite" aria-label="Conversation with the engine"></div>
+      <form id="composer" class="composer">
+        <div id="hints" class="hints" hidden></div>
+        <textarea id="message" rows="2" placeholder="Ask anything, or type / for commands (e.g. /run CL-4)"
+                  aria-label="Message to the engine"></textarea>
+        <button type="submit" class="primary" id="send">Send</button>
+      </form>
+    </main>
+  </div>
+</body>
+</html>

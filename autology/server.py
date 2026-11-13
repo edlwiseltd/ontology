@@ -405,6 +405,7 @@ class AutologyService:
                                         "implementers": list(o.implementers(i.name))} for i in o.interfaces.values()},
                 "rules": [{"id": r.id, "kind": r.kind, "description": r.description} for r in o.rules],
                 "questions": [{"id": q.id, "question": q.question} for q in o.questions],
+                "assistant": self.chat is not None,
                 "agents": {n: {"goals": a.goals, "roles": sorted(a.agent.principal.roles)} for n, a in self.agents.items()}}
 
     def _gated_fields(self, insts: List[Instance]) -> List[str]:

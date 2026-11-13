@@ -1,4 +1,4 @@
-# Autology with the insurance example, plus optional Prometheus.
+# Autology with the insurance example, the Console (http://127.0.0.1:8900), plus optional Prometheus.
 #   cp deploy/.env.example deploy/.env    # then put real secrets in deploy/.env
 #   docker compose -f deploy/docker-compose.yml up -d --build
 #   docker compose -f deploy/docker-compose.yml --profile monitoring up -d   # also Prometheus on :9090
@@ -11,6 +11,13 @@ services:
     volumes:
       - ../examples/auto_insurance:/config:ro    # server.json and the files it names
       - autology-data:/data                      # the store (back it up: `docker compose exec autology autology backup ...`)
+    restart: unless-stopped
+
+  console:                            # the conversational UI, a separate service talking to the engine's API
+    image: autology:local
+    command: ["console", "--engine", "http://autology:8800", "--host", "0.0.0.0", "--port", "8900"]
+    ports: ["127.0.0.1:8900:8900"]
+    depends_on: [autology]
     restart: unless-stopped
 
   prometheus:

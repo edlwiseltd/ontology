@@ -78,9 +78,11 @@ class PackagingTests(unittest.TestCase):
     def test_versions_and_package_data_agree(self):
         text = (ROOT / "pyproject.toml").read_text()
         self.assertIn(f'version = "{__version__}"', text)
-        self.assertIn('autology = ["static/*"]', text)  # the inbox ships inside the package
-        for name in ("index.html", "app.js", "app.css"):
-            self.assertTrue((ROOT / "autology" / "static" / name).exists())
+        self.assertIn('autology = ["static/*", "console_static/*"]', text)  # the inbox and the console ship inside
+        for folder, names in (("static", ("index.html", "app.js", "app.css")),
+                              ("console_static", ("index.html", "console.js", "commands.js", "console.css"))):
+            for name in names:
+                self.assertTrue((ROOT / "autology" / folder / name).exists(), f"{folder}/{name}")
 
     def test_dockerfile_runs_unprivileged_with_a_healthcheck(self):
         text = (ROOT / "Dockerfile").read_text()

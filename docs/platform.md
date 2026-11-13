@@ -26,6 +26,8 @@ Tier 2 builds on it:
 
 The core still needs no third-party dependencies. The store uses SQLite and the server uses `http.server`, both from the Python standard library.
 
+A separate conversational UI for the engine, the **Autology Console**, is described in [`console.md`](console.md).
+
 ## Quick start
 
 ```bash

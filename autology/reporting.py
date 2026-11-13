@@ -174,7 +174,7 @@ def outcome_analysis(results: Iterable[RunResult], ontology) -> Dict[str, object
     had been approved in a human review. Per rule: outcomes of the decisions the rule took part in.
     """
     actions: Dict[str, Dict[str, int]] = defaultdict(lambda: {"judged": 0, "good": 0, "bad": 0,
-                                                              "reviewed_then_bad": 0})
+                                                              "reviewed_then_bad": 0, "unreviewed_bad": 0})
     rules: Dict[str, Dict[str, int]] = defaultdict(lambda: {"judged": 0, "good": 0, "bad": 0})
     runs = {"judged": 0, "good": 0, "bad": 0}
     for r in results:
@@ -194,8 +194,8 @@ def outcome_analysis(results: Iterable[RunResult], ontology) -> Dict[str, object
             a = actions[act.partition("@")[0]]
             a["judged"] += 1
             a["good" if good else "bad"] += 1
-            if not good and act in reviewed:
-                a["reviewed_then_bad"] += 1
+            if not good:
+                a["reviewed_then_bad" if act in reviewed else "unreviewed_bad"] += 1
             d = decisions.get(act, {})
             for rid in set(d.get("rules") or []) | set(d.get("satisfied_rules") or []):
                 rules[rid]["judged"] += 1
@@ -212,11 +212,19 @@ def outcome_analysis(results: Iterable[RunResult], ontology) -> Dict[str, object
         else:
             suggestions.append(f"{rid} ({rule.description}): {s['bad']} of {s['judged']} judged decisions it allowed "
                                "went wrong; check that its condition captures the risk")
-    reviewed_actions = {rule.params.get("action") for rule in ontology.rules_of("human_review")}
+    review_rules: Dict[str, List[str]] = defaultdict(list)
+    for rule in ontology.rules_of("human_review"):
+        review_rules[rule.params.get("action")].append(rule.id)
     for name, s in sorted(actions.items()):
-        if s["bad"] and name not in reviewed_actions:
+        if not s["unreviewed_bad"]:
+            continue
+        if name not in review_rules:
             suggestions.append(f"{name}: {s['bad']} of {s['judged']} judged decisions went wrong and no human_review "
                                "rule covers it; consider adding one for the risky cases")
+        else:  # a review rule exists, but its condition let these through
+            suggestions.append(f"{name}: {s['unreviewed_bad']} of {s['judged']} judged decisions went wrong without "
+                               f"a review ({', '.join(review_rules[name])} did not apply); consider widening the "
+                               "condition")
     return {"runs": runs, "actions": dict(actions), "rules": dict(rules), "suggestions": suggestions}
 
 

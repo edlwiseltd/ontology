@@ -8,7 +8,7 @@ It is **agnostic** in three ways:
 - **Model:** any LLM plugs in through a small `ChatModel` interface. Claude is the default adapter.
 - **Systems:** tools are Python callables, HTTP services or declarative decision tables, wired up in a JSON config.
 
-> Concept paper: [`docs/autology.md`](docs/autology.md) · Engineering methodology mapped to the code: [`docs/methodology.md`](docs/methodology.md) · Ontology + dual-agent scheduling: [`docs/scheduling.md`](docs/scheduling.md) · Feature map against Palantir's platforms: [`docs/palantir-comparison.md`](docs/palantir-comparison.md) · Running as a service: [`docs/platform.md`](docs/platform.md) · Evaluating reasoners: [`docs/evals.md`](docs/evals.md)
+> Concept paper: [`docs/autology.md`](docs/autology.md) · Engineering methodology mapped to the code: [`docs/methodology.md`](docs/methodology.md) · Ontology + dual-agent scheduling: [`docs/scheduling.md`](docs/scheduling.md) · Feature map against Palantir's platforms: [`docs/palantir-comparison.md`](docs/palantir-comparison.md) · Running as a service: [`docs/platform.md`](docs/platform.md) · Evaluating reasoners: [`docs/evals.md`](docs/evals.md) · Five elements, three layers and the common pitfalls mapped to the code: [`docs/ontology-concepts.md`](docs/ontology-concepts.md)
 
 ```
             goal + case facts
@@ -94,6 +94,10 @@ python examples/scheduling/run.py ALERT-11   # furnace breakdown: 14 jobs on hol
 | Evaluation | Test suites for reasoners (models, prompts, routing): expectations, pass rate, agreement with the planner, fallbacks, cost, consistency; CI gate | `evals.py` |
 | Client SDKs | Typed Python and TypeScript clients generated from the ontology, with per-entity, per-question and per-goal helpers and a fingerprint check | `sdk.py` |
 | Assistant | Governed chat over the API: tools run as the signed-in user, can start runs and simulate, never decides reviews; access log | `chat.py` |
+| Functions | Named, typed calculations over an object and its links (`Claim.payout`), usable in every rule, goal, question and computed effect; arithmetic and `min`/`max`/`abs`/`round` in expressions | `ontology.py`, `expressions.py` |
+| One vocabulary | `aliases` map each team's term to one entity ("Case" = `Claim`); lint `DUP001` flags look-alike entities | `ontology.py`, `lint.py` |
+| Decision outcomes | Record what happened after a decision, in the run's audit chain; per-action and per-rule outcome rates and rule-change suggestions | `server.py`, `reporting.py` |
+| MCP | The same governed tools as the assistant, served over the Model Context Protocol (stdio) to any MCP client | `mcp.py` |
 | Governance extras | Justification checkpoints (`checkpoint` rules), ontology interfaces, OpenTelemetry trace export | `server.py`, `ontology.py`, `tracing.py` |
 | Scheduling | Impact rules with reasoning chains and event application; flexible job-shop model; CP-SAT and built-in solvers; post-solve validation; rework cloning; Gantt; RDF export of instance data for SPARQL | `impact.py`, `scheduling.py`, `export.py` |
 
@@ -102,7 +106,7 @@ python examples/scheduling/run.py ALERT-11   # furnace breakdown: 14 jobs on hol
 Requires Python 3.10 or later. No dependencies (`anthropic` is optional, for Claude).
 
 ```bash
-python -m unittest discover -s tests -t .             # 327 tests, 97% line coverage (OR-Tools, rdflib, Node and tsc tests skip if not installed; CI installs them)
+python -m unittest discover -s tests -t .             # 355 tests, 97% line coverage (OR-Tools, rdflib, Node and tsc tests skip if not installed; CI installs them)
 python examples/customer_onboarding/run.py financial  # narrated walkthrough
 python examples/manufacturing/run.py                  # full methodology: modules, CQs, agents, versioning, report, ROI, score
 ```
@@ -261,7 +265,8 @@ examples/manufacturing/        modular enterprise ontology (core/procurement/pro
 examples/care_referral/        configuration-only deployment: ontology, decision-table tools, policy, pilot batch
 examples/scheduling/           aerospace plant: plant + replanning modules, generated knowledge graph, 16 events, narrated run
 examples/order_fulfilment/     many orders per contract, row-level access, a server config with four users and two automations
-tests/                         327 tests (stdlib unittest), including the >= 95 readiness gate for every example
+examples/auto_insurance/       minimum viable ontology for motor claims: all five elements and three layers, functions, aliases
+tests/                         355 tests (stdlib unittest), including the >= 95 readiness gate for the four pilot examples
 docs/autology.md               the Autology concept and how it maps to this code
 docs/methodology.md            the engineering methodology, section by section, with the code that implements it
 ```

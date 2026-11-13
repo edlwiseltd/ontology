@@ -1,0 +1,130 @@
+{
+  "name": "auto-insurance-claims",
+  "version": "1.0.0",
+  "description": "Minimum viable ontology for motor claims: claim, policy, vehicle, repair shop, payment",
+  "settings": {"max_violations": 3},
+  "entities": {
+    "Claim": {
+      "description": "A request to be paid for damage to an insured vehicle",
+      "aliases": ["Case", "Incident"],
+      "states": ["reported", "assessed", "referred", "approved", "rejected", "paid"],
+      "attributes": {
+        "amount": "number",
+        "damage_type": "string",
+        "reported_days_after": "integer",
+        "fraud_score": "number",
+        "fraud_band": "string",
+        "approved_amount": "number"
+      }
+    },
+    "Policy": {
+      "description": "The cover the claim is made against",
+      "states": ["active", "lapsed"],
+      "attributes": {
+        "holder": {"type": "string", "sensitivity": "pii"},
+        "deductible": "number",
+        "coverage_limit": "number"
+      }
+    },
+    "Vehicle": {
+      "description": "The insured vehicle",
+      "states": ["insured"],
+      "attributes": {"plate": "string", "age_years": "integer"}
+    },
+    "RepairShop": {
+      "description": "Where the vehicle is repaired",
+      "states": ["active"],
+      "attributes": {"name": "string", "approved_network": "boolean"}
+    },
+    "Payment": {
+      "description": "The settlement paid out for the claim",
+      "states": ["pending", "sent"],
+      "attributes": {"amount": "number", "reference": "string"}
+    }
+  },
+  "relationships": [
+    {"from": "Claim", "to": "Policy", "type": "against", "cardinality": "1"},
+    {"from": "Claim", "to": "Vehicle", "type": "concerns", "cardinality": "1"},
+    {"from": "Claim", "to": "RepairShop", "type": "repairedAt", "cardinality": "0..1"},
+    {"from": "Claim", "to": "Payment", "type": "settledBy", "cardinality": "0..1"}
+  ],
+  "functions": {
+    "payout": {"entity": "Claim", "returns": "number",
+               "description": "What the policy pays: the amount less the deductible, capped at the coverage limit",
+               "expr": "max(min(Claim.amount - Policy.deductible, Policy.coverage_limit), 0)"},
+    "late_report": {"entity": "Claim", "returns": "boolean",
+                    "description": "Reported more than 30 days after the incident",
+                    "expr": "Claim.reported_days_after > 30"}
+  },
+  "actions": {
+    "assess_fraud": {
+      "description": "Score the claim for fraud",
+      "capability": "fraud.score",
+      "requires": ["Claim.status == 'reported'"],
+      "reads": ["Claim.amount", "Claim.reported_days_after"],
+      "writes": ["Claim.fraud_score"],
+      "outcomes": {
+        "clear": {"effects": {"Claim": {"status": "assessed", "fraud_band": "low"}}},
+        "suspicious": {"effects": {"Claim": {"status": "assessed", "fraud_band": "high"}}},
+        "fraud": {"effects": {"Claim": {"status": "referred", "fraud_band": "certain"}}}
+      }
+    },
+    "approve_claim": {
+      "description": "Approve the claim for the computed payout",
+      "capability": "claims.approve",
+      "requires": ["Claim.status == 'assessed'", "Policy.status == 'active'"],
+      "effects": {"Claim": {"status": "approved", "approved_amount": {"compute": "Claim.payout"}}}
+    },
+    "reject_claim": {
+      "description": "Reject the claim",
+      "capability": "claims.reject",
+      "cost": 5,
+      "requires": ["Claim.status in ['assessed', 'referred']"],
+      "effects": {"Claim": {"status": "rejected"}}
+    },
+    "pay_claim": {
+      "description": "Pay the approved amount",
+      "capability": "payments.pay",
+      "requires": ["Claim.status == 'approved'"],
+      "writes": ["Payment.reference"],
+      "effects": {"Claim": {"status": "paid"},
+                  "Payment": {"status": "sent", "amount": {"compute": "Claim.approved_amount"}}}
+    }
+  },
+  "goals": {
+    "settle_claim": {"description": "The claim is paid or rejected",
+                     "target": "Claim.status in ['paid', 'rejected']"}
+  },
+  "case_templates": {
+    "claim_case": {"description": "A claim with its policy, vehicle, repair shop and payment", "root": "Claim",
+                   "entities": {"Claim": "self", "Policy": "against", "Vehicle": "concerns",
+                                "RepairShop": "repairedAt", "Payment": "settledBy"}}
+  },
+  "rules": [
+    {"id": "R-SIU-APPROVE", "type": "human_review", "action": "approve_claim", "reviewer": "special_investigations",
+     "when": "Claim.fraud_band == 'high'",
+     "description": "Claims scored as suspicious are approved only after an investigator looks at them"},
+    {"id": "R-SIU-REJECT", "type": "human_review", "action": "reject_claim", "reviewer": "special_investigations",
+     "description": "Only an investigator rejects a claim"},
+    {"id": "R-HIGH-PAYOUT", "type": "human_review", "action": "pay_claim", "reviewer": "claims_manager",
+     "when": "Claim.payout >= 20000", "description": "Payouts of 20,000 or more need a claims manager"},
+    {"id": "R-NO-FRAUD-PAY", "type": "prohibition", "action": "pay_claim", "when": "Claim.fraud_band == 'certain'",
+     "description": "Never pay a claim scored as fraud"},
+    {"id": "R-PII", "type": "data_access", "field": "Policy.holder", "roles": ["claims_handler"],
+     "description": "Policy holders' names are for claims handlers only"},
+    {"id": "R-FRAUD-TEAM", "type": "action_access", "action": "assess_fraud", "roles": ["fraud_analytics"],
+     "description": "Fraud scoring is run by fraud analytics"},
+    {"id": "R-FINANCE", "type": "action_access", "action": "pay_claim", "roles": ["finance"],
+     "description": "Only finance releases payments"}
+  ],
+  "competency_questions": [
+    {"id": "CQ-01", "question": "Which claims are waiting for assessment?", "find": "Claim",
+     "where": "Claim.status == 'reported'", "expect": ["CL-1", "CL-2", "CL-3"]},
+    {"id": "CQ-02", "question": "Which repair shops outside the approved network have claims?", "find": "Claim",
+     "follow": ["repairedAt"], "result_where": "RepairShop.approved_network == False", "expect": ["RS-2"]},
+    {"id": "CQ-03", "question": "Which claims were reported late?", "find": "Case", "where": "Case.late_report",
+     "expect": ["CL-3"]},
+    {"id": "CQ-04", "question": "How much is claimed in total?", "find": "Claim",
+     "aggregate": {"sum": "Claim.amount"}, "expect": 86200}
+  ]
+}

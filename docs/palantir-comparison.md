@@ -22,12 +22,12 @@ Palantir sells four products. Only two overlap with what Autology does.
 | **Apollo** | Continuous delivery of software to many environments, including air-gapped ones | None. Out of scope |
 | **Gotham** | Defence and intelligence analysis platform | None. Out of scope |
 
-Of the 58 feature areas compared below:
+Of the 59 feature areas compared below:
 
 | Status | Count | Meaning |
 |---|---|---|
-| **Have** | 23 | Autology has a working equivalent |
-| **Partial** | 17 | The concept exists but is narrower, or has no user interface |
+| **Have** | 25 | Autology has a working equivalent |
+| **Partial** | 16 | The concept exists but is narrower, or has no user interface |
 | **Missing** | 14 | Not present |
 | **Out of scope** | 4 | Not sensible to build here |
 
@@ -46,7 +46,7 @@ This is the heart of both systems.
 | Action types | Governed, auditable changes to objects, with parameters and rules | Actions with preconditions, outcomes, effects, and read and write declarations | **Have** | — | — |
 | Submission criteria | Conditions on the user, parameters and objects that decide whether an action may run | Governance rules: mandatory steps, prohibitions, read, write and action access, with conditions | **Have** | — | — |
 | Side effects: notifications and webhooks | Notify people or call external systems when an action runs. A writeback webhook runs first and blocks the edit if it fails | HTTP tools call external systems, and a failed tool blocks the step. Notifications by role for reviews and automations, delivered to webhooks (Tier 2) | **Partial** | Medium. An explicit "call before commit" ordering | S |
-| Functions | Code-based logic over objects, usable in actions and applications | Python tool handlers and decision tables. No reusable, versioned function registry | **Partial** | High. A function registry with typed inputs is a natural extension of the tool registry | M |
+| Functions | Code-based logic over objects, usable in actions and applications | Ontology `functions`: named, typed, versioned expressions over an object and its links, usable in rules, goals, questions and computed action effects. Code-based logic stays in Python and HTTP tools | **Have** | Functions are expressions, not arbitrary code, by design: they are validated and fail closed on missing facts | — |
 | Interfaces | Shared shape that several object types implement | `interfaces` with typed attributes; entities declare `implements`; validated, versioned, queryable (competency questions, API listings) and typed in the generated SDKs (Tier 2). Rules still name concrete entities | **Have** | — | — |
 | Object storage and indexing | Scalable store for billions of objects, with search and incremental indexing | SQLite store for the graph, runs, audit and reviews (Tier 1). Single node, no search index | **Partial** | Medium. A PostgreSQL implementation of the same `Store` interface. Palantir-scale indexing is not realistic | L |
 | Multiple objects per case | Actions operate on object sets of any size | Multi-record entities, per-record actions (`for_each`), quantified goals, per-record mandatory steps (Tier 1) | **Have** | — | — |
@@ -67,6 +67,7 @@ This is the heart of both systems.
 | AIP Observability | Tracing, logs and run history for functions, actions and models | Hash-chained audit log, metrics, saved runs, API access log, and OpenTelemetry export: each run as a trace with step, tool, review and denial spans, to any OTLP collector (Tier 2). No built-in trace viewer | **Have** | — | — |
 | Automate | Run actions or send notifications when Ontology data changes | Automations on data changes, deadlines and schedules start governed runs on cases built from the graph, write results back and notify people (Tier 2) | **Have** | — | — |
 | Human review of AI edits | Stage AI-proposed changes for a person to approve | Human-review rules with context-rich requests; policy, console and HTTP approvers | **Have** | — | — |
+| Palantir MCP and Ontology MCP | Expose the Ontology's objects and actions to external AI clients over the Model Context Protocol | `python -m autology mcp`: the assistant's governed tools over MCP (stdio), signed in as one API user, with row and field access, proposals instead of direct runs, no review decisions, provider redaction and an access-log entry per call | **Have** | Add the HTTP transport | S |
 | AIP Threads and AIP Analyst | Ad-hoc chat with documents and data exploration | Not present | **Missing** | Low priority. Generic chat tools already do this | M |
 | AIP Assist | In-product help assistant | Not present | **Out of scope** | — | — |
 | Model cost and usage tracking | Track model usage per workload | Token usage and cost per decision, rolled into metrics | **Have** | — | — |

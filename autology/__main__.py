@@ -21,7 +21,8 @@
     python -m autology mcp SERVER.json [--token-env AUTOLOGY_TOKEN]       # MCP server over stdio
     python -m autology ingest SERVER.json PIPELINE [--dry-run] [--rows ROWS.json]   # load data from other systems
     python -m autology reporting SERVER.json [--out reporting.db] [--roles analyst]   # governed tables for BI tools
-    python -m autology serve SERVER.json [--host 127.0.0.1] [--port 8800]   # REST API + web inbox
+    python -m autology serve SERVER.json [--host 127.0.0.1] [--port 8800] [--store PATH]   # REST API + web inbox
+    python -m autology backup SERVER.json OUT.db [--store PATH]          # consistent online backup, verified
     python -m autology token                                               # new API token and its hash
 """
 
@@ -242,12 +243,19 @@ def _build_parser() -> argparse.ArgumentParser:
     ig.add_argument("pipeline")
     ig.add_argument("--dry-run", action="store_true", help="check and report, write nothing but the batch record")
     ig.add_argument("--rows", metavar="ROWS.json", help='rows for push sources: {"source": [{...}, ...]}')
+    ig.add_argument("--store", help="store file, overriding the config")
+    bk = sub.add_parser("backup", help="copy the live store consistently (safe while serving) and verify the copy")
+    bk.add_argument("config")
+    bk.add_argument("out")
+    bk.add_argument("--store", help="store file, overriding the config")
     rp = sub.add_parser("reporting", help="write the governed reporting database that BI tools read")
     rp.add_argument("config")
     rp.add_argument("--out", help="SQLite file (default: the server config's reporting.target)")
     rp.add_argument("--roles", help="ontology roles of the audience, comma-separated (default: from the config)")
+    rp.add_argument("--store", help="store file, overriding the config")
     sv = sub.add_parser("serve", help="run the REST API and web inbox")
     sv.add_argument("config")
+    sv.add_argument("--store", help="store file, overriding the config (e.g. a container volume)")
     sv.add_argument("--host", default="127.0.0.1")
     sv.add_argument("--port", type=int, default=8800)
     sub.add_parser("token", help="generate an API token and the hash to put in the server config")
@@ -329,10 +337,29 @@ def _cmd_score(args, onto: Ontology) -> int:
     return 0
 
 
+def _cmd_backup(args) -> int:
+    from .server import AutologyService
+    from .store import StoreError
+
+    service = AutologyService.from_file(args.config, args.store)
+    try:
+        out = service.store.backup(args.out)
+    except StoreError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    print(f"backup {out['path']}: {out['bytes']} bytes, schema {out['schema']}, {out['instances']} objects, "
+          f"{out['runs']} runs")
+    if out["unverified_runs"]:
+        print(f"  audit chains that do not verify: {', '.join(out['unverified_runs'])}", file=sys.stderr)
+        return 2
+    print("  every audit chain verifies")
+    return 0
+
+
 def _cmd_reporting(args) -> int:
     from .server import AutologyService
 
-    service = AutologyService.from_file(args.config)
+    service = AutologyService.from_file(args.config, args.store)
     if args.out:
         service.reporting["target"] = str(Path(args.out).resolve())
     if args.roles is not None:
@@ -353,7 +380,7 @@ def _cmd_reporting(args) -> int:
 def _cmd_ingest(args) -> int:
     from .server import ApiError, AutologyService
 
-    service = AutologyService.from_file(args.config)
+    service = AutologyService.from_file(args.config, args.store)
     pushed = json.loads(Path(args.rows).read_text(encoding="utf-8")) if args.rows else None
     try:
         out = service.ingest(args.pipeline, "cli", args.dry_run, pushed)
@@ -386,7 +413,7 @@ def main(argv=None) -> int:
     if args.command == "serve":  # pragma: no cover - blocking
         from .server import serve
 
-        serve(args.config, args.host, args.port)
+        serve(args.config, args.host, args.port, args.store)
         return 0
     if args.command == "diff":
         old, new = _load(args.old), _load(args.new)
@@ -413,6 +440,8 @@ def main(argv=None) -> int:
         return _cmd_ingest(args)
     if args.command == "reporting":
         return _cmd_reporting(args)
+    if args.command == "backup":
+        return _cmd_backup(args)
 
     onto = _load(args.ontology)
     if args.command == "validate":

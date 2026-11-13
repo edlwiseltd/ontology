@@ -237,9 +237,13 @@ class AutologyService:
         self.chat = GovernedChat(self, backend) if backend else None
 
     @classmethod
-    def from_file(cls, path: str) -> "AutologyService":
+    def from_file(cls, path: str, store: Optional[str] = None) -> "AutologyService":
+        """Load a server config; ``store`` overrides its store path (e.g. a volume in a container)."""
         p = Path(path).resolve()
-        return cls(json.loads(p.read_text(encoding="utf-8")), p.parent)
+        config = json.loads(p.read_text(encoding="utf-8"))
+        if store:
+            config["store"] = str(Path(store).resolve())
+        return cls(config, p.parent)
 
     # -- auth ---------------------------------------------------------------
     def authenticate(self, header: Optional[str]) -> User:
@@ -1535,9 +1539,17 @@ def make_server(service: AutologyService, host: str = "127.0.0.1", port: int = 8
     return server
 
 
-def serve(config_path: str, host: str = "127.0.0.1", port: int = 8800) -> None:  # pragma: no cover - blocking
+def serve(config_path: str, host: str = "127.0.0.1", port: int = 8800,
+          store: Optional[str] = None) -> None:  # pragma: no cover - blocking
+    import signal
+
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-    service = AutologyService.from_file(config_path)
+    service = AutologyService.from_file(config_path, store)
+
+    def stop_on_sigterm(signum, frame):  # `docker stop`, systemd, Kubernetes: shut down cleanly
+        raise KeyboardInterrupt
+
+    signal.signal(signal.SIGTERM, stop_on_sigterm)
     server = make_server(service, host, port)
     stop = service.start_background()
     print(f"Autology API for {service.ontology.ref} on http://{host}:{server.server_port} "
@@ -1550,3 +1562,5 @@ def serve(config_path: str, host: str = "127.0.0.1", port: int = 8800) -> None: 
     finally:
         stop.set()
         server.server_close()
+        service.store.close()
+        print("Autology stopped", flush=True)

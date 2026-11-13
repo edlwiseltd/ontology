@@ -17,7 +17,7 @@ Palantir sells four products. Only two overlap with what Autology does.
 
 | Palantir product | What it is | Overlap with Autology |
 |---|---|---|
-| **Foundry** | Data and operations platform: pipelines, the Ontology, applications, analytics, security | Partial. Autology covers the Ontology, action, rule and audit concepts. It has none of the data platform or user interfaces |
+| **Foundry** | Data and operations platform: pipelines, the Ontology, applications, analytics, security | Partial. Autology covers the Ontology, action, rule and audit concepts, loads and checks data, and feeds BI tools. It has no transformation platform and only an inbox for a user interface |
 | **AIP** | AI layer on Foundry: LLM functions, chatbots, evaluations, automations | Substantial. Governed agents over an ontology is Autology's core |
 | **Apollo** | Continuous delivery of software to many environments, including air-gapped ones | None. Out of scope |
 | **Gotham** | Defence and intelligence analysis platform | None. Out of scope |
@@ -26,12 +26,12 @@ Of the 59 feature areas compared below:
 
 | Status | Count | Meaning |
 |---|---|---|
-| **Have** | 25 | Autology has a working equivalent |
-| **Partial** | 16 | The concept exists but is narrower, or has no user interface |
-| **Missing** | 14 | Not present |
+| **Have** | 26 | Autology has a working equivalent |
+| **Partial** | 18 | The concept exists but is narrower, or has no user interface |
+| **Missing** | 11 | Not present |
 | **Out of scope** | 4 | Not sensible to build here |
 
-The pattern is clear. Autology is strongest where Palantir's *ideas* are: an ontology that agents act through, governed actions, human review, audit, impact analysis and scheduling. It is weakest where Palantir's *product mass* is: data pipelines, a scalable object store, end-user applications, analytics and fine-grained security.
+The pattern is clear. Autology is strongest where Palantir's *ideas* are: an ontology that agents act through, governed actions, human review, audit, impact analysis and scheduling. It is weakest where Palantir's *product mass* is: data transformation, a scalable object store, end-user applications and fine-grained security. Tier 3 connects it to existing tools for ingestion, dashboards, sign-in and delivery instead of rebuilding them.
 
 **The practical conclusion:** do not try to rebuild Foundry. Build the missing pieces that make the ontology-and-agent core production-grade, and integrate existing open-source tools for the data platform and dashboards.
 
@@ -86,7 +86,7 @@ This is the heart of both systems.
 
 | Palantir feature | What it does | Autology today | Status | Potential here | Effort |
 |---|---|---|---|---|---|
-| Projects and roles | Discretionary access: owner, editor, viewer per project | API users with tokens, permissions (read, run, review, audit, admin) and data roles (Tier 1). No projects or single sign-on | **Partial** | Medium. Projects and OIDC sign-in on top of the API | M |
+| Projects and roles | Discretionary access: owner, editor, viewer per project | API users with permissions (read, run, review, audit, ingest, admin) and data roles; company sign-in with OpenID Connect, groups mapped to permissions and roles (Tier 3). No projects | **Partial** | Medium. Projects on top of the API | M |
 | Markings | Mandatory, all-or-nothing access labels that travel with derived data | Sensitivity tags on attributes and role-based read rules. Nothing propagates to derived data | **Missing** | Medium. Propagation needs data lineage, which is also missing | L |
 | Restricted views and granular policies | Row-level access by comparing user attributes with data values | `row_access` rules hide records from agents and API users; field rules redact attributes (Tier 1) | **Have** | — | — |
 | Classification-based access controls | Clearance-level controls for government use | Not present | **Out of scope** | — | — |
@@ -101,11 +101,11 @@ This is Foundry's largest area and Autology's largest gap.
 
 | Palantir feature | What it does | Autology today | Status | Potential here | Effort |
 |---|---|---|---|---|---|
-| Data Connection | Connectors and credential management for external sources | HTTP tool adapters with secrets from environment variables. No data connectors | **Missing** | Integrate, do not build: use an open-source ingestion tool | M to integrate |
-| Pipeline Builder and Code Repositories | Build batch and streaming transformation pipelines, visually or in code | Not present | **Missing** | Integrate an existing transformation and orchestration stack | M to integrate |
+| Data Connection | Connectors and credential management for external sources | Pipelines read CSV, JSON, JSON Lines, SQL (SQLite, PostgreSQL or any DB-API driver) and JSON web APIs, or accept rows pushed by another tool; secrets only from environment variables (Tier 3, [`integrations.md`](integrations.md)). No library of SaaS connectors | **Partial** | Put Airbyte or dlt in front for SaaS sources and change data capture | — |
+| Pipeline Builder and Code Repositories | Build batch and streaming transformation pipelines, visually or in code | Not built. Autology pipelines map and check rows into the ontology; transformations belong in dbt or a similar tool feeding a staging database | **Missing** | Integrate an existing transformation and orchestration stack | M to integrate |
 | Datasets, transactions and versioning | Versioned datasets with transactional updates | Ontology versions are tracked. Data is not versioned | **Missing** | Low. This is a data-platform feature | XL |
-| Data Lineage | Graph of how every dataset and object was derived | Reasoning chains for impact and decisions. No data lineage | **Missing** | Medium. Record the source of each graph instance at load time | M |
-| Data health checks | Automated quality checks on datasets | Ontology lint, schema validation of graph data, competency questions with expected answers | **Partial** | High. Declarative data-quality checks on graph instances | S–M |
+| Data Lineage | Graph of how every dataset and object was derived | Per-object lineage: every load that created or changed an object, with pipeline, source, row and attributes, append-only (Tier 3). Reasoning chains for impact and decisions. No dataset-level lineage graph | **Partial** | Medium. Lineage across transformations needs the transformation tool's lineage (e.g. dbt) | M |
+| Data health checks | Automated quality checks on datasets | Every loaded row is converted to the ontology's types and checked: states, required, min, max, in, pattern, duplicate ids, link targets and relationships; failing rows are quarantined with the reason; metrics for rejected rows (Tier 3). Plus lint and competency questions | **Have** | — | — |
 | Streaming | Real-time pipelines | Not present | **Missing** | Low priority | L |
 | Time series | Time-series storage and analysis | Not present | **Missing** | Medium, if a project needs sensor or telemetry data | L |
 | Media sets | Documents, images and video as first-class data | Not present | **Missing** | Low priority | L |
@@ -121,7 +121,7 @@ Autology has no graphical interface at all. Its output is a CLI, files and one s
 | Review and operations inbox | Where people approve, reject and monitor work | Web inbox: pending reviews with rules, facts and history; runs with steps and audit verification; start runs; browse objects (Tier 1); notifications and automations (Tier 2) | **Have** | — | — |
 | Object Explorer | Search and browse objects | Object listing and detail in the API and inbox, access-filtered (Tier 1). No full-text search | **Partial** | Medium. Search and filters | M |
 | Vertex | Visual graph exploration and simulation | Graph queries and impact chains as text | **Partial** | Medium. A graph view of impact results would be valuable | M |
-| Quiver and Contour | Point-and-click analysis of objects and large tables | Not present | **Missing** | Integrate an open-source business-intelligence tool | S to integrate |
+| Quiver and Contour | Point-and-click analysis of objects and large tables | Not built in. A governed reporting database (per audience: row, field, checkpoint and sensitivity rules applied) for Metabase, Superset, Grafana or Power BI (Tier 3) | **Partial** | The analysis interface is the BI tool's | — |
 | Notepad | Reports that embed live data | Markdown compliance and readiness reports | **Partial** | Low priority | S |
 | Geospatial maps | Map-based applications | Not present | **Missing** | Low priority unless a project needs it | L |
 
@@ -131,7 +131,7 @@ Autology has no graphical interface at all. Its output is a CLI, files and one s
 |---|---|---|---|---|---|
 | REST API | Programmatic access to objects, actions and queries | REST API: objects, questions, runs, reviews, audit, report and score, with token auth and per-user access (Tier 1) | **Have** | — | — |
 | Foundry Branching | Change pipelines, ontology and applications on a branch, test, then merge | Ontology files live in git. Semantic diff and version checks exist. No branch-aware runtime | **Partial** | Medium. Git plus the diff tool covers most of the need | S–M |
-| Foundry DevOps and Marketplace | Package resources into versioned products and install them across environments | Ontology modules with imports, a version registry and release checks. No packaging | **Partial** | High. Package an ontology, tools and policies as one installable unit | M |
+| Foundry DevOps and Marketplace | Package resources into versioned products and install them across environments | Ontology modules with imports, a version registry and release checks; a Docker image and wheel published by a release workflow, an online backup command (Tier 3). No packaging of an ontology with its tools and policies as one unit | **Partial** | High. Package an ontology, tools and policies as one installable unit | M |
 | Compute modules | Run custom containers inside the platform | Not present | **Out of scope** | Use your own container platform | — |
 | Apollo | Continuous delivery across many environments, including air-gapped ones | Not present | **Out of scope** | Use standard CI/CD | — |
 
@@ -159,13 +159,15 @@ The gaps differ a great deal in value. This order follows what each step unlocks
 | 9 | Chat front end over governed tools (Chatbot Studio) | Done: governed assistant, API and inbox |
 | 10 | Tracing export, justification checkpoints, notifications, interfaces | Done, plus an API access log |
 
-**Tier 3: integrate, do not build.** Mature open-source tools already cover these.
+**Tier 3: integrate, do not build.** Mature open-source tools already cover these. **Done** — see
+[`integrations.md`](integrations.md) and [`deployment.md`](deployment.md).
 
-| Need | Approach |
-|---|---|
-| Data ingestion and pipelines | An open-source ingestion and transformation stack that loads the graph store |
-| Dashboards and table analysis | An open-source business-intelligence tool reading the store |
-| Delivery | Standard CI/CD and containers |
+| Need | Approach | Status |
+|---|---|---|
+| Data ingestion and pipelines | An open-source ingestion and transformation stack that loads the graph store | Done: Autology pipelines (files, SQL, web APIs, pushed rows) with type and quality checks, quarantine, watermarks and lineage, fed directly or by Airbyte, dlt or dbt |
+| Dashboards and table analysis | An open-source business-intelligence tool reading the store | Done: a governed reporting database per audience for Metabase, Superset, Grafana or Power BI; Prometheus metrics |
+| Single sign-on | The company's identity provider | Done: OpenID Connect, with group mappings and a sign-in button in the inbox |
+| Delivery | Standard CI/CD and containers | Done: Docker image, compose example, online backups, a smoke test in CI and a release workflow |
 
 **Not worth pursuing:** a low-code application builder, a dataset versioning platform, Apollo, Gotham, and government classification controls. Each is a product that took Palantir years, and none is needed for the ontology-and-agent core to be useful.
 

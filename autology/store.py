@@ -647,3 +647,44 @@ class Store:
                  "action": r["action"], "attributes": json.loads(r["attributes"]), "links": json.loads(r["links"]),
                  "loaded_at": r["loaded_at"]}
                 for r in self._query("SELECT * FROM lineage WHERE instance_id=? ORDER BY seq", (instance_id,))]
+
+    # -- backups ------------------------------------------------------------
+    def backup(self, target: Union[str, Path]) -> Dict[str, Any]:
+        """A consistent copy of the live store (SQLite's online backup: safe while the server runs).
+
+        The copy is written next to ``target`` and renamed into place, then opened and checked: schema version,
+        and every run's audit chain. Returns counts and the runs that did not verify (should be none).
+        """
+        import os
+        import tempfile
+
+        path = Path(target).resolve()
+        if path == Path(self.path).resolve():
+            raise StoreError("the backup must not overwrite the live store")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd, tmp = tempfile.mkstemp(prefix=".backup-", suffix=".db", dir=str(path.parent))
+        os.close(fd)
+        try:
+            dest = sqlite3.connect(tmp)
+            try:
+                with self._lock:
+                    self._db.backup(dest)
+                dest.execute("PRAGMA journal_mode=DELETE")  # one self-contained file, no -wal sidecar
+            finally:
+                dest.close()
+            os.replace(tmp, path)
+        finally:
+            if os.path.exists(tmp):
+                os.unlink(tmp)
+        copy = Store(path)
+        try:
+            runs = [r["run_id"] for r in copy.list_runs(limit=10 ** 9)]
+            bad = [r for r in runs if not copy.verify_audit(r)]
+            return {"path": str(path), "bytes": path.stat().st_size, "instances": copy.count_instances(),
+                    "runs": len(runs), "unverified_runs": bad,
+                    "schema": int(copy._query("SELECT value FROM meta WHERE key='schema_version'")[0]["value"])}
+        finally:
+            copy.close()
+            plain = sqlite3.connect(path)  # opening it as a store switched it to WAL: back to one file
+            plain.execute("PRAGMA journal_mode=DELETE")
+            plain.close()

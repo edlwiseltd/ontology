@@ -23,7 +23,7 @@ from .state import WorldState
 from .tools import Tool, ToolCall, ToolError, ToolRegistry, ToolResult
 from .versioning import OntologyRegistry, VersionError
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 __all__ = [
     "ActionType", "AuditLog", "AutoApprover", "ClaudeReasoner", "ConsoleApprover", "Decision",

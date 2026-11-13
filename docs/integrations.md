@@ -9,6 +9,7 @@ provider. Tier 3 connects it to the ones a company already has, so each does wha
 | Dashboards and analysis | Metabase, Superset, Grafana, Power BI, Tableau | A governed reporting database (SQLite or PostgreSQL), refreshed on a schedule |
 | Operational monitoring and alerts | Prometheus with Grafana or Alertmanager | `GET /api/metrics` in the Prometheus text format |
 | Company sign-in | Okta, Microsoft Entra ID, Keycloak, Auth0, Google, any OpenID Connect provider | Verified ID and access tokens, group-to-role mappings, a sign-in button in the inbox |
+| Delivery | Docker, Compose, GitHub Releases and Container Registry | An image, an online backup command, a smoke test and a release workflow ([`deployment.md`](deployment.md)) |
 
 ## Data ingestion
 

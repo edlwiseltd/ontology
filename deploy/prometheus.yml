@@ -1,0 +1,6 @@
+global: {scrape_interval: 30s}
+scrape_configs:
+  - job_name: autology
+    metrics_path: /api/metrics
+    authorization: {type: Bearer, credentials_file: /etc/prometheus/autology-token}  # a user with "audit"
+    static_configs: [{targets: ["autology:8800"]}]

@@ -8,7 +8,7 @@ It is **agnostic** in three ways:
 - **Model:** any LLM plugs in through a small `ChatModel` interface. Claude is the default adapter.
 - **Systems:** tools are Python callables, HTTP services or declarative decision tables, wired up in a JSON config.
 
-> Concept paper: [`docs/autology.md`](docs/autology.md) · Engineering methodology mapped to the code: [`docs/methodology.md`](docs/methodology.md) · Ontology + dual-agent scheduling: [`docs/scheduling.md`](docs/scheduling.md) · Feature map against Palantir's platforms: [`docs/palantir-comparison.md`](docs/palantir-comparison.md) · Running as a service: [`docs/platform.md`](docs/platform.md) · Evaluating reasoners: [`docs/evals.md`](docs/evals.md) · Five elements, three layers and the common pitfalls mapped to the code: [`docs/ontology-concepts.md`](docs/ontology-concepts.md)
+> Concept paper: [`docs/autology.md`](docs/autology.md) · Engineering methodology mapped to the code: [`docs/methodology.md`](docs/methodology.md) · Ontology + dual-agent scheduling: [`docs/scheduling.md`](docs/scheduling.md) · Feature map against Palantir's platforms: [`docs/palantir-comparison.md`](docs/palantir-comparison.md) · Running as a service: [`docs/platform.md`](docs/platform.md) · Evaluating reasoners: [`docs/evals.md`](docs/evals.md) · Five elements, three layers and the common pitfalls mapped to the code: [`docs/ontology-concepts.md`](docs/ontology-concepts.md) · Data ingestion, dashboards, monitoring and company sign-in: [`docs/integrations.md`](docs/integrations.md) · Docker, backups, upgrades and releases: [`docs/deployment.md`](docs/deployment.md)
 
 ```
             goal + case facts
@@ -56,6 +56,12 @@ export AUTOLOGY_AUDIT_KEY=...   # secret that keys the audit chain; keep it to v
 python -m autology serve server.json        # then open http://127.0.0.1:8800
 ```
 
+It also connects to the rest of a company's stack (Tier 3, [`docs/integrations.md`](docs/integrations.md)): **data pipelines** load records from files, SQL databases and web APIs (or rows pushed by Airbyte, dlt or dbt), check every value against the ontology, quarantine rows that do not fit and record where each object came from; a **governed reporting database** feeds Metabase, Superset or Grafana with only what a chosen audience may see; **Prometheus metrics** watch pending reviews, failing feeds and audit integrity; and people **sign in with their company account** (OpenID Connect: Okta, Entra ID, Keycloak, Google...). It ships as a **Docker image** with an online, verified backup command ([`docs/deployment.md`](docs/deployment.md)):
+
+```bash
+docker build -t autology . && deploy/smoke_test.sh autology   # or: docker compose -f deploy/docker-compose.yml up
+```
+
 ## Ontology + dual-agent scheduling
 
 A complete version of the *ontology + ImpactAgent + ScheduleAgent* manufacturing scheduling pattern, generic and driven by the ontology ([`docs/scheduling.md`](docs/scheduling.md)):
@@ -98,6 +104,10 @@ python examples/scheduling/run.py ALERT-11   # furnace breakdown: 14 jobs on hol
 | One vocabulary | `aliases` map each team's term to one entity ("Case" = `Claim`); lint `DUP001` flags look-alike entities | `ontology.py`, `lint.py` |
 | Decision outcomes | Record what happened after a decision, in the run's audit chain; per-action and per-rule outcome rates and rule-change suggestions | `server.py`, `reporting.py` |
 | MCP | The same governed tools as the assistant, served over the Model Context Protocol (stdio) to any MCP client | `mcp.py` |
+| Data ingestion (Tier 3) | Pipelines from CSV, JSON, SQL (SQLite, PostgreSQL, any DB-API) and web APIs or pushed rows; type and quality checks, quarantine, watermarks, per-object lineage; loads trigger automations | `ingest.py` |
+| Reporting and monitoring (Tier 3) | A governed reporting database per audience for BI tools (SQLite or PostgreSQL); Prometheus metrics | `warehouse.py` |
+| Company sign-in (Tier 3) | OpenID Connect tokens verified with the standard library, claim-to-role mappings, PKCE sign-in in the inbox | `oidc.py` |
+| Delivery (Tier 3) | Docker image, compose example, online verified backups, smoke test, release workflow | `Dockerfile`, `deploy/`, `store.py` |
 | Governance extras | Justification checkpoints (`checkpoint` rules), ontology interfaces, OpenTelemetry trace export | `server.py`, `ontology.py`, `tracing.py` |
 | Scheduling | Impact rules with reasoning chains and event application; flexible job-shop model; CP-SAT and built-in solvers; post-solve validation; rework cloning; Gantt; RDF export of instance data for SPARQL | `impact.py`, `scheduling.py`, `export.py` |
 
@@ -106,7 +116,7 @@ python examples/scheduling/run.py ALERT-11   # furnace breakdown: 14 jobs on hol
 Requires Python 3.10 or later. No dependencies (`anthropic` is optional, for Claude).
 
 ```bash
-python -m unittest discover -s tests -t .             # 355 tests, 97% line coverage (OR-Tools, rdflib, Node and tsc tests skip if not installed; CI installs them)
+python -m unittest discover -s tests -t .             # 408 tests, 97% line coverage (OR-Tools, rdflib, PostgreSQL, cryptography, Node and tsc tests skip if not available; CI provides them all)
 python examples/customer_onboarding/run.py financial  # narrated walkthrough
 python examples/manufacturing/run.py                  # full methodology: modules, CQs, agents, versioning, report, ROI, score
 ```
@@ -125,7 +135,7 @@ python -m autology score  $D/ontology.json --runs runs.jsonl --tools $D/all_tool
     --data $D/data.json --budget 25 --tco $D/tco.json --min-score 95           # exit 4 below 95: CI gate
 ```
 
-Other commands: `lint`, `describe`, `ask` (competency questions), `plan`, `scenario` (what-if comparison, optionally `--commit`), `eval` (reasoner test suites, [`docs/evals.md`](docs/evals.md)), `sdk` (typed Python or TypeScript client), `trace` (OpenTelemetry export), `diff` (exits 3 if the version bump is too small), `export --format jsonld|turtle`, `roi`, `serve`, `token`.
+Other commands: `ingest` (run a data pipeline), `reporting` (write the BI database), `backup` (online, verified), `lint`, `describe`, `ask` (competency questions), `plan`, `scenario` (what-if comparison, optionally `--commit`), `eval` (reasoner test suites, [`docs/evals.md`](docs/evals.md)), `sdk` (typed Python or TypeScript client), `trace` (OpenTelemetry export), `diff` (exits 3 if the version bump is too small), `export --format jsonld|turtle`, `roi`, `serve`, `token`.
 
 ### Connecting real systems
 
@@ -265,8 +275,9 @@ examples/manufacturing/        modular enterprise ontology (core/procurement/pro
 examples/care_referral/        configuration-only deployment: ontology, decision-table tools, policy, pilot batch
 examples/scheduling/           aerospace plant: plant + replanning modules, generated knowledge graph, 16 events, narrated run
 examples/order_fulfilment/     many orders per contract, row-level access, a server config with four users and two automations
-examples/auto_insurance/       minimum viable ontology for motor claims: all five elements and three layers, functions, aliases
-tests/                         355 tests (stdlib unittest), including the >= 95 readiness gate for the four pilot examples
+examples/auto_insurance/       minimum viable ontology for motor claims: all five elements and three layers, a data pipeline
+deploy/                        compose example, Prometheus config, environment template, container smoke test
+tests/                         408 tests (stdlib unittest), including the >= 95 readiness gate for the four pilot examples
 docs/autology.md               the Autology concept and how it maps to this code
 docs/methodology.md            the engineering methodology, section by section, with the code that implements it
 ```

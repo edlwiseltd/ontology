@@ -59,3 +59,34 @@ jobs:
 
       - name: Coverage
         run: python -m coverage report --fail-under=95
+
+  package:
+    # The wheel installs and serves the inbox; the Docker image passes the end-to-end smoke test.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Build and check the wheel
+        run: |
+          python -m pip install "build==1.2.2"
+          python -m build
+          python -m venv /tmp/wheel-env
+          /tmp/wheel-env/bin/pip install dist/*.whl
+          /tmp/wheel-env/bin/autology --help > /dev/null
+          /tmp/wheel-env/bin/python -c "import autology, pathlib; assert (pathlib.Path(autology.__file__).parent / 'static' / 'app.js').exists()"
+
+      - name: Build the Docker image
+        run: docker build -t autology:ci .
+
+      - name: Smoke-test the image
+        run: deploy/smoke_test.sh autology:ci
+
+      - name: Compose file is valid
+        run: |
+          cp deploy/.env.example deploy/.env
+          touch deploy/prometheus-token
+          docker compose -f deploy/docker-compose.yml --profile monitoring config -q

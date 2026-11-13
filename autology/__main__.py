@@ -20,6 +20,7 @@
     python -m autology scenario ONTOLOGY DATA.json SCENARIO.json [--schedule] [--json] [--commit OUT.json]
     python -m autology mcp SERVER.json [--token-env AUTOLOGY_TOKEN]       # MCP server over stdio
     python -m autology ingest SERVER.json PIPELINE [--dry-run] [--rows ROWS.json]   # load data from other systems
+    python -m autology reporting SERVER.json [--out reporting.db] [--roles analyst]   # governed tables for BI tools
     python -m autology serve SERVER.json [--host 127.0.0.1] [--port 8800]   # REST API + web inbox
     python -m autology token                                               # new API token and its hash
 """
@@ -241,6 +242,10 @@ def _build_parser() -> argparse.ArgumentParser:
     ig.add_argument("pipeline")
     ig.add_argument("--dry-run", action="store_true", help="check and report, write nothing but the batch record")
     ig.add_argument("--rows", metavar="ROWS.json", help='rows for push sources: {"source": [{...}, ...]}')
+    rp = sub.add_parser("reporting", help="write the governed reporting database that BI tools read")
+    rp.add_argument("config")
+    rp.add_argument("--out", help="SQLite file (default: the server config's reporting.target)")
+    rp.add_argument("--roles", help="ontology roles of the audience, comma-separated (default: from the config)")
     sv = sub.add_parser("serve", help="run the REST API and web inbox")
     sv.add_argument("config")
     sv.add_argument("--host", default="127.0.0.1")
@@ -324,6 +329,27 @@ def _cmd_score(args, onto: Ontology) -> int:
     return 0
 
 
+def _cmd_reporting(args) -> int:
+    from .server import AutologyService
+
+    service = AutologyService.from_file(args.config)
+    if args.out:
+        service.reporting["target"] = str(Path(args.out).resolve())
+    if args.roles is not None:
+        service.reporting["roles"] = [r for r in args.roles.split(",") if r]
+    if not service.reporting.get("target"):
+        print("error: give --out or set reporting.target in the server config", file=sys.stderr)
+        return 1
+    meta = service.refresh_reporting()
+    print(f"wrote {meta['target']} for roles {meta['roles'] or '(none)'}: "
+          + ", ".join(f"{t} {n}" for t, n in meta["rows"].items()))
+    for ref, why in sorted(meta["left_out_fields"].items()):
+        print(f"  left out {ref}: {why}")
+    if meta["hidden_records"] or meta["hidden_runs"]:
+        print(f"  hidden from this audience: {meta['hidden_records']} records, {meta['hidden_runs']} runs")
+    return 0
+
+
 def _cmd_ingest(args) -> int:
     from .server import ApiError, AutologyService
 
@@ -385,6 +411,8 @@ def main(argv=None) -> int:
         return _cmd_trace(args)
     if args.command == "ingest":
         return _cmd_ingest(args)
+    if args.command == "reporting":
+        return _cmd_reporting(args)
 
     onto = _load(args.ontology)
     if args.command == "validate":

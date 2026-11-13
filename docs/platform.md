@@ -178,6 +178,8 @@ Every request needs `Authorization: Bearer <token>`, except `/api/health` and th
 | `GET /api/pipelines` | ingest | Data pipelines, their sources, watermarks and last load |
 | `POST /api/pipelines/{name}/run` | ingest | Run a pipeline (`{"dry_run": true}` to check only), or push rows: `{"rows": {"source": [...]}}` |
 | `GET /api/ingest-batches/{id}` | ingest | One load, with its quarantined rows |
+| `GET /api/metrics` | audit | Operational metrics in the Prometheus text format (counts only) |
+| `POST /api/reporting` | admin | Rewrite the governed reporting database for BI tools |
 
 **Permissions:**
 

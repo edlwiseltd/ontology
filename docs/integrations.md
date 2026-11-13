@@ -6,6 +6,8 @@ provider. Tier 3 connects it to the ones a company already has, so each does wha
 | Need | Use | Autology provides |
 |---|---|---|
 | Moving data out of source systems | Airbyte, dlt, Meltano, Fivetran, dbt, or plain exports | Pipelines that pull from files, SQL databases and web APIs, or accept pushed rows; checks, quarantine and lineage |
+| Dashboards and analysis | Metabase, Superset, Grafana, Power BI, Tableau | A governed reporting database (SQLite or PostgreSQL), refreshed on a schedule |
+| Operational monitoring and alerts | Prometheus with Grafana or Alertmanager | `GET /api/metrics` in the Prometheus text format |
 
 ## Data ingestion
 
@@ -114,3 +116,77 @@ work on what changed.
 - `sql` sources are tested against SQLite and a real PostgreSQL 16 (through `psycopg`, in CI); other DB-API drivers
   (SQL Server, Oracle, MySQL) should work through the same path but are untested.
 - Pushed requests are limited to 1 MB each; push large loads in chunks.
+
+## Dashboards: the reporting database
+
+BI tools read tables. `autology reporting` (or the server, on a schedule) writes a flat copy of the graph and of the
+decision history that any of them can open:
+
+| Table | One row per | Columns |
+|---|---|---|
+| `obj_<entity>` (e.g. `obj_claim`, `obj_repair_shop`) | object | `id`, `status`, one typed column per attribute, `updated_at` |
+| `links` | link | `source`, `kind`, `target`, `source_type`, `target_type` |
+| `runs` | agent run | agent, goal, case, status, who started it, times, step count, human touches, tool and model cost |
+| `steps` | step of a run | action, verdict, outcome, executed by, reviewer |
+| `reviews` | human review | action, reviewer roles, status, approved, created, decided, `hours_to_decide` |
+| `outcomes` | recorded outcome | action, label, good, recorded by and when |
+| `automation_firings` | automation firing | automation, object, trigger, time, result, run |
+| `ingest_batches` | data load | pipeline, time, status, created, updated, unchanged, rejected |
+| `_export` | setting | when it was written, for which roles, and what was left out |
+
+```json
+"reporting": {"target": "reporting.db", "roles": ["claims_handler"], "every": 300}
+```
+
+`target` is a SQLite file, or `{"driver": "psycopg", "dsn_env": "REPORTING_DSN"}` for PostgreSQL (or another
+DB-API database). `every` refreshes it from the server's scheduler; `POST /api/reporting` (admin) or
+`python -m autology reporting server.json [--out FILE] [--roles r1,r2]` refreshes it on demand.
+
+**The dashboard audience is governed here, not in the BI tool.** The export is written *for* the ontology roles in
+`roles`, through the same rules as an API user with those roles:
+
+- records hidden by `row_access` rules are left out, with their links, and so are runs whose case holds one (and
+  those runs' steps, reviews and outcomes);
+- fields hidden by `data_access` rules are empty for the records they apply to;
+- checkpoint-gated fields and fields marked `pii` or `confidential` are left out entirely; change
+  `exclude_sensitivities`, or list fields in `include_fields`, to opt in;
+- free text (step messages, explanations, review comments, outcome notes) is never exported.
+
+Give each audience its own export (one file per audience, or one PostgreSQL database per audience) and let the BI
+tool's own permissions decide who opens which. The SQLite file is replaced atomically, so dashboards never read half
+an export, and a refresh keeps the file's permissions.
+
+**Metabase**: add a database of type SQLite with the file's path (mount the folder into the container read-only),
+or of type PostgreSQL. **Superset**: `sqlite:////data/reporting.db` or a `postgresql://` URI. **Grafana**: the
+PostgreSQL data source, or a SQLite data source plugin.
+
+*Checked for real:* Metabase 0.56 opened the export over SQLite, listed all thirteen tables, and ran a native query
+joining claims to their runs; the `obj_policy` table had no `holder` column. The PostgreSQL target is tested in CI.
+
+## Monitoring: Prometheus metrics
+
+`GET /api/metrics` returns counts in the Prometheus text format, for any user with the `audit` permission. Give
+Prometheus its own API token:
+
+```yaml
+scrape_configs:
+  - job_name: autology
+    metrics_path: /api/metrics
+    authorization: {type: Bearer, credentials_file: /etc/prometheus/autology-token}
+    static_configs: [{targets: ["autology:8800"]}]
+```
+
+| Metric | Use it to |
+|---|---|
+| `autology_reviews_pending{reviewer}`, `autology_review_oldest_pending_seconds{reviewer}` | alert when reviews pile up or wait too long |
+| `autology_runs{agent,status}` | watch run outcomes; alert on `blocked` or `escalated` growth |
+| `autology_audit_unverified_runs` | alert if any audit chain stops verifying (should always be 0) |
+| `autology_agents_suspended` | alert when governance suspends an agent |
+| `autology_ingest_last_success_timestamp_seconds{pipeline}`, `autology_ingest_rejected_rows_total{pipeline}` | alert on stale feeds and on bad data |
+| `autology_automation_firings_total{automation,status}`, `autology_scheduler_errors` | spot failing automations |
+| `autology_api_requests_total{status}`, `autology_objects{entity}`, `autology_info` | traffic, size, deployed version |
+
+The metrics carry counts only: no record ids, names or values.
+
+*Checked for real:* Prometheus 3.5 scraped the endpoint with a bearer token (target `up`) and answered queries for
+`autology_objects` and `autology_ingest_rejected_rows_total`.

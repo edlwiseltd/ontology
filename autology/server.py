@@ -192,6 +192,17 @@ class AutologyService:
 
         self.pipelines = load_pipelines(config.get("pipelines") or {}, self.ontology, base)
         self.ingest_lock = threading.Lock()  # one load at a time: plans are computed against the current graph
+        self.reporting = dict(config.get("reporting") or {})
+        if self.reporting:
+            target = self.reporting.get("target")
+            if isinstance(target, str):
+                self.reporting["target"] = str((base / target).resolve())
+            elif not (isinstance(target, dict) and target.get("driver") and target.get("dsn_env")):
+                raise ValueError("reporting.target must be a SQLite path or {\"driver\", \"dsn_env\"}")
+            for ref in self.reporting.get("include_fields", []):
+                self.ontology._check_field(ref, "reporting include_fields")
+        self._last_report: Optional[float] = None
+        self._verified: Tuple[float, int] = (0.0, 0)
         self.webhooks: List[Dict[str, Any]] = []
         for hook in config.get("webhooks", []):
             if urlparse(str(hook.get("url", ""))).scheme not in ("http", "https"):
@@ -595,7 +606,37 @@ class AutologyService:
         out = {"resumed": resumed, "firings": [f.as_dict() for f in firings]}
         if self.pipelines:
             out["ingested"] = loads
+        every = self.reporting.get("every")
+        if every and (self._last_report is None or time.monotonic() - self._last_report >= float(every)):
+            out["reporting"] = self.refresh_reporting()["rows"]
         return out
+
+    # -- reporting and metrics ---------------------------------------------------------
+    def refresh_reporting(self) -> Dict[str, Any]:
+        """Rewrite the reporting database for BI tools (see :mod:`autology.warehouse`)."""
+        from .warehouse import DEFAULT_EXCLUDED, export_reporting
+
+        if not self.reporting:
+            raise ApiError(400, "no reporting target configured (\"reporting\": {\"target\": \"reporting.db\"})")
+        cfg = self.reporting
+        meta = export_reporting(self, cfg["target"], cfg.get("roles", []),
+                                cfg.get("exclude_sensitivities", DEFAULT_EXCLUDED), cfg.get("include_fields", []))
+        self._last_report = time.monotonic()
+        return meta
+
+    def unverified_runs(self) -> int:
+        """How many stored runs fail audit verification (cached for a minute: it reads every chain)."""
+        checked_at, count = self._verified
+        if time.monotonic() - checked_at > 60 or not checked_at:
+            count = sum(1 for r in self.store.list_runs(limit=10 ** 9) if not self.store.verify_audit(r["run_id"]))
+            self._verified = (time.monotonic(), count)
+        return count
+
+    def metrics(self, user: User) -> str:
+        self.require(user, "audit")
+        from .warehouse import metrics_text
+
+        return metrics_text(self)
 
     # -- ingestion ------------------------------------------------------------------
     def ingest(self, name: str, triggered_by: str, dry_run: bool = False,
@@ -1349,6 +1390,7 @@ def _handler(service: AutologyService):
                     ("GET", "proposals"): lambda: service.list_proposals(user),
                     ("GET", "outcomes"): lambda: service.outcomes_summary(user),
                     ("GET", "pipelines"): lambda: service.list_pipelines(user),
+                    ("POST", "reporting"): lambda: (service.require(user, "admin"), service.refresh_reporting())[1],
                 }
                 key = (method, parts[0]) if len(parts) == 1 else None
                 if key in routes:
@@ -1360,6 +1402,8 @@ def _handler(service: AutologyService):
                     if parts[1] not in GENERATORS:
                         raise ApiError(404, f"no client for {parts[1]!r}; available: {sorted(GENERATORS)}")
                     return self._send(200, GENERATORS[parts[1]](service.ontology), "text/plain")
+                if method == "GET" and parts == ["metrics"]:
+                    return self._send(200, service.metrics(user), "text/plain; version=0.0.4")
                 if method == "GET" and parts == ["report"]:
                     return self._send(200, service.report(user), "text/markdown")
                 if len(parts) == 2:

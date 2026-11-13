@@ -96,7 +96,7 @@ def load_automations(specs: Mapping[str, Any], ontology: Ontology,
     out: Dict[str, Automation] = {}
     for name, spec in (specs or {}).items():
         where = f"automation {name!r}"
-        entity = spec.get("entity")
+        entity = ontology.canonical(spec.get("entity"))
         if entity not in ontology.entities:
             raise OntologyError(f"{where}: unknown entity {entity!r}")
         when = None

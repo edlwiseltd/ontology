@@ -97,6 +97,16 @@ def lint(ontology: Ontology, tools=None) -> List[Finding]:
             for t in a.tools:
                 if t not in names:
                     out.append(Finding("warning", "TOOL002", f"action {a.name} allows unknown tool {t!r}"))
+    # semantic fragmentation: two entity types that look like one concept under two names
+    names = sorted(o.entities)
+    for i, a in enumerate(names):
+        for b in names[i + 1:]:
+            ea, eb = set(o.entities[a].attributes), set(o.entities[b].attributes)
+            shared = ea & eb
+            if len(shared) >= 3 and len(shared) / len(ea | eb) >= 0.8:
+                out.append(Finding("warning", "DUP001", f"{a} and {b} share {len(shared)} of {len(ea | eb)} attributes "
+                                   f"({', '.join(sorted(shared)[:5])}): if they are one concept, merge them and list "
+                                   "the other name under 'aliases'"))
     return out
 
 

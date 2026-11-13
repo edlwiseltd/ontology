@@ -80,6 +80,7 @@ class WorldState:
 
     @classmethod
     def initial(cls, ontology: Ontology, case: Mapping[str, Any]) -> "WorldState":
+        case = ontology.canonical_case(case)  # any team's name for an entity
         extra = set(case) - set(ontology.entities)
         if extra:
             raise OntologyError(f"case data references unknown entities {sorted(extra)}")

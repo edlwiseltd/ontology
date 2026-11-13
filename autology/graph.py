@@ -51,6 +51,7 @@ class KnowledgeGraph:
 
     # -- building -------------------------------------------------------
     def add(self, entity_type: str, id: str, **attributes: Any) -> Instance:
+        entity_type = self.ontology.canonical(entity_type)
         etype = self.ontology.entities.get(entity_type)
         if etype is None:
             raise OntologyError(f"unknown entity type {entity_type!r}")

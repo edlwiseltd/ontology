@@ -74,6 +74,7 @@ def diff(old: Ontology, new: Ontology) -> List[Change]:
             changes.append(Change("major", "entity.initial_state_changed", name,
                                   f"{o.initial_state} -> {n.initial_state}"))
         keyed("implements", {f"{name}:{i}": 1 for i in o.implements}, {f"{name}:{i}": 1 for i in n.implements})
+        keyed("alias", {f"{name}:{a}": 1 for a in o.aliases}, {f"{name}:{a}": 1 for a in n.aliases})  # removal breaks callers
         if o.multiple != n.multiple:  # cases switch between one record and a list: every client breaks
             changes.append(Change("major", "entity.multiple_changed", name, f"{o.multiple} -> {n.multiple}"))
 

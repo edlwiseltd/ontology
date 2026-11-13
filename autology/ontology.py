@@ -104,17 +104,21 @@ class Computed:
     expr: Expression
 
 
-def expand_functions(source: str, functions: Mapping[Tuple[str, str], Any], _stack: Tuple = ()) -> str:
-    """Replace ``Entity.function`` references in ``source`` with the function's expression."""
+def expand_functions(source: str, functions: Mapping[Tuple[str, str], Any], _stack: Tuple = (),
+                     aliases: Optional[Mapping[str, str]] = None) -> str:
+    """Rewrite ``source`` in the ontology's own terms: alias entity names become the entity's name, and
+    ``Entity.function`` references are replaced with the function's expression."""
     tree = ast.parse(source.strip(), mode="eval")
 
     class Expand(ast.NodeTransformer):
         def visit_Attribute(self, node):  # noqa: N802 - ast API
+            if aliases and isinstance(node.value, ast.Name) and node.value.id in aliases:
+                node.value = ast.Name(aliases[node.value.id], ast.Load())
             if isinstance(node.value, ast.Name) and (node.value.id, node.attr) in functions:
                 key = (node.value.id, node.attr)
                 if key in _stack:
                     raise OntologyError(f"function {key[0]}.{key[1]} refers to itself")
-                body = expand_functions(functions[key]["expr"], functions, _stack + (key,))
+                body = expand_functions(functions[key]["expr"], functions, _stack + (key,), aliases)
                 return ast.parse(body, mode="eval").body
             return node
 
@@ -139,6 +143,7 @@ class EntityType:
     external_states: Tuple[str, ...] = ()  # states set by outside systems (ETL, sensors), not by actions
     multiple: bool = False  # a case may hold many instances (e.g. several orders under one contract)
     implements: Tuple[str, ...] = ()  # interfaces: shared shapes such as "Party" for Customer and Supplier
+    aliases: Tuple[str, ...] = ()  # other teams' names for the same concept ("Case" for Claim)
 
     def has_attribute(self, attr: str) -> bool:
         return attr in (STATUS, ID) or attr in self.attributes
@@ -423,18 +428,38 @@ class Ontology:
         return f"{self.name}@{self.version}"
 
     # -- queries --------------------------------------------------------
+    @property
+    def aliases(self) -> Dict[str, str]:
+        """Alias -> entity name."""
+        return {a: e.name for e in self.entities.values() for a in e.aliases}
+
+    def canonical(self, name: Any) -> Any:
+        """The entity an entity name or alias stands for (other names are returned unchanged)."""
+        return self.aliases.get(name, name) if isinstance(name, str) else name
+
+    def canonical_case(self, case: Mapping[str, Any]) -> Dict[str, Any]:
+        out: Dict[str, Any] = {}
+        for key, value in case.items():
+            name = self.canonical(key)
+            if name in out:
+                raise OntologyError(f"case data gives {name} twice (as {key!r} and under another name)")
+            out[name] = value
+        return out
+
     def expression(self, source: str) -> Expression:
-        """Compile an expression in this ontology's vocabulary: ``Entity.function`` references are expanded."""
-        if not self.functions:
+        """Compile an expression in this ontology's vocabulary: aliases and ``Entity.function`` are resolved."""
+        aliases = self.aliases
+        if not self.functions and not aliases:
             return compile_expression(source)
         raw = {(f.entity, f.name): {"expr": f.source} for f in self.functions.values()}
         try:
-            return compile_expression(expand_functions(source, raw))
+            return compile_expression(expand_functions(source, raw, aliases=aliases))
         except SyntaxError:
             return compile_expression(source)
 
     def implementers(self, interface: str) -> Tuple[str, ...]:
-        """Entity types implementing ``interface`` (or just the entity itself, for an entity name)."""
+        """Entity types implementing ``interface`` (or just the entity itself, for an entity name or alias)."""
+        interface = self.canonical(interface)
         if interface in self.entities:
             return (interface,)
         return tuple(e.name for e in self.entities.values() if interface in e.implements)
@@ -473,6 +498,8 @@ class Ontology:
             lines.append("Functions:")
             for key, fn in self.functions.items():
                 lines.append(f"  - {key} -> {fn.returns} = {fn.source}" + (f" ({fn.description})" if fn.description else ""))
+        if self.aliases:
+            lines.append("Also called: " + ", ".join(f"{a} = {e}" for a, e in sorted(self.aliases.items())))
         lines.append("Actions:")
         for a in self.actions.values():
             outs = "/".join(o.name for o in a.outcomes)
@@ -778,17 +805,39 @@ class Ontology:
 
     @classmethod
     def _from_dict(cls, doc: Mapping[str, Any]) -> "Ontology":
+        # semantic fragmentation: every team's term for a concept resolves to one entity
+        aliases: Dict[str, str] = {}
+        taken = set(doc.get("entities", {})) | set(doc.get("interfaces") or {})
+        for ename, espec in doc.get("entities", {}).items():
+            for alias in espec.get("aliases", ()):
+                if not isinstance(alias, str) or not alias.isidentifier():
+                    raise OntologyError(f"entity {ename!r}: alias {alias!r} must be an identifier")
+                if alias in taken:
+                    raise OntologyError(f"entity {ename!r}: alias {alias!r} already names "
+                                        f"{aliases.get(alias, alias)!r}; one term must mean one concept")
+                aliases[alias] = ename
+                taken.add(alias)
+
+        def canon(name: Any) -> Any:
+            return aliases.get(name, name) if isinstance(name, str) else name
+
+        def canon_ref(ref: Any) -> Any:
+            if not isinstance(ref, str) or "." not in ref:
+                return ref
+            entity, _, attr = ref.partition(".")
+            return f"{canon(entity)}.{attr}"
+
         raw_functions = {}
         for fname, spec in (doc.get("functions") or {}).items():
             if not isinstance(spec, Mapping) or not spec.get("entity") or not spec.get("expr"):
                 raise OntologyError(f"function {fname!r}: needs an entity and an expr")
-            raw_functions[(spec["entity"], fname)] = spec
+            raw_functions[(canon(spec["entity"]), fname)] = spec
 
-        def cx(source: str) -> Expression:  # every ontology expression may use functions
-            if not raw_functions:
+        def cx(source: str) -> Expression:  # every ontology expression may use functions and aliases
+            if not raw_functions and not aliases:
                 return compile_expression(source)
             try:
-                return compile_expression(expand_functions(source, raw_functions))
+                return compile_expression(expand_functions(source, raw_functions, aliases=aliases))
             except SyntaxError:
                 return compile_expression(source)  # let the expression parser report it
 
@@ -814,7 +863,8 @@ class Ontology:
             entities[name] = EntityType(name, MappingProxyType(attrs), states,
                                         spec.get("initial", states[0] if states else ""),
                                         spec.get("description", ""), tuple(spec.get("external_states", ())),
-                                        bool(spec.get("multiple", False)), tuple(spec.get("implements", ())))
+                                        bool(spec.get("multiple", False)), tuple(spec.get("implements", ())),
+                                        tuple(spec.get("aliases", ())))
         interfaces = {}
         for name, spec in (doc.get("interfaces") or {}).items():
             iattrs = {}
@@ -823,7 +873,7 @@ class Ontology:
                 iattrs[aname] = Attribute(aname, aspec.get("type", "string"), aspec.get("sensitivity"),
                                           aspec.get("description", ""))
             interfaces[name] = Interface(name, MappingProxyType(iattrs), spec.get("description", ""))
-        relationships = [Relationship(r["from"], r["to"], r["type"], r.get("cardinality", "1..*"))
+        relationships = [Relationship(canon(r["from"]), canon(r["to"]), r["type"], r.get("cardinality", "1..*"))
                          for r in doc.get("relationships", [])]
         actions: Dict[str, ActionType] = {}
         for name, spec in doc.get("actions", {}).items():
@@ -859,6 +909,10 @@ class Ontology:
         rules: List[Rule] = []
         for spec in doc.get("rules", []):
             params = {k: v for k, v in spec.items() if k not in ("id", "type", "description", "when")}
+            if "entity" in params:
+                params["entity"] = canon(params["entity"])
+            if "field" in params:
+                params["field"] = canon_ref(params["field"])
             when = spec.get("when")
             rules.append(Rule(spec["id"], spec["type"], spec.get("description", ""),
                               cx(when) if when else None, _freeze(params)))
@@ -870,7 +924,7 @@ class Ontology:
                 (fn, target), = agg.items()
                 aggregate = (fn, None if fn == "count" else target)
             questions.append(CompetencyQuestion(
-                spec["id"], spec.get("question", ""), spec["find"],
+                spec["id"], spec.get("question", ""), canon(spec["find"]),
                 cx(spec["where"]) if spec.get("where") else None,
                 tuple(spec.get("follow", ())),
                 cx(spec["result_where"]) if spec.get("result_where") else None,
@@ -898,9 +952,9 @@ class Ontology:
                 job_context=tuple(sc.get("job_context", ())))
         templates = {}
         for tname, spec in (doc.get("case_templates") or {}).items():
-            ents = {e: (() if path in ("self", "", None) else tuple(path.split(".")))
+            ents = {canon(e): (() if path in ("self", "", None) else tuple(path.split(".")))
                     for e, path in spec.get("entities", {}).items()}
-            templates[tname] = CaseTemplate(tname, spec["root"], MappingProxyType(ents))
+            templates[tname] = CaseTemplate(tname, canon(spec["root"]), MappingProxyType(ents))
         source = {k: v for k, v in doc.items() if k != "imports"}
         return cls(doc["name"], str(doc.get("version", "0")), entities, relationships, actions, goals,
                    rules, doc.get("description", ""), source=source, questions=questions,

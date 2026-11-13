@@ -323,7 +323,7 @@ class AutologyService:
         return {"ref": o.ref, "fingerprint": o.fingerprint, "description": o.description, "modules": list(o.modules),
                 "free_form_cases": self.simulation or "admin" in user.permissions,
                 "case_templates": {t.name: {"root": t.root} for t in o.case_templates.values()},
-                "entities": {e.name: {"states": list(e.states), "multiple": e.multiple,
+                "entities": {e.name: {"states": list(e.states), "multiple": e.multiple, "aliases": list(e.aliases),
                                       "attributes": {a.name: a.type for a in e.attributes.values()}}
                              for e in o.entities.values()},
                 "actions": {a.name: {"description": a.description, "for_each": a.for_each} for a in o.actions.values()},
@@ -349,6 +349,7 @@ class AutologyService:
     def list_objects(self, user: User, entity_type: Optional[str], limit: int, offset: int,
                      justification: Optional[str] = None) -> Dict[str, Any]:
         self.require(user, "read")
+        entity_type = self.ontology.canonical(entity_type) if entity_type else entity_type
         if entity_type and entity_type not in self.ontology.entities and entity_type not in self.ontology.interfaces:
             raise ApiError(404, f"unknown entity type {entity_type!r}")
         with self.graph_lock:
@@ -379,7 +380,7 @@ class AutologyService:
 
     def upsert_object(self, user: User, body: Dict[str, Any]) -> Dict[str, Any]:
         self.require(user, "admin")
-        etype, iid, attrs = body.get("type"), body.get("id"), dict(body.get("attributes") or {})
+        etype, iid, attrs = self.ontology.canonical(body.get("type")), body.get("id"), dict(body.get("attributes") or {})
         if not etype or not iid:
             raise ApiError(400, "type and id are required")
         self.checkpoint(user, "upsert_object", str(iid), body.get("justification"), entity=etype)

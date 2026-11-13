@@ -16,7 +16,7 @@ from autology.server import AutologyService
 from .helpers import ROOT
 
 EX = ROOT / "examples" / "auto_insurance"
-TOKENS = {"hana": "tok-hana", "ivan": "tok-ivan", "maria": "tok-maria", "admin": "tok-admin-ai"}
+TOKENS = {"hana": "tok-hana", "ivan": "tok-ivan", "maria": "tok-maria", "etl": "tok-etl", "admin": "tok-admin-ai"}
 
 
 def load():

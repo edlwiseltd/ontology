@@ -12,8 +12,10 @@
      "reviewer_roles": ["special_investigations"]},
     {"name": "maria", "token_env": "AUTOLOGY_TOKEN_MARIA", "permissions": ["read", "review"],
      "roles": ["claims_handler"], "reviewer_roles": ["claims_manager"]},
+    {"name": "etl", "token_env": "AUTOLOGY_TOKEN_ETL", "permissions": ["ingest"]},
     {"name": "admin", "token_env": "AUTOLOGY_TOKEN_ADMIN", "permissions": ["admin"]}
   ],
+  "pipelines": {"claims_feed": "pipelines/claims_feed.json"},
   "automations": {
     "settle_new_claims": {
       "description": "Start settling every claim as soon as it is reported",

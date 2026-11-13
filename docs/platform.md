@@ -174,6 +174,10 @@ Every request needs `Authorization: Bearer <token>`, except `/api/health` and th
 | `POST /api/reviews/{id}/decision` | review | `{"approved": true/false, "comment": "..."}`. Resumes the run, and can be decided once only |
 | `GET /api/report` | read | Compliance report (markdown) |
 | `GET /api/score` | read | Readiness scorecard over all stored runs |
+| `GET /api/objects/{id}/lineage` | read | Every data load that created or changed the object (Tier 3, [`integrations.md`](integrations.md)) |
+| `GET /api/pipelines` | ingest | Data pipelines, their sources, watermarks and last load |
+| `POST /api/pipelines/{name}/run` | ingest | Run a pipeline (`{"dry_run": true}` to check only), or push rows: `{"rows": {"source": [...]}}` |
+| `GET /api/ingest-batches/{id}` | ingest | One load, with its quarantined rows |
 
 **Permissions:**
 
@@ -183,6 +187,7 @@ Every request needs `Authorization: Bearer <token>`, except `/api/health` and th
 | `run` | Starting and resuming runs |
 | `review` | Deciding reviews for the user's `reviewer_roles` |
 | `audit` | Raw audit entries |
+| `ingest` | Running data pipelines and reading quarantined rows (give it to the account a pipeline tool uses, and nothing else) |
 | `admin` | Everything |
 
 A user's `roles` are ontology roles, and the row and field rules apply to everything returned to them.

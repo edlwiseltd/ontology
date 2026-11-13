@@ -61,7 +61,7 @@ from .ontology import Ontology, OntologyError
 from .store import Store, StoreError
 
 log = logging.getLogger("autology.server")
-PERMISSIONS = frozenset({"read", "run", "review", "audit", "admin"})
+PERMISSIONS = frozenset({"read", "run", "review", "audit", "ingest", "admin"})
 FINAL_STATUSES = frozenset({"completed", "blocked", "escalated", "suspended"})
 MAX_BODY = 1_000_000
 STATIC = Path(__file__).resolve().parent / "static"
@@ -188,6 +188,10 @@ class AutologyService:
         self.automations = load_automations(config.get("automations") or {}, self.ontology,
                                             {n: a.goals for n, a in self.agents.items()})
         self.automation_interval = float(config.get("automation_interval", 60))
+        from .ingest import load_pipelines
+
+        self.pipelines = load_pipelines(config.get("pipelines") or {}, self.ontology, base)
+        self.ingest_lock = threading.Lock()  # one load at a time: plans are computed against the current graph
         self.webhooks: List[Dict[str, Any]] = []
         for hook in config.get("webhooks", []):
             if urlparse(str(hook.get("url", ""))).scheme not in ("http", "https"):
@@ -586,8 +590,95 @@ class AutologyService:
                 _, changed = self._store_result(result, cfg.name, row["run_id"])
             resumed.append({"run_id": row["run_id"], "status": result.status})
             self._changed(changed)
+        loads = self._due_pipelines()
         firings = self.automator.tick() if self.automations else []
-        return {"resumed": resumed, "firings": [f.as_dict() for f in firings]}
+        out = {"resumed": resumed, "firings": [f.as_dict() for f in firings]}
+        if self.pipelines:
+            out["ingested"] = loads
+        return out
+
+    # -- ingestion ------------------------------------------------------------------
+    def ingest(self, name: str, triggered_by: str, dry_run: bool = False,
+               pushed: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Run one pipeline: read its sources, check every row, write the accepted ones, fire automations."""
+        from .ingest import PipelineError, apply_to_graph
+
+        pipe = self.pipelines.get(name)
+        if pipe is None:
+            raise ApiError(404, f"no pipeline {name!r}")
+        with self.ingest_lock:
+            try:
+                plan = pipe.read(self.store.ingest_watermarks(name), pushed)
+            except PipelineError as exc:
+                batch = self.store.record_ingest_failure(name, triggered_by, str(exc))
+                log.warning("pipeline %s failed: %s", name, exc)
+                raise ApiError(502 if not pushed else 400, str(exc), {"batch_id": batch}) from None
+            with self.graph_lock:
+                plan = pipe.plan(self.graph, plan)
+                batch = self.store.apply_ingest(plan, triggered_by, dry_run)
+                if not dry_run:
+                    apply_to_graph(self.graph, plan)
+        out = {"batch_id": batch, "dry_run": dry_run, **plan.summary()}
+        if not dry_run:
+            fired = self._changed(plan.changed_ids)
+            if fired:
+                out["triggered"] = [f.as_dict() for f in fired]
+        return out
+
+    def _due_pipelines(self) -> List[Dict[str, Any]]:
+        from datetime import datetime, timezone
+
+        loads = []
+        for name, pipe in self.pipelines.items():
+            if not pipe.every or all(s["type"] == "push" for s in pipe.sources.values()):
+                continue
+            last = self.store.ingest_batches(name, limit=1)
+            if last and (datetime.now(timezone.utc) - datetime.fromisoformat(last[0]["started_at"])
+                         ).total_seconds() < pipe.every:
+                continue
+            try:
+                out = self.ingest(name, "schedule")
+                loads.append({k: out[k] for k in ("batch_id", "created", "updated", "rejected")})
+            except ApiError as exc:
+                loads.append({"pipeline": name, "error": exc.message})
+        return loads
+
+    def list_pipelines(self, user: User) -> Dict[str, Any]:
+        self.require(user, "ingest")
+        items = []
+        for name, pipe in self.pipelines.items():
+            last = self.store.ingest_batches(name, limit=1)
+            items.append({"name": name, "every": pipe.every,
+                          "sources": {s: src["type"] for s, src in pipe.sources.items()},
+                          "entities": sorted({m.entity for m in pipe.mappings}),
+                          "watermarks": self.store.ingest_watermarks(name),
+                          "last_batch": last[0] if last else None})
+        return {"items": items}
+
+    def run_pipeline(self, user: User, name: str, body: Dict[str, Any]) -> Dict[str, Any]:
+        self.require(user, "ingest")
+        rows = body.get("rows")
+        if rows is not None and (not isinstance(rows, dict) or
+                                 not all(isinstance(v, list) for v in rows.values())):
+            raise ApiError(400, "rows must map each push source to a list of records")
+        return self.ingest(name, user.name, bool(body.get("dry_run")), rows)
+
+    def ingest_batch(self, user: User, batch_id: str) -> Dict[str, Any]:
+        """A load and its quarantined rows. The rows hold raw source data, so only ingesters see them."""
+        self.require(user, "ingest")
+        rows = [b for b in self.store.ingest_batches(limit=10 ** 6) if b["batch_id"] == batch_id]
+        if not rows:
+            raise ApiError(404, f"no batch {batch_id!r}")
+        return {**rows[0], "rejects": self.store.ingest_rejects(batch_id)}
+
+    def object_lineage(self, user: User, iid: str) -> Dict[str, Any]:
+        """Where an object came from: every load that created or changed it (attribute names, not values)."""
+        self.require(user, "read")
+        with self.graph_lock:
+            inst = self.graph._instances.get(iid)
+            if inst is None or not self.visible(inst, user):
+                raise ApiError(404, f"no object {iid!r}")
+        return {"id": iid, "type": inst.type, "loads": self.store.lineage(iid)}
 
     def start_background(self, interval: Optional[float] = None) -> threading.Event:
         """Tick every ``interval`` seconds in a daemon thread; set the returned event to stop."""
@@ -1257,6 +1348,7 @@ def _handler(service: AutologyService):
                     ("GET", "agents"): lambda: service.list_agents(user),
                     ("GET", "proposals"): lambda: service.list_proposals(user),
                     ("GET", "outcomes"): lambda: service.outcomes_summary(user),
+                    ("GET", "pipelines"): lambda: service.list_pipelines(user),
                 }
                 key = (method, parts[0]) if len(parts) == 1 else None
                 if key in routes:
@@ -1280,11 +1372,17 @@ def _handler(service: AutologyService):
                         return self._send(200, service.get_review(user, ident))
                     if method == "GET" and kind == "scenarios":
                         return self._send(200, service.get_scenario(user, ident))
+                    if method == "GET" and kind == "ingest-batches":
+                        return self._send(200, service.ingest_batch(user, ident))
                     if method == "GET" and kind == "chat":
                         return self._send(200, service.chat_get(user, ident))
                     if method == "POST" and kind == "questions":
                         return self._send(200, service.answer(user, ident, body.get("params") or {},
                                                               body.get("justification")))
+                if len(parts) == 3 and parts[0] == "objects" and parts[2] == "lineage" and method == "GET":
+                    return self._send(200, service.object_lineage(user, parts[1]))
+                if len(parts) == 3 and parts[0] == "pipelines" and parts[2] == "run" and method == "POST":
+                    return self._send(200, service.run_pipeline(user, parts[1], body))
                 if len(parts) == 3 and parts[0] == "runs":
                     if method == "GET" and parts[2] == "audit":
                         return self._send(200, service.run_audit(user, parts[1]))

@@ -39,7 +39,7 @@ from .audit import GENESIS, AuditLog
 from .graph import KnowledgeGraph
 from .ontology import Ontology
 
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 10
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -110,6 +110,25 @@ CREATE TABLE IF NOT EXISTS proposals (
 CREATE TABLE IF NOT EXISTS run_sources (
     run_id TEXT PRIMARY KEY, template TEXT NOT NULL, root TEXT NOT NULL, sources TEXT NOT NULL,
     write_back INTEGER NOT NULL, base TEXT, conflicts TEXT);
+CREATE TABLE IF NOT EXISTS ingest_state (
+    pipeline TEXT NOT NULL, source TEXT NOT NULL, watermark TEXT NOT NULL, updated_at TEXT NOT NULL,
+    PRIMARY KEY (pipeline, source));
+CREATE TABLE IF NOT EXISTS ingest_batches (
+    batch_id TEXT PRIMARY KEY, pipeline TEXT NOT NULL, started_at TEXT NOT NULL, finished_at TEXT,
+    status TEXT NOT NULL, triggered_by TEXT NOT NULL, summary TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS ingest_batches_pipeline ON ingest_batches(pipeline, started_at);
+CREATE TABLE IF NOT EXISTS ingest_rejects (
+    batch_id TEXT NOT NULL, seq INTEGER NOT NULL, source TEXT NOT NULL, row INTEGER NOT NULL, reason TEXT NOT NULL,
+    data TEXT NOT NULL, PRIMARY KEY (batch_id, seq));
+CREATE TABLE IF NOT EXISTS lineage (
+    seq INTEGER PRIMARY KEY AUTOINCREMENT, instance_id TEXT NOT NULL, entity TEXT NOT NULL, batch_id TEXT NOT NULL,
+    pipeline TEXT NOT NULL, source TEXT NOT NULL, row INTEGER NOT NULL, action TEXT NOT NULL,
+    attributes TEXT NOT NULL, links TEXT NOT NULL, loaded_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS lineage_instance ON lineage(instance_id, seq);
+CREATE TRIGGER IF NOT EXISTS lineage_no_update BEFORE UPDATE ON lineage
+    BEGIN SELECT RAISE(ABORT, 'lineage is append-only'); END;
+CREATE TRIGGER IF NOT EXISTS lineage_no_delete BEFORE DELETE ON lineage
+    BEGIN SELECT RAISE(ABORT, 'lineage is append-only'); END;
 """
 
 
@@ -560,3 +579,71 @@ class Store:
         with self._tx() as db:
             db.execute("UPDATE proposals SET status=?, run_id=?, decided_at=? WHERE proposal_id=?",
                        (status, run_id, _now() if status != "pending" else None, pid))
+
+    # -- ingestion ---------------------------------------------------------
+    def ingest_watermarks(self, pipeline: str) -> Dict[str, str]:
+        return {r["source"]: r["watermark"]
+                for r in self._query("SELECT source, watermark FROM ingest_state WHERE pipeline=?", (pipeline,))}
+
+    def apply_ingest(self, plan: Any, triggered_by: str, dry_run: bool = False) -> str:
+        """Write a load in one transaction: objects, links, lineage, quarantined rows, watermarks and the batch."""
+        batch_id = uuid.uuid4().hex[:12]
+        now = _now()
+        summary = plan.summary()
+        summary["dry_run"] = dry_run
+        with self._tx() as db:
+            if not dry_run:
+                for iid, (etype, values) in plan.creates.items():
+                    db.execute("INSERT INTO instances VALUES (?, ?, ?, ?)",
+                               (iid, etype, json.dumps(values, default=str), now))
+                for iid, (etype, diff) in plan.updates.items():
+                    row = db.execute("SELECT attributes FROM instances WHERE id=?", (iid,)).fetchone()
+                    merged = {**json.loads(row["attributes"]), **diff} if row else dict(diff)
+                    db.execute("INSERT INTO instances VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET "
+                               "attributes=excluded.attributes, updated_at=excluded.updated_at",
+                               (iid, etype, json.dumps(merged, default=str), now))
+                for source, kind, target in plan.links:
+                    db.execute("INSERT OR IGNORE INTO links VALUES (?, ?, ?)", (source, kind, target))
+                for entry in plan.lineage:
+                    db.execute("INSERT INTO lineage (instance_id, entity, batch_id, pipeline, source, row, action, "
+                               "attributes, links, loaded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                               (entry["instance_id"], entry["entity"], batch_id, plan.pipeline, entry["source"],
+                                entry["row"], entry["action"], json.dumps(entry["attributes"]),
+                                json.dumps(entry["links"]), now))
+                for source, mark in plan.watermarks.items():
+                    db.execute("INSERT INTO ingest_state VALUES (?, ?, ?, ?) ON CONFLICT(pipeline, source) DO "
+                               "UPDATE SET watermark=excluded.watermark, updated_at=excluded.updated_at",
+                               (plan.pipeline, source, mark, now))
+            for seq, rej in enumerate(plan.rejected):
+                db.execute("INSERT INTO ingest_rejects VALUES (?, ?, ?, ?, ?, ?)",
+                           (batch_id, seq, rej.source, rej.row, rej.reason, json.dumps(rej.data, default=str)))
+            db.execute("INSERT INTO ingest_batches VALUES (?, ?, ?, ?, ?, ?, ?)",
+                       (batch_id, plan.pipeline, now, _now(), "dry_run" if dry_run else "loaded", triggered_by,
+                        json.dumps(summary, default=str)))
+        return batch_id
+
+    def record_ingest_failure(self, pipeline: str, triggered_by: str, error: str) -> str:
+        batch_id = uuid.uuid4().hex[:12]
+        now = _now()
+        with self._tx() as db:
+            db.execute("INSERT INTO ingest_batches VALUES (?, ?, ?, ?, ?, ?, ?)",
+                       (batch_id, pipeline, now, now, "failed", triggered_by, json.dumps({"error": error})))
+        return batch_id
+
+    def ingest_batches(self, pipeline: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
+        sql, args = "SELECT * FROM ingest_batches", ()
+        if pipeline:
+            sql, args = sql + " WHERE pipeline=?", (pipeline,)
+        rows = self._query(sql + " ORDER BY started_at DESC, rowid DESC LIMIT ?", args + (limit,))
+        return [{**{k: r[k] for k in r.keys() if k != "summary"}, "summary": json.loads(r["summary"])} for r in rows]
+
+    def ingest_rejects(self, batch_id: str, limit: int = 1000) -> List[Dict[str, Any]]:
+        return [{"source": r["source"], "row": r["row"], "reason": r["reason"], "data": json.loads(r["data"])}
+                for r in self._query("SELECT * FROM ingest_rejects WHERE batch_id=? ORDER BY seq LIMIT ?",
+                                     (batch_id, limit))]
+
+    def lineage(self, instance_id: str) -> List[Dict[str, Any]]:
+        return [{"batch_id": r["batch_id"], "pipeline": r["pipeline"], "source": r["source"], "row": r["row"],
+                 "action": r["action"], "attributes": json.loads(r["attributes"]), "links": json.loads(r["links"]),
+                 "loaded_at": r["loaded_at"]}
+                for r in self._query("SELECT * FROM lineage WHERE instance_id=? ORDER BY seq", (instance_id,))]

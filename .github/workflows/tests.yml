@@ -18,6 +18,14 @@ jobs:
       fail-fast: false
       matrix:
         python: ["3.10", "3.13"]
+    services:
+      postgres:  # a real database for the SQL ingestion tests
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: ci-only
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
 
@@ -29,11 +37,11 @@ jobs:
         with:
           node-version: "22"
 
-      # Optional dependencies, so the OR-Tools, SPARQL and TypeScript SDK tests run instead of skipping
+      # Optional dependencies, so the OR-Tools, SPARQL, PostgreSQL and TypeScript SDK tests run instead of skipping
       - name: Install test dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install "ortools==9.15.6755" "rdflib==7.1.4" "coverage==7.16.2"
+          python -m pip install "ortools==9.15.6755" "rdflib==7.1.4" "coverage==7.16.2" "psycopg[binary]==3.2.3"
           npm install --global "typescript@6.0.2"
           tsc --version
           node --version
@@ -41,6 +49,7 @@ jobs:
       - name: Run the test suite (no test may be skipped)
         env:
           AUTOLOGY_AUDIT_KEY: ci-audit-key
+          AUTOLOGY_TEST_PG_DSN: postgresql://postgres:ci-only@127.0.0.1:5432/postgres
         run: |
           python -m coverage run --source=autology -m unittest discover -s tests -t . -v 2>&1 | tee test.log
           if grep -E "skipped '" test.log; then

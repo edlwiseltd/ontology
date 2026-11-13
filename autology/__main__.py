@@ -19,6 +19,7 @@
     python -m autology eval SUITE.json [--reasoner NAME=SPEC ...] [--repeats N] [--json] [--min-pass 0.95]
     python -m autology scenario ONTOLOGY DATA.json SCENARIO.json [--schedule] [--json] [--commit OUT.json]
     python -m autology mcp SERVER.json [--token-env AUTOLOGY_TOKEN]       # MCP server over stdio
+    python -m autology ingest SERVER.json PIPELINE [--dry-run] [--rows ROWS.json]   # load data from other systems
     python -m autology serve SERVER.json [--host 127.0.0.1] [--port 8800]   # REST API + web inbox
     python -m autology token                                               # new API token and its hash
 """
@@ -235,6 +236,11 @@ def _build_parser() -> argparse.ArgumentParser:
     mc = sub.add_parser("mcp", help="serve the governed ontology to MCP clients over stdio")
     mc.add_argument("config")
     mc.add_argument("--token-env", default="AUTOLOGY_TOKEN", help="environment variable holding the API token")
+    ig = sub.add_parser("ingest", help="run a data pipeline: load checked records into the knowledge graph")
+    ig.add_argument("config")
+    ig.add_argument("pipeline")
+    ig.add_argument("--dry-run", action="store_true", help="check and report, write nothing but the batch record")
+    ig.add_argument("--rows", metavar="ROWS.json", help='rows for push sources: {"source": [{...}, ...]}')
     sv = sub.add_parser("serve", help="run the REST API and web inbox")
     sv.add_argument("config")
     sv.add_argument("--host", default="127.0.0.1")
@@ -318,6 +324,26 @@ def _cmd_score(args, onto: Ontology) -> int:
     return 0
 
 
+def _cmd_ingest(args) -> int:
+    from .server import ApiError, AutologyService
+
+    service = AutologyService.from_file(args.config)
+    pushed = json.loads(Path(args.rows).read_text(encoding="utf-8")) if args.rows else None
+    try:
+        out = service.ingest(args.pipeline, "cli", args.dry_run, pushed)
+    except ApiError as exc:
+        print(f"error: {exc.message}", file=sys.stderr)
+        return 1
+    mode = " (dry run: nothing written)" if out["dry_run"] else ""
+    print(f"batch {out['batch_id']}{mode}: read {out['read']}, created {out['created']}, updated {out['updated']}, "
+          f"unchanged {out['unchanged']}, links added {out['links_added']}, rejected {out['rejected']}")
+    for rej in out["rejects"]:
+        print(f"  rejected {rej['source']} row {rej['row']}: {rej['reason']}")
+    for fired in out.get("triggered", []):
+        print(f"  automation {fired.get('automation')} on {fired.get('instance')}: {fired.get('status')}")
+    return 2 if out["rejected"] else 0
+
+
 def main(argv=None) -> int:
     args = _build_parser().parse_args(argv)
 
@@ -357,6 +383,8 @@ def main(argv=None) -> int:
         return run(args.config, args.token_env)
     if args.command == "trace":
         return _cmd_trace(args)
+    if args.command == "ingest":
+        return _cmd_ingest(args)
 
     onto = _load(args.ontology)
     if args.command == "validate":

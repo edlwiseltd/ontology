@@ -167,6 +167,59 @@ def rule_statistics(results: Iterable[RunResult], ontology) -> Dict[str, RuleSta
     return stats
 
 
+def outcome_analysis(results: Iterable[RunResult], ontology) -> Dict[str, object]:
+    """Link decisions to what happened afterwards (``outcome`` audit entries) and suggest changes.
+
+    Per action: how many executed decisions were later judged, how many went wrong, and how many of those
+    had been approved in a human review. Per rule: outcomes of the decisions the rule took part in.
+    """
+    actions: Dict[str, Dict[str, int]] = defaultdict(lambda: {"judged": 0, "good": 0, "bad": 0,
+                                                              "reviewed_then_bad": 0})
+    rules: Dict[str, Dict[str, int]] = defaultdict(lambda: {"judged": 0, "good": 0, "bad": 0})
+    runs = {"judged": 0, "good": 0, "bad": 0}
+    for r in results:
+        decisions: Dict[str, dict] = {}
+        reviewed = set()
+        for e in r.audit:
+            if e.event == "decision":
+                decisions[e.data.get("action")] = e.data
+            elif e.event == "review" and e.data.get("approved"):
+                reviewed.add(e.data.get("action"))
+        for e in r.audit.events("outcome"):
+            good, act = bool(e.data.get("good")), e.data.get("action")
+            if act is None:
+                runs["judged"] += 1
+                runs["good" if good else "bad"] += 1
+                continue
+            a = actions[act.partition("@")[0]]
+            a["judged"] += 1
+            a["good" if good else "bad"] += 1
+            if not good and act in reviewed:
+                a["reviewed_then_bad"] += 1
+            d = decisions.get(act, {})
+            for rid in set(d.get("rules") or []) | set(d.get("satisfied_rules") or []):
+                rules[rid]["judged"] += 1
+                rules[rid]["good" if good else "bad"] += 1
+    by_id = {rule.id: rule for rule in ontology.rules}
+    suggestions = []
+    for rid, s in sorted(rules.items()):
+        if not s["bad"] or rid not in by_id:
+            continue
+        rule = by_id[rid]
+        if rule.kind == "human_review":
+            suggestions.append(f"{rid} ({rule.description}): {s['bad']} of {s['judged']} judged decisions it sent "
+                               "for review went wrong after approval; revisit its threshold or the reviewers' guidance")
+        else:
+            suggestions.append(f"{rid} ({rule.description}): {s['bad']} of {s['judged']} judged decisions it allowed "
+                               "went wrong; check that its condition captures the risk")
+    reviewed_actions = {rule.params.get("action") for rule in ontology.rules_of("human_review")}
+    for name, s in sorted(actions.items()):
+        if s["bad"] and name not in reviewed_actions:
+            suggestions.append(f"{name}: {s['bad']} of {s['judged']} judged decisions went wrong and no human_review "
+                               "rule covers it; consider adding one for the risky cases")
+    return {"runs": runs, "actions": dict(actions), "rules": dict(rules), "suggestions": suggestions}
+
+
 def compliance_report(results: Iterable[RunResult], ontology, title: Optional[str] = None) -> str:
     results = list(results)
     m = metrics(results)
@@ -209,6 +262,18 @@ def compliance_report(results: Iterable[RunResult], ontology, title: Optional[st
     lines += ["", "Counts come from the audit logs: *Satisfied* is how often an executed action met the rule, "
                   "*Denied* how often the rule stopped an action. Governance checks every rule before an action "
                   "runs; whether the logs themselves are intact is the audit line above.", ""]
+    learned = outcome_analysis(results, ontology)
+    if learned["actions"] or learned["runs"]["judged"]:
+        lines += ["## Decisions and their outcomes", "",
+                  "What happened after decisions, as recorded by people (`outcome` audit entries).", "",
+                  "| Action | Judged | Bad | Good | Approved in review, then bad |", "|---|---|---|---|---|"]
+        lines += [f"| {a} | {s['judged']} | {s['bad']} | {s['good']} | {s['reviewed_then_bad']} |"
+                  for a, s in sorted(learned["actions"].items())]
+        if learned["runs"]["judged"]:
+            lines += ["", f"Whole runs judged: {learned['runs']['judged']} ({learned['runs']['bad']} bad)."]
+        if learned["suggestions"]:
+            lines += ["", "Suggested changes:", ""] + [f"- {s}" for s in learned["suggestions"]]
+        lines.append("")
     if m.escalations:
         lines += ["## Hand-offs to humans", "", "| To | Count |", "|---|---|"]
         lines += [f"| {k} | {v} |" for k, v in sorted(m.escalations.items())]

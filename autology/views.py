@@ -110,6 +110,7 @@ class ViewPolicy:
                               "details": [self.scrub(d, refs) for d in esc.details]} if esc else None,
                "costs": result.costs, "audit_verified": self.svc.store.verify_audit(run_id),
                "state": self.state_view(user, result.state)}
+        out["outcomes"] = self.outcomes(user, result)
         linked = self.svc.store.run_sources(run_id)
         out["write_back_conflicts"] = [
             {**c, **({k: REDACTED for k in ("base", "live", "run")} if f"{c['type']}.{c['attribute']}" in refs else {})}
@@ -117,6 +118,13 @@ class ViewPolicy:
         pending = [r for r in self.svc.store.list_reviews("pending") if r["run_id"] == run_id]
         out["pending_review"] = pending[0]["review_id"] if pending and self.review_view(user, pending[0]) else None
         return out
+
+    def outcomes(self, user: Any, result: Any) -> list:
+        """What people recorded as happening after the run's decisions (notes scrubbed of restricted facts)."""
+        refs = self.restricted_refs(user, result.state)
+        return [{"at": e.timestamp, "action": e.data.get("action"), "label": e.data.get("label"),
+                 "good": e.data.get("good"), "note": self.scrub(e.data.get("note"), refs),
+                 "recorded_by": e.data.get("recorded_by")} for e in result.audit.events("outcome")]
 
     # -- reviews ------------------------------------------------------------------
     def review_view(self, user: Any, review: Dict[str, Any]) -> Optional[Dict[str, Any]]:

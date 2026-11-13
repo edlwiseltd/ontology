@@ -945,6 +945,47 @@ class AutologyService:
         self.store.settle_proposal(pid, "confirmed", run["run_id"])
         return run
 
+    # -- decision outcomes: what happened afterwards (dynamic layer) ------------------------
+    def _visible_run(self, user: User, run_id: str):
+        try:
+            result = self.store.load_run(run_id)
+        except KeyError:
+            raise ApiError(404, f"no run {run_id!r}") from None
+        if not self.views.can_see_run(user, result):
+            raise ApiError(404, f"no run {run_id!r}")
+        return result
+
+    def record_outcome(self, user: User, run_id: str, body: Dict[str, Any]) -> Dict[str, Any]:
+        """Record what happened after a run or one of its decisions, in the run's tamper-evident audit chain."""
+        self.require(user, "review")
+        result = self._visible_run(user, run_id)
+        label, good, action = body.get("label"), body.get("good"), body.get("action")
+        if not isinstance(label, str) or not label.strip() or len(label) > 200:
+            raise ApiError(400, "label must be a non-empty string of at most 200 characters")
+        if not isinstance(good, bool):
+            raise ApiError(400, "good must be true or false")
+        if action is not None and action not in {s.action for s in result.steps if s.outcome}:
+            raise ApiError(400, f"{action!r} is not an executed step of run {run_id}")
+        rows = self.store.list_runs(limit=10 ** 9)
+        agent = next((r["agent"] for r in rows if r["run_id"] == run_id), None)
+        lock = self.agents[agent].lock if agent in self.agents else threading.Lock()
+        with lock:
+            result = self.store.load_run(run_id)
+            result.audit.record("outcome", action=action, label=label.strip(), good=good,
+                                note=str(body.get("note") or "")[:2000], recorded_by=user.name)
+            self.store.save_run(result, run_id)
+        return {"run_id": run_id, "outcomes": self.views.outcomes(user, result)}
+
+    def list_outcomes(self, user: User, run_id: str) -> Dict[str, Any]:
+        self.require(user, "read")
+        return {"items": self.views.outcomes(user, self._visible_run(user, run_id))}
+
+    def outcomes_summary(self, user: User) -> Dict[str, Any]:
+        self.require(user, "read")
+        from .reporting import outcome_analysis
+
+        return outcome_analysis(self._visible_runs(user), self.ontology)
+
     def list_agents(self, user: User) -> Dict[str, Any]:
         self.require(user, "read")
         items = {}
@@ -1214,6 +1255,7 @@ def _handler(service: AutologyService):
                     ("GET", "access-log"): lambda: service.access_log(user, query.get("principal"), limit),
                     ("GET", "agents"): lambda: service.list_agents(user),
                     ("GET", "proposals"): lambda: service.list_proposals(user),
+                    ("GET", "outcomes"): lambda: service.outcomes_summary(user),
                 }
                 key = (method, parts[0]) if len(parts) == 1 else None
                 if key in routes:
@@ -1245,6 +1287,10 @@ def _handler(service: AutologyService):
                 if len(parts) == 3 and parts[0] == "runs":
                     if method == "GET" and parts[2] == "audit":
                         return self._send(200, service.run_audit(user, parts[1]))
+                    if parts[2] == "outcomes":
+                        if method == "POST":
+                            return self._send(200, service.record_outcome(user, parts[1], body))
+                        return self._send(200, service.list_outcomes(user, parts[1]))
                     if method == "GET" and parts[2] == "trace":
                         return self._send(200, service.run_trace(user, parts[1]))
                     if method == "POST" and parts[2] == "resume":

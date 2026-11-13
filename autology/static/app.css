@@ -104,3 +104,5 @@ tbody tr.clickable:hover, tbody tr.clickable:focus { background: var(--bg); }
 .chat-form { display: flex; gap: .5rem; align-items: flex-end; }
 .chat-form textarea { flex: 1; font: inherit; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.or { text-align: center; margin: 1rem 0 .5rem; }
+button.wide { width: 100%; }

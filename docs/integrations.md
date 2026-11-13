@@ -8,6 +8,7 @@ provider. Tier 3 connects it to the ones a company already has, so each does wha
 | Moving data out of source systems | Airbyte, dlt, Meltano, Fivetran, dbt, or plain exports | Pipelines that pull from files, SQL databases and web APIs, or accept pushed rows; checks, quarantine and lineage |
 | Dashboards and analysis | Metabase, Superset, Grafana, Power BI, Tableau | A governed reporting database (SQLite or PostgreSQL), refreshed on a schedule |
 | Operational monitoring and alerts | Prometheus with Grafana or Alertmanager | `GET /api/metrics` in the Prometheus text format |
+| Company sign-in | Okta, Microsoft Entra ID, Keycloak, Auth0, Google, any OpenID Connect provider | Verified ID and access tokens, group-to-role mappings, a sign-in button in the inbox |
 
 ## Data ingestion
 
@@ -190,3 +191,56 @@ The metrics carry counts only: no record ids, names or values.
 
 *Checked for real:* Prometheus 3.5 scraped the endpoint with a bearer token (target `up`) and answered queries for
 `autology_objects` and `autology_ingest_rejected_rows_total`.
+
+## Company sign-in: OpenID Connect
+
+People sign in with their company account instead of a pasted API token, and their groups decide what they may do.
+
+```json
+"oidc": {
+  "issuer": "https://login.example.com/realms/acme",
+  "client_id": "autology-inbox",
+  "audiences": ["autology-api"],
+  "username_claim": "preferred_username",
+  "mappings": [
+    {"claim": "groups", "value": "claims-handlers", "permissions": ["read", "run"], "roles": ["claims_handler"]},
+    {"claim": "groups", "value": "claims-managers", "permissions": ["read", "review"],
+     "roles": ["claims_handler"], "reviewer_roles": ["claims_manager"]},
+    {"claim": "email", "value": "ops-lead@example.com", "permissions": ["admin"]}]}
+```
+
+**In the identity provider**, register a client for the inbox: public (or confidential with
+`"client_secret_env"`), authorization-code flow with PKCE (S256), redirect URI `https://<autology host>/`, and a
+mapper that puts the user's groups in the ID token as `groups`.
+
+**How the inbox signs in.** When `client_id` is set, the sign-in page offers *Sign in with your company account*.
+The browser goes to the provider with a PKCE challenge, a `state` and a `nonce`; on the way back it checks the
+`state`, and the Autology server exchanges the code at the provider, verifies the ID token (including the
+`nonce`), and hands it to the browser, which uses it as its bearer token until it expires. The code is removed from
+the address bar. When the token expires, the inbox asks the person to sign in again.
+
+**API clients** (scripts, pipeline tools, Prometheus) may send an access token from the same provider when its
+audience is listed in `audiences`, or keep using Autology API tokens. Both kinds work side by side.
+
+**What is checked on every request**
+
+- The signature, against the provider's published keys (found by OIDC discovery, re-fetched when a token names a
+  new key, at most once a minute). RS256, RS384 and RS512 only; never `none` or shared-secret algorithms; RSA keys
+  of at least 2048 bits. Verification uses only the Python standard library and is cross-checked in the tests
+  against the `cryptography` package.
+- Issuer (exact), audience, expiry and not-before, with `leeway` seconds (default 60) for clock skew.
+- **No mapping, no access**: a valid account that no mapping grants a permission gets 403, never a default role.
+- The user name (`username_claim`, default `sub`) must not be the name of an API-token user, so an account at the
+  provider cannot take over a configured user's runs and reviews. Use a claim the provider's administrators
+  control (`preferred_username` in Keycloak, `upn` in Entra ID, `email` with verified addresses).
+- If the provider cannot be reached, sign-in fails (503); nothing falls back to weaker checks.
+
+Everything after sign-in is unchanged: permissions, row and field access, reviewer roles, the rule that a requester
+cannot decide their own review, and the access log, which records the provider's user name.
+
+*Checked for real:* with Keycloak 26 as the provider (a realm with a public PKCE client and a groups mapper), a
+headless Chromium clicked *Sign in with your company account*, logged in on Keycloak's page, and landed in the
+inbox as `nora · read, review` with the claims-manager review waiting.
+
+**Not included:** SAML (put a SAML-to-OIDC bridge such as Keycloak in front), refresh tokens (people sign in again
+when the ID token expires), single logout, and EC (ES256) or PS256 signing keys.

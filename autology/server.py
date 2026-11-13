@@ -185,6 +185,15 @@ class AutologyService:
                 raise ValueError(f"user {u['name']}: token_sha256 must be a SHA-256 hex digest (see `autology token`)")
             self.users.append(User(u["name"], digest.lower(), perms, frozenset(u.get("roles", [])),
                                    frozenset(u.get("reviewer_roles", []))))
+        self._token_user_names = frozenset(u.name for u in self.users)
+        self.oidc = None
+        if config.get("oidc"):
+            from .oidc import OidcProvider
+
+            self.oidc = OidcProvider(config["oidc"])
+            unknown = self.oidc.permissions_in_mappings() - PERMISSIONS
+            if unknown:
+                raise ValueError(f"oidc.mappings: unknown permissions {sorted(unknown)}")
         self.automations = load_automations(config.get("automations") or {}, self.ontology,
                                             {n: a.goals for n, a in self.agents.items()})
         self.automation_interval = float(config.get("automation_interval", 60))
@@ -236,7 +245,10 @@ class AutologyService:
     def authenticate(self, header: Optional[str]) -> User:
         if not header or not header.startswith("Bearer "):
             raise ApiError(401, "missing bearer token")
-        digest = hash_token(header[7:].strip())
+        token = header[7:].strip()
+        if self.oidc is not None and token.count(".") == 2:  # a JWT from the identity provider
+            return self._sso_user(token)
+        digest = hash_token(token)
         found = None
         for user in self.users:  # compare against every user: constant time per user, no early exit
             if hmac.compare_digest(digest, user.token_sha256):
@@ -244,6 +256,46 @@ class AutologyService:
         if found is None:
             raise ApiError(401, "invalid token")
         return found
+
+    def _sso_user(self, token: str) -> User:
+        from .oidc import OidcError
+
+        try:
+            claims = self.oidc.verify(token)
+            name = self.oidc.username(claims)
+        except OidcError as exc:
+            raise ApiError(exc.status, str(exc)) from None
+        if name in self._token_user_names:
+            raise ApiError(401, f"the identity provider's user {name!r} has the name of an API-token user; "
+                                "use another username_claim")
+        grants = self.oidc.grants(claims)
+        if not grants["permissions"]:
+            raise ApiError(403, f"{name} signed in, but no oidc mapping grants them access to Autology")
+        return User(name, "", grants["permissions"], grants["roles"], grants["reviewer_roles"])
+
+    def sso_config(self) -> Dict[str, Any]:
+        from .oidc import OidcError
+
+        if self.oidc is None:
+            return {"oidc": False}
+        try:
+            return self.oidc.login_config()
+        except OidcError as exc:
+            raise ApiError(exc.status, str(exc)) from None
+
+    def sso_token(self, body: Dict[str, Any]) -> Dict[str, Any]:
+        """The inbox's sign-in: exchange an authorization code (PKCE) for a verified ID token."""
+        from .oidc import OidcError
+
+        if self.oidc is None:
+            raise ApiError(404, "single sign-on is not configured")
+        try:
+            out = self.oidc.exchange(body.get("code"), body.get("code_verifier"), body.get("redirect_uri"),
+                                     body.get("nonce"))
+        except OidcError as exc:
+            raise ApiError(exc.status, str(exc)) from None
+        user = self._sso_user(out["token"])  # same checks as every later request: collisions, no access
+        return {**out, "name": user.name}
 
     @staticmethod
     def require(user: User, permission: str) -> None:
@@ -1360,6 +1412,10 @@ def _handler(service: AutologyService):
                                             "scheduler": service.scheduler_status})
                 if not path.startswith("/api/"):
                     raise ApiError(404, "not found")
+                if path == "/api/auth/config" and method == "GET":  # what the inbox needs to offer SSO sign-in
+                    return self._send(200, service.sso_config())
+                if path == "/api/auth/token" and method == "POST":
+                    return self._send(200, service.sso_token(self._body()))
                 user = service.authenticate(self.headers.get("Authorization"))
                 self._user = user
                 parts = path.split("/")[2:]

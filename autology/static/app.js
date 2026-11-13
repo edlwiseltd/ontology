@@ -414,6 +414,77 @@ function signOut(message) {
   }
 }
 
+// -- single sign-on (OpenID Connect, authorization code with PKCE; the server exchanges the code) -------------
+function b64url(bytes) {
+  let text = "";
+  bytes.forEach((b) => { text += String.fromCharCode(b); });
+  return btoa(text).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function randomString(n) {
+  const bytes = new Uint8Array(n);
+  crypto.getRandomValues(bytes);
+  return b64url(bytes);
+}
+
+const redirectUri = () => window.location.origin + "/";
+
+async function startSso(config) {
+  const verifier = randomString(32), stateParam = randomString(16), nonce = randomString(16);
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
+  try {
+    sessionStorage.setItem("autology-sso", JSON.stringify({ verifier, state: stateParam, nonce }));
+  } catch (e) {
+    signOut("Sign-in needs this browser to allow session storage.");
+    return;
+  }
+  const url = new URL(config.authorization_endpoint);
+  url.search = new URLSearchParams({
+    response_type: "code", client_id: config.client_id, redirect_uri: redirectUri(), scope: config.scopes,
+    state: stateParam, nonce, code_challenge: b64url(new Uint8Array(digest)), code_challenge_method: "S256",
+  }).toString();
+  window.location.assign(url.toString());
+}
+
+async function finishSso(params) {
+  let pending = null;
+  try {
+    pending = JSON.parse(sessionStorage.getItem("autology-sso"));
+    sessionStorage.removeItem("autology-sso");
+  } catch (e) { /* no pending sign-in */ }
+  history.replaceState(null, "", "/");  // the code is single-use: keep it out of the address bar and history
+  if (params.get("error")) {
+    signOut("Sign-in failed: " + (params.get("error_description") || params.get("error")));
+    return;
+  }
+  if (!pending || params.get("state") !== pending.state) {
+    signOut("Sign-in failed: the response did not match this browser's request. Try again.");
+    return;
+  }
+  const response = await fetch("/api/auth/token", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code: params.get("code"), code_verifier: pending.verifier, redirect_uri: redirectUri(),
+                           nonce: pending.nonce }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    signOut("Sign-in failed: " + data.error);
+    return;
+  }
+  saveToken(data.token);
+  enter();
+}
+
+async function offerSso() {
+  try {
+    const response = await fetch("/api/auth/config");
+    const config = await response.json();
+    if (!response.ok || !config.oidc) return;
+    $("sso").hidden = false;
+    $("sso-button").onclick = () => startSso(config);
+  } catch (e) { /* no single sign-on: tokens only */ }
+}
+
 async function enter() {
   try {
     state.me = await api("GET", "me");
@@ -456,6 +527,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if (why && why.trim()) loadObjects(why.trim());
   });
   $("start-form").addEventListener("submit", startRun);
+  offerSso();
+  const params = new URLSearchParams(window.location.search);
+  if (params.has("code") || params.has("error")) { finishSso(params); return; }
   const saved = readToken();
   if (saved) { state.token = saved; enter(); }
 });

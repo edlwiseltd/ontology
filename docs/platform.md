@@ -154,7 +154,9 @@ The decision applies to exactly the action that was waiting. The reviewer's iden
 
 ## REST API
 
-Every request needs `Authorization: Bearer <token>`, except `/api/health` and the inbox's static files.
+Every request needs `Authorization: Bearer <token>` (an Autology API token, or a token from the company's identity
+provider when `oidc` is configured: see [`integrations.md`](integrations.md)), except `/api/health`,
+`GET /api/auth/config`, `POST /api/auth/token` (the inbox's sign-in) and the inbox's static files.
 
 | Method and path | Permission | Purpose |
 |---|---|---|
@@ -204,7 +206,7 @@ A user's `roles` are ontology roles, and the row and field rules apply to everyt
 
 ### Not yet included
 
-- single sign-on (OIDC or SAML);
+- SAML sign-in (OpenID Connect is supported, Tier 3);
 - token rotation and expiry;
 - rate limiting;
 - multi-tenant separation within one server;

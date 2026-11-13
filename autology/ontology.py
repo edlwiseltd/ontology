@@ -24,6 +24,7 @@ change means publishing a new version (see :mod:`autology.versioning`).
 
 from __future__ import annotations
 
+import ast
 import copy
 import hashlib
 import json
@@ -76,6 +77,48 @@ def _freeze(value: Any) -> Any:
     if isinstance(value, (list, tuple)):
         return tuple(_freeze(v) for v in value)
     return value
+
+
+@dataclass(frozen=True)
+class Function:
+    """A named computation on an object type: *how to calculate*, e.g. a claim's payout.
+
+    Referenced like an attribute (``Claim.payout``) in any ontology expression - rules, goals,
+    preconditions, questions - and usable as a computed action effect. It is expanded into the
+    expressions that use it, so access rules still apply to the fields it reads.
+    """
+
+    name: str
+    entity: str
+    returns: str
+    source: str  # as written
+    expr: Expression  # with nested functions expanded
+    description: str = ""
+
+
+@dataclass(frozen=True)
+class Computed:
+    """An action effect whose value is computed when the action runs: ``{"compute": "Claim.payout"}``."""
+
+    source: str
+    expr: Expression
+
+
+def expand_functions(source: str, functions: Mapping[Tuple[str, str], Any], _stack: Tuple = ()) -> str:
+    """Replace ``Entity.function`` references in ``source`` with the function's expression."""
+    tree = ast.parse(source.strip(), mode="eval")
+
+    class Expand(ast.NodeTransformer):
+        def visit_Attribute(self, node):  # noqa: N802 - ast API
+            if isinstance(node.value, ast.Name) and (node.value.id, node.attr) in functions:
+                key = (node.value.id, node.attr)
+                if key in _stack:
+                    raise OntologyError(f"function {key[0]}.{key[1]} refers to itself")
+                body = expand_functions(functions[key]["expr"], functions, _stack + (key,))
+                return ast.parse(body, mode="eval").body
+            return node
+
+    return ast.unparse(Expand().visit(tree))
 
 
 @dataclass(frozen=True)
@@ -341,6 +384,7 @@ class Ontology:
         scheduling: Optional[SchedulingSpec] = None,
         case_templates: Optional[Mapping[str, CaseTemplate]] = None,
         interfaces: Optional[Mapping[str, Interface]] = None,
+        functions: Optional[Mapping[str, Function]] = None,
     ):
         object.__setattr__(self, "_frozen", False)
         self.name = name
@@ -358,6 +402,7 @@ class Ontology:
         self.scheduling = scheduling
         self.case_templates = MappingProxyType(dict(case_templates or {}))
         self.interfaces = MappingProxyType(dict(interfaces or {}))
+        self.functions = MappingProxyType(dict(functions or {}))  # "Entity.name" -> Function
         self.source = _freeze(copy.deepcopy(dict(source)) if source is not None else {"name": name})
         canonical = json.dumps(source if source is not None else {"name": name, "version": version},
                                sort_keys=True, separators=(",", ":"), default=str)
@@ -378,6 +423,16 @@ class Ontology:
         return f"{self.name}@{self.version}"
 
     # -- queries --------------------------------------------------------
+    def expression(self, source: str) -> Expression:
+        """Compile an expression in this ontology's vocabulary: ``Entity.function`` references are expanded."""
+        if not self.functions:
+            return compile_expression(source)
+        raw = {(f.entity, f.name): {"expr": f.source} for f in self.functions.values()}
+        try:
+            return compile_expression(expand_functions(source, raw))
+        except SyntaxError:
+            return compile_expression(source)
+
     def implementers(self, interface: str) -> Tuple[str, ...]:
         """Entity types implementing ``interface`` (or just the entity itself, for an entity name)."""
         if interface in self.entities:
@@ -414,6 +469,10 @@ class Ontology:
             lines.append("Relationships:")
             for r in self.relationships:
                 lines.append(f"  - {r.source} -{r.kind}-> {r.target} ({r.cardinality})")
+        if self.functions:
+            lines.append("Functions:")
+            for key, fn in self.functions.items():
+                lines.append(f"  - {key} -> {fn.returns} = {fn.source}" + (f" ({fn.description})" if fn.description else ""))
         lines.append("Actions:")
         for a in self.actions.values():
             outs = "/".join(o.name for o in a.outcomes)
@@ -505,6 +564,22 @@ class Ontology:
             for fn, entities in expr.quantifiers:
                 if len(entities & multi) > 1:
                     raise OntologyError(f"{owner}: {fn}() may range over one multi-instance entity only")
+        for key, fn in self.functions.items():
+            where = f"function {key}"
+            etype = self.entities.get(fn.entity)
+            if etype is None:
+                raise OntologyError(f"{where}: unknown entity {fn.entity!r}")
+            if fn.name in etype.attributes or fn.name in (STATUS, ID):
+                raise OntologyError(f"{where}: {fn.entity} already has an attribute called {fn.name!r}")
+            if fn.returns not in ("number", "integer", "boolean", "string"):
+                raise OntologyError(f"{where}: returns must be number, integer, boolean or string")
+            self._check_expr(fn.expr, where)
+        for action in self.actions.values():
+            for outcome in action.outcomes:
+                for entity, changes in outcome.effects.items():
+                    for attr, value in changes.items():
+                        if isinstance(value, Computed):
+                            self._check_expr(value.expr, f"action {action.name!r} computed effect {entity}.{attr}")
         for iface in self.interfaces.values():
             if iface.name in self.entities:
                 raise OntologyError(f"interface {iface.name!r} has the same name as an entity")
@@ -703,6 +778,30 @@ class Ontology:
 
     @classmethod
     def _from_dict(cls, doc: Mapping[str, Any]) -> "Ontology":
+        raw_functions = {}
+        for fname, spec in (doc.get("functions") or {}).items():
+            if not isinstance(spec, Mapping) or not spec.get("entity") or not spec.get("expr"):
+                raise OntologyError(f"function {fname!r}: needs an entity and an expr")
+            raw_functions[(spec["entity"], fname)] = spec
+
+        def cx(source: str) -> Expression:  # every ontology expression may use functions
+            if not raw_functions:
+                return compile_expression(source)
+            try:
+                return compile_expression(expand_functions(source, raw_functions))
+            except SyntaxError:
+                return compile_expression(source)  # let the expression parser report it
+
+        functions = {f"{entity}.{fname}": Function(fname, entity, str(spec.get("returns", "number")), spec["expr"],
+                                                   cx(spec["expr"]), spec.get("description", ""))
+                     for (entity, fname), spec in raw_functions.items()}
+
+        def effects(spec: Mapping[str, Any]) -> Any:
+            return _freeze({entity: {attr: (Computed(v["compute"], cx(v["compute"]))
+                                            if isinstance(v, Mapping) and "compute" in v else v)
+                                     for attr, v in changes.items()}
+                            for entity, changes in spec.items()})
+
         entities: Dict[str, EntityType] = {}
         for name, spec in doc.get("entities", {}).items():
             attrs = {}
@@ -732,7 +831,7 @@ class Ontology:
             if outcomes_spec is None:  # shorthand: a single "done" outcome
                 outcomes_spec = {"done": {"effects": spec.get("effects", {})}}
             outcomes = tuple(
-                Outcome(oname, _freeze(ospec.get("effects", {})), ospec.get("description", ""))
+                Outcome(oname, effects(ospec.get("effects", {})), ospec.get("description", ""))
                 for oname, ospec in outcomes_spec.items())
             requires = spec.get("requires", [])
             if isinstance(requires, str):
@@ -742,7 +841,7 @@ class Ontology:
                 name=name,
                 description=spec.get("description", ""),
                 capability=spec.get("capability", name),
-                requires=tuple(compile_expression(r) for r in requires),
+                requires=tuple(cx(r) for r in requires),
                 outcomes=outcomes,
                 reads=tuple(spec.get("reads", ())),
                 writes=tuple(spec.get("writes", ())),
@@ -755,14 +854,14 @@ class Ontology:
                                          str(failure.get("escalate_to", "operations")),
                                          int(failure.get("fallback_after", 0))),
             )
-        goals = {name: Goal(name, spec.get("description", ""), compile_expression(spec["target"]))
+        goals = {name: Goal(name, spec.get("description", ""), cx(spec["target"]))
                  for name, spec in doc.get("goals", {}).items()}
         rules: List[Rule] = []
         for spec in doc.get("rules", []):
             params = {k: v for k, v in spec.items() if k not in ("id", "type", "description", "when")}
             when = spec.get("when")
             rules.append(Rule(spec["id"], spec["type"], spec.get("description", ""),
-                              compile_expression(when) if when else None, _freeze(params)))
+                              cx(when) if when else None, _freeze(params)))
         questions = []
         for spec in doc.get("competency_questions", []):
             agg = spec.get("aggregate")
@@ -772,16 +871,16 @@ class Ontology:
                 aggregate = (fn, None if fn == "count" else target)
             questions.append(CompetencyQuestion(
                 spec["id"], spec.get("question", ""), spec["find"],
-                compile_expression(spec["where"]) if spec.get("where") else None,
+                cx(spec["where"]) if spec.get("where") else None,
                 tuple(spec.get("follow", ())),
-                compile_expression(spec["result_where"]) if spec.get("result_where") else None,
+                cx(spec["result_where"]) if spec.get("result_where") else None,
                 aggregate, _freeze(spec.get("params", {})), spec.get("expect")))
         impact_rules = []
         for spec in doc.get("impact_rules", []):
             paths = tuple(tuple(p.split(".")) if isinstance(p, str) else tuple(p) for p in spec.get("paths", []))
             applies = tuple((tuple(a["path"].split(".")), _freeze(a.get("set", {}))) for a in spec.get("apply", []))
             impact_rules.append(ImpactRule(spec["id"], spec["event"], paths, spec.get("description", ""),
-                                           compile_expression(spec["when"]) if spec.get("when") else None,
+                                           cx(spec["when"]) if spec.get("when") else None,
                                            _freeze(spec.get("adjust", {})), applies))
         scheduling = None
         if doc.get("scheduling"):
@@ -792,8 +891,8 @@ class Ontology:
                 resources=tuple(ResourceRequirement(r["step"], bool(r.get("alternatives", False)))
                                 for r in sc.get("resources", [])),
                 release=sc.get("release"), due=sc.get("due"), job_precedence=sc.get("job_precedence"),
-                availability=MappingProxyType({k: compile_expression(v) for k, v in sc.get("availability", {}).items()}),
-                checks=tuple(ScheduleCheck(c["id"], compile_expression(c["when"]), c.get("message", c["id"]),
+                availability=MappingProxyType({k: cx(v) for k, v in sc.get("availability", {}).items()}),
+                checks=tuple(ScheduleCheck(c["id"], cx(c["when"]), c.get("message", c["id"]),
                                            c.get("severity", "warning")) for c in sc.get("checks", [])),
                 time_unit=sc.get("time_unit", "h"), context=tuple(sc.get("context", ())),
                 job_context=tuple(sc.get("job_context", ())))
@@ -806,7 +905,7 @@ class Ontology:
         return cls(doc["name"], str(doc.get("version", "0")), entities, relationships, actions, goals,
                    rules, doc.get("description", ""), source=source, questions=questions,
                    modules=doc.get("modules", ()), settings=doc.get("settings"), impact_rules=impact_rules,
-                   scheduling=scheduling, case_templates=templates, interfaces=interfaces)
+                   scheduling=scheduling, case_templates=templates, interfaces=interfaces, functions=functions)
 
     @classmethod
     def load(cls, path: str | Path) -> "Ontology":
@@ -815,7 +914,7 @@ class Ontology:
 
 
 # -- modules ------------------------------------------------------------------
-_MERGE_MAPS = ("entities", "actions", "goals", "case_templates", "interfaces")
+_MERGE_MAPS = ("entities", "actions", "goals", "case_templates", "interfaces", "functions")
 _SINGULAR = {"entities": "entity", "actions": "action", "goals": "goal", "case_templates": "case template",
              "interfaces": "interface"}
 

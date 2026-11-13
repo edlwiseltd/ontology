@@ -24,10 +24,15 @@ from .state import GroundAction, WorldState
 
 
 def apply_outcome(state: WorldState, outcome: Outcome, binding: Optional[Dict[str, str]] = None) -> None:
+    """Apply an outcome's effects. Computed effects are all evaluated on the state *before* any is applied."""
+    from .ontology import Computed
+
     binding = binding or {}
-    for entity, changes in outcome.effects.items():
-        for attr, value in changes.items():
-            state.set(entity, attr, value, binding.get(entity))
+    resolve = state.resolver(binding)
+    planned = [(entity, attr, value.expr.value(resolve) if isinstance(value, Computed) else value)
+               for entity, changes in outcome.effects.items() for attr, value in changes.items()]
+    for entity, attr, value in planned:
+        state.set(entity, attr, value, binding.get(entity))
 
 
 class SearchBudgetExceeded(RuntimeError):

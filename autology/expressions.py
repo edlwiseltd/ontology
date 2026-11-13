@@ -31,6 +31,9 @@ class ExpressionError(ValueError):
 
 
 QUANTIFIERS = ("all_of", "any_of", "count_of")
+# arithmetic for computed values (ontology functions, computed effects); None in, None out
+_ARITHMETIC = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul, ast.Div: operator.truediv}
+_MATH = {"min": min, "max": max, "abs": abs, "round": round}
 
 
 _COMPARATORS = {
@@ -71,8 +74,18 @@ class Expression:
         if isinstance(node, ast.BoolOp) and isinstance(node.op, (ast.And, ast.Or)):
             for value in node.values:
                 self._validate(value, refs, free)
-        elif isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
+        elif isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.Not, ast.USub, ast.UAdd)):
             self._validate(node.operand, refs, free)
+        elif isinstance(node, ast.BinOp):
+            if type(node.op) not in _ARITHMETIC:
+                raise ExpressionError(f"operator {type(node.op).__name__} not allowed in {self.source!r}")
+            self._validate(node.left, refs, free)
+            self._validate(node.right, refs, free)
+        elif isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in _MATH:
+            if node.keywords or not node.args:
+                raise ExpressionError(f"{node.func.id}() takes positional arguments only in {self.source!r}")
+            for arg in node.args:
+                self._validate(arg, refs, free)
         elif isinstance(node, ast.Compare):
             for op in node.ops:
                 if type(op) not in _COMPARATORS:
@@ -113,13 +126,33 @@ class Expression:
     def evaluate(self, resolve: Resolver) -> bool:
         return bool(self._eval(self._tree, resolve))
 
+    def value(self, resolve: Resolver) -> Any:
+        """The expression's value (a number for a computation), not coerced to a truth value."""
+        return self._eval(self._tree, resolve)
+
+    @staticmethod
+    def _arith(fn: Callable[..., Any], *args: Any) -> Any:
+        if any(a is None or isinstance(a, bool) for a in args):
+            return None  # unknown in, unknown out
+        try:
+            return fn(*args)
+        except (TypeError, ZeroDivisionError, ValueError):
+            return None
+
     def _eval(self, node: ast.AST, resolve: Resolver) -> Any:
         if isinstance(node, ast.BoolOp):
             if isinstance(node.op, ast.And):
                 return all(self._eval(v, resolve) for v in node.values)
             return any(self._eval(v, resolve) for v in node.values)
         if isinstance(node, ast.UnaryOp):
-            return not self._eval(node.operand, resolve)
+            operand = self._eval(node.operand, resolve)
+            if isinstance(node.op, ast.Not):
+                return not operand
+            return self._arith(operator.neg if isinstance(node.op, ast.USub) else operator.pos, operand)
+        if isinstance(node, ast.BinOp):
+            return self._arith(_ARITHMETIC[type(node.op)], self._eval(node.left, resolve), self._eval(node.right, resolve))
+        if isinstance(node, ast.Call) and node.func.id in _MATH:
+            return self._arith(_MATH[node.func.id], *(self._eval(a, resolve) for a in node.args))
         if isinstance(node, ast.Compare):
             left = self._eval(node.left, resolve)
             for op, comparator in zip(node.ops, node.comparators):
@@ -167,6 +200,16 @@ class Expression:
             if isinstance(node.op, ast.And):
                 return False if False in values else (_UNKNOWN if _UNKNOWN in values else True)
             return True if True in values else (_UNKNOWN if _UNKNOWN in values else False)
+        if isinstance(node, ast.UnaryOp) and not isinstance(node.op, ast.Not):
+            operand = self._eval3(node.operand, resolve)
+            return _UNKNOWN if operand in (_UNKNOWN, None) else self._eval(node, resolve)
+        if isinstance(node, (ast.BinOp, ast.Call)) and not (isinstance(node, ast.Call) and node.func.id in QUANTIFIERS):
+            parts = [node.left, node.right] if isinstance(node, ast.BinOp) else node.args
+            values = [self._eval3(p, resolve) for p in parts]
+            if any(v is _UNKNOWN or v is None for v in values):
+                return _UNKNOWN
+            out = self._eval(node, resolve)
+            return _UNKNOWN if out is None else out
         if isinstance(node, ast.UnaryOp):
             inner = self._truth3(node.operand, resolve)
             return inner if inner is _UNKNOWN else not inner

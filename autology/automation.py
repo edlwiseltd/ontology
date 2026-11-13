@@ -102,7 +102,7 @@ def load_automations(specs: Mapping[str, Any], ontology: Ontology,
         when = None
         if spec.get("when"):
             try:
-                when = compile_expression(spec["when"])
+                when = ontology.expression(spec["when"])
             except ExpressionError as exc:
                 raise OntologyError(f"{where}: {exc}") from None
             ontology._check_expr(when, where, allow_params=True, only=entity)

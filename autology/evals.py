@@ -161,7 +161,7 @@ def load_suite(path: Union[str, Path]) -> EvalSuite:
             raise OntologyError(f"suite case {cid}: unknown expectations {sorted(unknown)}")
         _check_expect(cid, expect)
         for cond in expect.get("final", []):
-            compile_expression(cond)  # fail at load time, not mid-run
+            onto.expression(cond)  # fail at load time, not mid-run
         if spec.get("goal") and spec["goal"] not in onto.goals:
             raise OntologyError(f"suite case {cid}: unknown goal {spec['goal']!r}")
         cases.append(EvalCase(cid, case, expect, spec.get("goal"), spec.get("roles")))
@@ -195,7 +195,7 @@ def _matches(executed: Sequence[str], wanted: str) -> List[int]:
     return [i for i, a in enumerate(executed) if a == wanted or a.partition("@")[0] == wanted]
 
 
-def check(expect: Mapping[str, Any], result: Any, metrics: Mapping[str, Any]) -> List[Check]:
+def check(expect: Mapping[str, Any], result: Any, metrics: Mapping[str, Any], ontology: Any = None) -> List[Check]:
     """Evaluate one run against its expectations."""
     executed = [s.action for s in result.steps if s.outcome]
     checks: List[Check] = []
@@ -228,7 +228,8 @@ def check(expect: Mapping[str, Any], result: Any, metrics: Mapping[str, Any]) ->
         checks.append(Check(f"reviews {expect['reviews']}", n == expect["reviews"], f"got {n}"))
     for cond in expect.get("final", []):
         try:
-            ok = bool(compile_expression(cond).evaluate(result.state.resolver()))
+            ok = bool(compile_expression(cond).evaluate(result.state.resolver())) if ontology is None else \
+                bool(ontology.expression(cond).evaluate(result.state.resolver()))
             detail = "" if ok else "does not hold on the final state"
         except Exception as exc:  # e.g. a type error on missing data: the expectation fails, the suite goes on
             ok, detail = False, f"{type(exc).__name__}: {exc}"
@@ -291,7 +292,7 @@ def run_suite(suite: EvalSuite, reasoners: Optional[Mapping[str, Any]] = None, r
                 m = _metrics(result)
                 if isinstance(getattr(reasoner, "calls", None), int):  # LLMReasoner counts every model call
                     m["llm_calls"] = reasoner.calls
-                cr = CaseResult(name, case.id, attempt, result.status, check(case.expect, result, m),
+                cr = CaseResult(name, case.id, attempt, result.status, check(case.expect, result, m, suite.ontology),
                                 len([s for s in result.steps if s.outcome]), result.path, m["agreement"],
                                 m["fallbacks"], m["overrides"], m["llm_calls"], m["cost_usd"], round(wall, 1),
                                 result.escalation.reason if result.escalation else None)

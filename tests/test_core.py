@@ -29,9 +29,12 @@ class ExpressionTests(unittest.TestCase):
 
     def test_rejects_code_execution(self):
         for src in ("__import__('os').system('echo hi')", "C.x.__class__", "C._secret == 1",
-                    "len(C.x) > 1", "C.x + 1 == 2", "lambda: 1", "[c for c in C.x]", ""):
+                    "len(C.x) > 1", "C.x ** 99999 > 1", "C.x % 2 == 0", "max(C.x, key=1)", "min()",
+                    "lambda: 1", "[c for c in C.x]", ""):
             with self.subTest(src=src), self.assertRaises(ExpressionError):
                 compile_expression(src)
+        # plain arithmetic on values is allowed (ontology functions use it)
+        self.assertTrue(compile_expression("C.x + 1 == 2").evaluate(lambda e, a: 1))
 
 
 def rule(doc, rule_id):

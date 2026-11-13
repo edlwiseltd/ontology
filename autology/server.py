@@ -268,7 +268,18 @@ class AutologyService:
 
     def object_view(self, inst: Instance, user: User, justified: bool = False) -> Dict[str, Any]:
         attrs = {attr: self.field_value(inst, attr, user, justified) for attr in inst.attributes}
-        return {"id": inst.id, "type": inst.type, "attributes": attrs}
+        out = {"id": inst.id, "type": inst.type, "attributes": attrs}
+        computed = {}
+        for fn in self.ontology.functions.values():
+            if fn.entity != inst.type or {e for e, _ in fn.expr.references} - {inst.type}:
+                continue  # functions that need other objects are computed within a case, not on one object
+            if any(attrs.get(a) in (REDACTED, JUSTIFY) for _, a in fn.expr.references):
+                computed[fn.name] = REDACTED  # never computed from fields the caller may not see
+            else:
+                computed[fn.name] = fn.expr.value(lambda e, a: inst.get(a))
+        if computed:
+            out["functions"] = computed
+        return out
 
     # -- checkpoints: a written justification before sensitive operations ------------------
     def _checkpoints(self, op: str, **context: Any) -> List[Any]:
@@ -317,6 +328,8 @@ class AutologyService:
                              for e in o.entities.values()},
                 "actions": {a.name: {"description": a.description, "for_each": a.for_each} for a in o.actions.values()},
                 "goals": {g.name: {"description": g.description, "target": str(g.target)} for g in o.goals.values()},
+                "functions": {k: {"returns": f.returns, "expr": f.source, "description": f.description}
+                              for k, f in o.functions.items()},
                 "interfaces": {i.name: {"attributes": {a.name: a.type for a in i.attributes.values()},
                                         "implementers": list(o.implementers(i.name))} for i in o.interfaces.values()},
                 "rules": [{"id": r.id, "kind": r.kind, "description": r.description} for r in o.rules],

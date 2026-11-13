@@ -123,8 +123,8 @@ class KnowledgeGraph:
               result_where: Optional[str | Expression] = None, aggregate: Optional[Tuple[str, Optional[str]]] = None,
               params: Optional[Mapping[str, Any]] = None) -> QueryResult:
         params = dict(params or {})
-        where = compile_expression(where) if isinstance(where, str) else where
-        result_where = compile_expression(result_where) if isinstance(result_where, str) else result_where
+        where = self.ontology.expression(where) if isinstance(where, str) else where
+        result_where = self.ontology.expression(result_where) if isinstance(result_where, str) else result_where
         current = [i for i in self.instances(find) if self._matches(where, i, params)]
         for step in follow:
             self.ontology.relationship(current[0].type if current else find, step)  # validates step

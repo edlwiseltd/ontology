@@ -115,6 +115,13 @@ def diff(old: Ontology, new: Ontology) -> List[Change]:
         if o.description != n.description:
             changes.append(Change("patch", "action.description_changed", name))
 
+    for key in keyed("function", dict(old.functions), dict(new.functions)):
+        of, nf = old.functions[key], new.functions[key]
+        if of.returns != nf.returns:
+            changes.append(Change("major", "function.returns_changed", key, f"{of.returns} -> {nf.returns}"))
+        if str(of.expr) != str(nf.expr):  # the formula changed: every rule and goal using it behaves differently
+            changes.append(Change("minor", "function.changed", key))
+
     for name in keyed("goal", dict(old.goals), dict(new.goals)):
         if str(old.goals[name].target) != str(new.goals[name].target):
             changes.append(Change("major", "goal.target_changed", name))

@@ -466,3 +466,22 @@ python -m autology trace runs.jsonl --out traces.json
 
 - **Automatic export.** With `"tracing": {"endpoint": "...", "headers": {"x-api-key-env": "OTLP_KEY"}}` in the server config, each run is exported when it reaches a final status. A header ending in `-env` takes its value from that environment variable.
 - **Over the API,** `GET /api/runs/{id}/trace` (audit permission) returns the OTLP/JSON payload.
+
+## MCP interface
+
+The same ontology can be used from any Model Context Protocol client, such as Claude Desktop or Claude Code. The MCP server runs over stdio, needs only the standard library, and signs in as one user with that user's API token:
+
+```jsonc
+{"mcpServers": {"autology": {"command": "python", "args": ["-m", "autology", "mcp", "/path/to/server.json"],
+                             "env": {"AUTOLOGY_TOKEN": "atl_...", "AUTOLOGY_AUDIT_KEY": "..."}}}}
+```
+
+It offers exactly the governed assistant's tools, with the same guarantees:
+
+- calls run as that user, with their permissions and row and field access;
+- `start_run` only records a proposal, which the person confirms in the inbox;
+- nothing decides a human review;
+- values withheld from model providers (`chat_redact`, confidential by default) are withheld here too;
+- every call is written to the access log as `mcp.tool`.
+
+The server was checked against the official MCP Python SDK: handshake, tool listing and tool calls.

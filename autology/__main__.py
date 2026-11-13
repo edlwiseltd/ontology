@@ -18,6 +18,7 @@
     python -m autology trace [RUNS.jsonl | --db DB] [--run ID] [--out FILE] [--endpoint URL]   # OpenTelemetry
     python -m autology eval SUITE.json [--reasoner NAME=SPEC ...] [--repeats N] [--json] [--min-pass 0.95]
     python -m autology scenario ONTOLOGY DATA.json SCENARIO.json [--schedule] [--json] [--commit OUT.json]
+    python -m autology mcp SERVER.json [--token-env AUTOLOGY_TOKEN]       # MCP server over stdio
     python -m autology serve SERVER.json [--host 127.0.0.1] [--port 8800]   # REST API + web inbox
     python -m autology token                                               # new API token and its hash
 """
@@ -231,6 +232,9 @@ def _build_parser() -> argparse.ArgumentParser:
     scn.add_argument("--schedule", action="store_true", help="also compare schedule KPIs")
     scn.add_argument("--json", action="store_true", help="print the comparison as JSON")
     scn.add_argument("--commit", metavar="OUT.json", help="write the data with the scenario applied")
+    mc = sub.add_parser("mcp", help="serve the governed ontology to MCP clients over stdio")
+    mc.add_argument("config")
+    mc.add_argument("--token-env", default="AUTOLOGY_TOKEN", help="environment variable holding the API token")
     sv = sub.add_parser("serve", help="run the REST API and web inbox")
     sv.add_argument("config")
     sv.add_argument("--host", default="127.0.0.1")
@@ -347,6 +351,10 @@ def main(argv=None) -> int:
 
     if args.command == "eval":
         return _cmd_eval(args)
+    if args.command == "mcp":
+        from .mcp import run
+
+        return run(args.config, args.token_env)
     if args.command == "trace":
         return _cmd_trace(args)
 

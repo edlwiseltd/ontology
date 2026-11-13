@@ -1,0 +1,16 @@
+ACCEPTED  valid token (control)
+refused   alg none: token algorithm 'none' is not accepted (401)
+refused   HS256 keyed with public n: token algorithm 'HS256' is not accepted (401)
+refused   attacker key, known kid: token signature does not verify (401)
+refused   attacker key, new kid: token signed with an unknown key (401)
+refused   wrong audience: token is for another audience (401)
+ACCEPTED  aud list incl. ours
+refused   wrong issuer: token is from another issuer (401)
+refused   issuer prefix: token is from another issuer (401)
+refused   no exp: token expired (401)
+refused   expired: token expired (401)
+refused   exp as string: token expired (401)
+refused   nbf future: token not valid yet (401)
+refused   crit header: token uses unsupported critical header parameters (401)
+EXCEPTION unhashable aud (signed): TypeError: unhashable type: 'dict'
+ACCEPTED  token signed by REMOVED key k1 after rotation (1h later)

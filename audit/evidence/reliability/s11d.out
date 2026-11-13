@@ -1,0 +1,5 @@
+  results: [('err', False, 409, 'review 97111043b098 was already decided'), ('ok', True, 'awaiting_review')]
+  run: awaiting_review | review.decision entries: 1 | review row: approved
+  notifications for claims_manager: ['Review needed: pay_claim in run 33804e9479cd (R-HIGH-PAYOUT)']
+  notifications after a decline (all): [('review', ['special_investigations'], 'Review needed: reject_claim in run d5ba3968e406 (R-SIU-REJECT)'), ('review', ['claims_manager'], 'Review needed: pay_claim in run 33804e9479cd (R-HIGH-PAYOUT)'), ('review', ['special_investigations'], 'Review needed: approve_claim in run 33804e9479cd (R-SIU-APPROVE)')]
+  conflict notification visibility for a reviewer: list_notifications(maria): ['review']

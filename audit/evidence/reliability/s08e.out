@@ -1,0 +1,5 @@
+  status: escalated | to: it-integration | reason: pay_claim: tool py_bank raised TimeoutError: read timed out after the bank accepted the transfer; it may have acted partly, check before retrying
+  bank calls: 1 | Payment state: {'amount': None, 'reference': None, 'status': 'pending'} | Claim: approved
+  classify: unplanned
+  resume: ValueError cannot resume a run with status 'escalated'
+  operator restarts from the recorded state -> escalated | bank calls: 2

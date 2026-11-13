@@ -1,0 +1,6 @@
+get_object C-1 credit_limit: ***redacted***
+answer CQ-X1: (403, {'error': 'the answer depends on Customer.credit_limit, which you may not read'})
+answer CQ-X2: (403, {'error': 'the answer depends on Customer.credit_limit, which you may not read'})
+compare CQ-X1 baseline= 250000
+compare CQ-X2 baseline= ['C-1']
+C-1.credit_limit = baseline - scenario = 250000

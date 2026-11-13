@@ -1,0 +1,13 @@
+  run 0: escalated esc=('planned step denied', 'operations', ['prohibited: Never pay a claim scored as fraud (applied because Claim.fraud_band is unknown)'])
+     denies: [('pay_claim', ['prohibited: Never pay a claim scored as fraud (applied because Claim.fraud_band is unknown)'], False)]
+  run 1: escalated esc=('planned step denied', 'operations', ['prohibited: Never pay a claim scored as fraud (applied because Claim.fraud_band is unknown)'])
+     denies: [('pay_claim', ['prohibited: Never pay a claim scored as fraud (applied because Claim.fraud_band is unknown)'], False)]
+  run 2: escalated esc=('planned step denied', 'operations', ['prohibited: Never pay a claim scored as fraud (applied because Claim.fraud_band is unknown)'])
+     denies: [('pay_claim', ['prohibited: Never pay a claim scored as fraud (applied because Claim.fraud_band is unknown)'], False)]
+  run 3: escalated esc=('planned step denied', 'operations', ['prohibited: Never pay a claim scored as fraud (applied because Claim.fraud_band is unknown)'])
+     denies: [('pay_claim', ['prohibited: Never pay a claim scored as fraud (applied because Claim.fraud_band is unknown)'], False)]
+  agent suspended: {}
+  good claim afterwards on same agent: completed None
+== missing policy: approve then manager approves payment of None ==
+   awaiting_review awaiting claims_manager review of pay_claim ['Payouts of 20,000 or more need a claims manager (applied because Policy.coverage_limit, Policy.deductible is unknown)']
+   after approval: completed ['assess_fraud:clear', 'approve_claim:done', 'pay_claim:done'] {'amount': None, 'reference': 'BANK-TRANSFER', 'status': 'sent'} None

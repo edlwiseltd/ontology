@@ -1,0 +1,35 @@
+== 13a same version 1.0.0, new prohibition: never pay claims over 30,000 ==
+  run 7972a01a7e38 awaiting_review pending review 407c0e4ab890
+  restarted on auto-insurance-claims@1.0.0 4fb075094016
+  decide -> escalated
+  run status: escalated | path: ['assess_fraud:suspicious', 'approve_claim:done'] | esc: no compliant path to the goal
+  run.ontology_ref: auto-insurance-claims@1.0.0 | run.start fingerprint: efd813a0c117 | any later fingerprint entry: []
+  resume entries: [{'case': 'CL-2', 'agent': 'claims', 'previous_status': 'awaiting_review'}]
+  review status: approved | verify_audit: True
+  runs table ontology column: ['auto-insurance-claims@1.0.0']
+== 13b same version 1.0.0, review rule removed (R-HIGH-PAYOUT threshold raised to 100,000) ==
+  run 26e97516dfd5 awaiting_review pending review b48f881ef974
+  restarted on auto-insurance-claims@1.0.0 4d7dcf01114a
+  decide -> completed
+  run status: completed | path: ['assess_fraud:suspicious', 'approve_claim:done', 'pay_claim:done'] | esc: None
+  run.ontology_ref: auto-insurance-claims@1.0.0 | run.start fingerprint: efd813a0c117 | any later fingerprint entry: []
+  resume entries: [{'case': 'CL-2', 'agent': 'claims', 'previous_status': 'awaiting_review'}]
+  review status: approved | verify_audit: True
+  runs table ontology column: ['auto-insurance-claims@1.0.0']
+== 13c version bumped to 1.1.0 (no rule change) ==
+  run 4a503508b2aa awaiting_review pending review 3e5b4d762e0f
+  restarted on auto-insurance-claims@1.1.0 193a4538297f
+  decide -> ApiError 409 the run cannot continue: run was started on auto-insurance-claims@1.0.0; this agent uses auto-insurance-claims@1.1.0
+  run status: awaiting_review | path: ['assess_fraud:suspicious', 'approve_claim:done'] | esc: awaiting claims_manager review of pay_claim
+  run.ontology_ref: auto-insurance-claims@1.0.0 | run.start fingerprint: efd813a0c117 | any later fingerprint entry: []
+  resume entries: [{'case': 'CL-2', 'agent': 'claims', 'previous_status': 'awaiting_review'}]
+  review status: pending | verify_audit: True
+  runs table ontology column: ['auto-insurance-claims@1.0.0']
+  decide -> ApiError 409 the run cannot continue: run was started on auto-insurance-claims@1.0.0; this agent uses auto-insurance-claims@1.1.0
+  run status: awaiting_review | path: ['assess_fraud:suspicious', 'approve_claim:done'] | esc: awaiting claims_manager review of pay_claim
+  run.ontology_ref: auto-insurance-claims@1.0.0 | run.start fingerprint: efd813a0c117 | any later fingerprint entry: []
+  resume entries: [{'case': 'CL-2', 'agent': 'claims', 'previous_status': 'awaiting_review'}]
+  review status: pending | verify_audit: True
+  runs table ontology column: ['auto-insurance-claims@1.0.0']
+  pending reviews: [('3e5b4d762e0f', 'pending')]
+  admin resume -> 409 run 4a503508b2aa is awaiting_review; only deferred or paused runs resume here

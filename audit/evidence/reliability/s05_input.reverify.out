@@ -1,0 +1,36 @@
+== 5 agent level ==
+  unknown entity: raised OntologyError: case data references unknown entities ['Unknown']
+  unknown attribute: raised OntologyError: case data for 'Claim' has unknown attributes ['colour']
+  amount as string: raised OntologyError: case data for 'Claim': amount must be number, got str '3200'
+  invalid state: raised OntologyError: case data for 'Claim': 'lost' is not a state of Claim
+  missing amount (None): status=awaiting_review path=['assess_fraud:clear', 'approve_claim:done'] esc='awaiting claims_manager review of pay_claim'
+      Claim={'amount': None, 'damage_type': 'rear bumper', 'reported_days_after': 2, 'fraud_score': 0.1, 'fraud_band': 'low', 'approved_amount': None, 'status': 'approved'} Payment={'amount': None, 'reference': None, 'status': 'pending'}
+  no Policy in case at all: status=awaiting_review path=['assess_fraud:clear', 'approve_claim:done'] esc='awaiting claims_manager review of pay_claim'
+      Claim={'amount': 3200, 'damage_type': 'rear bumper', 'reported_days_after': 2, 'fraud_score': 0.1, 'fraud_band': 'low', 'approved_amount': None, 'status': 'approved'} Payment={'amount': None, 'reference': None, 'status': 'pending'}
+  Policy with unknown terms: status=awaiting_review path=['assess_fraud:clear', 'approve_claim:done'] esc='awaiting claims_manager review of pay_claim'
+      Claim={'amount': 3200, 'damage_type': 'rear bumper', 'reported_days_after': 2, 'fraud_score': 0.1, 'fraud_band': 'low', 'approved_amount': None, 'status': 'approved'} Payment={'amount': None, 'reference': None, 'status': 'pending'}
+  contradictory: Claim paid, Payment pending: status=completed path=[] esc=None
+      Claim={'amount': 3200, 'damage_type': 'rear bumper', 'reported_days_after': 2, 'fraud_score': None, 'fraud_band': None, 'approved_amount': None, 'status': 'paid'} Payment={'amount': None, 'reference': None, 'status': 'pending'}
+  contradictory: approved, no amount: status=escalated path=[] esc='planned step denied'
+      Claim={'amount': 3200, 'damage_type': 'rear bumper', 'reported_days_after': 2, 'fraud_score': None, 'fraud_band': None, 'approved_amount': None, 'status': 'approved'} Payment={'amount': None, 'reference': None, 'status': 'pending'}
+  contradictory: lapsed policy but claim already approved: status=escalated path=[] esc='planned step denied'
+      Claim={'amount': 3200, 'damage_type': 'rear bumper', 'reported_days_after': 2, 'fraud_score': None, 'fraud_band': None, 'approved_amount': 2700, 'status': 'approved'} Payment={'amount': None, 'reference': None, 'status': 'pending'}
+  negative amount: status=completed path=['assess_fraud:clear', 'approve_claim:done', 'pay_claim:done'] esc=None
+      Claim={'amount': -5000, 'damage_type': 'rear bumper', 'reported_days_after': 2, 'fraud_score': 0.1, 'fraud_band': 'low', 'approved_amount': 0, 'status': 'paid'} Payment={'amount': 0, 'reference': 'BANK-TRANSFER', 'status': 'sent'}
+  NaN amount: status=completed path=['assess_fraud:clear', 'approve_claim:done', 'pay_claim:done'] esc=None
+      Claim={'amount': nan, 'damage_type': 'rear bumper', 'reported_days_after': 2, 'fraud_score': 0.1, 'fraud_band': 'low', 'approved_amount': nan, 'status': 'paid'} Payment={'amount': nan, 'reference': 'BANK-TRANSFER', 'status': 'sent'}
+== 5 service level: graph claim with no policy link ==
+  CL-9 without Policy/Payment links: awaiting_review ['assess_fraud:clear', 'approve_claim:done'] awaiting claims_manager review of pay_claim
+    case Policy as the agent saw it: {'holder': None, 'deductible': None, 'coverage_limit': None, 'status': 'active'}
+    case Payment: {'amount': None, 'reference': None, 'status': 'pending'}
+    graph CL-9: {'amount': 9000, 'damage_type': 'x', 'reported_days_after': 1, 'fraud_score': 0.1, 'fraud_band': 'low', 'approved_amount': None, 'status': 'approved'}
+  upsert rejected: 400 Claim 'CL-10': amount must be number, got str 'lots'
+  upsert rejected: 400 Claim 'CL-11': 'whatever' is not a valid state
+== 5 tool output of the wrong type for a declared write ==
+  run: completed | graph CL-1.fraud_score = 'very low'
+  RESTART FAILED: OntologyError Claim 'CL-1': fraud_score must be number, got str 'very low'
+== 5 ingestion with bad rows (pipeline) ==
+  ingest: {'created': 3, 'updated': 0, 'rejected': 3}
+   reject: claims 2 Claim: a claim amount cannot be negative (-40)
+   reject: claims 4 Claim: reported_days_after: could not convert string to float: 'four'
+   reject: claims 3 Claim: link against to unknown object 'P-9'

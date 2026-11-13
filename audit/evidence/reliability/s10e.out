@@ -1,0 +1,13 @@
+automation settle_new_claims on CL-1 failed
+RuntimeError: database is locked
+  firing 1: [('error', 'RuntimeError: database is locked; retry 2 of 5 after 300s')] | payment calls: 1
+  runs stored: []
+  automation_state: {'active': 0, 'last_fired': 1794585607.2962825, 'failures': 1}
+  tick firings: [('CL-1', 'retry', 'completed'), ('CL-2', 'change', 'awaiting_review'), ('CL-3', 'change', 'awaiting_review')] | payment calls: 2
+  runs stored: [('settle_new_claims:CL-3', 'awaiting_review'), ('settle_new_claims:CL-2', 'awaiting_review'), ('settle_new_claims:CL-1', 'completed')]
+  CL-1 status: paid
+== 10f deferred run: save fails after resume paid; next tick ==
+  first: deferred | calls: 1
+  tick 1 raised: RuntimeError database is locked
+  calls: 2 | stored status: deferred
+  tick 2: [{'run_id': '3b524df4ed75', 'status': 'completed'}] | calls: 3

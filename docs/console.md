@@ -15,6 +15,33 @@ python -m autology console --engine http://127.0.0.1:8800 --port 8900         # 
 With Docker Compose ([`deploy/docker-compose.yml`](../deploy/docker-compose.yml)) the console runs as its own
 service next to the engine on `http://127.0.0.1:8900`.
 
+## Connecting Claude (the AI assistant)
+
+Without an assistant, the console matches what people type to the ontology's questions, objects and goals. To
+let people talk to the engine in their own words, start the engine with Claude switched on:
+
+```bash
+python -m autology serve examples/auto_insurance/server.json --assistant              # Claude Opus 5.5, medium effort
+python -m autology serve examples/auto_insurance/server.json --assistant claude-sonnet-5-5:low   # another model or effort
+```
+
+(or put `"chat": {"model": "claude-opus-5-5", "effort": "medium"}` in the server config). The engine needs the
+`anthropic` package (`pip install anthropic`) and a Claude sign-in **on the machine where the engine runs**; the
+console itself never sees Claude credentials. Either:
+
+- **Sign in with your Anthropic account (no key to manage):** install the `ant` command-line tool and run
+  `ant auth login`. It opens a browser, you sign in and pick the organisation and workspace, and the engine picks up
+  the login automatically. `ant auth status` shows which sign-in is active. Install `ant` with
+  `brew install anthropics/tap/ant` on macOS, from the releases at github.com/anthropics/anthropic-cli on Linux, or
+  `go install github.com/anthropics/anthropic-cli/v2/cmd/ant@latest` anywhere Go is installed (including Windows).
+- **Or use an API key** from the Claude Console: `export ANTHROPIC_API_KEY=...` (Windows: `set ANTHROPIC_API_KEY=...`)
+  in the engine's terminal before starting it. A key that is set takes precedence over an `ant auth login` sign-in.
+
+Usage is billed to that Anthropic account like any API use. If the engine has no sign-in, the assistant replies
+with exactly this instruction instead of failing. The assistant acts as the signed-in person, sees only what they
+may see, can only *propose* runs (the person confirms them with `/proposals`), never decides reviews, and values the
+deployment marks as confidential are withheld from Claude.
+
 ## Talking to it
 
 | You type | The engine does |

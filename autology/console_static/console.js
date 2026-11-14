@@ -295,6 +295,12 @@ async function talk(text) {
     }
   }
   const options = C.suggest(text, S.ontology, 5);
+  if (C.isGreeting(text)) {
+    return card(`Hello ${S.me.name}`, el("p", {}, "I can answer the engine's questions, show its objects and start or explain its work. " +
+      "This engine has no AI assistant switched on, so short questions about its data work best."),
+      el("div", { class: "actions" }, cmdButton("What can I say?", "/help"), cmdButton("What does it know?", "/ontology"),
+         ...(S.ontology.questions || []).slice(0, 2).map((q) => cmdButton(q.question, `/ask ${q.id}`))));
+  }
   if (!options.length) {
     return card("I could not match that", el("p", {}, "This engine has no AI assistant, so I match what you type to its questions, objects and goals. Try ", el("code", {}, "/help"), "."));
   }

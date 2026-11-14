@@ -237,12 +237,18 @@ class AutologyService:
         self.chat = GovernedChat(self, backend) if backend else None
 
     @classmethod
-    def from_file(cls, path: str, store: Optional[str] = None) -> "AutologyService":
-        """Load a server config; ``store`` overrides its store path (e.g. a volume in a container)."""
+    def from_file(cls, path: str, store: Optional[str] = None,
+                  assistant: Optional[str] = None) -> "AutologyService":
+        """Load a server config; ``store`` overrides its store path (e.g. a volume in a container) and
+        ``assistant`` turns on the governed assistant with that Claude model (or ``model:effort``)."""
         p = Path(path).resolve()
         config = json.loads(p.read_text(encoding="utf-8"))
         if store:
             config["store"] = str(Path(store).resolve())
+        if assistant:
+            model, _, effort = assistant.partition(":")
+            config["chat"] = {**(config.get("chat") or {}), "model": model or "claude-opus-5-5",
+                              **({"effort": effort} if effort else {})}
         return cls(config, p.parent)
 
     # -- auth ---------------------------------------------------------------
@@ -1541,11 +1547,11 @@ def make_server(service: AutologyService, host: str = "127.0.0.1", port: int = 8
 
 
 def serve(config_path: str, host: str = "127.0.0.1", port: int = 8800,
-          store: Optional[str] = None) -> None:  # pragma: no cover - blocking
+          store: Optional[str] = None, assistant: Optional[str] = None) -> None:  # pragma: no cover - blocking
     import signal
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-    service = AutologyService.from_file(config_path, store)
+    service = AutologyService.from_file(config_path, store, assistant)
 
     def stop_on_sigterm(signum, frame):  # `docker stop`, systemd, Kubernetes: shut down cleanly
         raise KeyboardInterrupt
@@ -1553,6 +1559,9 @@ def serve(config_path: str, host: str = "127.0.0.1", port: int = 8800,
     signal.signal(signal.SIGTERM, stop_on_sigterm)
     server = make_server(service, host, port)
     stop = service.start_background()
+    if service.chat is not None:
+        print(f"Assistant: on ({getattr(service.chat.backend, 'model', 'custom backend')}); it signs in to Claude "
+              "with ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN or an `ant auth login` profile", flush=True)
     print(f"Autology API for {service.ontology.ref} on http://{host}:{server.server_port} "
           f"({len(service.agents)} agents, {len(service.users)} users, {len(service.automations)} automations, "
           f"store {service.store.path})")

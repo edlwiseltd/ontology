@@ -21,7 +21,7 @@
     python -m autology mcp SERVER.json [--token-env AUTOLOGY_TOKEN]       # MCP server over stdio
     python -m autology ingest SERVER.json PIPELINE [--dry-run] [--rows ROWS.json]   # load data from other systems
     python -m autology reporting SERVER.json [--out reporting.db] [--roles analyst]   # governed tables for BI tools
-    python -m autology serve SERVER.json [--host 127.0.0.1] [--port 8800] [--store PATH]   # REST API + web inbox
+    python -m autology serve SERVER.json [--host 127.0.0.1] [--port 8800] [--store PATH] [--assistant [MODEL]]
     python -m autology backup SERVER.json OUT.db [--store PATH]          # consistent online backup, verified
     python -m autology console --engine http://127.0.0.1:8800 [--port 8900]   # separate UI to talk to the engine
     python -m autology token                                               # new API token and its hash
@@ -257,6 +257,9 @@ def _build_parser() -> argparse.ArgumentParser:
     sv = sub.add_parser("serve", help="run the REST API and web inbox")
     sv.add_argument("config")
     sv.add_argument("--store", help="store file, overriding the config (e.g. a container volume)")
+    sv.add_argument("--assistant", nargs="?", const="claude-opus-5-5", metavar="MODEL[:EFFORT]",
+                    help="turn on the governed assistant with Claude (default claude-opus-5-5); it signs in with "
+                         "ANTHROPIC_API_KEY or an `ant auth login` profile")
     sv.add_argument("--host", default="127.0.0.1")
     sv.add_argument("--port", type=int, default=8800)
     co = sub.add_parser("console", help="run the Autology Console: a separate conversational UI for an engine")
@@ -423,7 +426,7 @@ def main(argv=None) -> int:
     if args.command == "serve":  # pragma: no cover - blocking
         from .server import serve
 
-        serve(args.config, args.host, args.port, args.store)
+        serve(args.config, args.host, args.port, args.store, args.assistant)
         return 0
     if args.command == "diff":
         old, new = _load(args.old), _load(args.new)

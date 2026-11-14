@@ -100,6 +100,10 @@ def _strict_ok(schema: Any) -> bool:
     return True
 
 
+NO_CREDENTIALS = ("no Claude sign-in found for the engine: run `ant auth login` where the engine runs, or set "
+                  "ANTHROPIC_API_KEY, then restart the engine")
+
+
 class AnthropicChatBackend:
     """Claude through the official ``anthropic`` SDK: a manual tool loop step with prompt caching and
     the server-side refusal fallback on models that support it."""
@@ -144,11 +148,15 @@ class AnthropicChatBackend:
         except ImportError:
             return ChatTurn([], "", [], "error", error="the anthropic package is not installed")
         except api_errors as exc:  # type: ignore[misc]
+            if type(exc).__name__ in ("AuthenticationError", "PermissionDeniedError"):
+                return ChatTurn([], "", [], "error", error=f"{type(exc).__name__}: {NO_CREDENTIALS}")
             return ChatTurn([], "", [], "error", error=f"{type(exc).__name__}: {exc}")
         except Exception as exc:  # missing credentials, an SDK that rejects a parameter, a transport bug...
             import logging
 
             logging.getLogger("autology.chat").warning("assistant backend failed", exc_info=True)
+            if "authentication" in str(exc).lower() or "api_key" in str(exc).lower():
+                return ChatTurn([], "", [], "error", error=NO_CREDENTIALS)
             return ChatTurn([], "", [], "error", error=type(exc).__name__)
         from .reasoners import AnthropicChatModel
 

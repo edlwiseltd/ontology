@@ -69,6 +69,9 @@ language or with commands such as `/run CL-4`, `/explain <run>` and `/reviews`:
 python -m autology console --engine http://127.0.0.1:8800     # then open http://127.0.0.1:8900
 ```
 
+Start the engine with `--assistant` (and `ant auth login` or `ANTHROPIC_API_KEY` where it runs) to let people talk
+to it in their own words through Claude.
+
 ## Ontology + dual-agent scheduling
 
 A complete version of the *ontology + ImpactAgent + ScheduleAgent* manufacturing scheduling pattern, generic and driven by the ontology ([`docs/scheduling.md`](docs/scheduling.md)):

@@ -137,6 +137,43 @@ class ConsoleProxyTests(unittest.TestCase):
         self.assertNotIn("X-Forwarded-For", seen)
 
 
+class ClaudeConnectionTests(unittest.TestCase):
+    """Turning the assistant on, and telling people clearly when the engine has no Claude sign-in."""
+
+    def test_assistant_switch(self):
+        import os
+
+        from autology.server import AutologyService
+
+        from .test_ingest import EX
+
+        for name, token in TOKENS.items():
+            os.environ[f"AUTOLOGY_TOKEN_{name.upper()}"] = token
+        off = AutologyService.from_file(str(EX / "server.json"), ":memory:")
+        self.assertIsNone(off.chat)
+        on = AutologyService.from_file(str(EX / "server.json"), ":memory:", "claude-opus-5-5")
+        self.assertEqual((on.chat.backend.model, on.chat.backend.effort), ("claude-opus-5-5", "medium"))
+        tuned = AutologyService.from_file(str(EX / "server.json"), ":memory:", "claude-sonnet-5-5:low")
+        self.assertEqual((tuned.chat.backend.model, tuned.chat.backend.effort), ("claude-sonnet-5-5", "low"))
+        hana = next(u for u in on.users if u.name == "hana")
+        self.assertIs(on.ontology_summary(hana)["assistant"], True)
+
+    def test_missing_claude_sign_in_is_explained(self):
+        from autology.chat import NO_CREDENTIALS, AnthropicChatBackend
+
+        class NoCredentials:
+            class beta:
+                class messages:
+                    @staticmethod
+                    def create(**kwargs):
+                        raise TypeError('"Could not resolve authentication method. Expected either api_key or '
+                                        'auth_token to be set."')
+
+        turn = AnthropicChatBackend(client=NoCredentials()).turn("system", [{"role": "user", "content": "hi"}], [])
+        self.assertEqual((turn.stop_reason, turn.error), ("error", NO_CREDENTIALS))
+        self.assertIn("ant auth login", NO_CREDENTIALS)
+
+
 @unittest.skipUnless(NODE, "Node.js not installed")
 class CommandLogicTests(unittest.TestCase):
     """commands.js has no DOM or network code, so Node runs it directly."""
@@ -181,6 +218,11 @@ class CommandLogicTests(unittest.TestCase):
         self.assertEqual(got[3][0], "/reviews")  # strong enough to answer directly
         self.assertEqual(got[4], "/explain 0123456789ab")
         self.assertEqual(got[5], [])
+
+    def test_greetings(self):
+        got = self.node('console.log(JSON.stringify(["hello", "Hi there!", "bonjour", "hello which claims were late",'
+                        ' "/help"].map(C.isGreeting)))')
+        self.assertEqual(got, [True, True, True, False, False])
 
 
 if __name__ == "__main__":

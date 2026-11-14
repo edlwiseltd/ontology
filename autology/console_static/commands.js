@@ -112,5 +112,10 @@
       .slice(0, limit || 4);
   }
 
-  return { COMMANDS, parse, typed, completions, suggest, words };
+  function isGreeting(text) {
+    return /^\s*(hi|hello|hey|hiya|good (morning|afternoon|evening)|bonjour|salut|salam|marhaba|hola)\b[\s!.,?]*\w*[\s!.?]*$/i
+      .test(String(text || ""));
+  }
+
+  return { COMMANDS, parse, typed, completions, suggest, words, isGreeting };
 });

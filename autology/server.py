@@ -1905,6 +1905,8 @@ class ApiExchange:
             if method == "GET" and path in ("/", "/index.html", "/app.js", "/app.css"):
                 name = {"/": "index.html"}.get(path, path.lstrip("/"))
                 ctype = {"html": "text/html", "js": "application/javascript", "css": "text/css"}[name.rsplit(".")[-1]]
+                if not (STATIC / name).is_file():  # a headless engine: the inbox is optional, the API is the product
+                    raise ApiError(404, "the review inbox is not installed with this engine; use the API or the Console")
                 return self._send(200, (STATIC / name).read_bytes(), ctype)
             if path == "/api/health":
                 return self._send(200, service.health())

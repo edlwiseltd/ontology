@@ -91,7 +91,7 @@ The ontology is the single source of truth for business logic, data and rules. I
 > **In this repo**
 > - *Roles:* `WorkAgent` principals with roles. **Multi-agent teams:** `WorkAgent(..., delegates=[finance_agent])`. The lead plans with the team's combined permissions, and each action runs under the identity of a member allowed to perform it. Delegation is audited, and the lead still sees only its own redacted view. CodingAgent and PersonalAgent are not implemented. They would use the same ontology and governance layers.
 > - *LLM guardrails:* the reasoner, whether `ClaudeReasoner` or any `Reasoner`, can only **propose** from the actions valid at that moment. Structured output constrains its answer. Governance re-checks every proposal, tools can write only declared fields (`writes`, plus `write_access`), and status changes only through declared outcomes. Repeated useless-but-valid choices are cut off by `max_repeats`.
-> - *Testing:* there are 122 tests (98% line coverage), and `simulate_pilot()` in the manufacturing example runs a seeded batch of 200 contracts. A mid-run ontology change is a tested case, and the agent pauses safely. `reporting.metrics()` reports success rate, straight-through rate, human-intervention rate, average latency and cost per task.
+> - *Testing (at the time this case was written; the suite has since grown past 550 tests):* there were 122 tests (98% line coverage), and `simulate_pilot()` in the manufacturing example runs a seeded batch of 200 contracts. A mid-run ontology change is a tested case, and the agent pauses safely. `reporting.metrics()` reports success rate, straight-through rate, human-intervention rate, average latency and cost per task.
 
 ---
 

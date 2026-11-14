@@ -80,6 +80,7 @@ class Workspace:
     members: Dict[str, Member] = field(default_factory=dict)
     use_cases: Dict[str, UseCase] = field(default_factory=dict)
     oidc: Optional[Dict[str, Any]] = None  # the workspace's own company sign-in (ISO-3)
+    env_prefix: str = ""  # the only environment variables (credentials) its configuration may name (ISO-4)
 
 
 def _token_digest(spec: Dict[str, Any], where: str) -> str:
@@ -92,6 +93,35 @@ def _token_digest(spec: Dict[str, Any], where: str) -> str:
     if not re.fullmatch(r"[0-9a-f]{64}", digest):
         raise PlatformError(f"{where}: give token_env or a SHA-256 token_sha256")
     return digest
+
+
+_ENV_REF = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
+
+
+def _env_references(value: Any, base: Path, seen: Optional[set] = None) -> set:
+    """Every environment variable a configuration names: ``${VAR}`` in strings, ``*_env`` keys, ``{"env": VAR}``,
+    following the JSON files it references (tools, pipelines, approvers)."""
+    seen = set() if seen is None else seen
+    found: set = set()
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if isinstance(item, str) and (key == "env" or key.endswith("_env")):
+                found.add(item)
+            found |= _env_references(item, base, seen)
+    elif isinstance(value, list):
+        for item in value:
+            found |= _env_references(item, base, seen)
+    elif isinstance(value, str):
+        found |= set(_ENV_REF.findall(value))
+        if value.endswith(".json"):
+            path = (base / value).resolve()
+            if path.is_file() and path not in seen:
+                seen.add(path)
+                try:
+                    found |= _env_references(json.loads(path.read_text(encoding="utf-8")), path.parent, seen)
+                except ValueError:
+                    pass  # not a configuration file; the engine reports real errors when it loads it
+    return found
 
 
 class Platform:
@@ -115,7 +145,8 @@ class Platform:
     def _load_workspace(self, ws_id: str, spec: Dict[str, Any], base_dir: Path) -> None:
         if not ID.match(ws_id):
             raise PlatformError(f"workspace id {ws_id!r}: lowercase letters, digits and '-' only")
-        ws = Workspace(ws_id, str(spec.get("name") or ws_id), oidc=dict(spec["oidc"]) if spec.get("oidc") else None)
+        ws = Workspace(ws_id, str(spec.get("name") or ws_id), oidc=dict(spec["oidc"]) if spec.get("oidc") else None,
+                       env_prefix=str(spec.get("env_prefix") or ws_id.upper().replace("-", "_") + "_"))
         for i, m in enumerate(spec.get("members") or []):
             where = f"workspace {ws_id} member {m.get('name', i)}"
             name = str(m.get("name") or "")
@@ -148,6 +179,13 @@ class Platform:
     def _load_use_case(self, ws: Workspace, uc_id: str, spec: Dict[str, Any], base_dir: Path) -> UseCase:
         config_path = (base_dir / spec["config"]).resolve()
         config = json.loads(config_path.read_text(encoding="utf-8"))
+        # integration credentials are environment variables of the platform process: a use case may name only its
+        # own workspace's (ISO-4), so one workspace's configuration can never pick up another's secrets
+        foreign = sorted(v for v in _env_references({k: v for k, v in config.items() if k != "users"},
+                                                    config_path.parent) if not v.startswith(ws.env_prefix))
+        if foreign:
+            raise PlatformError(f"workspace {ws.id} use case {uc_id}: its configuration names environment variables "
+                                f"outside the workspace's prefix {ws.env_prefix!r}: {', '.join(foreign)}")
         home = self.data_dir / ws.id / uc_id
         home.mkdir(parents=True, exist_ok=True)
         # the platform decides where the data lives and who the users are, never the use case's own config

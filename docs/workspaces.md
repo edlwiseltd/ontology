@@ -55,6 +55,24 @@ These are enforced server-side and tested in `tests/test_workspaces.py` through 
   `autology backup CONFIG OUT --store <data_dir>/<ws>/<uc>/autology.db --audit-scope <ws>` so the copy is checked
   with the right key.
 
+## Credentials per workspace
+
+Integration credentials are environment variables of the platform process. A use case may name only its own
+workspace's: those starting with the workspace's prefix (`ACME_` for workspace `acme` by default, or the workspace's
+`"env_prefix"` in `platform.json`). The platform checks every reference form when it loads a use case: `${VAR}` in
+tool and pipeline URLs and headers, `*_env` keys (`dsn_env`), and `{"env": "VAR"}` header values, in the use-case
+configuration and every JSON file it references. A reference outside the prefix stops the platform from starting
+and names the variable, so one workspace's configuration can never pick up another's secrets.
+
+Python tools (`registries` in a tools file) are code the platform operator installs and trusts; Autology does not
+sandbox them.
+
+## Use cases inside a workspace
+
+Use cases do not share anything implicitly: each has its own store, graph, agents, runs, reviews and audit chain,
+and a member's grant for one use case gives nothing on another. Sharing data between use cases will need an
+explicit, authorised mechanism (planned with workspace administration in R2).
+
 ## Company sign-in per workspace
 
 A workspace may sign its people in with its own identity provider: add `"oidc"` to the workspace in

@@ -47,10 +47,10 @@ Status values: **Verified** (code + passing tests, some with real external syste
 ## 3. Known defects still open (from the audit)
 
 Critical: GAP-001 to GAP-007 (external action safety). High: GAP-009 (stale data after review), GAP-010
-(unchecked tool output types), GAP-011 (self-review via automation), GAP-012 (field leak via scenarios), GAP-013
-(confused deputy), GAP-014 (unchained run fields), GAP-016 (typos accepted in ontologies), GAP-017 (missing entity
-treated as existing), GAP-018 (stale in-memory graph), GAP-031 (no licence). Fixed since the audit: GAP-008,
-GAP-015.
+(unchecked tool output types), GAP-016 (typos accepted in ontologies), GAP-017 (missing entity treated as
+existing), GAP-018 (stale in-memory graph), GAP-031 (no licence). Fixed since the audit: GAP-008, GAP-015, and
+GAP-011 to GAP-014 (stories GOV-1 to GOV-4, see the [implementation log](AUTOLOGY_IMPLEMENTATION_LOG.md)). The
+suite now has 472 tests.
 
 ## 4. Scores
 

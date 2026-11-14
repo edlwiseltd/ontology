@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, getToken, setToken } from "@/lib/api";
 import type { Me, OntologySummary, Template, UseCase } from "@/lib/types";
+import DesignView from "./DesignView";
 import OntologyView from "./OntologyView";
 import StageOverview, { LABELS } from "./StageOverview";
 
-type View = "overview" | "model";
+type View = "overview" | "model" | "design";
 type Status = "signed-out" | "loading" | "ready" | "unavailable";
 
 export default function Workbench() {
@@ -159,7 +160,7 @@ export default function Workbench() {
         )}
         <h2 className="section">Coming next</h2>
         <ul className="planned small muted" aria-label="Planned areas">
-          <li>AI Architect — needs engine endpoints (planned)</li>
+          <li>AI Architect with a model provider — blocked on D7/D10 (blueprints work today)</li>
           <li>Processes, organisation, agents — planned</li>
           <li>Releases and approvals — needs release governance (planned)</li>
         </ul>
@@ -170,13 +171,15 @@ export default function Workbench() {
           <>
             <div role="tablist" aria-label="Views" className="tabs">
               <button role="tab" aria-selected={view === "overview"} onClick={() => setView("overview")}>Overview</button>
-              <button role="tab" aria-selected={view === "model"} onClick={() => setView("model")}>Model</button>
+              <button role="tab" aria-selected={view === "model"} onClick={() => setView("model")}>Active model</button>
+              <button role="tab" aria-selected={view === "design"} onClick={() => setView("design")}>Design (draft)</button>
             </div>
             {view === "overview" && <StageOverview workspace={me.workspace.id} useCase={detail} admin={me.workspace_admin}
                                                    onChanged={refresh} />}
             {view === "model" && (ontologyError ? <p className="error" role="alert">{ontologyError}</p>
               : ontology ? <OntologyView ontology={ontology} selected={entity} onSelect={setEntity} />
               : <p className="muted" aria-busy="true">Loading the model…</p>)}
+            {view === "design" && <DesignView key={detail.id} path={detail.path} admin={me.workspace_admin} />}
           </>
         )}
       </main>

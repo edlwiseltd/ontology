@@ -24,4 +24,4 @@ autology = "autology.__main__:main"
 packages = ["autology"]
 
 [tool.setuptools.package-data]
-autology = ["static/*", "console_static/*"]
+autology = ["static/*", "console_static/*", "blueprints/*.json"]

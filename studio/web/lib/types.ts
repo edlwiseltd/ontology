@@ -36,3 +36,20 @@ export interface OntologySummary {
   actions: Record<string, { description: string }>;
   rules: { id: string; kind: string; description: string }[];
 }
+
+// -- model design (increment 2) -----------------------------------------------------------------------------
+export type ModelDocument = Record<string, any>;  // an ontology document, as the engine's strict schema defines it
+
+export interface Problem { path: string; message: string; node?: string; field?: string | null; edge?: number;
+                           section?: string; name?: string; index?: number }
+export interface Validation { valid: boolean; problems: Problem[]; note?: string; ref?: string; fingerprint?: string;
+                              summary?: Record<string, number> }
+export interface Question { id: string; kind: string; severity: "high" | "medium" | "low"; question: string; why: string;
+                            evidence: string; node?: string; action?: string; rule?: number }
+export interface Draft { revision: number; document: ModelDocument; author: string | null; at: string | null; note: string;
+                         active: { ref: string; fingerprint: string }; validation: Validation; questions: Question[] }
+export interface ProposalItem { id: string; kind: "entity" | "relationship" | "action" | "rule"; name: string | null;
+                                value: any; rationale: string; status: "provisional";
+                                provenance: { generator: string; blueprint?: string; ai: boolean; matched_terms: string[] } }
+export interface Proposal { generator: string; ai: boolean; blueprint?: { id: string; name: string };
+                            matched_terms?: string[]; items: ProposalItem[]; message: string }

@@ -44,11 +44,15 @@ promotion.
 |---|---|---|
 | 0 | This reconciliation, screen map, ADR, API matrix, D9 recorded | Verified (documents) |
 | 1 | Next.js workbench: sign-in, catalogue, overview, stage moves, creation from templates, read-only ontology canvas with list and inspector, themes, relay, CI job | Verified (unit + browser tests; CI pending at writing) |
-| 2 | Draft model editing with validation anchors; AI Architect proposals | **Blocked** on engine draft-model and architect APIs (and D7/D10 for real providers); a labelled demo-only prototype is possible meanwhile |
+| 2 | Draft model editing with validation anchors; Architect proposals; discovery questions; diff; revision-checked save | **Verified** (engine APIs built: drafts, validation, rule-based questions, blueprint proposals labelled not AI; Studio Design tab; 23 browser checks). A model-based (AI) generator stays **Blocked** on D7/D10; drafts cannot become active until releases (REL-1) |
 | 3 | Readiness score, releases, independent approval | Blocked on REL-1/2/3, D11 |
 | 4 | Process/org/agent/data views, Excel (R3), Agent Factory (R4), Workspace UI (R5) | Planned |
 
-## 6. Measured performance (Increment 1)
+## 6. Measured performance
+
+Increment 2 (same setup): accepting 11 blueprint items to the engine's verdict on the new model, 465 ms (400 ms of it is the deliberate debounce before asking the engine).
+
+### Increment 1
 
 Browser test, Chromium headless, 1280×860, local platform: the Model tab rendered the 5-entity claims ontology in
 93 ms (click to first node). Projection unit test: 300 entities laid out in under 250 ms (Node 22). Larger graphs

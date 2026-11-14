@@ -40,7 +40,7 @@ try {
   check("stage moved through the platform and recorded", (await page.textContent(".history")).includes("e2e: first simulation"));
   await page.screenshot({ path: `${OUT}/desktop-overview.png` });
   const t0 = Date.now();
-  await page.click("role=tab[name='Model']");
+  await page.click("role=tab[name='Active model']");
   await page.waitForSelector(".react-flow__node");
   const ms = Date.now() - t0;
   const nodes = await page.locator(".react-flow__node").count();
@@ -70,6 +70,68 @@ try {
   check("use case created from a template starts in Draft",
         (await page.textContent(".uc-list button:has-text('Claims e2e')")).includes("Draft"));
   check("no page errors", errors.length === 0, errors.join("; "));
+
+  // 4. increment 2: design a synthetic water-treatment model from a brief
+  await page.click("text=New");
+  await page.waitForSelector("#c-template option", { state: "attached" });
+  await page.selectOption("#c-template", "industrial-starter");
+  await page.fill("#c-id", "water-ops");
+  await page.fill("#c-name", "Water operations");
+  await page.click("text=Create in Draft");
+  await page.waitForSelector(".uc-list button:has-text('Water operations')");
+  await page.click(".uc-list button:has-text('Water operations')");
+  await page.click("role=tab[name='Design (draft)']");
+  await page.waitForSelector("[data-testid=validity]");
+  check("design starts from the active model, valid", (await page.textContent("[data-testid=validity]")).includes("valid (engine)")
+        && (await page.locator("[data-testid=design-canvas] .react-flow__node").count()) === 1);
+  await page.fill("#brief", "We operate multiple treatment plants. Model our pump assets, maintenance process, technicians, supervisors and approval responsibilities.");
+  await page.click("text=Propose");
+  await page.waitForSelector(".provisional-item");
+  const proposed = await page.locator(".provisional-item").count();
+  check("brief gives provisional items labelled not AI", proposed >= 8 && (await page.textContent(".proposal")).includes("blueprint · not AI"),
+        `${proposed} items`);
+  const tAccept = Date.now();
+  await page.click("text=Accept selected");
+  await page.waitForFunction(() => document.querySelectorAll("[data-testid=design-canvas] .react-flow__node").length === 5);
+  await page.waitForFunction(() => document.querySelector("[data-testid=validity]").textContent.startsWith("checking"));
+  await page.waitForFunction(() => document.querySelector("[data-testid=validity]").textContent.startsWith("valid"));
+  check("accepted items appear as new (dashed) nodes and the engine validates them",
+        (await page.locator("[data-testid=design-canvas] .react-flow__node.provisional").count()) === 4, `${Date.now() - tAccept} ms to engine-validated`);
+  check("questions come from real gaps", (await page.textContent(".questions")).includes("maintenance_supervisor"));
+  await page.click("[data-testid=design-canvas] .react-flow__node[data-id='Pump']");
+  await page.waitForSelector("[data-testid=entity-inspector]");
+  await page.fill("#new-attr", "flow");
+  await page.fill("#new-attr-type", "nmber");
+  await page.click("[data-testid=entity-inspector] form button[type=submit]");
+  await page.waitForFunction(() => document.querySelector("[data-testid=validity]").textContent.startsWith("invalid"), null, { timeout: 10000 });
+  const problemText = await page.textContent("[data-testid=entity-inspector] .error");
+  check("a malformed attribute is refused by the engine and anchored to its node",
+        problemText.includes("did you mean 'number'") && (await page.locator(".react-flow__node.problem[data-id='Pump']").count()) === 1);
+  await page.selectOption("#t-flow", "number");
+  await page.waitForFunction(() => document.querySelector("[data-testid=validity]").textContent.startsWith("valid"));
+  check("fixing it in the inspector makes the model valid again", true);
+  await page.fill("#save-note", "e2e: water blueprint");
+  await page.click("text=Save draft");
+  await page.waitForFunction(() => document.querySelector(".design-bar strong").textContent.includes("revision 1"));
+  check("draft saved as revision 1; nothing unsaved", (await page.textContent(".design-bar")).includes("saved"));
+  await page.screenshot({ path: `${OUT}/desktop-design.png` });
+  // someone else saves meanwhile: the next save is refused, not silently overwritten
+  const other = await page.evaluate(async () => {
+    const h = { Authorization: "Bearer " + sessionStorage.getItem("autology-studio-token"), "Content-Type": "application/json" };
+    const d = await (await fetch("/w/acme/u/water-ops/api/model/draft", { headers: h })).json();
+    const r = await fetch("/w/acme/u/water-ops/api/model/draft", { method: "POST", headers: h,
+      body: JSON.stringify({ document: d.document, expected_revision: d.revision, note: "someone else" }) });
+    return r.status;
+  });
+  await page.click("[data-testid=design-canvas] .react-flow__node[data-id='Plant']");
+  await page.fill("#e-desc", "A treatment plant (edited)");
+  await page.click("text=Save draft");
+  await page.waitForSelector(".warn:has-text('Someone saved revision 2')");
+  check("a stale save is refused (409) and the user is told", other === 200);
+  check("the active model is unchanged by drafts",
+        (await page.evaluate(async () => Object.keys((await (await fetch("/w/acme/u/water-ops/api/ontology", { headers: {
+          Authorization: "Bearer " + sessionStorage.getItem("autology-studio-token") } })).json()).entities))).join() === "Plant");
+  check("no page errors (design)", errors.length === 0, errors.join("; "));
   await page.close();
 
   // 2. denial: a member who is not an administrator, and a direct API call that bypasses the UI
@@ -86,9 +148,11 @@ try {
     const move = await fetch("/platform/workspaces/acme/use-cases/claims/stage", { method: "POST", headers: h, body: JSON.stringify({ to: "pilot", reason: "bypass" }) });
     const foreign = await fetch("/platform/workspaces/northwind/use-cases", { headers: h });
     const other = await fetch("/w/northwind/u/claims/api/objects", { headers: h });
-    return [move.status, foreign.status, other.status];
+    const draft = await fetch("/w/acme/u/claims/api/model/draft", { method: "POST", headers: h, body: JSON.stringify({ document: {}, expected_revision: 0 }) });
+    const propose = await fetch("/w/acme/u/claims/api/architect/proposals", { method: "POST", headers: h, body: JSON.stringify({ brief: "pumps and plants" }) });
+    return [move.status, foreign.status, other.status, draft.status, propose.status];
   });
-  check("direct API calls are refused by the platform (403, 404, 404)", JSON.stringify(direct) === "[403,404,404]", JSON.stringify(direct));
+  check("direct API calls are refused by the platform (403, 404, 404, 403, 403)", JSON.stringify(direct) === "[403,404,404,403,403]", JSON.stringify(direct));
   await hana.close();
 
   // 3. mobile

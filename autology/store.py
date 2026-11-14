@@ -41,7 +41,7 @@ from .audit import GENESIS, AuditLog
 from .graph import KnowledgeGraph
 from .ontology import Ontology, OntologyError
 
-SCHEMA_VERSION = 14
+SCHEMA_VERSION = 15
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -123,6 +123,12 @@ CREATE TABLE IF NOT EXISTS proposals (
 CREATE TABLE IF NOT EXISTS run_sources (
     run_id TEXT PRIMARY KEY, template TEXT NOT NULL, root TEXT NOT NULL, sources TEXT NOT NULL,
     write_back INTEGER NOT NULL, base TEXT, conflicts TEXT, wb_version TEXT, wb_state TEXT);
+CREATE TABLE IF NOT EXISTS model_drafts (
+    revision INTEGER PRIMARY KEY, document TEXT NOT NULL, author TEXT NOT NULL, note TEXT NOT NULL, at TEXT NOT NULL);
+CREATE TRIGGER IF NOT EXISTS model_drafts_no_update BEFORE UPDATE ON model_drafts
+    BEGIN SELECT RAISE(ABORT, 'model drafts are append-only'); END;
+CREATE TRIGGER IF NOT EXISTS model_drafts_no_delete BEFORE DELETE ON model_drafts
+    BEGIN SELECT RAISE(ABORT, 'model drafts are append-only'); END;
 CREATE TABLE IF NOT EXISTS write_back_log (
     run_id TEXT NOT NULL, at TEXT NOT NULL, outcome TEXT NOT NULL, run_version TEXT, instances TEXT NOT NULL,
     conflicts TEXT NOT NULL);
@@ -326,6 +332,27 @@ class Store:
         with self._tx() as db:
             self._check_instance(db, instance_id, expected)
             return self._write_instance(db, instance_id, entity_type, attributes, _now())
+
+    # -- model drafts (Studio): append-only versions of a proposed ontology document; never active -----------
+    def save_draft(self, document: Dict[str, Any], author: str, note: str, expected_revision: int) -> int:
+        """Append a new draft revision, only over the revision the author read (0: no draft yet)."""
+        with self._tx() as db:
+            row = db.execute("SELECT MAX(revision) AS r FROM model_drafts").fetchone()
+            current = row["r"] or 0
+            if current != expected_revision:
+                raise RecordConflict("model draft", f"the draft was saved meanwhile (revision {current}, expected "
+                                                    f"{expected_revision})", revision=current)
+            db.execute("INSERT INTO model_drafts VALUES (?, ?, ?, ?, ?)",
+                       (current + 1, json.dumps(document, default=str), author, note[:500], _now()))
+            return current + 1
+
+    def draft(self, revision: Optional[int] = None) -> Optional[Dict[str, Any]]:
+        sql = "SELECT * FROM model_drafts " + ("WHERE revision=?" if revision else "ORDER BY revision DESC LIMIT 1")
+        rows = self._query(sql, (revision,) if revision else ())
+        return {**dict(rows[0]), "document": json.loads(rows[0]["document"])} if rows else None
+
+    def draft_history(self) -> List[Dict[str, Any]]:
+        return [dict(r) for r in self._query("SELECT revision, author, note, at FROM model_drafts ORDER BY revision")]
 
     def write_records(self, writes: List[Tuple[str, str, Dict[str, Any], Any]],
                       links: Iterable[Tuple[str, str, str]] = ()) -> Dict[str, int]:

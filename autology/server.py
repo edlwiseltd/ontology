@@ -128,7 +128,8 @@ class AutologyService:
 
         base = Path(base_dir)
         rel = lambda p: str((base / p).resolve())  # noqa: E731
-        self.ontology = Ontology.load(rel(config["ontology"]))
+        self.ontology_path = Path(rel(config["ontology"]))
+        self.ontology = Ontology.load(self.ontology_path)
         from .audit import audit_key as env_audit_key, workspace_key
 
         # a workspace's chains are keyed with a key derived for it (ISO-2); otherwise AUTOLOGY_AUDIT_KEY itself
@@ -846,6 +847,65 @@ class AutologyService:
             out["runs_allowed"] = policy["runs"]
             out["tool_environments"] = sorted(policy["environments"])
         return out
+
+    # -- model design (Studio increment 2): drafts are never active ----------------------------------------------
+    def _active_document(self) -> Dict[str, Any]:
+        return json.loads(self.ontology_path.read_text(encoding="utf-8"))
+
+    def model_draft(self, user: User) -> Dict[str, Any]:
+        from .modeling import questions, validate
+
+        self.require(user, "read")
+        row = self.store.draft()
+        doc = row["document"] if row else self._active_document()
+        return {"revision": row["revision"] if row else 0, "document": doc,
+                "author": row["author"] if row else None, "at": row["at"] if row else None,
+                "note": row["note"] if row else "the active model (no draft saved yet)",
+                "active": {"ref": self.ontology.ref, "fingerprint": self.ontology.fingerprint},
+                "validation": validate(doc), "questions": questions(doc, self),
+                "active_model_changed": False}  # a draft never changes what runs (releases: REL-1)
+
+    def save_model_draft(self, user: User, body: Dict[str, Any]) -> Dict[str, Any]:
+        from .store import RecordConflict
+
+        self.require(user, "admin")
+        doc, expected = body.get("document"), body.get("expected_revision")
+        if not isinstance(doc, dict):
+            raise ApiError(400, "document must be a JSON object (an ontology document)")
+        if isinstance(expected, bool) or not isinstance(expected, int) or expected < 0:
+            raise ApiError(400, "expected_revision is required: the draft revision you read (0 if none)")
+        if len(json.dumps(doc, default=str)) > 500_000:
+            raise ApiError(413, "the draft is too large")
+        try:
+            self.store.save_draft(doc, user.name, str(body.get("note") or "")[:500], expected)
+        except RecordConflict as exc:
+            raise ApiError(409, f"{exc}; reload the draft and apply your changes again",
+                           {"revision": exc.revision}) from None
+        return self.model_draft(user)
+
+    def model_draft_history(self, user: User) -> Dict[str, Any]:
+        self.require(user, "read")
+        return {"items": self.store.draft_history()}
+
+    def validate_model(self, user: User, body: Dict[str, Any]) -> Dict[str, Any]:
+        from .modeling import questions, validate
+
+        self.require(user, "read")
+        doc = body.get("document")
+        return {"validation": validate(doc), "questions": questions(doc, self)}
+
+    def architect_proposals(self, user: User, body: Dict[str, Any]) -> Dict[str, Any]:
+        from .modeling import propose
+
+        self.require(user, "admin")
+        brief = body.get("brief")
+        if not isinstance(brief, str) or not 1 <= len(brief.strip()) <= 4000:
+            raise ApiError(400, "brief: 1 to 4000 characters describing the business")
+        base = body.get("document")
+        if not isinstance(base, dict):
+            row = self.store.draft()
+            base = row["document"] if row else self._active_document()
+        return propose(brief, base)
 
     def mcp_message(self, user: User, message: Any) -> Optional[Dict[str, Any]]:
         """One MCP JSON-RPC message over HTTP (``POST /api/mcp``), answered by the same server as over stdio, as
@@ -2197,6 +2257,15 @@ class ApiExchange:
                 ("POST", "reporting"): lambda: (service.require(user, "admin"), service.refresh_reporting())[1],
             }
             key = (method, parts[0]) if len(parts) == 1 else None
+            if parts == ["model", "draft"]:  # model design (Studio): drafts never change what runs
+                return self._send(200, service.model_draft(user) if method == "GET"
+                                  else service.save_model_draft(user, body))
+            if parts == ["model", "draft", "history"] and method == "GET":
+                return self._send(200, service.model_draft_history(user))
+            if parts == ["model", "validate"] and method == "POST":
+                return self._send(200, service.validate_model(user, body))
+            if parts == ["architect", "proposals"] and method == "POST":
+                return self._send(200, service.architect_proposals(user, body))
             if key == ("POST", "mcp"):  # MCP over HTTP: the same tools, in this (the only writing) process
                 answer = service.mcp_message(user, body)
                 return self._send(202, b"") if answer is None else self._send(200, answer)

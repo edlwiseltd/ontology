@@ -77,3 +77,30 @@ input, select, textarea { width: 100%; margin: 2px 0 10px; } label { font-size: 
   .model-body { grid-template-columns: 1fr; height: auto; }
   .canvas { height: 360px; }
 }
+
+/* design (draft) workspace */
+.design-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+.pill { font-size: 12px; border: 1px solid var(--line); border-radius: 999px; padding: 1px 9px; }
+.okpill { color: var(--ok); border-color: var(--ok); } .badpill { color: var(--bad); border-color: var(--bad); }
+.warnpill { color: var(--warn-ink); background: var(--warn-bg); }
+.design-body { display: grid; grid-template-columns: 280px 1fr 280px; gap: var(--gap); height: calc(100vh - 330px); min-height: 460px; }
+.architect { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; overflow: auto; }
+.architect .items, .questions { list-style: none; padding: 0; margin: 6px 0; }
+.architect .items li, .questions li { margin-bottom: 8px; }
+.provisional-item { border-left: 3px dashed var(--accent); padding-left: 8px; }
+.kind { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.sev { font-size: 11px; border-radius: 4px; padding: 0 5px; border: 1px solid var(--line); }
+.sev-high { color: var(--bad); border-color: var(--bad); } .sev-medium { color: var(--warn-ink); }
+.questions .link { text-align: left; padding: 0; }
+.react-flow__node.provisional { border-style: dashed; border-color: var(--accent); }
+.react-flow__node.problem { border-color: var(--bad); box-shadow: 0 0 0 2px var(--bad); }
+.react-flow__edge.problem path { stroke: var(--bad); }
+button.danger { color: var(--bad); border-color: var(--bad); margin-top: 10px; }
+.design-foot { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); margin-top: var(--gap); }
+.design-foot section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+.ok { color: var(--ok); } .chg { font-size: 11px; text-transform: uppercase; color: var(--muted); }
+.chg-added { color: var(--ok); } .chg-removed { color: var(--bad); }
+@media (max-width: 1100px) {
+  .design-body { grid-template-columns: 1fr; height: auto; } .design-canvas { height: 420px; }
+  .design-foot { grid-template-columns: 1fr; }
+}

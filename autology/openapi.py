@@ -79,6 +79,11 @@ ROUTES: List[Tuple[str, str, str, str, Tuple[str, ...]]] = [
     ("POST", "/api/agents/{name}/reinstate", "admin", "Reinstate a suspended agent", ()),
     ("GET", "/api/access-log", "audit", "The access log", ("principal", "limit")),
     ("GET", "/api/sdk/{language}", "read", "A typed client for this ontology", ()),
+    ("GET", "/api/model/draft", "read", "The model draft (never active), its validation and discovery questions", ()),
+    ("POST", "/api/model/draft", "admin", "Save a draft revision over the one read (expected_revision)", ()),
+    ("GET", "/api/model/draft/history", "read", "Draft revisions", ()),
+    ("POST", "/api/model/validate", "read", "Validate a model document with the engine's strict loader", ()),
+    ("POST", "/api/architect/proposals", "admin", "Provisional additions for a business brief (blueprints; not AI)", ()),
 ]
 
 ERROR = {"type": "object", "required": ["error"], "properties": {"error": {"type": "string"}},

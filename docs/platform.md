@@ -203,6 +203,11 @@ provider when `oidc` is configured: see [`integrations.md`](integrations.md)), e
 | `POST /api/runs/{id}/outcomes` | review | Record a decision's outcome |
 | `GET /api/outcomes` | read | Outcomes summary |
 | `GET /api/sdk/{language}` | read | A typed client for this ontology (`python`, `typescript`) |
+| `GET /api/model/draft` | read | The model draft (or the active model if none), with the engine's validation and rule-based discovery questions. A draft never changes what runs |
+| `POST /api/model/draft` | admin | `{"document", "expected_revision", "note"}`: save a new draft revision over the one you read; 409 if someone saved meanwhile |
+| `GET /api/model/draft/history` | read | Draft revisions (append-only) |
+| `POST /api/model/validate` | read | `{"document"}`: strict validation with the problem's location (`entities.X…`, `relationships.N`), plus discovery questions; nothing is saved |
+| `POST /api/architect/proposals` | admin | `{"brief"}`: provisional additions from an approved industry blueprint, labelled `"ai": false`; nothing is applied |
 | `GET /api/me` | any | Who am I, with permissions and roles |
 | `GET /api/ontology` | read | Entities, actions, goals, rules, questions, agents |
 | `GET /api/objects?type=&limit=&offset=` | read | Objects, row- and field-filtered for the caller |

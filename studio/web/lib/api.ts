@@ -2,7 +2,8 @@
 // them to the platform. The token stays in this browser tab (sessionStorage) and is sent as a bearer token, so
 // there is no cookie to forge. UI-side checks are advisory: every rule is enforced by the platform and the engine.
 
-import type { CheckResult, Me, OntologySummary, Stage, Template, UseCase } from "./types";
+import type { CheckResult, Draft, Me, ModelDocument, OntologySummary, Proposal, Question, Stage, Template, UseCase,
+  Validation } from "./types";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string, public data: Record<string, unknown> = {}) {
@@ -50,4 +51,12 @@ export const api = {
   createUseCase: (w: string, id: string, name: string, template: string) =>
     request<UseCase>("POST", ws(w), { id, name, template }),
   ontology: (path: string) => request<OntologySummary>("GET", `${path}/api/ontology`),
+  // model design: drafts never change what runs; the engine validates and decides
+  draft: (path: string) => request<Draft>("GET", `${path}/api/model/draft`),
+  saveDraft: (path: string, document: ModelDocument, expected_revision: number, note: string) =>
+    request<Draft>("POST", `${path}/api/model/draft`, { document, expected_revision, note }),
+  validate: (path: string, document: ModelDocument) =>
+    request<{ validation: Validation; questions: Question[] }>("POST", `${path}/api/model/validate`, { document }),
+  propose: (path: string, brief: string, document: ModelDocument) =>
+    request<Proposal>("POST", `${path}/api/architect/proposals`, { brief, document }),
 };

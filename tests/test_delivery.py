@@ -80,7 +80,9 @@ class PackagingTests(unittest.TestCase):
     def test_versions_and_package_data_agree(self):
         text = (ROOT / "pyproject.toml").read_text()
         self.assertIn(f'version = "{__version__}"', text)
-        self.assertIn('autology = ["static/*", "console_static/*"]', text)  # the inbox and the console ship inside
+        # the inbox, the console and the industry blueprints ship inside the package
+        self.assertIn('autology = ["static/*", "console_static/*", "blueprints/*.json"]', text)
+        self.assertTrue((ROOT / "autology" / "blueprints" / "water_treatment.json").exists())
         for folder, names in (("static", ("index.html", "app.js", "app.css")),
                               ("console_static", ("index.html", "console.js", "commands.js", "console.css"))):
             for name in names:

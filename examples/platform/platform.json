@@ -5,6 +5,11 @@
       "name": "Motor claims starter",
       "description": "Motor claims settlement with fraud screening and two human reviews",
       "config": "../auto_insurance/server.json"
+    },
+    "industrial-starter": {
+      "name": "Industrial operations (blank)",
+      "description": "A minimal model to design in Studio: one Plant entity (synthetic)",
+      "config": "../water_treatment/server.json"
     }
   },
   "workspaces": {

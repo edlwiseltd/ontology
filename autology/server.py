@@ -152,6 +152,9 @@ class AutologyService:
             self.store.save_graph(KnowledgeGraph.from_dict(self.ontology, data))
         self.quarantined: List[Dict[str, Any]] = []  # stored records that no longer validate (audit GAP-010)
         self.graph = self.store.load_graph(self.ontology, quarantine=self.quarantined)
+        # the revision of every record as this process last read or wrote it (optimistic concurrency, GAP-018)
+        self.revisions: Dict[str, int] = self.store.instance_revisions(self.graph._instances)
+        self._tampered = (0.0, 0)
         self.graph_lock = threading.RLock()
         self.access = GovernanceLayer(self.ontology, max_violations=0)  # row/field rules for API callers
         # simulation mode: requesters may supply case data, and automatic approvers may decide reviews.
@@ -545,14 +548,22 @@ class AutologyService:
         if not etype or not iid:
             raise ApiError(400, "type and id are required")
         self.checkpoint(user, "upsert_object", str(iid), body.get("justification"), entity=etype)
+        from .store import ABSENT, RecordConflict
+
         with self.graph_lock:
             candidate = KnowledgeGraph(self.ontology)
             try:
                 inst = candidate.add(etype, iid, **attrs)  # validates type, attributes and state
             except OntologyError as exc:
                 raise ApiError(400, str(exc)) from None
+            try:  # only over the revision this process holds: a stale or tampered row is never overwritten
+                self.revisions[iid] = self.store.upsert_instance(etype, iid, inst.attributes,
+                                                                 self.revisions.get(iid, ABSENT))
+            except RecordConflict as exc:
+                self._record_conflict(exc)
+                raise ApiError(409, f"{exc}; nothing was written", {"record": iid, "tampered": exc.tampered}) \
+                    from None
             self.graph._instances[iid] = inst
-            self.store.upsert_instance(etype, iid, inst.attributes)
             for link in body.get("links", []):
                 try:
                     self.graph.link(iid, link["kind"], link["target"])
@@ -702,7 +713,8 @@ class AutologyService:
             writes, conflicts = plan_write_back(self.graph, result.state, linked["sources"], base)
             if not conflicts:
                 plan = [(iid, self.graph.get(iid).type, dict(self.graph.get(iid).attributes),
-                         {**self.graph.get(iid).attributes, **fields}) for iid, fields in writes.items()]
+                         {**self.graph.get(iid).attributes, **fields}, self.revisions.get(iid))
+                        for iid, fields in writes.items()]
                 # the base advances to what the records will hold, so the run's own writes are never conflicts later
                 new_base = copy.deepcopy(base)
                 for iid, seen in new_base.items():
@@ -722,6 +734,7 @@ class AutologyService:
                 else:
                     for iid, fields in writes.items():
                         self.graph._instances[iid].attributes.update(fields)
+                    self.revisions.update(self.store.instance_revisions(writes))
                     return list(writes)
         new = [c for c in conflicts if c not in known]
         self.store.record_write_back_conflict(run_id, conflicts, known + new, version)
@@ -800,15 +813,58 @@ class AutologyService:
     def health(self) -> Dict[str, Any]:
         from .audit import audit_key
 
-        out = {"status": "degraded" if self.quarantined else "ok", "ontology": self.ontology.ref,
+        tampered = self.tampered_records()
+        out = {"status": "degraded" if self.quarantined or tampered else "ok", "ontology": self.ontology.ref,
                "simulation": self.simulation, "audit_keyed": self.audit_key is not None,
-               "scheduler": self.scheduler_status, "quarantined_records": len(self.quarantined)}
+               "scheduler": self.scheduler_status, "quarantined_records": len(self.quarantined),
+               "tampered_records": tampered}
         policy = self.execution_policy()
         if policy is not None:
             out["stage"] = policy["stage"]
             out["runs_allowed"] = policy["runs"]
             out["tool_environments"] = sorted(policy["environments"])
         return out
+
+    def mcp_message(self, user: User, message: Any) -> Optional[Dict[str, Any]]:
+        """One MCP JSON-RPC message over HTTP (``POST /api/mcp``), answered by the same server as over stdio, as
+        this user: the same tools, permissions, redaction and gates. Notifications get no answer."""
+        from .mcp import McpServer
+
+        if not user.permissions:  # a token with no permission gets nothing, not even an acknowledgement
+            raise ApiError(403, f"{user.name} has no permission in this use case")
+        if not isinstance(message, dict):
+            return {"jsonrpc": "2.0", "id": None, "error": {"code": -32600, "message": "invalid request"}}
+        return McpServer(self, user).handle(message)
+
+    # -- record consistency (audit GAP-018) ---------------------------------------------------------------------
+    def tampered_records(self) -> int:
+        """How many stored records were changed outside Autology (seal mismatch). Cached for a minute."""
+        checked_at, count = self._tampered
+        if not checked_at or time.monotonic() - checked_at > 60:
+            count = len(self.store.tampered_instances())
+            self._tampered = (time.monotonic(), count)
+        return count
+
+    def _record_conflict(self, exc) -> None:
+        """A write was refused because the stored record is not the one this process holds. A record sealed by
+        Autology is authoritative: it is reloaded. A tampered one is never trusted: it stays out, admins are told."""
+        if exc.tampered:
+            self._tampered = (0.0, 0)
+            log.warning("record %s: %s", exc.iid, exc.reason)
+            self._notify("quarantine", [], f"Record {exc.iid} was changed outside Autology; it is not used and "
+                                           "nothing was written over it. Review the store.", {"record": exc.iid})
+            return
+        row = self.store.read_instance(exc.iid)
+        if row is None:
+            self.graph._instances.pop(exc.iid, None)
+            self.revisions.pop(exc.iid, None)
+            return
+        try:
+            self.graph._instances[exc.iid] = KnowledgeGraph(self.ontology).add(row["type"], exc.iid,
+                                                                               **row["attributes"])
+            self.revisions[exc.iid] = row["revision"]
+        except (OntologyError, ValueError, TypeError):
+            self.log_error(f"reloading record {exc.iid}")
 
     # -- execution gates (R2): the use case's lifecycle stage governs what may run --------------------------
     def execution_policy(self) -> Optional[Dict[str, Any]]:
@@ -1091,10 +1147,19 @@ class AutologyService:
                 log.warning("pipeline %s failed: %s", name, exc)
                 raise ApiError(502 if not pushed else 400, str(exc), {"batch_id": batch}) from None
             with self.graph_lock:
+                from .store import ABSENT, RecordConflict
+
                 plan = pipe.plan(self.graph, plan)
-                batch = self.store.apply_ingest(plan, triggered_by, dry_run)
+                try:  # over the revisions this process holds: a stale or tampered record refuses the load
+                    batch = self.store.apply_ingest(plan, triggered_by, dry_run, expected={
+                        iid: self.revisions.get(iid, ABSENT) for iid in plan.updates})
+                except RecordConflict as exc:
+                    self._record_conflict(exc)
+                    raise ApiError(409, f"{exc}; nothing was loaded, run the pipeline again",
+                                   {"record": exc.iid, "tampered": exc.tampered}) from None
                 if not dry_run:
                     apply_to_graph(self.graph, plan)
+                    self.revisions.update(self.store.instance_revisions(list(plan.creates) + list(plan.updates)))
         out = {"batch_id": batch, "dry_run": dry_run, **plan.summary()}
         if not dry_run:
             fired = self._changed(plan.changed_ids)
@@ -2089,6 +2154,9 @@ class ApiExchange:
                 ("POST", "reporting"): lambda: (service.require(user, "admin"), service.refresh_reporting())[1],
             }
             key = (method, parts[0]) if len(parts) == 1 else None
+            if key == ("POST", "mcp"):  # MCP over HTTP: the same tools, in this (the only writing) process
+                answer = service.mcp_message(user, body)
+                return self._send(202, b"") if answer is None else self._send(200, answer)
             if key in routes:
                 return self._send(200, routes[key]())
             if method == "GET" and len(parts) == 2 and parts[0] == "sdk":

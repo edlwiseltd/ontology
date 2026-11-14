@@ -19,6 +19,7 @@
     python -m autology eval SUITE.json [--reasoner NAME=SPEC ...] [--repeats N] [--json] [--min-pass 0.95]
     python -m autology scenario ONTOLOGY DATA.json SCENARIO.json [--schedule] [--json] [--commit OUT.json]
     python -m autology mcp SERVER.json [--token-env AUTOLOGY_TOKEN]       # MCP server over stdio
+    python -m autology mcp --url PLATFORM/w/WS/u/UC [--token-env ...]    # MCP relay to a running platform
     python -m autology ingest SERVER.json PIPELINE [--dry-run] [--rows ROWS.json]   # load data from other systems
     python -m autology reporting SERVER.json [--out reporting.db] [--roles analyst]   # governed tables for BI tools
     python -m autology serve SERVER.json [--host 127.0.0.1] [--port 8800] [--store PATH] [--assistant [MODEL]]
@@ -238,7 +239,8 @@ def _build_parser() -> argparse.ArgumentParser:
     scn.add_argument("--json", action="store_true", help="print the comparison as JSON")
     scn.add_argument("--commit", metavar="OUT.json", help="write the data with the scenario applied")
     mc = sub.add_parser("mcp", help="serve the governed ontology to MCP clients over stdio")
-    mc.add_argument("config")
+    mc.add_argument("config", nargs="?", help="server.json or platform.json (omit with --url)")
+    mc.add_argument("--url", help="relay to a running platform: <platform>/w/<workspace>/u/<use case> (opens no store)")
     mc.add_argument("--token-env", default="AUTOLOGY_TOKEN", help="environment variable holding the API token")
     mc.add_argument("--use-case", help="with a platform file: the use case to serve (in the token's workspace)")
     ig = sub.add_parser("ingest", help="run a data pipeline: load checked records into the knowledge graph")
@@ -461,8 +463,19 @@ def main(argv=None) -> int:
     if args.command == "eval":
         return _cmd_eval(args)
     if args.command == "mcp":
-        from .mcp import run
+        import os
 
+        from .mcp import relay, run
+
+        if args.url:
+            token = os.environ.get(args.token_env)
+            if not token:
+                print(f"set {args.token_env} to an Autology API token", file=sys.stderr)
+                return 2
+            return relay(args.url, token, sys.stdin, sys.stdout)
+        if not args.config:
+            print("give a configuration file, or --url to relay to a running platform", file=sys.stderr)
+            return 2
         return run(args.config, args.token_env, use_case=args.use_case)
     if args.command == "trace":
         return _cmd_trace(args)

@@ -51,8 +51,10 @@ class StartupQuarantineTests(unittest.TestCase):
     def test_a_corrupted_row_is_quarantined_with_an_alert_and_the_service_starts(self):
         svc = service(automations={})
         path = svc.store.path
-        svc.store._db.execute("UPDATE instances SET attributes=? WHERE id='CL-1'",
-                              (json.dumps({"amount": "lots", "status": "reported"}),))
+        # a row Autology itself wrote (validly sealed) that no longer validates, e.g. after an ontology change;
+        # a row changed outside Autology is caught earlier by its seal (tests/test_gap018_record_consistency.py)
+        with svc.store._tx() as db:
+            svc.store._write_instance(db, "CL-1", "Claim", {"amount": "lots", "status": "reported"}, "now")
         svc.store.close()
         cfg = json.loads((EX / "server.json").read_text())
         cfg.update(store=path, automations={})

@@ -17,13 +17,14 @@ import unittest
 from autology import Ontology
 from autology.graph import KnowledgeGraph, write_back
 from autology.state import WorldState
-from autology.store import Store
+from autology.store import SCHEMA_VERSION, Store
 
 from .test_platform import EX, add_big_order, service
 
 
 def stored(svc, iid):
-    return Store(svc.store.path).load_graph(svc.ontology).get(iid).attributes
+    """The record as stored on disk (read directly: a tampered row is still shown)."""
+    return Store(svc.store.path).read_instance(iid)["attributes"]
 
 
 class FlakyDb:
@@ -114,7 +115,7 @@ class AtomicWriteBackTests(unittest.TestCase):
     def test_an_injected_failure_between_two_instance_writes_rolls_everything_back(self):
         result = self.result_changing(**{"K-2": {"value": 130000}, "O-4": {"amount": 86000}})
         real = self.svc.store._db
-        self.svc.store._db = FlakyDb(real, "UPDATE instances", 2)  # the second record's write fails
+        self.svc.store._db = FlakyDb(real, "INSERT INTO instances", 2)  # the second record's write fails
         try:
             self.assertEqual(self.write(result), [])
         finally:
@@ -145,7 +146,7 @@ class AtomicWriteBackTests(unittest.TestCase):
         self.assertEqual(self.svc.graph.get("K-2").attributes["value"], 120000)  # memory unchanged too
         status = self.svc.write_back_status(self.run_id)
         self.assertEqual(status["state"], "conflict")
-        self.assertIn("differs from the server's copy", status["conflicts"][0]["reason"])
+        self.assertIn("changed outside Autology", status["conflicts"][0]["reason"])  # its seal no longer matches
 
     def test_duplicate_commit_attempts_change_nothing_more(self):
         result = self.result_changing(**{"K-2": {"value": 130000}})
@@ -217,12 +218,19 @@ class MigrationTests(unittest.TestCase):
         db.executescript("""
             CREATE TABLE old AS SELECT run_id, template, root, sources, write_back, base, conflicts FROM run_sources;
             DROP TABLE run_sources; ALTER TABLE old RENAME TO run_sources;
+            CREATE TABLE old_i AS SELECT id, type, attributes, updated_at FROM instances;
+            DROP TABLE instances; ALTER TABLE old_i RENAME TO instances;
             DROP TRIGGER write_back_log_no_update; DROP TRIGGER write_back_log_no_delete;
             DROP TABLE write_back_log; UPDATE meta SET value='12' WHERE key='schema_version';""")
         db.commit()
         db.close()
         store = Store(path)
-        self.assertEqual(store._query("SELECT value FROM meta WHERE key='schema_version'")[0]["value"], "13")
+        self.assertEqual(store._query("SELECT value FROM meta WHERE key='schema_version'")[0]["value"],
+                         str(SCHEMA_VERSION))
+        self.assertEqual(store.tampered_instances(), [])  # existing records are sealed by the upgrade
+        self.assertEqual(set(store.instance_revisions().values()), {0})
+        graph = store.load_graph(Ontology.load(EX / "ontology.json"))
+        self.assertEqual(graph.get("O-4").attributes["amount"], 85000)
         self.assertEqual(store.pending_write_backs(), [])  # earlier runs are not written back a second time
         self.assertEqual(store.run_sources(run["run_id"])["wb_state"], "committed")
         self.assertEqual(store._query("SELECT COUNT(*) AS n FROM audit")[0]["n"], audit_rows)

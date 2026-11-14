@@ -13,6 +13,19 @@ tools the governed assistant gets (:func:`autology.chat.tools_for`), so the same
   withheld, because the MCP client is a model;
 * every call is written to the access log as ``mcp.tool``.
 
+**Next to a running platform (GAP-018).** A use case served by the platform is reached through the platform's
+own authenticated API, never by opening its store a second time (one writer per store, MOD-4):
+
+* MCP clients that speak HTTP post JSON-RPC messages to ``<platform>/w/<workspace>/u/<use case>/api/mcp``
+  with the member's token (JSON responses; no server-sent events);
+* stdio clients run ``python -m autology mcp --url <platform>/w/<workspace>/u/<use case>``, a relay that holds
+  no store and forwards each message to that endpoint.
+
+Either way the router resolves the token to one member of one workspace and the use case's engine applies
+every permission, rule and execution gate; another workspace or an ungranted use case answers 404.
+Serving a platform file directly (``mcp platform.json --use-case``) opens the use case's store, so it is
+refused while the platform server runs.
+
 Example client configuration (Claude Desktop, Claude Code and others)::
 
     {"mcpServers": {"autology": {"command": "python", "args": ["-m", "autology", "mcp", "/path/server.json"],
@@ -116,6 +129,52 @@ class McpServer:
                 writer.flush()
 
 
+def relay(url: str, token: str, reader: IO[str], writer: IO[str], timeout: float = 120.0) -> int:
+    """Forward MCP messages from stdio to a use case's ``/api/mcp`` endpoint behind the platform router. Opens no
+    store: the platform's own process is the only writer. Never follows redirects."""
+    import urllib.error
+    import urllib.request
+
+    from .console import _NoRedirect, normalise_engine
+
+    try:
+        base = normalise_engine(url)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    opener = urllib.request.build_opener(_NoRedirect())
+    for line in reader:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            message = json.loads(line)
+        except ValueError:
+            writer.write(json.dumps({"jsonrpc": "2.0", "id": None, "error": {"code": -32700,
+                                                                            "message": "parse error"}}) + "\n")
+            writer.flush()
+            continue
+        mid = message.get("id") if isinstance(message, dict) else None
+        req = urllib.request.Request(base + "/api/mcp", data=line.encode(), method="POST", headers={
+            "Authorization": f"Bearer {token}", "Content-Type": "application/json",
+            "Accept": "application/json"})
+        try:
+            with opener.open(req, timeout=timeout) as resp:
+                data = resp.read()
+                answer = json.loads(data) if resp.status == 200 and data else None
+        except urllib.error.HTTPError as exc:
+            detail = (json.loads(exc.read() or b"{}") or {}).get("error", "") if exc.fp else ""
+            answer = None if mid is None else {"jsonrpc": "2.0", "id": mid, "error": {
+                "code": -32001, "message": f"the platform refused the request ({exc.code}) {detail}".strip()}}
+        except (urllib.error.URLError, TimeoutError, OSError, ValueError):
+            answer = None if mid is None else {"jsonrpc": "2.0", "id": mid, "error": {
+                "code": -32002, "message": "the platform cannot be reached"}}
+        if answer is not None:
+            writer.write(json.dumps(answer) + "\n")
+            writer.flush()
+    return 0
+
+
 def run(config_path: str, token_env: str = "AUTOLOGY_TOKEN", reader: IO[str] = sys.stdin,
         writer: IO[str] = sys.stdout, use_case: Optional[str] = None) -> int:
     """Serve one engine over stdio. With a platform file (``platform.json``) the token must be a member's, and
@@ -138,7 +197,14 @@ def run(config_path: str, token_env: str = "AUTOLOGY_TOKEN", reader: IO[str] = s
         if not use_case:
             print("a platform file serves one use case: give --use-case", file=sys.stderr)
             return 2
-        platform = Platform.from_file(config_path)
+        from .store import StoreError
+
+        try:
+            platform = Platform.from_file(config_path)
+        except (StoreError, ValueError) as exc:  # e.g. the platform server holds the store: never a second writer
+            print(f"{exc}\nWhile the platform server runs, serve MCP through it: "
+                  "python -m autology mcp --url <platform>/w/<workspace>/u/<use case>", file=sys.stderr)
+            return 2
         member = platform.member_for(f"Bearer {token}")
         ws = platform.workspaces.get(member.workspace) if member else None
         uc = ws.use_cases.get(use_case) if ws else None

@@ -38,6 +38,8 @@ Estimated effort: about 1 day. Proposed as a small increment after the execution
 
 ## GAP-018 — The server's graph is never refreshed from the store (High)
 
+> **Update (Increment B):** C1–C3 met; GAP-018 is now **Fixed** in the repository. Limits that remain: detection, not prevention, of direct database writes; in the engine's demo mode (no audit key) seals are plain hashes and detect accidents only; changes made before the schema-14 upgrade are sealed as found; library and tooling writes that do not name a revision (`ANY_REVISION`) skip the revision check but not the seal check; MCP over HTTP answers JSON (no server-sent events). Evidence: `tests/test_gap018_record_consistency.py`, [implementation log](AUTOLOGY_IMPLEMENTATION_LOG.md).
+
 | Part of the audit's remedy | Status | Evidence |
 |---|---|---|
 | Short term: one writer per store; the CLI refuses while a server holds it | **Done** | MOD-4, `fd7ab77`, `f0a385a`; `tests/test_mod4_single_writer.py` (7): a second writing process is refused while the holder is alive; a crash frees the lease; backup and reporting open the store read-only |

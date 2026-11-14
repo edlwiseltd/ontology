@@ -7,11 +7,11 @@ reproduces the audit's finding passes in CI; it has not been re-verified by an i
 
 | Status | Count |
 |---|---|
-| Fixed | 18 |
+| Fixed | 19 |
 | Open | 25 |
 | Open (external evidence) | 5 |
 | Open (owner decision) | 2 |
-| Partly fixed | 7 |
+| Partly fixed | 6 |
 
 **Partly fixed High gaps (GAP-009, 018, 031): what remains and the closure criteria are in [the clarification note](AUTOLOGY_PARTIAL_GAPS_CLARIFICATION.md).** **Critical and High gaps not fully fixed:** GAP-009, GAP-018, GAP-031, GAP-032, GAP-052, GAP-053. Each is explained below: GAP-009 and
 GAP-018 keep a residual, lower-risk part (atomic write-back; reload on write); GAP-031 waits for legal sign-off;
@@ -36,7 +36,7 @@ GAP-032 (ERP connector), GAP-052 (real models) and GAP-053 (real process) need e
 | GAP-015 | Unauthenticated memory exhaustion with a negative Content-Length | Medium (P0 because trivial and unauthenticated) | **Fixed** | `4509b97` | `tests/test_api_exchange.py` |
 | GAP-016 | Misspelled ontology keys are silently ignored | High | **Fixed** | MOD-1 · `f20ddc1` | `tests/test_mod1_strict_schema.py` (400+ misspellings) |
 | GAP-017 | A missing linked entity is treated as existing in its initial state | High | **Fixed** | MOD-2 · `b3a2deb` | `tests/test_mod2_missing_records.py` |
-| GAP-018 | The server's graph is never refreshed from the store | High | **Partly fixed** | MOD-4 · `fd7ab77`, `f0a385a` | `tests/test_mod4_single_writer.py`: one writer per store (the audit's short-term remedy). Open: reload or version-check on write (long-term) |
+| GAP-018 | The server's graph is never refreshed from the store | High | **Fixed** | MOD-4 · `fd7ab77`, `f0a385a`; Increment B (see log) | `tests/test_mod4_single_writer.py` (one writer per store); `tests/test_gap018_record_consistency.py` (15): MCP served through the platform API next to the running server (relay opens no store; another workspace, an ungranted use case or a wrong token refused; no review decision, runs only proposed); every record has a revision and an HMAC seal; stale API writes, write-backs and loads refused (409) and the authoritative record reloaded; direct SQL changes (even with the revision bumped), forged rows and deleted rows detected (health `degraded`, left out at start, never written over). Detection, not prevention: SQLite cannot forbid direct writes (file permissions are a deployment control). Independent re-verification open |
 | GAP-019 | IdP-removed signing keys stay trusted until restart; `aud` object → 500 | Low–Med | **Open** |  | R3 hardening |
 | GAP-020 | Ontology change while runs paused: silent rule change (same version), fingerprint not recorded; version bump strands runs | Med | **Open** |  | R2: pin runs to the ontology fingerprint (fits REL-1 releases) |
 | GAP-021 | HTTP timeout is per read, not a deadline; agent lock held for whole runs, inline backoff under the lock | Med | **Open** |  | R3 hardening (deadline-based HTTP timeout; agent lock) |

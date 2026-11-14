@@ -207,6 +207,7 @@ provider when `oidc` is configured: see [`integrations.md`](integrations.md)), e
 | `GET /api/reviews/{id}` | read | One review, for admins, its reviewers and the run's starter only |
 | `POST /api/reviews/{id}/decision` | review | `{"approved": true/false, "comment": "..."}`. Resumes the run, and can be decided once only |
 | `GET /api/reconciliation` | reconcile, audit or admin | External calls a person must settle: outcome unknown, accepted but unconfirmed, or made by a run that was never saved ([integrations](integrations.md#acting-in-other-systems-safely)) |
+| `POST /api/mcp` | read, run, review, audit, ingest, reconcile or admin (tools filtered by permission) | One MCP JSON-RPC message, answered by the same MCP server as `autology mcp` over stdio, as the token's user: the same tools, permissions, redaction and execution gates. A notification answers 202. Behind the platform: `/w/<ws>/u/<uc>/api/mcp` (or the relay `autology mcp --url`) |
 | `POST /api/runs/{id}/write-back` | reconcile | After a person resolved a write-back conflict: try the run's whole write set again, all or nothing. Answers `{"state": "committed" | "conflict" | "pending", "conflicts": [...]}` |
 | `POST /api/reconciliation/{key}` | reconcile | `{"done": true/false, "comment": "...", "updates": {...}}`. Not the run's starter. The run then continues without repeating the call |
 | `GET /api/report` | read | Compliance report (markdown) |

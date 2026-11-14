@@ -26,6 +26,8 @@ PostgreSQL for larger ones. File databases use WAL mode; a lock makes the store 
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import sqlite3
 import threading
@@ -39,12 +41,13 @@ from .audit import GENESIS, AuditLog
 from .graph import KnowledgeGraph
 from .ontology import Ontology, OntologyError
 
-SCHEMA_VERSION = 13
+SCHEMA_VERSION = 14
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS instances (
-    id TEXT PRIMARY KEY, type TEXT NOT NULL, attributes TEXT NOT NULL, updated_at TEXT NOT NULL);
+    id TEXT PRIMARY KEY, type TEXT NOT NULL, attributes TEXT NOT NULL, updated_at TEXT NOT NULL,
+    revision INTEGER NOT NULL DEFAULT 0, seal TEXT);
 CREATE INDEX IF NOT EXISTS instances_type ON instances(type);
 CREATE TABLE IF NOT EXISTS links (
     source TEXT NOT NULL, kind TEXT NOT NULL, target TEXT NOT NULL, PRIMARY KEY (source, kind, target));
@@ -179,6 +182,26 @@ def _same_record(stored: Dict[str, Any], expected: Dict[str, Any]) -> bool:
     return canonical(stored) == canonical(expected)
 
 
+def _seal_int(seal: Optional[str]) -> int:
+    """A row's seal as a number for the set digest; anything that is not a seal (forged, empty) still counts."""
+    try:
+        return int(seal, 16) if seal and len(seal) == 64 else int(hashlib.sha256(str(seal).encode()).hexdigest(), 16)
+    except ValueError:
+        return int(hashlib.sha256(str(seal).encode()).hexdigest(), 16)
+
+
+ANY_REVISION = object()  # write without checking what the writer read (library and tooling use)
+ABSENT = object()  # the writer believes the record does not exist yet
+
+
+class RecordConflict(StoreError):
+    """A stale or tampered record: the write was refused and nothing was written (audit GAP-018)."""
+
+    def __init__(self, iid: str, reason: str, revision: Optional[int] = None, tampered: bool = False):
+        super().__init__(f"record {iid}: {reason}")
+        self.iid, self.reason, self.revision, self.tampered = iid, reason, revision, tampered
+
+
 class WriteSetConflict(StoreError):
     """A run's write set was refused as a whole: a stored record is not what the writer expected."""
 
@@ -208,6 +231,7 @@ class Store:
             row = self._db.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()
             if row is None:
                 self._db.execute("INSERT INTO meta VALUES ('schema_version', ?)", (str(SCHEMA_VERSION),))
+                self._set_digest(self._db, self._compute_digest(self._db))
             elif int(row["value"]) > SCHEMA_VERSION:
                 raise StoreError(f"store schema {row['value']} is newer than this Autology ({SCHEMA_VERSION})")
             elif int(row["value"]) < SCHEMA_VERSION:  # older store: the new tables were just created
@@ -222,6 +246,16 @@ class Store:
                     self._db.execute("ALTER TABLE automation_state ADD COLUMN failures INTEGER NOT NULL DEFAULT 0")
                 if "alg" not in {r["name"] for r in self._db.execute("PRAGMA table_info(audit)")}:  # schema 6
                     self._db.execute("ALTER TABLE audit ADD COLUMN alg TEXT NOT NULL DEFAULT 'sha256'")
+                instance_columns = {r["name"] for r in self._db.execute("PRAGMA table_info(instances)")}
+                if "revision" not in instance_columns:  # schema 14: record revisions and seals (audit GAP-018)
+                    self._db.execute("ALTER TABLE instances ADD COLUMN revision INTEGER NOT NULL DEFAULT 0")
+                    self._db.execute("ALTER TABLE instances ADD COLUMN seal TEXT")
+                    # existing rows are sealed as they are: a change made before this upgrade cannot be told apart
+                    for r in self._db.execute("SELECT id, type, attributes, revision FROM instances").fetchall():
+                        self._db.execute("UPDATE instances SET seal=? WHERE id=?",
+                                         (self._instance_seal(r["id"], r["type"], r["attributes"], r["revision"]),
+                                          r["id"]))
+                    self._set_digest(self._db, self._compute_digest(self._db))
                 if "wb_version" not in source_columns:  # schema 13: atomic write-back (audit GAP-009)
                     self._db.execute("ALTER TABLE run_sources ADD COLUMN wb_version TEXT")
                     self._db.execute("ALTER TABLE run_sources ADD COLUMN wb_state TEXT")
@@ -271,18 +305,133 @@ class Store:
         now = _now()
         with self._tx() as db:
             for inst in graph.instances():
-                db.execute("INSERT INTO instances VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET "
-                           "type=excluded.type, attributes=excluded.attributes, updated_at=excluded.updated_at",
-                           (inst.id, inst.type, json.dumps(inst.attributes, default=str), now))
+                self._write_instance(db, inst.id, inst.type, inst.attributes, now)
             for source, kind, target in graph._links:
                 db.execute("INSERT OR IGNORE INTO links VALUES (?, ?, ?)", (source, kind, target))
         return len(graph.instances())
 
-    def upsert_instance(self, entity_type: str, instance_id: str, attributes: Dict[str, Any]) -> None:
+    def upsert_instance(self, entity_type: str, instance_id: str, attributes: Dict[str, Any],
+                        expected: Any = ANY_REVISION) -> int:
+        """Insert or update one record; returns its new revision. With ``expected`` (the revision the writer
+        read, or :data:`ABSENT` for a record it believes new) a stale or tampered row is refused
+        (:class:`RecordConflict`) and nothing is written."""
         with self._tx() as db:
-            db.execute("INSERT INTO instances VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET "
-                       "type=excluded.type, attributes=excluded.attributes, updated_at=excluded.updated_at",
-                       (instance_id, entity_type, json.dumps(attributes, default=str), _now()))
+            self._check_instance(db, instance_id, expected)
+            return self._write_instance(db, instance_id, entity_type, attributes, _now())
+
+    # -- record revisions and seals (audit GAP-018) -------------------------------------------------------
+    def _instance_seal(self, iid: str, etype: str, attributes_json: str, revision: int) -> str:
+        """MAC over a stored record, its type and revision, under the store's audit key: a row changed outside
+        Autology (even with its revision bumped) no longer matches, and nobody without the key can re-seal it."""
+        from .audit import resolve_key
+
+        payload = json.dumps(["autology-instance", iid, etype, json.loads(attributes_json), int(revision)],
+                             sort_keys=True, default=str).encode()
+        key = resolve_key(self.audit_key)
+        return hmac.new(key, payload, hashlib.sha256).hexdigest() if key else hashlib.sha256(payload).hexdigest()
+
+    def _row_problem(self, row) -> Optional[str]:
+        if row["seal"] is None or not hmac.compare_digest(
+                row["seal"], self._instance_seal(row["id"], row["type"], row["attributes"], row["revision"])):
+            return "the stored record was changed outside Autology (its seal does not match)"
+        return None
+
+    def _check_instance(self, db, iid: str, expected: Any) -> Optional[sqlite3.Row]:
+        row = db.execute("SELECT id, type, attributes, revision, seal FROM instances WHERE id=?", (iid,)).fetchone()
+        if row is not None:
+            problem = self._row_problem(row)
+            if problem:
+                raise RecordConflict(iid, problem, tampered=True)
+        if expected is ANY_REVISION:
+            return row
+        if expected is ABSENT:
+            if row is not None:
+                raise RecordConflict(iid, f"the record already exists (revision {row['revision']})",
+                                     revision=row["revision"])
+        elif row is None:
+            raise RecordConflict(iid, "the record no longer exists in the store")
+        elif row["revision"] != expected:
+            raise RecordConflict(iid, f"the record was changed meanwhile (revision {row['revision']}, "
+                                      f"expected {expected})", revision=row["revision"])
+        return row
+
+    # The set of records is sealed too: the XOR of every row's seal, kept in ``meta`` with a MAC under the key.
+    # A row deleted (or added) outside Autology changes the set; nobody without the key can re-seal the digest.
+    def _compute_digest(self, db) -> str:
+        acc = 0
+        for r in db.execute("SELECT seal FROM instances").fetchall():
+            acc ^= _seal_int(r["seal"])
+        return f"{acc:064x}"
+
+    def _digest_mac(self, digest: str) -> str:
+        from .audit import resolve_key
+
+        key = resolve_key(self.audit_key)
+        payload = f"autology-instance-set:{digest}".encode()
+        return hmac.new(key, payload, hashlib.sha256).hexdigest() if key else hashlib.sha256(payload).hexdigest()
+
+    def _set_digest(self, db, digest: str) -> None:
+        db.execute("INSERT INTO meta VALUES ('instances_digest', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                   (json.dumps({"digest": digest, "mac": self._digest_mac(digest)}),))
+
+    def _stored_digest(self, db) -> Optional[str]:
+        row = db.execute("SELECT value FROM meta WHERE key='instances_digest'").fetchone()
+        if row is None:
+            return None
+        value = json.loads(row["value"])
+        return value["digest"] if hmac.compare_digest(value.get("mac", ""), self._digest_mac(value["digest"])) \
+            else None
+
+    def instance_set_problem(self) -> Optional[str]:
+        """Whether records were added or removed outside Autology (the sealed set no longer matches)."""
+        with self._lock:
+            stored = self._stored_digest(self._db)
+            if stored is None or stored != self._compute_digest(self._db):
+                return "records were added or removed outside Autology (the sealed set of records does not match)"
+        return None
+
+    def _write_instance(self, db, iid: str, etype: str, attributes: Dict[str, Any], now: str) -> int:
+        row = db.execute("SELECT revision, seal FROM instances WHERE id=?", (iid,)).fetchone()
+        revision = (row["revision"] if row else 0) + 1
+        text = json.dumps(attributes, default=str)
+        seal = self._instance_seal(iid, etype, text, revision)
+        stored = self._stored_digest(db)
+        if stored is not None:  # incremental: the old row's seal out, the new one in (same transaction)
+            acc = int(stored, 16) ^ (_seal_int(row["seal"]) if row else 0) ^ _seal_int(seal)
+            self._set_digest(db, f"{acc:064x}")
+        db.execute("INSERT INTO instances (id, type, attributes, updated_at, revision, seal) VALUES (?, ?, ?, ?, ?, ?) "
+                   "ON CONFLICT(id) DO UPDATE SET type=excluded.type, attributes=excluded.attributes, "
+                   "updated_at=excluded.updated_at, revision=excluded.revision, seal=excluded.seal",
+                   (iid, etype, text, now, revision, seal))
+        return revision
+
+    def instance_revisions(self, ids: Optional[Iterable[str]] = None) -> Dict[str, int]:
+        if ids is None:
+            return {r["id"]: r["revision"] for r in self._query("SELECT id, revision FROM instances")}
+        ids = list(ids)
+        out: Dict[str, int] = {}
+        for i in range(0, len(ids), 500):
+            chunk = ids[i:i + 500]
+            out.update({r["id"]: r["revision"] for r in self._query(
+                f"SELECT id, revision FROM instances WHERE id IN ({', '.join('?' * len(chunk))})", tuple(chunk))})
+        return out
+
+    def tampered_instances(self) -> List[Dict[str, Any]]:
+        """Every stored record whose seal does not match (changed outside Autology)."""
+        rows = self._query("SELECT id, type, attributes, revision, seal FROM instances ORDER BY id")
+        out = [{"id": r["id"], "type": r["type"], "reason": self._row_problem(r)} for r in rows if self._row_problem(r)]
+        problem = self.instance_set_problem()
+        if problem and not out:  # rows changed in place already explain a set mismatch; otherwise one went away
+            out.append({"id": None, "type": None, "reason": problem})
+        return out
+
+    def read_instance(self, iid: str) -> Optional[Dict[str, Any]]:
+        rows = self._query("SELECT id, type, attributes, revision, seal FROM instances WHERE id=?", (iid,))
+        if not rows:
+            return None
+        r = rows[0]
+        return {"id": r["id"], "type": r["type"], "attributes": json.loads(r["attributes"]),
+                "revision": r["revision"], "problem": self._row_problem(r)}
 
     def add_link(self, source: str, kind: str, target: str) -> None:
         with self._tx() as db:
@@ -295,7 +444,13 @@ class Store:
         described in the list instead of stopping the load (audit GAP-010). The row stays in the store for repair.
         """
         graph = KnowledgeGraph(ontology)
-        for row in self._query("SELECT id, type, attributes FROM instances ORDER BY id"):
+        for row in self._query("SELECT id, type, attributes, revision, seal FROM instances ORDER BY id"):
+            problem = self._row_problem(row)
+            if problem:  # changed outside Autology (audit GAP-018): never trusted, kept for an operator to review
+                if quarantine is None:
+                    raise StoreError(f"record {row['id']}: {problem}")
+                quarantine.append({"id": row["id"], "type": row["type"], "reason": problem, "tampered": True})
+                continue
             try:
                 attrs = json.loads(row["attributes"])
                 graph.add(row["type"], row["id"], **attrs)
@@ -712,14 +867,21 @@ class Store:
                          base: Dict[str, Any], conflicts: List[Dict[str, Any]], run_version: Optional[str]) -> None:
         """Write a run's whole local write set in **one transaction**, or nothing.
 
-        ``writes`` holds ``(instance id, type, expected attributes, new attributes)``. Every stored record is
+        ``writes`` holds ``(instance id, type, expected attributes, new attributes[, expected revision])``. Every
+        stored record's seal and revision are checked and its content is
         compared with what the writer expects before anything is written; any difference (a change the server
         did not make) raises :class:`WriteSetConflict` and the transaction is rolled back, so no record changes.
         The run's write-back state and an append-only log entry are committed in the same transaction."""
         now = _now()
         with self._tx() as db:
             stale = []
-            for iid, _type, expected, _new in writes:
+            for w in writes:
+                iid, _type, expected = w[0], w[1], w[2]
+                try:
+                    self._check_instance(db, iid, w[4] if len(w) > 4 else ANY_REVISION)
+                except RecordConflict as exc:
+                    stale.append({"id": iid, "type": _type, "attribute": None, "live": None, "reason": exc.reason})
+                    continue
                 row = db.execute("SELECT attributes FROM instances WHERE id=?", (iid,)).fetchone()
                 if row is None or _same_record(json.loads(row["attributes"]), expected) is False:
                     stale.append({"id": iid, "type": _type, "attribute": None,
@@ -728,9 +890,8 @@ class Store:
                                             "Autology, or by another process)"})
             if stale:
                 raise WriteSetConflict(stale)
-            for iid, _type, _expected, new in writes:
-                db.execute("UPDATE instances SET attributes=?, updated_at=? WHERE id=?",
-                           (json.dumps(new, default=str), now, iid))
+            for w in writes:
+                self._write_instance(db, w[0], w[1], w[3], now)
             db.execute("UPDATE run_sources SET base=?, conflicts=?, wb_version=?, wb_state='committed' "
                        "WHERE run_id=?", (json.dumps(base, default=str), json.dumps(conflicts, default=str),
                                           run_version, run_id))
@@ -901,8 +1062,11 @@ class Store:
         return {r["source"]: r["watermark"]
                 for r in self._query("SELECT source, watermark FROM ingest_state WHERE pipeline=?", (pipeline,))}
 
-    def apply_ingest(self, plan: Any, triggered_by: str, dry_run: bool = False) -> str:
-        """Write a load in one transaction: objects, links, lineage, quarantined rows, watermarks and the batch."""
+    def apply_ingest(self, plan: Any, triggered_by: str, dry_run: bool = False,
+                     expected: Optional[Dict[str, Any]] = None) -> str:
+        """Write a load in one transaction: objects, links, lineage, quarantined rows, watermarks and the batch.
+        With ``expected`` (instance id -> revision the plan was computed from) a stale or tampered record
+        refuses the whole load (:class:`RecordConflict`)."""
         batch_id = uuid.uuid4().hex[:12]
         now = _now()
         summary = plan.summary()
@@ -910,14 +1074,14 @@ class Store:
         with self._tx() as db:
             if not dry_run:
                 for iid, (etype, values) in plan.creates.items():
-                    db.execute("INSERT INTO instances VALUES (?, ?, ?, ?)",
-                               (iid, etype, json.dumps(values, default=str), now))
+                    self._check_instance(db, iid, ABSENT if expected is not None else ANY_REVISION)
+                    self._write_instance(db, iid, etype, values, now)
                 for iid, (etype, diff) in plan.updates.items():
+                    self._check_instance(db, iid, expected.get(iid, ABSENT) if expected is not None
+                                         else ANY_REVISION)
                     row = db.execute("SELECT attributes FROM instances WHERE id=?", (iid,)).fetchone()
                     merged = {**json.loads(row["attributes"]), **diff} if row else dict(diff)
-                    db.execute("INSERT INTO instances VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET "
-                               "attributes=excluded.attributes, updated_at=excluded.updated_at",
-                               (iid, etype, json.dumps(merged, default=str), now))
+                    self._write_instance(db, iid, etype, merged, now)
                 for source, kind, target in plan.links:
                     db.execute("INSERT OR IGNORE INTO links VALUES (?, ?, ?)", (source, kind, target))
                 for entry in plan.lineage:

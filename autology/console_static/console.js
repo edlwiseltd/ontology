@@ -423,6 +423,8 @@ async function loadConfig(message) {
   effort.value = cfg.effort;
   const key = el("input", { type: "password", id: "cfg-key", autocomplete: "off", spellcheck: "false",
     placeholder: cfg.key.set ? "Leave empty to keep the current key" : "sk-ant-api…" });
+  // pasting a key almost always means "use Claude": switch it on unless the person unticks it again
+  key.addEventListener("input", () => { if (key.value.trim() && !cfg.enabled) enabled.checked = true; });
   const remember = el("input", { type: "checkbox", id: "cfg-remember" });
   remember.checked = cfg.key.set ? cfg.key.remembered : true;
   const result = el("div");
@@ -440,13 +442,20 @@ async function loadConfig(message) {
     result.replaceChildren(note("Checking with Claude…"));
     try {
       const out = await api("POST", "settings/assistant/test");
-      result.replaceChildren(out.ok ? note(`Connected: ${out.name || out.model} is available to this key.`, "ok")
-                                    : note(out.error, "bad"));
+      if (out.ok && !cfg.enabled) {
+        result.replaceChildren(note(`Connected: ${out.name || out.model} is available to this key. The assistant is ` +
+          "still off: tick “Let people talk to the engine…” and click Save to switch it on.", "ok"));
+      } else {
+        result.replaceChildren(out.ok ? note(`Connected: ${out.name || out.model} is available to this key.`, "ok")
+                                      : note(out.error, "bad"));
+      }
     } catch (err) { result.replaceChildren(note(err.message, "bad")); }
   };
 
   const status = cfg.custom_backend ? "Custom backend set in the engine's config file (not changeable here)."
-    : cfg.enabled ? `On: ${cfg.model}, ${cfg.effort} effort.` : "Off: plain language is matched to the ontology instead.";
+    : cfg.enabled ? `On: ${cfg.model}, ${cfg.effort} effort.`
+    : cfg.key.set ? "Off: a key is saved, but the assistant is switched off. Tick the box below and click Save."
+    : "Off: plain language is matched to the ontology instead.";
   const keyStatus = cfg.key.set ? `Key set (${cfg.key.hint}), ${cfg.key.source}.` : `Key: ${cfg.key.source}.`;
   panel.replaceChildren(
     message || "",

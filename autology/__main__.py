@@ -240,6 +240,7 @@ def _build_parser() -> argparse.ArgumentParser:
     mc = sub.add_parser("mcp", help="serve the governed ontology to MCP clients over stdio")
     mc.add_argument("config")
     mc.add_argument("--token-env", default="AUTOLOGY_TOKEN", help="environment variable holding the API token")
+    mc.add_argument("--use-case", help="with a platform file: the use case to serve (in the token's workspace)")
     ig = sub.add_parser("ingest", help="run a data pipeline: load checked records into the knowledge graph")
     ig.add_argument("config")
     ig.add_argument("pipeline")
@@ -458,7 +459,7 @@ def main(argv=None) -> int:
     if args.command == "mcp":
         from .mcp import run
 
-        return run(args.config, args.token_env)
+        return run(args.config, args.token_env, use_case=args.use_case)
     if args.command == "trace":
         return _cmd_trace(args)
     if args.command == "ingest":

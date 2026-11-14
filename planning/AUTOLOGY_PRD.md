@@ -92,7 +92,7 @@ Status: ☐ to do · ◐ in progress · ☑ done · ⛔ blocked (decision needed
 | ACT-5 | Recovery never re-executes; people reconcile uncertain actions (GAP-004, 005) | L | ☑ |
 | ACT-6 | A run resumed after review re-checks the data it relies on (GAP-009) | M | ☑ |
 | **ISO — Workspace isolation everywhere** | | | |
-| ISO-1 | MCP clients reach one use case of their own workspace only | S | ☐ |
+| ISO-1 | MCP clients reach one use case of their own workspace only | S | ☑ |
 | ISO-2 | Each workspace's audit chains are signed with its own key | M | ☑ |
 | ISO-3 | Company sign-in (OIDC) configured per workspace | M | ☐ |
 | **LEG — Legal** | | | |

@@ -55,10 +55,22 @@ These are enforced server-side and tested in `tests/test_workspaces.py` through 
   `autology backup CONFIG OUT --store <data_dir>/<ws>/<uc>/autology.db --audit-scope <ws>` so the copy is checked
   with the right key.
 
+## MCP clients
+
+Give an MCP client (Claude Desktop, an IDE) one member's token and one use case:
+
+```bash
+ACME_TOKEN=... python -m autology mcp examples/platform/platform.json --use-case claims --token-env ACME_TOKEN
+```
+
+The token decides the workspace; the client reaches that one use case only, with that member's permissions and
+roles. A token from another workspace, a use case the member has no grant for, and a wrong token all get the same
+refusal.
+
 ## Not yet included
 
 Workspace administration through the API (members and use cases are defined in `platform.json` and loaded at
-start), company sign-in per workspace, MCP access per workspace (`autology mcp` serves a single engine), shared
+start), company sign-in per workspace, shared
 resources between use cases, and a database other than SQLite per use case. See [`../planning/AUTOLOGY_IMPLEMENTATION_BACKLOG.md`](../planning/AUTOLOGY_IMPLEMENTATION_BACKLOG.md).
 
 **Agent grants per use case.** A member's grant for a use case may carry `"run_as": {"claims": ["fraud_analytics", "finance"]}`: the roles that member may use through that agent, beyond their own (see "What an agent may do for a person" in [platform.md](platform.md)). Without it, the agent acts with the member's own roles only.

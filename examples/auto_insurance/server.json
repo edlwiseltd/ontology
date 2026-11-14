@@ -7,7 +7,8 @@
                "goals": ["settle_claim"], "approver": "inbox"}
   },
   "users": [
-    {"name": "hana", "token_env": "AUTOLOGY_TOKEN_HANA", "permissions": ["read", "run"], "roles": ["claims_handler"]},
+    {"name": "hana", "token_env": "AUTOLOGY_TOKEN_HANA", "permissions": ["read", "run"], "roles": ["claims_handler"],
+     "run_as": {"claims": ["fraud_analytics", "finance"]}},
     {"name": "ivan", "token_env": "AUTOLOGY_TOKEN_IVAN", "permissions": ["read", "review"],
      "reviewer_roles": ["special_investigations"]},
     {"name": "maria", "token_env": "AUTOLOGY_TOKEN_MARIA", "permissions": ["read", "review"],
@@ -20,9 +21,13 @@
     "settle_new_claims": {
       "description": "Start settling every claim as soon as it is reported",
       "entity": "Claim", "when": "Claim.status == 'reported'", "trigger": "change",
-      "run": {"agent": "claims", "goal": "settle_claim", "case_template": "claim_case"},
+      "run": {"agent": "claims", "goal": "settle_claim", "case_template": "claim_case", "as": "claims-settler"},
       "notify": {"roles": ["claims_manager"], "message": "Claim {id} reported: settlement started"}
     }
+  },
+  "service_identities": {
+    "claims-settler": {"description": "Settles newly reported claims", "agents": ["claims"],
+                       "roles": ["fraud_analytics", "finance", "claims_handler"]}
   },
   "automation_interval": 60
 }

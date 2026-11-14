@@ -82,6 +82,11 @@ class User:
     permissions: FrozenSet[str]
     roles: FrozenSet[str] = frozenset()
     reviewer_roles: FrozenSet[str] = frozenset()
+    # roles an administrator lets this person use through an agent, beyond their own (D4): {agent: roles}
+    run_as: Tuple[Tuple[str, FrozenSet[str]], ...] = ()
+
+    def grants(self, agent: str) -> FrozenSet[str]:
+        return next((roles for name, roles in self.run_as if name == agent), frozenset())
 
     def can(self, permission: str) -> bool:
         return "admin" in self.permissions or permission in self.permissions
@@ -185,8 +190,23 @@ class AutologyService:
                 digest = hash_token(token)
             if len(digest) != 64:
                 raise ValueError(f"user {u['name']}: token_sha256 must be a SHA-256 hex digest (see `autology token`)")
+            run_as = u.get("run_as") or {}
+            for agent_name, granted in run_as.items():
+                cfg_agent = self.agents.get(agent_name)
+                if cfg_agent is None:
+                    raise ValueError(f"user {u['name']}: run_as names unknown agent {agent_name!r}")
             self.users.append(User(u["name"], digest.lower(), perms, frozenset(u.get("roles", [])),
-                                   frozenset(u.get("reviewer_roles", []))))
+                                   frozenset(u.get("reviewer_roles", [])),
+                                   tuple(sorted((a, frozenset(r)) for a, r in run_as.items()))))
+        # identities automations run as (D4): explicit, least privilege, limited to named agents
+        self.service_identities: Dict[str, Dict[str, Any]] = {}
+        for sid, spec in (config.get("service_identities") or {}).items():
+            agents_for = list(spec.get("agents") or [])
+            for agent_name in agents_for:
+                if agent_name not in self.agents:
+                    raise ValueError(f"service identity {sid}: unknown agent {agent_name!r}")
+            self.service_identities[sid] = {"roles": frozenset(spec.get("roles") or []), "agents": set(agents_for),
+                                            "description": spec.get("description", "")}
         self._token_user_names = frozenset(u.name for u in self.users)
         self.oidc = None
         if config.get("oidc"):
@@ -198,6 +218,16 @@ class AutologyService:
                 raise ValueError(f"oidc.mappings: unknown permissions {sorted(unknown)}")
         self.automations = load_automations(config.get("automations") or {}, self.ontology,
                                             {n: a.goals for n, a in self.agents.items()})
+        for auto in self.automations.values():  # a run nobody asked for acts as an authorised service identity
+            if auto.run:
+                sid = auto.run.get("as")
+                ident = self.service_identities.get(sid)
+                if ident is None:
+                    raise ValueError(f"automation {auto.name}: its runs need \"as\": a service identity from "
+                                     f"service_identities (known: {sorted(self.service_identities) or 'none'})")
+                if auto.run["agent"] not in ident["agents"]:
+                    raise ValueError(f"automation {auto.name}: service identity {sid} is not authorised for agent "
+                                     f"{auto.run['agent']}")
         self.automation_interval = float(config.get("automation_interval", 60))
         # one open run per record: a second run on the same claim could repeat its actions (e.g. pay twice)
         self.one_active_run_per_record = bool(config.get("one_active_run_per_record", True))
@@ -742,7 +772,9 @@ class AutologyService:
                     base = snapshot(self.graph, sources)
                 with cfg.lock:
                     result = cfg.agent.run(auto.run["goal"], case, f"{auto.name}:{inst.id}", started_by=who,
-                                           root=inst.id)
+                                           root=inst.id, roles=self.run_roles(cfg, starter) if starter else
+                                           self.run_roles(cfg, identity=auto.run["as"]),
+                                           acting_as=starter.name if starter else f"service:{auto.run['as']}")
                     firing.run_id, changed = self._store_result(
                         result, cfg.name, sources=(template, inst.id, sources, bool(auto.run["write_back"]), base),
                         started_by=who)
@@ -1024,6 +1056,16 @@ class AutologyService:
             items.append(note)
         return {"items": items}
 
+    def run_roles(self, cfg: AgentConfig, user: Optional[User] = None, identity: Optional[str] = None) -> List[str]:
+        """The roles a run may use (D4): the agent's, narrowed to what the requester may do (their own roles
+        plus what an administrator granted them for this agent) or to the service identity's roles."""
+        own = cfg.agent.principal.roles
+        if identity is not None:
+            return sorted(own & self.service_identities[identity]["roles"])
+        if user is None or "admin" in user.permissions:
+            return sorted(own)
+        return sorted(own & (user.roles | user.grants(cfg.name)))
+
     def _case_hides_records(self, sources: Dict[str, Any], user: User) -> bool:
         """Does a case built from the graph include a record the user may not see (audit GAP-013)?"""
         ids = [i for src in sources.values() for i in (src if isinstance(src, list) else [src])]
@@ -1071,7 +1113,8 @@ class AutologyService:
             with cfg.lock:
                 try:
                     result = cfg.agent.run(goal, case, str(body.get("case_id") or (sources[1] if sources else "case")),
-                                           started_by=user.name, root=sources[1] if sources else None)
+                                           started_by=user.name, root=sources[1] if sources else None,
+                                           roles=self.run_roles(cfg, user), acting_as=user.name)
                 except OntologyError as exc:
                     raise ApiError(400, f"invalid case: {exc}") from None
                 run_id, changed = self._store_result(result, name, sources=sources, started_by=user.name)

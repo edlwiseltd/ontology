@@ -11,12 +11,13 @@ from autology.server import ApiError, AutologyService
 from .test_platform import EX, TOKENS, add_big_order
 
 RITA = {"name": "rita", "token_env": "AUTOLOGY_TOKEN_RITA", "permissions": ["read", "run", "review"],
-        "roles": ["ops", "eu_ops"], "reviewer_roles": ["logistics_manager"]}
-OPS_ONLY = {"name": "otto", "token_env": "AUTOLOGY_TOKEN_OTTO", "permissions": ["read", "run"], "roles": ["ops"]}
+        "roles": ["ops", "eu_ops"], "reviewer_roles": ["logistics_manager"], "run_as": {"fulfilment": ["finance"]}}
+OPS_ONLY = {"name": "otto", "token_env": "AUTOLOGY_TOKEN_OTTO", "permissions": ["read", "run"], "roles": ["ops"],
+            "run_as": {"fulfilment": ["finance"]}}
 FULFIL = {"description": "Fulfil signed contracts (checked daily here, so only manual firing runs in the test)",
           "entity": "Contract", "when": "Contract.status == 'signed'", "trigger": {"every": 86400},
           "run": {"agent": "fulfilment", "goal": "fulfil_contract", "case_template": "contract_case",
-                  "write_back": False}}
+                  "write_back": False, "as": "fulfilment-bot"}}
 
 
 def service(ontology_rules=None):

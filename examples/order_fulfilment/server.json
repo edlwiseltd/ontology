@@ -7,9 +7,10 @@
                    "goals": ["fulfil_contract"], "approver": "inbox"}
   },
   "users": [
-    {"name": "olivia", "token_env": "AUTOLOGY_TOKEN_OLIVIA", "permissions": ["read", "run"], "roles": ["ops"]},
+    {"name": "olivia", "token_env": "AUTOLOGY_TOKEN_OLIVIA", "permissions": ["read", "run"], "roles": ["ops"],
+     "run_as": {"fulfilment": ["finance"]}},
     {"name": "lena", "token_env": "AUTOLOGY_TOKEN_LENA", "permissions": ["read", "run", "review"],
-     "roles": ["ops", "eu_ops"], "reviewer_roles": ["logistics_manager"]},
+     "roles": ["ops", "eu_ops"], "reviewer_roles": ["logistics_manager"], "run_as": {"fulfilment": ["finance"]}},
     {"name": "audrey", "token_env": "AUTOLOGY_TOKEN_AUDREY", "permissions": ["read", "audit"], "roles": ["finance"]},
     {"name": "admin", "token_env": "AUTOLOGY_TOKEN_ADMIN", "permissions": ["admin"]}
   ],
@@ -17,7 +18,8 @@
     "fulfil_signed_contracts": {
       "description": "Fulfil every order of a contract as soon as the contract is signed",
       "entity": "Contract", "when": "Contract.status == 'signed'", "trigger": "change",
-      "run": {"agent": "fulfilment", "goal": "fulfil_contract", "case_template": "contract_case"},
+      "run": {"agent": "fulfilment", "goal": "fulfil_contract", "case_template": "contract_case",
+              "as": "fulfilment-bot"},
       "notify": {"roles": ["logistics_manager"], "message": "Contract {id} is signed: fulfilment started"}
     },
     "large_order_watch": {
@@ -25,6 +27,10 @@
       "entity": "Order", "when": "Order.amount > 50000 and Order.status == 'received'", "trigger": {"every": 3600},
       "notify": {"roles": ["finance"], "message": "Order {id} for {amount} is still waiting for a credit check"}
     }
+  },
+  "service_identities": {
+    "fulfilment-bot": {"description": "Fulfils signed contracts", "agents": ["fulfilment"],
+                       "roles": ["ops", "eu_ops", "finance"]}
   },
   "automation_interval": 60,
   "chat": {"model": "claude-opus-5-5", "effort": "medium"}

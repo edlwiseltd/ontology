@@ -224,9 +224,23 @@ provider when `oidc` is configured: see [`integrations.md`](integrations.md)), e
 | `review` | Deciding reviews for the user's `reviewer_roles` |
 | `audit` | Raw audit entries |
 | `ingest` | Running data pipelines and reading quarantined rows (give it to the account a pipeline tool uses, and nothing else) |
+| `reconcile` | Settling external calls whose outcome is unknown or unconfirmed ([integrations](integrations.md#acting-in-other-systems-safely)) |
 | `admin` | Everything |
 
 A user's `roles` are ontology roles, and the row and field rules apply to everything returned to them.
+
+**What an agent may do for a person.** A run acts with the intersection of the agent's roles and the requester's:
+their own `roles` plus the roles an administrator lets them use through that agent (`run_as`). An agent with the
+`finance` role does not run a credit check for an operations clerk unless the clerk is granted it:
+
+```jsonc
+{"name": "olivia", "roles": ["ops"], "run_as": {"fulfilment": ["finance"]}, ...}
+```
+
+The run keeps these roles for its whole life (sealed with the run record): a reviewer with wider roles who
+approves a step does not widen the run. The agent's delegates are narrowed the same way. `run.start` in the
+audit records the effective roles, the agent's own roles and whom the run acts for. Administrators use the
+agent's roles. Users signed in through OpenID Connect use their mapped roles only (no `run_as` yet).
 
 ### Security notes
 
@@ -252,7 +266,7 @@ Automations start work when the knowledge graph changes, instead of waiting for 
 "automations": {
   "fulfil_signed_contracts": {
     "entity": "Contract", "when": "Contract.status == 'signed'", "trigger": "change",
-    "run": {"agent": "fulfilment", "goal": "fulfil_contract", "case_template": "contract_case"},
+    "run": {"agent": "fulfilment", "goal": "fulfil_contract", "case_template": "contract_case", "as": "fulfilment-bot"},
     "notify": {"roles": ["logistics_manager"], "message": "Contract {id} is signed: fulfilment started"}
   },
   "large_order_watch": {
@@ -263,6 +277,20 @@ Automations start work when the knowledge graph changes, instead of waiting for 
 "automation_interval": 60,
 "webhooks": [{"url": "https://hooks.example.com/autology", "kinds": ["review", "automation"]}]
 ```
+
+**Runs nobody asked for act as a service identity.** Every automation that starts runs names one with `"as"`.
+Identities are declared once, with the least roles they need and the agents they may drive; the run acts with
+the agent's roles narrowed to the identity's, and the audit records `acting_as: service:<identity>`:
+
+```jsonc
+"service_identities": {
+  "fulfilment-bot": {"description": "Fulfils signed contracts", "agents": ["fulfilment"],
+                     "roles": ["ops", "eu_ops", "finance"]}
+}
+```
+
+A server refuses to start if an automation runs without an identity or with one not authorised for its agent. A
+person firing an automation by hand acts as themselves (their own intersection), not as the identity.
 
 **Triggers:**
 

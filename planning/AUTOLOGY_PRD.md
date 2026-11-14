@@ -79,7 +79,7 @@ Status: ☐ to do · ◐ in progress · ☑ done · ⛔ blocked (decision needed
 | GOV-2 | Scenario comparisons never reveal fields the user may not read (GAP-012) | S | ☑ |
 | GOV-3 | A user cannot make an agent act on records they may not see (GAP-013) | M | ☑ |
 | GOV-4 | The whole run record is protected by the audit MAC (GAP-014) | M | ☑ |
-| GOV-5 | Runs act with the intersection of the requester's permissions, the agent's permissions, the workspace and the rules; scheduled agents use an explicitly authorised, least-privilege service identity (D4) | M | ☐ |
+| GOV-5 | Runs act with the intersection of the requester's permissions, the agent's permissions, the workspace and the rules; scheduled agents use an explicitly authorised, least-privilege service identity (D4) | M | ☑ |
 | **MOD — The model cannot silently weaken itself** | | | |
 | MOD-1 | Misspelled ontology keys and unknown types are rejected (GAP-016) | M | ☑ |
 | MOD-2 | Missing linked records are unknown, never "valid by default" (GAP-017) | S | ☑ |

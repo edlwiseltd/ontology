@@ -44,9 +44,9 @@ class FreeFormCaseTests(unittest.TestCase):
         # admins may (for support and repair), and so may anyone on a server configured for simulation
         self.assertEqual(svc.start_run(users["admin"], {"case": CASE})["status"], "awaiting_review")
         sim = service(automations={}, chat=None, simulation=True)
-        olivia = next(u for u in sim.users if u.name == "olivia")
-        self.assertEqual(sim.start_run(olivia, {"case": CASE})["status"], "awaiting_review")
-        self.assertTrue(sim.ontology_summary(olivia)["free_form_cases"])
+        lena = next(u for u in sim.users if u.name == "lena")  # the case holds an EU order: EU operations start it
+        self.assertEqual(sim.start_run(lena, {"case": CASE})["status"], "awaiting_review")
+        self.assertTrue(sim.ontology_summary(lena)["free_form_cases"])
         self.assertFalse(svc.ontology_summary(users["olivia"])["free_form_cases"])
 
 

@@ -27,7 +27,7 @@ import json
 import time
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Mapping, Optional, Protocol, Sequence, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Protocol, Sequence, Tuple
 
 from .audit import AuditLog
 from .governance import Decision, GovernanceLayer, IntegrityError, Principal, Verdict
@@ -172,6 +172,9 @@ class RunState:
     pending_review: Optional[Dict[str, Any]] = None  # review request the run is waiting on
     review_decisions: Dict[str, Dict[str, Any]] = field(default_factory=dict)  # ground action -> decision to apply
     run_key: str = ""  # stable identity of the run, fixed at start: idempotency keys derive from it
+    # the roles this run may use: the agent's, narrowed to the requester's or the service identity's (D4).
+    # None = the agent's own roles (library use without a requester)
+    roles: Optional[List[str]] = None
     root: Optional[str] = None  # the record the case was built from (for the journal and reconciliation)
     pending_external: Optional[Dict[str, Any]] = None  # the external call a person must reconcile
 
@@ -490,17 +493,23 @@ class WorkAgent:
 
     # -- public API -----------------------------------------------------
     def run(self, goal_name: str, case: Mapping[str, Mapping[str, Any]], case_id: str = "case",
-            started_by: Optional[str] = None, run_key: Optional[str] = None, root: Optional[str] = None) -> RunResult:
+            started_by: Optional[str] = None, run_key: Optional[str] = None, root: Optional[str] = None,
+            roles: Optional[Iterable[str]] = None, acting_as: Optional[str] = None) -> RunResult:
         """Run toward a goal. ``run_key`` fixes the run's identity (and so its idempotency keys): pass the same
-        key to make a repeat of the same work replay its completed external calls instead of making them again."""
+        key to make a repeat of the same work replay its completed external calls instead of making them again.
+        ``roles`` narrows what the agent (and its delegates) may do in this run, for example to the roles of
+        the person who asked; ``acting_as`` names that person or service identity in the audit."""
         import uuid
 
         if goal_name not in self.ontology.goals:
             raise OntologyError(f"unknown goal {goal_name!r}")
         run = RunState(goal_name, case_id, WorldState.initial(self.ontology, case), ontology_ref=self.ontology.ref,
-                       run_key=run_key or uuid.uuid4().hex, root=root)
+                       run_key=run_key or uuid.uuid4().hex, root=root,
+                       roles=sorted(roles) if roles is not None else None)
         audit = AuditLog()
-        self._log(audit, "run.start", case=case_id, agent=self.name, roles=sorted(self.principal.roles),
+        effective = self.principal.roles & frozenset(roles) if roles is not None else self.principal.roles
+        self._log(audit, "run.start", case=case_id, agent=self.name, roles=sorted(effective),
+                  agent_roles=sorted(self.principal.roles), acting_as=acting_as,
                   delegates=[d.name for d in self.delegates], goal=goal_name, ontology=self.ontology.ref,
                   fingerprint=self.ontology.fingerprint, started_by=started_by, run_key=run.run_key)
         return self._loop(run, audit)
@@ -663,6 +672,19 @@ class WorkAgent:
         return None
 
     def _loop(self, run: RunState, audit: AuditLog) -> RunResult:
+        if run.roles is None:
+            return self._loop_body(run, audit)
+        allowed = frozenset(run.roles)
+        saved = [(m, m.principal) for m in [self] + list(self.delegates)]
+        try:  # the agent and its delegates act with no more than the run's roles (the caller holds the lock)
+            for member, principal in saved:
+                member.principal = Principal(principal.name, principal.roles & allowed)
+            return self._loop_body(run, audit)
+        finally:
+            for member, principal in saved:
+                member.principal = principal
+
+    def _loop_body(self, run: RunState, audit: AuditLog) -> RunResult:
         goal = self.ontology.goals[run.goal]
         state = run.state
 

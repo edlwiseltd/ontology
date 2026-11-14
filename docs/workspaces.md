@@ -56,3 +56,5 @@ Workspace administration through the API (members and use cases are defined in `
 start), company sign-in per workspace, MCP access per workspace (`autology mcp` serves a single engine), shared
 resources between use cases, per-workspace audit keys (one platform audit key signs every chain), and a database
 other than SQLite per use case. See [`../planning/AUTOLOGY_IMPLEMENTATION_BACKLOG.md`](../planning/AUTOLOGY_IMPLEMENTATION_BACKLOG.md).
+
+**Agent grants per use case.** A member's grant for a use case may carry `"run_as": {"claims": ["fraud_analytics", "finance"]}`: the roles that member may use through that agent, beyond their own (see "What an agent may do for a person" in [platform.md](platform.md)). Without it, the agent acts with the member's own roles only.

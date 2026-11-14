@@ -129,7 +129,8 @@ class Platform:
                 if perms - PERMISSIONS:
                     raise PlatformError(f"{where}: unknown permissions {sorted(perms - PERMISSIONS)}")
                 grants[uc] = {"permissions": sorted(perms), "roles": list(g.get("roles") or []),
-                              "reviewer_roles": list(g.get("reviewer_roles") or [])}
+                              "reviewer_roles": list(g.get("reviewer_roles") or []),
+                              "run_as": {a: list(r) for a, r in (g.get("run_as") or {}).items()}}
             member = Member(name, ws_id, digest, bool(m.get("workspace_admin")), grants)
             ws.members[name] = member
             self._tokens[digest] = member

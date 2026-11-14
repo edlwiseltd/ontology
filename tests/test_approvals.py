@@ -16,7 +16,7 @@ from autology.server import ApiError, AutologyService, hash_token
 from .test_platform import CASE, EX, _Api, add_big_order, service
 
 SAM = {"name": "sam", "token_sha256": hash_token("tok-sam"), "permissions": ["read", "run", "review"],
-       "roles": ["ops"], "reviewer_roles": ["logistics_manager"]}
+       "roles": ["ops"], "reviewer_roles": ["logistics_manager"], "run_as": {"fulfilment": ["finance"]}}
 
 
 def with_sam(**overrides):

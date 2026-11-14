@@ -120,7 +120,7 @@ One policy (`autology/views.py`) decides what a user sees of runs and reviews, a
 - **Visible runs go through the user's field access.** State fields they may not read are redacted, and checkpoint-gated fields read `"***justification required***"`. Restricted facts are scrubbed from step explanations and escalation details. The message of a step whose action reads or writes a restricted field is withheld.
 - **Reviews are readable only by** admins, holders of one of the review's reviewer roles, and the person who started the run. Each sees the case through their own field access. Anyone else gets 404, and the run summary shows them no review id.
 - **Answers check the fields they use.** A competency question that filters or aggregates on a field the user may not read on some record is refused (403). A checkpoint-gated field needs a `"justification"` in the request.
-- **Scenario diffs** show restricted before and after values as redacted.
+- **Scenario diffs** show restricted before and after values as redacted, and **scenario comparisons** withhold the answer to any question that reads a field the user may not read or a checkpoint-gated field (see [What-if scenarios](#what-if-scenarios-tier-2)).
 - **Admins** see every record and field, but they too must justify checkpoint-gated fields.
 
 ## One open run per record
@@ -187,7 +187,7 @@ provider when `oidc` is configured: see [`integrations.md`](integrations.md)), e
 | `GET /api/objects?type=&limit=&offset=` | read | Objects, row- and field-filtered for the caller |
 | `GET /api/objects/{id}` | read | One object with its visible links |
 | `POST /api/objects` | admin | Create or update an object and its outgoing links, validated against the ontology |
-| `POST /api/questions/{id}` | read | Answer a competency question, with `{"params": {...}}` |
+| `POST /api/questions/{id}` | read | Answer a competency question, with `{"params": {...}, "justification": "..."}` (the reason is needed when the question reads a checkpoint-gated field) |
 | `POST /api/runs` | run | Start a run from the graph: `{"agent", "goal", "case_template", "root"}`. Free-form `{"case", "case_id"}` only for admins or with `"simulation": true` |
 | `GET /api/runs?status=` | read | List runs |
 | `GET /api/runs/{id}` | read | Steps, status, escalation, the caller's view of the state, audit verification |
@@ -356,6 +356,9 @@ Access rules apply throughout:
 - Edits that name a record the caller may not see are refused as if the record did not exist.
 - Simulated actions and plans use a configured agent's roles (`"agent": "fulfilment"`) or the caller's own roles. Only admins may name arbitrary roles.
 - Comparisons hide records, plan steps and blocking rules the caller may not see, and withhold aggregate answers that include hidden rows.
+- Comparisons withhold the answer to any competency question that reads a field the caller may not read on some record (`"withheld: depends on Customer.credit_limit, which you may not read"`). Comparing two answers would otherwise reveal the hidden values. Questions that read a checkpoint-gated field are withheld for everyone, admins included, because a comparison takes no justification: ask the question directly with a reason (`POST /api/questions/{id}` with `{"justification": "..."}`).
+- Edits that change a field the caller may not read are refused (403), on existing and on new records.
+- The assistant's `what_if` tool also withholds answers that read fields the deployment does not send to the model provider (`chat_redact`).
 
 A scenario is stored as its edits and replayed on the current live data each time it is read. If an edit no longer applies, for example because an instance it adds now exists, reading the scenario returns 409.
 

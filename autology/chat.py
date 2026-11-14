@@ -288,10 +288,7 @@ def _answer(service: Any, user: Any, a: Dict[str, Any]) -> Any:
 
     q = next((q for q in service.ontology.questions if q.id == a.get("question_id")), None)
     if q is not None:
-        used = {f"{e}.{x}" for expr in (q.where, q.result_where) if expr for e, x in expr.references}
-        if q.aggregate and q.aggregate[1]:
-            used.add(q.aggregate[1])
-        if used & redacted_refs(service):
+        if service.question_refs(q) & redacted_refs(service):
             raise ApiError(403, "this answer uses fields that are not sent to the model provider; ask in the inbox")
     return service.answer(user, a["question_id"], a.get("params") or {})
 
@@ -343,6 +340,12 @@ def _what_if(service: Any, user: Any, a: Dict[str, Any]) -> Dict[str, Any]:
     report = service.compare_scenario(user, created["scenario_id"], {"checks": a.get("checks") or []})
     report["scenario_id"] = created["scenario_id"]
     report["results"] = created["results"]
+    refs = redacted_refs(service)
+    questions = {q.id: q for q in service.ontology.questions}
+    for q in report.get("questions", []):  # answers computed from fields the provider must not receive
+        if q.get("id") in questions and service.question_refs(questions[q["id"]]) & refs:
+            q["baseline"] = q["scenario"] = "withheld: uses fields not sent to the model provider"
+            q["changed"] = False
     return report
 
 

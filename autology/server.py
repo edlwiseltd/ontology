@@ -501,18 +501,10 @@ class AutologyService:
             raise ApiError(404, f"unknown competency question {qid!r}")
         with self.graph_lock:
             # filters and aggregates reveal the fields they use: those fields must be readable on every record
-            refs = set()
-            for expr in (question.where, question.result_where):
-                refs |= {(e, a) for e, a in (expr.references if expr else ()) if e != "Params"}
-            if question.aggregate and question.aggregate[1]:
-                refs.add(tuple(question.aggregate[1].split(".", 1)))
-            gated = set()
-            for entity, attr in refs:
-                for inst in self.graph.instances(entity):
-                    if self.field_hidden(inst, attr, user):
-                        raise ApiError(403, f"the answer depends on {entity}.{attr}, which you may not read")
-                    if f"{inst.type}.{attr}" in self.views.gated:
-                        gated.add(f"{inst.type}.{attr}")
+            hidden = self._question_hidden_field(user, question, self.graph)
+            if hidden:
+                raise ApiError(403, f"the answer depends on {hidden}, which you may not read")
+            gated = self._question_gated_fields(question, self.graph)
             if gated:
                 self.checkpoint(user, "read_field", qid, justification, fields=sorted(gated))
             try:
@@ -523,6 +515,32 @@ class AutologyService:
             if result.value is not None and len(ids) != len(result.instances):
                 raise ApiError(403, "the answer aggregates rows you may not see")
             return {"question": qid, "answer": result.value if result.value is not None else ids}
+
+    @staticmethod
+    def question_refs(question) -> set:
+        """The ``Entity.attr`` fields a competency question reads: its filters and its aggregate."""
+        refs = set()
+        for expr in (question.where, question.result_where):
+            refs |= {f"{e}.{a}" for e, a in (expr.references if expr else ()) if e != "Params"}
+        if question.aggregate and question.aggregate[1]:
+            refs.add(question.aggregate[1])
+        return refs
+
+    def _question_hidden_field(self, user: User, question, graph) -> Optional[str]:
+        """The first field the question reads that the user may not read on some record of ``graph``."""
+        for ref in sorted(self.question_refs(question)):
+            entity, attr = ref.split(".", 1)
+            if any(self.field_hidden(inst, attr, user) for inst in graph.instances(entity)):
+                return ref
+        return None
+
+    def _question_gated_fields(self, question, graph) -> List[str]:
+        """The checkpoint-gated fields (a written reason first) the question reads on some record."""
+        gated = set()
+        for ref in self.question_refs(question):
+            entity, attr = ref.split(".", 1)
+            gated |= {f"{i.type}.{attr}" for i in graph.instances(entity) if f"{i.type}.{attr}" in self.views.gated}
+        return sorted(gated)
 
     def _summary(self, result, run_id: str, user: User, receipt: bool = False) -> Dict[str, Any]:
         """The run as this user may see it (see :mod:`autology.views`). A run over records the user may not
@@ -1183,6 +1201,9 @@ class AutologyService:
                 inst = scenario.graph._instances.get(iid)
                 if inst is not None and not self.visible(inst, user):
                     raise ApiError(404, f"edit {i}: no object {iid!r}")
+            hidden = self._edit_hidden_field(scenario, edit, user)
+            if hidden:  # what-if answers over a field you may not read would reveal it (audit GAP-012)
+                raise ApiError(403, f"edit {i}: you may not read {hidden}, so you may not change it in a scenario")
             if edit.get("op") == "action":
                 edit["roles"] = self._roles_for(user, edit)
                 edit.pop("agent", None)
@@ -1190,6 +1211,21 @@ class AutologyService:
                 scenario.apply(edit)
             except (OntologyError, KeyError, TypeError) as exc:
                 raise ApiError(400, f"edit {i}: {exc}") from None
+
+    def _edit_hidden_field(self, scenario, edit: Dict[str, Any], user: User) -> Optional[str]:
+        attrs = edit.get("attributes")
+        if edit.get("op") not in ("set", "add") or not isinstance(attrs, dict) or "admin" in user.permissions:
+            return None
+        if edit["op"] == "set":
+            inst = scenario.graph._instances.get(str(edit.get("id")))
+            if inst is None:
+                return None  # the scenario reports the unknown object
+            return next((f"{inst.type}.{a}" for a in sorted(attrs) if self.field_hidden(inst, a, user)), None)
+        # a new record: refuse any field a data_access rule keeps from the user's roles
+        entity = self.ontology.canonical(str(edit.get("type")))
+        restricted = {r.params["field"] for r in self.ontology.rules_of("data_access")
+                      if not user.roles & set(r.params["roles"])}
+        return next((f"{entity}.{a}" for a in sorted(attrs) if f"{entity}.{a}" in restricted), None)
 
     def _scenario_view(self, sid: str, row: Dict[str, Any], scenario, user: User) -> Dict[str, Any]:
         def seen(iid):
@@ -1406,19 +1442,26 @@ class AutologyService:
                 report = scenario.compare(checks, schedule=bool(body.get("schedule")))
         except OntologyError as exc:
             raise ApiError(400, str(exc)) from None
-        if "admin" not in user.permissions:
-            report = self._redact_report(report, scenario, user)
+        report = self._redact_report(report, scenario, user)  # admins too: gated fields need a reason
         report["diff"] = self._scenario_view(sid, row, scenario, user)["diff"]
         return report
 
     def _redact_report(self, report: Dict[str, Any], scenario, user: User) -> Dict[str, Any]:
-        """Remove what the caller may not see from a comparison: hidden ids and aggregates over hidden rows."""
+        """Remove what the caller may not see from a comparison: hidden ids, aggregates over hidden rows and
+        every answer that reads a field the caller may not read or that needs a written reason first."""
         def seen(graph, iid):
             inst = graph._instances.get(iid)
             return inst is None or self.visible(inst, user)
 
         def answer(graph, value, qid):
             q = next(q for q in self.ontology.questions if q.id == qid)
+            hidden = self._question_hidden_field(user, q, graph)
+            if hidden:
+                return f"withheld: depends on {hidden}, which you may not read"
+            gated = self._question_gated_fields(q, graph)
+            if gated:
+                return (f"withheld: depends on {', '.join(gated)}, which needs a justification "
+                        "(ask the question directly with your reason)")
             result = graph.ask(q)
             hidden = [i for i in result.instances if not self.visible(i, user)]
             if result.value is not None:

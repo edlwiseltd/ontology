@@ -55,8 +55,25 @@ fingerprint, in a chain keyed with the workspace's audit key.
 
 A stage is reported **stale** when the ontology fingerprint changed after it was granted, and the use case is
 reported in draft with an **integrity problem** when its history was edited outside Autology (forward moves are
-then refused). In this release a stage is a governance record: it does not yet change what the engine allows at
-run time, and a pilot stage authorises no real data, customer or ERP write.
+then refused). A pilot stage authorises no real customer or data.
+
+### Execution gates
+
+The stage governs what the use case's engine executes, read at every check, at every entry point (REST, the
+assistant and MCP proposals, manual and scheduled automations, deferred retries, review decisions, recovery, and
+every tool call):
+
+| Stage the engine obeys | Runs | Tools called (by declared `environment`) |
+|---|---|---|
+| draft (also: stale, edited history, unreadable stage) | none start or continue | none |
+| simulation | yes | `simulated` |
+| pilot | yes | `simulated`, `sandbox` |
+
+`production` tools are called by no stage. Declare each tool's `"environment"` in `tools.json`
+(`simulated`, `sandbox`, `production`; `table` tools are `simulated`; others default to `production`). A step
+with no allowed tool is not sent: the run escalates and the audit records `step.blocked`. `GET /api/health`
+reports `stage`, `runs_allowed` and `tool_environments`. A standalone engine (no platform) is not governed by
+stages.
 
 ## Use cases created from templates
 

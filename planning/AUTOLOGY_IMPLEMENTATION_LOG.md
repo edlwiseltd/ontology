@@ -69,3 +69,10 @@ P0-1 (external action safety), which gates every connector write.
 | R2 slice: Studio shell (part of STU-1; D9 open) | `studio/`: separate process (`python -m studio --platform URL`), standard library and plain JavaScript, imports nothing from the engine, not in the engine wheel; forwards only GET/POST under `/platform/` and `/w/` with `Authorization` and `Content-Type`; strict CSP | `tests/test_studio_shell.py` (10); manual Playwright run (desktop and phone width): sign-in, checks, move, create, refused pilot with its failing check | none for the engine |
 
 Commits: `6df0911` (closure note, CI run 47 success), `77b9a59` (slice, CI run 48 success on all jobs). Suite 592 OK; 96.4 % line coverage.
+
+## 14 November 2026 — R2 increment 1: execution gates
+
+| Story | Change | Tests | Behaviour change |
+|---|---|---|---|
+| Execution gates | The use case's stage governs execution, read at every check: draft runs nothing (REST start, confirmed proposals, resume, review decisions, manual and scheduled automations, deferred retries, recovery); every tool declares an `environment` and a stage allows `simulated` (simulation) or `simulated` + `sandbox` (pilot) systems, `production` none; a step with no allowed tool is not sent, escalates and is audited (`step.blocked`); stale, edited or unreadable stages count as draft; `/api/health` reports the stage | `tests/test_r2_execution_gates.py` (12; new API, could not run before) with instrumented production and sandbox systems counting real calls | Platform use cases in draft no longer run (they did before); `tests/test_workspaces.py` moves its use cases to simulation first; the lifecycle test proves "a run before simulation does not count" by leaving and re-entering simulation. `tools.json` accepts `environment`; a `table` tool declared non-simulated is refused. Standalone engines unchanged |
+| GAP clarification | `planning/AUTOLOGY_PARTIAL_GAPS_CLARIFICATION.md`: GAP-009, 018, 031, what is fixed, what remains, closure criteria; found that MCP from a platform file cannot run next to the platform server (second writer) | — | none |

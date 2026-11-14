@@ -34,6 +34,8 @@ unrestricted external access.*
 | D14 | Cross-use-case sharing inside a workspace | **Applied default: none**, owner confirmation pending | Keep none; add explicit, authorised sharing in R2 if a customer needs it | — |
 | D15 | Production ERP writes after the sandbox (R4) | Pending, not authorised | Separate decision per customer and system, after sandbox evidence | Production writes stay disabled |
 | D16 | Real customer pilot and data | Pending | One process, test or staging system first | Gates 90.4 and 95.5 cannot be passed without it |
+| D17 | Which systems each stage may call (execution gates, R2 increment 1) | **Applied default**, owner confirmation pending | Simulation: simulated only; pilot: simulated and sandbox; production systems: no stage (follows D15) | Changing it widens or narrows what a pilot may reach |
+| D18 | Whether draft and simulation may ingest real data through pipelines | **Applied default: yes (reads only)**, owner confirmation pending | Allow reads; no effect leaves through tools; revisit with D10/D16 for personal data | Restricting it would require sample data for design and simulation |
 
 ## 3. Evaluation: `openpyxl` (for decision XL)
 

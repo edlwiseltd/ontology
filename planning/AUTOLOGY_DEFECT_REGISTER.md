@@ -13,7 +13,7 @@ reproduces the audit's finding passes in CI; it has not been re-verified by an i
 | Open (owner decision) | 2 |
 | Partly fixed | 8 |
 
-**Critical and High gaps not fully fixed:** GAP-009, GAP-018, GAP-031, GAP-032, GAP-052, GAP-053. Each is explained below: GAP-009 and
+**Partly fixed High gaps (GAP-009, 018, 031): what remains and the closure criteria are in [the clarification note](AUTOLOGY_PARTIAL_GAPS_CLARIFICATION.md).** **Critical and High gaps not fully fixed:** GAP-009, GAP-018, GAP-031, GAP-032, GAP-052, GAP-053. Each is explained below: GAP-009 and
 GAP-018 keep a residual, lower-risk part (atomic write-back; reload on write); GAP-031 waits for legal sign-off;
 GAP-032 (ERP connector), GAP-052 (real models) and GAP-053 (real process) need external systems, keys or a customer.
 

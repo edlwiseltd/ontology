@@ -91,9 +91,15 @@ class Tool:
     priority: int = 0
     description: str = ""
     cost: float = 0.0
+    # which system the tool reaches: "simulated" (in-process, reaches nothing), "sandbox" or "production". The
+    # use-case stage decides which environments may be called (autology.lifecycle); a standalone engine calls all.
+    environment: str = "production"
 
     def matches(self, state: WorldState, binding: Optional[Mapping[str, str]] = None) -> bool:
         return self.when is None or self.when.evaluate(state.resolver(binding))
+
+
+ENVIRONMENTS = ("simulated", "sandbox", "production")
 
 
 class ToolRegistry:
@@ -101,9 +107,12 @@ class ToolRegistry:
         self._tools: List[Tool] = []
 
     def register(self, name: str, capability: str, handler: Handler, *, when: Optional[str] = None,
-                 priority: int = 0, description: str = "", cost: float = 0.0) -> Tool:
+                 priority: int = 0, description: str = "", cost: float = 0.0,
+                 environment: str = "production") -> Tool:
+        if environment not in ENVIRONMENTS:
+            raise ValueError(f"tool {name!r}: environment must be one of {', '.join(ENVIRONMENTS)}")
         tool = Tool(name, capability, handler, compile_expression(when) if when else None, priority,
-                    description or (handler.__doc__ or "").strip(), float(cost))
+                    description or (handler.__doc__ or "").strip(), float(cost), environment)
         self._tools.append(tool)
         return tool
 

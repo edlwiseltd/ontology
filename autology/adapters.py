@@ -14,6 +14,12 @@ Tools (``load_tools``) - a JSON config describing the registry::
       ]
     }
 
+Every tool has an ``"environment"``: ``"simulated"`` (reaches no outside system), ``"sandbox"`` or
+``"production"`` (the default for ``python`` and ``http`` tools and for registries, which can reach anything).
+A ``table`` tool is always ``"simulated"``. The operator declares it; a use case's lifecycle stage decides which
+environments its runs may call (draft: none; simulation: simulated; pilot: simulated and sandbox; production
+tools are not called by any use-case stage in this release).
+
 A ``"type": "table"`` tool is a declarative decision table - for simulated
 environments, stubs and simple rules engines::
 
@@ -193,9 +199,10 @@ def load_tools(config: Union[str, Path, Mapping[str, Any]], base_dir: Optional[P
         sub = import_target(target, search)(**kwargs)
         if not isinstance(sub, ToolRegistry):
             raise AdapterError(f"{target} did not return a ToolRegistry")
+        env = "production" if isinstance(spec, str) else spec.get("environment", "production")
         for t in sub:
             registry.register(t.name, t.capability, t.handler, when=str(t.when) if t.when else None,
-                              priority=t.priority, description=t.description, cost=t.cost)
+                              priority=t.priority, description=t.description, cost=t.cost, environment=env)
     for spec in config.get("tools", []):
         kind = spec.get("type", "python")
         try:
@@ -210,8 +217,15 @@ def load_tools(config: Union[str, Path, Mapping[str, Any]], base_dir: Optional[P
             handler = table_tool(spec.get("rows") or [{}])
         else:
             raise AdapterError(f"tool {name!r}: unknown type {kind!r} (python | http | table)")
-        registry.register(name, capability, handler, when=spec.get("when"), priority=int(spec.get("priority", 0)),
-                          description=spec.get("description", ""), cost=float(spec.get("cost", 0)))
+        env = "simulated" if kind == "table" else spec.get("environment", "production")
+        if kind == "table" and spec.get("environment", "simulated") != "simulated":
+            raise AdapterError(f"tool {name!r}: a table tool reaches no outside system, so it is \"simulated\"")
+        try:
+            registry.register(name, capability, handler, when=spec.get("when"), priority=int(spec.get("priority", 0)),
+                              description=spec.get("description", ""), cost=float(spec.get("cost", 0)),
+                              environment=env)
+        except ValueError as exc:
+            raise AdapterError(str(exc)) from None
     return registry
 
 

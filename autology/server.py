@@ -48,7 +48,7 @@ import time
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any, Dict, FrozenSet, List, Optional, Tuple
+from typing import Any, Callable, Dict, FrozenSet, List, Optional, Tuple
 from urllib.parse import parse_qs, urlparse
 
 from .agent import DeferredApprover, ReviewDecision, WorkAgent
@@ -170,6 +170,8 @@ class AutologyService:
         if self.audit_key is None and not self.simulation:
             raise ValueError(f"set {KEY_ENV} to a secret so the audit chain is keyed (HMAC); without it anyone who "
                              "can edit the store can rewrite the log undetected")
+        # set by the platform: () -> the use case's effective stage (see execution_policy)
+        self.stage_gate: Optional[Callable[[], Optional[str]]] = None
         self.agents: Dict[str, AgentConfig] = {}
         for name, spec in (config.get("agents") or {}).items():
             delegates = [WorkAgent(d["name"], self.ontology, load_tools(rel(d["tools"])), roles=d.get("roles", []),
@@ -191,6 +193,8 @@ class AutologyService:
             if unknown:
                 raise OntologyError(f"agent {name}: unknown goals {unknown}")
             self.agents[name] = AgentConfig(name, agent, goals)
+            for member in [agent] + agent.delegates:
+                member.tool_gate = self._tool_refused
             held = self.store.active_suspension(name)
             if held:  # a suspension outlives restarts: only an admin reinstates the agent
                 agent.governance.suspended[agent.principal.name] = held["reason"]
@@ -711,9 +715,45 @@ class AutologyService:
     def health(self) -> Dict[str, Any]:
         from .audit import audit_key
 
-        return {"status": "degraded" if self.quarantined else "ok", "ontology": self.ontology.ref,
-                "simulation": self.simulation, "audit_keyed": self.audit_key is not None,
-                "scheduler": self.scheduler_status, "quarantined_records": len(self.quarantined)}
+        out = {"status": "degraded" if self.quarantined else "ok", "ontology": self.ontology.ref,
+               "simulation": self.simulation, "audit_keyed": self.audit_key is not None,
+               "scheduler": self.scheduler_status, "quarantined_records": len(self.quarantined)}
+        policy = self.execution_policy()
+        if policy is not None:
+            out["stage"] = policy["stage"]
+            out["runs_allowed"] = policy["runs"]
+            out["tool_environments"] = sorted(policy["environments"])
+        return out
+
+    # -- execution gates (R2): the use case's lifecycle stage governs what may run --------------------------
+    def execution_policy(self) -> Optional[Dict[str, Any]]:
+        """What the use case's stage allows now, read at every check (so a stage change applies at once, in
+        every process). ``None`` for a standalone engine, which no platform stage governs."""
+        if self.stage_gate is None:
+            return None
+        from .lifecycle import policy_for
+
+        try:
+            return policy_for(self.stage_gate())
+        except Exception:  # the stage cannot be read: fail closed
+            self.log_error("reading the use case's lifecycle stage")
+            return policy_for(None)
+
+    def _runs_refused(self) -> Optional[str]:
+        policy = self.execution_policy()
+        return None if policy is None or policy["runs"] else policy["refusal"]
+
+    def _tool_refused(self, tool: Any) -> Optional[str]:
+        policy = self.execution_policy()
+        if policy is None or tool.environment in policy["environments"]:
+            return None
+        return (f"tool {tool.name} reaches a {tool.environment} system, which the use case's stage "
+                f"({policy['stage']}) does not allow")
+
+    def _require_runs(self) -> None:
+        refusal = self._runs_refused()
+        if refusal:
+            raise ApiError(409, refusal, {"stage": self.execution_policy()["stage"]})
 
     def _notify(self, kind: str, roles, message: str, ref: Dict[str, Any]) -> Dict[str, Any]:
         note = self.store.add_notification(kind, roles, message, ref)
@@ -782,6 +822,9 @@ class AutologyService:
         """Fire an automation on a record. With ``starter`` (a person firing it by hand) the run is theirs: they
         are its starter and it may act only on records they may see. Otherwise it runs as the automation."""
         firing = Firing(auto.name, inst.id, trigger)
+        if auto.run and self._runs_refused():
+            firing.status, firing.detail = "skipped", self._runs_refused()
+            return firing
         if auto.run:
             cfg = self.agents[auto.run["agent"]]
             template = auto.run["case_template"]
@@ -826,7 +869,8 @@ class AutologyService:
     def tick(self) -> Dict[str, Any]:
         """One scheduler pass: resume deferred runs whose retry time has come, then evaluate automations."""
         resumed = []
-        for row in self.store.list_runs("deferred", limit=10 ** 9):
+        paused = self._runs_refused()  # the stage forbids runs: nothing resumes and no automation starts one
+        for row in ([] if paused else self.store.list_runs("deferred", limit=10 ** 9)):
             cfg = self.agents.get(row["agent"])
             if cfg is None:
                 continue
@@ -842,8 +886,10 @@ class AutologyService:
             log.error("another Autology process took over this store: stop one of them")
         recovered = self.recover()
         loads = self._due_pipelines()
-        firings = self.automator.tick() if self.automations else []
+        firings = self.automator.tick() if self.automations and not paused else []
         out = {"resumed": resumed, "firings": [f.as_dict() for f in firings]}
+        if paused:
+            out["paused"] = paused
         if recovered:
             out["recovered"] = recovered
         if self.pipelines:
@@ -1058,6 +1104,8 @@ class AutologyService:
         self.require(user, "run")
         if name not in self.automations:
             raise ApiError(404, f"no automation {name!r}")
+        if self.automations[name].run:
+            self._require_runs()
         auto = self.automations[name]
         instance = body.get("instance")
         if instance:
@@ -1107,6 +1155,7 @@ class AutologyService:
 
     def start_run(self, user: User, body: Dict[str, Any]) -> Dict[str, Any]:
         self.require(user, "run")
+        self._require_runs()
         name = body.get("agent") or (next(iter(self.agents)) if len(self.agents) == 1 else None)
         if name not in self.agents:
             raise ApiError(400, f"unknown agent {name!r}; available: {sorted(self.agents)}")
@@ -1198,6 +1247,7 @@ class AutologyService:
                    justification: Optional[str] = None) -> Dict[str, Any]:
         self.require(user, "run")
         cfg = self._agent_for(run_id)
+        self._require_runs()
         if "admin" not in user.permissions and not self.views.can_see_run(user, self.store.load_run(run_id)):
             raise ApiError(404, f"no run {run_id!r}")  # resuming would act on records the caller may not see
         self.checkpoint(user, "resume_run", run_id, justification)
@@ -1250,6 +1300,7 @@ class AutologyService:
                                     "the same action cannot happen twice; declining is always allowed",
                                {"root": linked["root"], "other_runs": [r["run_id"] for r in others]})
         cfg = self._agent_for(review["run_id"])
+        self._require_runs()  # deciding continues the run: not while the stage forbids runs
         self.checkpoint(user, "decide", review_id, body.get("justification") or body.get("comment"),
                         action=str(review["action"]).partition("@")[0], approved=body["approved"])
         comment = str(body.get("comment", ""))
@@ -1328,6 +1379,8 @@ class AutologyService:
         Calls the run already made are replayed from the journal, never made again.
         """
         recovered = []
+        if self._runs_refused():  # nothing continues while the stage forbids runs; it continues once allowed
+            return recovered
         decided = {}
         for r in self.store.list_reviews(None):
             if r["status"] in ("approved", "declined"):

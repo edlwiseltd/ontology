@@ -24,9 +24,23 @@ Rules:
 * if the configuration changes after a stage was granted (another ontology fingerprint), the stage is reported
   ``stale``: the checks that granted it no longer describe what runs.
 
-What the stage does **not** do yet: it does not change what the engine allows at run time (a draft use case can
-still run, as before this slice). Stages record readiness; enforcing them in the engine is a later REL story. A
-``pilot`` stage authorises no real data, no real customer and no ERP write (decisions D15 and D16 are pending).
+**Execution gates.** The stage governs what the use case's engine does, at every entry point (REST, the
+assistant and MCP through the same service, manual and automatic automation firings, deferred retries, review
+decisions, recovery), read afresh at every check:
+
+========== ======================== ===========================================================
+stage      runs start or continue   tools the runs may call (by declared environment)
+========== ======================== ===========================================================
+draft      no                       none
+simulation yes                      ``simulated`` only (decision tables, declared stubs)
+pilot      yes                      ``simulated`` and ``sandbox``
+========== ======================== ===========================================================
+
+``production`` tools are called by no stage in this release (owner decision D15 is pending). A stage whose
+history does not verify, or that is stale (the configuration changed since it was granted), counts as
+``draft``. A step whose every tool is refused is not called at all: nothing is sent, the run escalates and the
+audit chain records ``step.blocked``. A standalone engine (no platform) is not governed by stages.
+A ``pilot`` stage authorises no real customer or data (D16 is pending).
 """
 
 from __future__ import annotations
@@ -55,6 +69,21 @@ CREATE TABLE IF NOT EXISTS stage_events (
     checks TEXT NOT NULL, at TEXT NOT NULL, prev TEXT NOT NULL, mac TEXT NOT NULL,
     PRIMARY KEY (workspace, use_case, seq));
 """
+
+
+POLICIES = {
+    "draft": {"runs": False, "environments": frozenset()},
+    "simulation": {"runs": True, "environments": frozenset({"simulated"})},
+    "pilot": {"runs": True, "environments": frozenset({"simulated", "sandbox"})},
+}
+
+
+def policy_for(stage: Optional[str]) -> Dict[str, Any]:
+    """What a stage allows at run time. Anything unknown (or unreadable) is treated as draft: fail closed."""
+    stage = stage if stage in POLICIES else "draft"
+    refusal = (f"this use case is in {stage}: no run may start or continue; a workspace administrator moves it to "
+               "simulation first") if not POLICIES[stage]["runs"] else None
+    return {"stage": stage, **POLICIES[stage], "refusal": refusal}
 
 
 class LifecycleError(ValueError):

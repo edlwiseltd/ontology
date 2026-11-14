@@ -39,6 +39,10 @@ templates, Draft → Simulation → Pilot stages with server-side checks; no ERP
 of ADM-1, REL-1, REL-2 and STU-1, ahead of the prerequisites below (an owner-requested order change). Criteria,
 evidence and what remains: [R2 slice report](AUTOLOGY_R2_SLICE_REPORT.md).
 
+**Owner's review of the slice (14 Nov):** continue R2 in controlled increments; before the AI Solution Architect,
+finish execution gates, release governance, workspace administration and the API contract. Increment 1
+(execution gates) and the order of the next ones: [increment 1 report](AUTOLOGY_R2_INCREMENT1_EXECUTION_GATES.md) §6.
+
 ### 3.1 Prerequisites
 
 | ID | Story | Why first | Acceptance | Est. |

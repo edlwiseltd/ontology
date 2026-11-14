@@ -156,7 +156,9 @@ class StageTests(LifecycleBase):
         self.assertIn("engine_simulation_mode_off", failed)
 
     def test_pilot_needs_a_run_completed_after_entering_simulation(self):  # L3
-        self.complete_a_run()  # before simulation: does not count
+        self.assertEqual(self.move("simulation", "first try")[0], 200)
+        self.complete_a_run()
+        self.assertEqual(self.move("draft", "rework")[0], 200)  # leaving simulation resets the evidence
         self.assertEqual(self.move("simulation", "exercise with test claims")[0], 200)
         status, out = self.move("pilot")
         self.assertEqual(status, 409)
@@ -172,9 +174,10 @@ class StageTests(LifecycleBase):
         self.assertEqual((status, out["from"], out["to"], out["use_case"]["stage"]), (200, "simulation", "pilot", "pilot"))
         history = out["use_case"]["history"]
         self.assertEqual([(h["from_stage"], h["to_stage"], h["by"], h["reason"]) for h in history], [
+            ("draft", "simulation", "ada@acme", "first try"), ("simulation", "draft", "ada@acme", "rework"),
             ("draft", "simulation", "ada@acme", "exercise with test claims"),
             ("simulation", "pilot", "ada@acme", "supervised pilot on test data")])
-        self.assertTrue(all(c["passed"] for c in history[1]["checks"]))
+        self.assertTrue(all(c["passed"] for c in history[3]["checks"]))
 
     def test_pilot_is_refused_while_an_external_call_waits_for_reconciliation(self):  # L3
         self.move("simulation")

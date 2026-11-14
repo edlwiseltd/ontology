@@ -242,7 +242,9 @@ class Platform:
                 users.append({"name": member.name, "token_sha256": member.token_sha256, **grant})
         config["users"] = users
         service = AutologyService(config, config_path.parent)
-        return UseCase(uc_id, ws.id, str(spec.get("name") or uc_id), service)
+        uc = UseCase(uc_id, ws.id, str(spec.get("name") or uc_id), service)
+        service.stage_gate = lambda: self.effective_stage(uc)  # execution gates: the stage governs every run
+        return uc
 
     # -- requests --------------------------------------------------------------------------------------------
     def member_for(self, authorization: Optional[str]) -> Optional[Member]:
@@ -264,13 +266,18 @@ class Platform:
     def stage_of(self, uc: UseCase) -> Dict[str, Any]:
         return self.lifecycle.status(uc.workspace, uc.id, uc.service.ontology.fingerprint)
 
+    def effective_stage(self, uc: UseCase) -> str:
+        """The stage the engine obeys: a stale stage or a history that does not verify counts as draft."""
+        st = self.stage_of(uc)
+        return "draft" if st["stale"] or st["integrity_problem"] else st["stage"]
+
     def use_case_view(self, uc: UseCase, member: Member, detail: bool = False) -> Dict[str, Any]:
         st = self.stage_of(uc)
         view = {"id": uc.id, "name": uc.name, "origin": uc.origin, "template": uc.template,
                 "ontology": uc.service.ontology.ref, "fingerprint": uc.service.ontology.fingerprint,
                 "path": f"/w/{uc.workspace}/u/{uc.id}", "permissions": member.grant(uc.id)["permissions"],
                 "stage": st["stage"], "stale": st["stale"], "integrity_problem": st["integrity_problem"],
-                "stages": list(STAGES)}
+                "effective_stage": self.effective_stage(uc), "stages": list(STAGES)}
         if detail:
             view["history"] = st["history"]
         return view

@@ -41,6 +41,10 @@ from .tools import NotSent, OutcomeUnknown, Rejected, ToolCall, ToolError, ToolR
 
 
 # -- human-in-the-loop ------------------------------------------------------
+class StageBlocked(LookupError):
+    """The use case's lifecycle stage forbids every tool that could perform this step; nothing was sent."""
+
+
 @dataclass
 class ReviewRequest:
     """A context-rich request: what, why (rules), on which facts, and what happened so far."""
@@ -246,6 +250,8 @@ class WorkAgent:
         self.sleep = sleep
         self.observer = observer
         self.journal = journal if journal is not None else MemoryJournal()  # external calls (autology.effects)
+        # set by the service from the use case's lifecycle stage: tool -> None (may be called) or the reason not
+        self.tool_gate: Optional[Callable[[Any], Optional[str]]] = None
         from .audit import ENV_KEY
 
         self.audit_key = ENV_KEY if audit_key is None else audit_key  # the key its audit chains are written with
@@ -394,6 +400,15 @@ class WorkAgent:
                                     "state": prior["state"], "detail": prior.get("detail")}
             return ("pending" if prior["state"] == PENDING else "uncertain"), tool, \
                 prior.get("detail") or f"the outcome of {action.name} is {prior['state'].replace('_', ' ')}"
+        if self.tool_gate is not None:  # the use case's stage decides which systems may be reached
+            refused = {t.name: self.tool_gate(t) for t in candidates}
+            allowed = [t for t in candidates if refused[t.name] is None]
+            if not allowed:
+                reasons = sorted(set(r for r in refused.values() if r))
+                self._log(audit, "step.blocked", case=run.case_id, action=action.name, key=key,
+                          tools=sorted(refused), reason="; ".join(reasons))
+                raise StageBlocked(f"{action.name}: not called, nothing was sent: {'; '.join(reasons)}")
+            candidates = allowed
         if not policy.fallback_tools:
             candidates = candidates[:1]
         inputs = {ref: state.field(ref, action.binding) for ref in action.reads}

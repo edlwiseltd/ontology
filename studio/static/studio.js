@@ -5,6 +5,9 @@
 
 const TOKEN_KEY = "autology-studio-token";
 const LABELS = { draft: "Draft", simulation: "Simulation", pilot: "Pilot", production: "Production" };
+const EXECUTION = { draft: "Nothing runs: no run may start or continue.",
+  simulation: "Runs allowed; only simulated systems are called.",
+  pilot: "Runs allowed; simulated and sandbox systems are called, production systems never." };
 const S = { token: null, me: null, useCases: [], selected: null, detail: null };
 
 const $ = (id) => document.getElementById(id);
@@ -74,7 +77,8 @@ async function select(id) {
   uc.stages.forEach((s, i) => stepper.append(el("li", {
     class: (i < at ? "done" : i === at ? "current" : "") + (s === "production" ? " locked" : ""),
     "aria-current": i === at ? "step" : "false" }, LABELS[s] + (s === "production" ? " (not authorised)" : ""))));
-  const warn = uc.integrity_problem || (uc.stale ? "The configuration changed after this stage was granted: the checks that granted it no longer describe what runs." : "");
+  $("d-exec").textContent = "Execution now: " + (EXECUTION[uc.effective_stage] || EXECUTION.draft);
+  const warn = uc.integrity_problem || (uc.stale ? "The configuration changed after this stage was granted: the engine treats it as Draft until it is checked again." : "");
   $("d-warn").hidden = !warn; $("d-warn").textContent = warn;
   const next = nextStage(uc.stage, uc.stages);
   $("d-checks-title").textContent = next ? "Readiness for " + LABELS[next] : "Readiness";

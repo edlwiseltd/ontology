@@ -27,7 +27,15 @@ def platform(**changes):
     spec = json.loads((EX / "platform.json").read_text())
     spec["data_dir"] = tempfile.mkdtemp()
     spec.update(changes)
-    return Platform(spec, EX)
+    return simulate_all(Platform(spec, EX))
+
+
+def simulate_all(pf):
+    """Move every use case to simulation (execution gates: a draft use case runs nothing)."""
+    for ws in pf.workspaces.values():
+        for uc in ws.use_cases.values():
+            pf.lifecycle.move(ws.id, uc.id, uc.service, "simulation", "operator@test", "isolation tests")
+    return pf
 
 
 class Client:

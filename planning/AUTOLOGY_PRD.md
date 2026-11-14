@@ -75,7 +75,7 @@ Status: ☐ to do · ◐ in progress · ☑ done · ⛔ blocked (decision needed
 | ID | Story | Size | Status |
 |---|---|---|---|
 | **GOV — Governance cannot be bypassed** | | | |
-| GOV-1 | Manual automation firing respects self-review, the automation's condition and checkpoints (GAP-011) | S | ☐ |
+| GOV-1 | Manual automation firing respects self-review, the automation's condition and checkpoints (GAP-011) | S | ☑ |
 | GOV-2 | Scenario comparisons never reveal fields the user may not read (GAP-012) | S | ☐ |
 | GOV-3 | A user cannot make an agent act on records they may not see (GAP-013) | M | ☐ |
 | GOV-4 | The whole run record is protected by the audit MAC (GAP-014) | M | ☐ |

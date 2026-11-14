@@ -26,3 +26,9 @@ its graph in memory. The review inbox is still served by the single-engine serve
 
 **Next increment.** P0-5 (MCP and OIDC per workspace, per-workspace audit keys) and P1-1 (OpenAPI contract), then
 P0-1 (external action safety), which gates every connector write.
+
+## 14 November 2026 — stories
+
+| Story | Change | Tests | Behaviour change |
+|---|---|---|---|
+| GOV-1 (GAP-011) | Firing an automation by hand: the caller is recorded as the run's starter (self-review refused), the automation's condition must hold (else `skipped`), the `start_run` checkpoint applies, and only records the caller may see are fired | `tests/test_gov1_manual_firing.py` (4, written failing first: 3 failed before the fix); suite 453 OK | `POST /api/automations/{name}/run` with an instance no longer forces a run when the condition is false; `tests/test_automation.py` updated accordingly |

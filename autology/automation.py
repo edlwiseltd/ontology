@@ -226,15 +226,31 @@ class Automator:
                 self._busy = False
             return fired + (self.on_change(ids) if ids else [])
 
-    def run_now(self, name: str, instance: Optional[str] = None) -> List[Firing]:
-        """Fire an automation by hand: for one instance, or for every instance where it holds."""
+    def run_now(self, name: str, instance: Optional[str] = None, allow: Optional[Callable[[Instance], bool]] = None,
+                starter: Optional[str] = None) -> List[Firing]:
+        """Fire an automation by hand: for one instance, or for every instance where it holds.
+
+        The automation's condition must hold, as for automatic firing (a firing on an instance where it does not
+        is recorded as ``skipped``). ``allow`` limits the instances to those the caller may see, and ``starter``
+        is the person firing it, who is recorded as the run's starter (so they cannot approve its reviews)."""
         auto = self.automations[name]
         now = self.clock()
-        targets = [i for i in self.instances(auto.entity) if (i.id == instance if instance else auto.holds(i, now))]
-        if instance and not targets:
+        candidates = [i for i in self.instances(auto.entity) if (i.id == instance if instance else True)]
+        if allow is not None:
+            candidates = [i for i in candidates if allow(i)]
+        if instance and not candidates:
             raise KeyError(instance)
         with self._lock:
-            return [self._fire(auto, inst, "manual", now) for inst in targets]
+            out = []
+            for inst in candidates:
+                if auto.holds(inst, now):
+                    out.append(self._fire(auto, inst, "manual", now, starter))
+                elif instance:  # asked for this one explicitly: say why nothing ran
+                    firing = Firing(auto.name, inst.id, "manual", status="skipped",
+                                    detail=f"the automation's condition does not hold for {inst.id} ({auto.when})")
+                    self.store.record_firing(firing)
+                    out.append(firing)
+            return out
 
     # -- internals ----------------------------------------------------------
     def _evaluate_change(self, inst: Instance, now: float, only: Optional[str] = None) -> List[Firing]:
@@ -254,7 +270,7 @@ class Automator:
                 self.store.set_automation_state(auto.name, inst.id, False)
         return fired
 
-    def _fire(self, auto: Automation, inst: Instance, trigger: str, now: float) -> Firing:
+    def _fire(self, auto: Automation, inst: Instance, trigger: str, now: float, starter: Optional[str] = None) -> Firing:
         """Fire once. A firing that raises is not done: it stays armed and is retried after
         ``retry_seconds``, up to ``max_retries`` attempts; then the automation gives up on that instance."""
         import logging
@@ -264,7 +280,7 @@ class Automator:
         failures = int(state.get("failures") or 0) if state else 0
         self.store.set_automation_state(auto.name, inst.id, True, now)  # before firing: no double fire on re-entry
         try:
-            firing = self.fire(auto, inst, trigger)
+            firing = self.fire(auto, inst, trigger, starter) if starter else self.fire(auto, inst, trigger)
             if failures:
                 self.store.set_automation_failures(auto.name, inst.id, 0)
         except Exception as exc:  # an automation failing must not stop the others

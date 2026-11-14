@@ -191,15 +191,22 @@ class AutomatorTests(unittest.TestCase):
         self.assertEqual(self.calls, [("hourly", "K-1", "schedule")])
 
     def test_run_now_and_errors(self):
-        self.assertEqual(len(self.engine.run_now("big")), 1)  # only where the condition holds
-        self.assertEqual(self.engine.run_now("big", "O-1")[0].trigger, "manual")  # forced for one instance
+        holding = self.engine.run_now("big")
+        self.assertEqual(len(holding), 1)  # only where the condition holds
+        self.assertEqual(holding[0].trigger, "manual")
+        skipped = self.engine.run_now("big", "O-1")[0]  # by hand on one instance: the condition still applies
+        self.assertEqual(skipped.status, "skipped")
+        self.assertIn("condition does not hold", skipped.detail)
         with self.assertRaises(KeyError):
             self.engine.run_now("big", "K-1")
+        with self.assertRaises(KeyError):  # an instance the caller may not see is like one that does not exist
+            self.engine.run_now("big", holding[0].instance, allow=lambda i: False)
+        self.assertEqual(self.engine.run_now("big", allow=lambda i: False), [])
 
         def broken(auto, inst, trigger):
             raise RuntimeError("tool down")
 
-        firing = self._engine(broken).run_now("big", "O-1")[0]
+        firing = self._engine(broken).run_now("big", holding[0].instance)[0]
         self.assertEqual((firing.status, firing.detail),
                          ("error", "RuntimeError: tool down; retry 2 of 5 after 300s"))
 

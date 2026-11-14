@@ -287,7 +287,7 @@ People can start the same kind of run from the API: `POST /api/runs` with `{"cas
 | Method and path | Permission | Purpose |
 |---|---|---|
 | `GET /api/automations` | read | Automations with their recent firings and the current status of the runs they started |
-| `POST /api/automations/{name}/run` | run | Fire now: `{"instance": "K-1"}` for one instance (even if the condition is false), or `{}` for every instance where it holds |
+| `POST /api/automations/{name}/run` | run | Fire now: `{"instance": "K-1"}` for one instance, or `{}` for every instance the caller may see where the condition holds. The condition must hold (otherwise the firing is `skipped`), the `start_run` checkpoint applies, and the caller is recorded as the run's starter, so they cannot approve its reviews |
 | `GET /api/notifications?since=&limit=` | read | Notifications for the caller's roles, newest first |
 | `POST /api/tick` | admin | Run one scheduler pass now |
 

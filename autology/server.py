@@ -669,13 +669,14 @@ class AutologyService:
 
         return _Hold()
 
-    def _fire(self, auto: Automation, inst: Instance, trigger: str) -> Firing:
+    def _fire(self, auto: Automation, inst: Instance, trigger: str, starter: Optional[str] = None) -> Firing:
         firing = Firing(auto.name, inst.id, trigger)
         if auto.run:
             cfg = self.agents[auto.run["agent"]]
             template = auto.run["case_template"]
+            who = starter or f"automation:{auto.name}"  # a person firing it by hand is the run's starter
             try:
-                hold = self._exclusive(inst.id, f"automation:{auto.name}")
+                hold = self._exclusive(inst.id, who)
                 hold.__enter__()
             except ApiError as exc:  # the record already has an open run: never start a second one
                 firing.status, firing.detail = "skipped", exc.message
@@ -686,11 +687,10 @@ class AutologyService:
                     case, sources = build_case(self.graph, template, inst.id)
                     base = snapshot(self.graph, sources)
                 with cfg.lock:
-                    result = cfg.agent.run(auto.run["goal"], case, f"{auto.name}:{inst.id}",
-                                           started_by=f"automation:{auto.name}")
+                    result = cfg.agent.run(auto.run["goal"], case, f"{auto.name}:{inst.id}", started_by=who)
                     firing.run_id, changed = self._store_result(
                         result, cfg.name, sources=(template, inst.id, sources, bool(auto.run["write_back"]), base),
-                        started_by=f"automation:{auto.name}")
+                        started_by=who)
             finally:
                 hold.__exit__(None, None, None)
             firing.status = result.status
@@ -934,14 +934,19 @@ class AutologyService:
         self.require(user, "run")
         if name not in self.automations:
             raise ApiError(404, f"no automation {name!r}")
+        auto = self.automations[name]
         instance = body.get("instance")
         if instance:
             with self.graph_lock:
                 inst = self.graph._instances.get(instance)
                 if inst is None or not self.visible(inst, user):
                     raise ApiError(404, f"no object {instance!r}")
+        if auto.run:  # firing by hand starts runs: the same checkpoint as starting one directly
+            self.checkpoint(user, "start_run", f"{name}/{auto.run['goal']}/{instance or 'all'}",
+                            body.get("justification"), goal=auto.run["goal"])
         try:
-            firings = self.automator.run_now(name, instance)
+            firings = self.automator.run_now(name, instance, allow=lambda i: self.visible(i, user),
+                                             starter=user.name)
         except KeyError:
             raise ApiError(400, f"{instance!r} is not a {self.automations[name].entity}") from None
         return {"firings": [f.as_dict() for f in firings]}

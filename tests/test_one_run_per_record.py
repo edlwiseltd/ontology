@@ -63,10 +63,13 @@ class OneRunPerRecordTests(unittest.TestCase):
         hana = next(u for u in svc.users if u.name == "hana")
         admin = next(u for u in svc.users if u.name == "admin")
         run = svc.start_run(hana, CL2)
-        out = svc.run_automation(admin, "settle_new_claims", {"instance": "CL-2"})
-        firing = out["firings"][0]
+        # the automation path itself (as fired on a data change) refuses a second run on the claim
+        firing = svc._fire(svc.automations["settle_new_claims"], svc.graph.get("CL-2"), "change").as_dict()
         self.assertEqual((firing["status"], firing["run_id"]), ("skipped", run["run_id"]))
         self.assertIn("already has an open run", firing["detail"])
+        # firing it by hand is skipped too (here already because the claim is no longer 'reported')
+        out = svc.run_automation(admin, "settle_new_claims", {"instance": "CL-2"})
+        self.assertEqual(out["firings"][0]["status"], "skipped")
         self.assertEqual(len([r for r in svc.store.list_runs(limit=100) if r["case_id"].endswith("CL-2")]), 1)
         fired = {f["instance"]: f["status"] for f in svc.tick()["firings"]}
         self.assertNotEqual(fired.get("CL-2"), "awaiting_review")  # the scheduler does not add a second run either

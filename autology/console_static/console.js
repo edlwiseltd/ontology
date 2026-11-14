@@ -277,7 +277,18 @@ async function decideProposal(event, id, confirm) {
 }
 
 // -- plain language ---------------------------------------------------------------------------------------------
+async function recheckAssistant() {
+  // The engine may have been restarted with (or without) the assistant since this page loaded: ask again.
+  try {
+    const o = await api("GET", "ontology");
+    S.ontology = o;
+    if (typeof o.assistant === "boolean") S.assistant = o.assistant;
+    updateAssistantNote();
+  } catch (e) { /* keep what we knew */ }
+}
+
 async function talk(text) {
+  if (S.assistant === false) await recheckAssistant();
   if (S.assistant !== false) {
     try {
       const out = await api("POST", "chat", { message: text, chat_id: S.chatId });

@@ -51,11 +51,11 @@ import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
-from typing import Any, Callable, Dict, Mapping, Optional, Union
+from typing import Any, Callable, Dict, Mapping, Optional, Tuple, Union
 
 from .agent import AutoApprover, ConsoleApprover, ReviewDecision, ReviewRequest
 from .reasoners import ClaudeReasoner, PlanFollowingReasoner, RoutingReasoner
-from .tools import ToolCall, ToolError, ToolRegistry, ToolResult
+from .tools import NotSent, OutcomeUnknown, Rejected, ToolCall, ToolError, ToolRegistry, ToolResult
 
 _ENV = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
 
@@ -94,35 +94,58 @@ def import_target(target: str, search: tuple = ()) -> Any:
         raise AdapterError(f"{module_name!r} has no attribute {attr!r}") from None
 
 
-def _post_json(url: str, payload: Any, headers: Mapping[str, str], timeout: float) -> Any:
+def _post_json(url: str, payload: Any, headers: Mapping[str, str], timeout: float) -> Tuple[int, Any]:
+    """POST JSON; returns ``(status, body)``. Raises :class:`NotSent` when the request cannot have reached the
+    service, :class:`OutcomeUnknown` when it was sent but no usable reply came back, :class:`Rejected` for 4xx."""
+    import http.client
+
     body = json.dumps(payload, default=str).encode()
     req = urllib.request.Request(url, data=body, method="POST",
                                  headers={"Content-Type": "application/json", **headers})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310 - URL comes from operator config
-        raw = resp.read().decode() or "{}"
-    return json.loads(raw)
+    try:
+        resp = urllib.request.urlopen(req, timeout=timeout)  # noqa: S310 - URL comes from operator config
+    except urllib.error.HTTPError as exc:
+        code = exc.code
+        if code in (408, 425, 429):  # timed out waiting for the request, too early, rate limited: not processed
+            raise NotSent(f"HTTP {code} from {url}: not processed, safe to retry") from None
+        if 400 <= code < 500:
+            raise Rejected(f"HTTP {code} from {url}: the request was refused") from None
+        raise OutcomeUnknown(f"HTTP {code} from {url}: the service may have acted") from None
+    except urllib.error.URLError as exc:  # connecting or sending failed: the request was not received whole
+        raise NotSent(f"cannot reach {url}: {exc.reason}") from None
+    except (TimeoutError, ConnectionError, http.client.HTTPException, OSError) as exc:  # sent, no reply
+        raise OutcomeUnknown(f"no reply from {url} after sending ({type(exc).__name__}: {exc})") from None
+    try:
+        with resp:
+            raw = resp.read().decode() or "{}"
+    except (TimeoutError, ConnectionError, http.client.HTTPException, OSError) as exc:
+        raise OutcomeUnknown(f"the reply from {url} was cut off ({type(exc).__name__})") from None
+    try:
+        return resp.status, json.loads(raw)
+    except ValueError:
+        raise OutcomeUnknown(f"{url} answered {resp.status} with a body that is not JSON; it may have acted") from None
 
 
 def http_tool(url: str, headers: Optional[Mapping[str, str]] = None, timeout: float = 10.0) -> Callable:
-    """A tool handler that delegates to a JSON-over-HTTP service."""
+    """A tool handler that delegates to a JSON-over-HTTP service.
+
+    The step's idempotency key is sent as the ``Idempotency-Key`` header and as ``idempotency_key`` in the
+    payload, the same on every retry, so the service can refuse to act twice. ``202 Accepted`` means the service
+    took the request but has not done it yet: the step waits for confirmation."""
 
     def handler(call: ToolCall) -> ToolResult:
         payload = {"action": call.action, "capability": call.capability, "inputs": call.inputs,
-                   "context": call.context, "attempt": call.attempt}
+                   "context": call.context, "attempt": call.attempt, "idempotency_key": call.idempotency_key,
+                   "target": call.target}
         target = _expand(url)  # configuration errors (missing env vars) must surface, not look like outages
         resolved = {k: _expand(v) for k, v in (headers or {}).items()}
-        try:
-            data = _post_json(target, payload, resolved, timeout)
-        except urllib.error.HTTPError as exc:
-            raise ToolError(f"HTTP {exc.code} from {url}") from None
-        except (urllib.error.URLError, TimeoutError, OSError) as exc:
-            raise ToolError(f"cannot reach {url}: {exc}") from None
-        except ValueError:
-            raise ToolError(f"{url} returned invalid JSON") from None
+        if call.idempotency_key:
+            resolved.setdefault("Idempotency-Key", call.idempotency_key)
+        status, data = _post_json(target, payload, resolved, timeout)
         if not isinstance(data, dict):
-            raise ToolError(f"{url} returned {type(data).__name__}, expected an object")
+            raise OutcomeUnknown(f"{url} returned {type(data).__name__}, expected an object; it may have acted")
         return ToolResult(data.get("outcome"), data.get("updates") or {}, str(data.get("message", "")),
-                          data.get("output"))
+                          data.get("output"), pending=status == 202)
 
     handler.__doc__ = f"HTTP tool at {url}"
     return handler
@@ -202,10 +225,10 @@ class HttpApprover:
         target = _expand(self.url)
         resolved = {k: _expand(v) for k, v in self.headers.items()}
         try:
-            data = _post_json(target, request.__dict__, resolved, self.timeout)
+            _, data = _post_json(target, request.__dict__, resolved, self.timeout)
             return ReviewDecision(bool(data.get("approved", False)), str(data.get("reviewer", self.url)),
                                   str(data.get("comment", "")))
-        except (urllib.error.URLError, TimeoutError, OSError, ValueError, AttributeError) as exc:
+        except (ToolError, urllib.error.URLError, TimeoutError, OSError, ValueError, AttributeError) as exc:
             return ReviewDecision(False, "http-approver", f"declined: review service unavailable ({exc})")
 
 

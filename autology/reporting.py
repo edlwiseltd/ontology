@@ -18,7 +18,7 @@ from typing import Dict, Iterable, List, Optional
 
 from .agent import RunResult
 
-HUMAN_STATUSES = ("blocked", "escalated", "paused", "suspended")
+HUMAN_STATUSES = ("blocked", "escalated", "paused", "suspended", "uncertain", "pending_confirmation")
 POLICY_MARKERS = ("prohibited:", "mandatory step")
 
 

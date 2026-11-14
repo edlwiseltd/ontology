@@ -6,6 +6,8 @@ import os
 import sqlite3
 import tempfile
 import unittest
+
+from autology.store import SCHEMA_VERSION
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
@@ -27,7 +29,7 @@ class BackupTests(unittest.TestCase):
 
     def test_consistent_verified_copy_while_live(self):
         out = self.svc.store.backup(self.dir / "b" / "backup.db")
-        self.assertEqual((out["runs"], out["unverified_runs"], out["schema"]), (1, [], 11))
+        self.assertEqual((out["runs"], out["unverified_runs"], out["schema"]), (1, [], SCHEMA_VERSION))
         self.assertEqual([p.name for p in (self.dir / "b").iterdir()], ["backup.db"])  # one file, no temporaries
         copy = Store(self.dir / "b" / "backup.db")
         self.addCleanup(copy.close)

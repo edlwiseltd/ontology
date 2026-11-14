@@ -174,14 +174,23 @@ class AdapterTests(HttpFixture):
         self.assertEqual(next(iter(reg)).name, "remote_validator")
 
     def test_http_tool_inside_an_agent_with_fallback(self):
-        _Handler.routes = {"/sign": lambda body, h: (503, {})}
+        tools = build_registry()
+        tools.register("remote_esign", "esign.send", http_tool("http://127.0.0.1:9/sign", timeout=0.5), priority=9)
+        onto = Ontology.load(ONTOLOGY_PATH)
+        res = WorkAgent("a", onto, tools, roles=["sales", "kyc"], approver=AutoApprover()).run(
+            "onboard_customer", retail_case())
+        self.assertTrue(res.completed)  # remote service unreachable (not sent) -> fallback to the local tool
+        self.assertEqual(next(s.tool for s in res.steps if s.action == "sign_contract"), "esign_gateway")
+
+    def test_no_fallback_after_a_reply_that_leaves_the_outcome_unknown(self):
+        _Handler.routes = {"/sign": lambda body, h: (503, {})}  # it may have sent the contract for signature
         tools = build_registry()
         tools.register("remote_esign", "esign.send", http_tool(self.base + "/sign"), priority=9)
         onto = Ontology.load(ONTOLOGY_PATH)
         res = WorkAgent("a", onto, tools, roles=["sales", "kyc"], approver=AutoApprover()).run(
             "onboard_customer", retail_case())
-        self.assertTrue(res.completed)  # remote service down -> fallback to the local e-sign tool
-        self.assertEqual(next(s.tool for s in res.steps if s.action == "sign_contract"), "esign_gateway")
+        self.assertEqual(res.status, "uncertain")  # a person confirms; another provider is never tried
+        self.assertNotIn("esign_gateway", [s.tool for s in res.steps if s.action == "sign_contract"])
 
     def test_approvers(self):
         req = ReviewRequest("c1", "sign_contract", "", ("cfo",), ["big"],

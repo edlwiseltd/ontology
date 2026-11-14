@@ -85,11 +85,11 @@ Status: ☐ to do · ◐ in progress · ☑ done · ⛔ blocked (decision needed
 | MOD-2 | Missing linked records are unknown, never "valid by default" (GAP-017) | S | ☑ |
 | MOD-3 | Tool outputs are type-checked; a bad stored row never stops a restart (GAP-010) | S | ☑ |
 | **ACT — External actions are safe** | | | |
-| ACT-1 | Every external call is recorded (intent) before it is made, and its result after (GAP-007) | M | ☐ |
-| ACT-2 | Every external call carries a stable idempotency key (GAP-002) | S | ☐ |
-| ACT-3 | An ambiguous failure is never blindly retried or sent to a fallback provider (GAP-001, 003) | M | ☐ |
-| ACT-4 | Actions declare what confirms them; "accepted" is not "done" (GAP-006) | M | ☐ |
-| ACT-5 | Recovery never re-executes; people reconcile uncertain actions (GAP-004, 005) | L | ☐ |
+| ACT-1 | Every external call is recorded (intent) before it is made, and its result after (GAP-007) | M | ☑ |
+| ACT-2 | Every external call carries a stable idempotency key (GAP-002) | S | ☑ |
+| ACT-3 | An ambiguous failure is never blindly retried or sent to a fallback provider (GAP-001, 003) | M | ☑ |
+| ACT-4 | Actions declare what confirms them; "accepted" is not "done" (GAP-006) | M | ☑ |
+| ACT-5 | Recovery never re-executes; people reconcile uncertain actions (GAP-004, 005) | L | ☑ |
 | ACT-6 | A run resumed after review re-checks the data it relies on (GAP-009) | M | ☐ |
 | **ISO — Workspace isolation everywhere** | | | |
 | ISO-1 | MCP clients reach one use case of their own workspace only | S | ☐ |

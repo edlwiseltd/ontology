@@ -97,7 +97,8 @@ SCHEMA_KEYS = {
     "attribute": ("type", "sensitivity", "description"),
     "relationship": ("from", "to", "type", "cardinality", "description"),
     "action": ("description", "capability", "requires", "outcomes", "effects", "reads", "writes", "cost", "tools",
-               "for_each", "on_failure"),
+               "for_each", "on_failure", "side_effect", "confirmation"),
+    "confirmation": ("description", "fields", "accepted"),
     "on_failure": ("max_attempts", "backoff_seconds", "fallback_tools", "escalate_to", "fallback_after"),
     "outcome": ("description", "effects"),
     "goal": ("description", "target"),
@@ -158,6 +159,7 @@ def check_document(doc: Mapping[str, Any], top_only: bool = False) -> None:
         where = f"actions.{name}"
         _check_keys(spec, "action", where)
         _check_keys((spec or {}).get("on_failure"), "on_failure", f"{where}.on_failure")
+        _check_keys((spec or {}).get("confirmation"), "confirmation", f"{where}.confirmation")
         for oname, ospec in ((spec or {}).get("outcomes") or {}).items():
             _check_keys(ospec, "outcome", f"{where}.outcomes.{oname}")
     for kind, section in (("goal", "goals"), ("function", "functions"), ("case_template", "case_templates")):
@@ -211,8 +213,12 @@ def json_schema() -> Dict[str, Any]:
         "relationship": obj("relationship", SCHEMA_KEYS["relationship"]),
         "on_failure": obj("on_failure", SCHEMA_KEYS["on_failure"]),
         "outcome": obj("outcome", SCHEMA_KEYS["outcome"]),
+        "confirmation": obj("confirmation", SCHEMA_KEYS["confirmation"]),
         "action": obj("action", SCHEMA_KEYS["action"], {"on_failure": {"$ref": "#/$defs/on_failure"},
-                                                        "outcomes": named("outcome")}),
+                                                        "outcomes": named("outcome"),
+                                                        "confirmation": {"$ref": "#/$defs/confirmation"},
+                                                        "side_effect": {"enum": ["none", "idempotent",
+                                                                                 "non_idempotent"]}}),
         "goal": obj("goal", SCHEMA_KEYS["goal"]),
         "function": obj("function", SCHEMA_KEYS["function"]),
         "case_template": obj("case_template", SCHEMA_KEYS["case_template"]),
@@ -353,6 +359,16 @@ class FailurePolicy:
 
 
 @dataclass(frozen=True)
+class Confirmation:
+    """A reply confirms an action only when it sets every field in ``fields`` (e.g. ``Payment.reference``)
+    and, if ``accepted`` is given, its ``output.status`` is one of them. Otherwise the step is
+    ``pending_confirmation`` (or rejected, for a status outside ``accepted``)."""
+
+    fields: Tuple[str, ...] = ()
+    accepted: Tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class ActionType:
     name: str
     description: str
@@ -365,6 +381,10 @@ class ActionType:
     tools: Tuple[str, ...] = ()  # allow-list of tool names; empty = any tool with the capability
     on_failure: FailurePolicy = FailurePolicy()
     for_each: Optional[str] = None  # multi-instance entity this action is applied to, one instance at a time
+    # what a repeat of the call does in the outside world: "none" (a read or a score), "idempotent" (the
+    # system deduplicates by idempotency key) or "non_idempotent" (a repeat acts twice: the safe default)
+    side_effect: str = "non_idempotent"
+    confirmation: Optional["Confirmation"] = None  # what the reply must hold before the action counts as done
 
     def touches(self) -> set:
         """Entity types the action reads, writes, changes or tests."""
@@ -743,6 +763,15 @@ class Ontology:
             for ref in a.writes:
                 if ref.endswith("." + STATUS) or ref.endswith("." + ID):
                     raise OntologyError(f"{where}: {ref} may only change through outcomes")
+            if a.side_effect not in ("none", "idempotent", "non_idempotent"):
+                raise OntologyError(f"{where}: side_effect must be none, idempotent or non_idempotent")
+            if a.confirmation is not None:
+                if not a.confirmation.fields and not a.confirmation.accepted:
+                    raise OntologyError(f"{where}: confirmation needs fields or accepted statuses")
+                for ref in a.confirmation.fields:
+                    if ref not in a.writes:
+                        raise OntologyError(f"{where}: confirmation field {ref} must be one the tool writes "
+                                            "(list it in writes)")
             for o in a.outcomes:
                 for entity, changes in o.effects.items():
                     for attr, value in changes.items():
@@ -1068,6 +1097,10 @@ class Ontology:
                 cost=int(spec.get("cost", 1)),
                 tools=tuple(spec.get("tools", ())),
                 for_each=spec.get("for_each"),
+                side_effect=str(spec.get("side_effect", "non_idempotent")),
+                confirmation=(Confirmation(tuple(canon_ref(f) for f in spec["confirmation"].get("fields", ())),
+                                           tuple(str(a) for a in spec["confirmation"].get("accepted", ())))
+                              if spec.get("confirmation") else None),
                 on_failure=FailurePolicy(int(failure.get("max_attempts", 3)),
                                          float(failure.get("backoff_seconds", 0)),
                                          bool(failure.get("fallback_tools", True)),

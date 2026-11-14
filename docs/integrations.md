@@ -8,8 +8,47 @@ provider. Tier 3 connects it to the ones a company already has, so each does wha
 | Moving data out of source systems | Airbyte, dlt, Meltano, Fivetran, dbt, or plain exports | Pipelines that pull from files, SQL databases and web APIs, or accept pushed rows; checks, quarantine and lineage |
 | Dashboards and analysis | Metabase, Superset, Grafana, Power BI, Tableau | A governed reporting database (SQLite or PostgreSQL), refreshed on a schedule |
 | Operational monitoring and alerts | Prometheus with Grafana or Alertmanager | `GET /api/metrics` in the Prometheus text format |
+| Acting in business systems | Odoo, SAP, payment providers, any API | Write-ahead journal, idempotency keys, no blind retry, confirmation contracts, reconciliation (below) |
 | Company sign-in | Okta, Microsoft Entra ID, Keycloak, Auth0, Google, any OpenID Connect provider | Verified ID and access tokens, group-to-role mappings, a sign-in button in the inbox |
 | Delivery | Docker, Compose, GitHub Releases and Container Registry | An image, an online backup command, a smoke test and a release workflow ([`deployment.md`](deployment.md)) |
+
+## Acting in other systems safely
+
+Pipelines and the reporting database only read. When an agent *acts* in another system (pays a claim, ships an
+order, sends a contract), a repeat or a lost reply can do real harm. Every tool call goes through the external
+effects journal (`autology/effects.py`), kept in the store:
+
+| Guarantee | How |
+|---|---|
+| **Recorded before it happens** | An intent (run, step, action, tool, idempotency key, digest of the inputs) is committed before the call; the result after it. After a crash at any point, `GET /api/reconciliation` lists what may have happened |
+| **One key per step** | Each step has an idempotency key, the same for every retry, resume and restart of that step. HTTP tools send it as the `Idempotency-Key` header and as `idempotency_key` in the payload; Python tools read `call.idempotency_key`. Pass it on to the system so it can refuse to act twice |
+| **Never done twice by Autology** | Before calling, the agent looks the key up: a step already done is replayed from the journal, not called again (after a failed save, a crash, a deferral or a recovery) |
+| **No blind retry** | Failures are classed. *Not sent* (connection refused, DNS, 408/425/429) and definite failures (`ToolError`) are retried and may go to a fallback tool. *Rejected* (other 4xx, `Rejected`) is not retried. *Unknown* (read timeout, reset, 5xx, unreadable reply, a tool crash, `OutcomeUnknown`) is never sent to another provider, and retried with the same key only if the action is declared `"side_effect": "idempotent"` or `"none"`; otherwise the run stops as `uncertain` |
+| **Accepted is not done** | `202 Accepted` always leaves the step `pending_confirmation`. An action can declare `"confirmation": {"fields": ["Payment.reference"], "accepted": ["SETTLED"]}`: the reply must set those fields (and, with `accepted`, carry `output.status` in the list) before the action's effects apply. A status outside the list is a rejection |
+| **People settle what nobody knows** | `uncertain` and `pending_confirmation` runs wait. A user with the `reconcile` permission (not the run's starter) answers `POST /api/reconciliation/{key}` with `{"done": true, "comment": "...", "updates": {"Payment": {"reference": "TX-1"}}}` (what the system returned) or `{"done": false, ...}`; the run then continues: replaying the confirmed result, or calling again with the same key |
+| **Nothing new on a record in doubt** | While a call on a record is unknown, unconfirmed or from a run that was never saved, no run (manual, assistant or automation) may start on that record (409, naming the calls to reconcile) |
+| **Recovery** | At start-up, calls still `in_flight` (cut off by a crash) become `unknown` and admins are notified. On start-up and every tick, runs whose review was decided but not continued, or whose call was reconciled, continue from the journal |
+
+Declare, per action:
+
+```jsonc
+"pay_claim": {
+  "capability": "payments.pay",
+  "writes": ["Payment.reference"],
+  "side_effect": "non_idempotent",          // the default; "idempotent" if the bank deduplicates by key; "none" for reads and scores
+  "confirmation": {"fields": ["Payment.reference"]}
+}
+```
+
+A review decision is recorded before the run acts, and never undone: if the run then fails or cannot be saved,
+the answer says so and recovery continues it without repeating any call. Reviews are not reopened.
+
+Run statuses `uncertain` and `pending_confirmation` count as open: they block a second run on the record, appear
+in reports among the runs waiting for people, and in `GET /api/reconciliation` (permissions `reconcile`, `audit`
+or `admin`; only records you may see).
+
+**Not yet:** polling a system for confirmation (a person confirms today), and production writes to customer
+systems: they stay disabled until the owner authorises them on an isolated test environment.
 
 ## Data ingestion
 

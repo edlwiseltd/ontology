@@ -57,11 +57,11 @@ from .governance import REDACTED, GovernanceLayer, Principal
 
 JUSTIFY = "***justification required***"
 from .graph import Instance, KnowledgeGraph, build_case, snapshot, write_back
-from .ontology import Ontology, OntologyError
-from .store import Store, StoreError
+from .ontology import Ontology, OntologyError, type_ok
+from .store import Store, StoreError, StoreJournal
 
 log = logging.getLogger("autology.server")
-PERMISSIONS = frozenset({"read", "run", "review", "audit", "ingest", "admin"})
+PERMISSIONS = frozenset({"read", "run", "review", "audit", "ingest", "reconcile", "admin"})
 FINAL_STATUSES = frozenset({"completed", "blocked", "escalated", "suspended"})
 MAX_BODY = 1_000_000
 STATIC = Path(__file__).resolve().parent / "static"
@@ -160,7 +160,8 @@ class AutologyService:
                                  "person; use \"inbox\", or set \"simulation\": true for a test server")
             agent = WorkAgent(name, self.ontology, load_tools(rel(spec["tools"])), roles=spec.get("roles", []),
                               delegates=delegates, approver=approver,
-                              reasoner=load_reasoner(spec.get("reasoner"), (str(base),)))
+                              reasoner=load_reasoner(spec.get("reasoner"), (str(base),)),
+                              journal=StoreJournal(self.store, name))  # external calls survive a crash
             goals = list(spec.get("goals") or self.ontology.goals)
             unknown = [g for g in goals if g not in self.ontology.goals]
             if unknown:
@@ -247,6 +248,13 @@ class AutologyService:
                                                     (base / secrets_file).resolve() if secrets_file else None)
         self.chat: Optional[GovernedChat] = None
         self._apply_assistant()
+        for call in self.store.mark_interrupted_calls():  # nothing runs yet: an in-flight call was cut off
+            log.error("external call %s (%s via %s) was in flight when the process stopped", call["key"],
+                      call["action"], call["tool"])
+            self._notify("reconciliation", [], f"{call['action']} via {call['tool']} was in flight when the server "
+                                               "stopped; confirm whether it happened (GET /api/reconciliation)",
+                         {"key": call["key"], "run_id": call.get("run_id"), "root": call.get("root")})
+        self.recover()  # runs whose review was decided, or whose call was reconciled, before a crash
         for q in self.quarantined:  # tell admins, once per start, which stored records were left out
             log.error("stored %s %s fails validation and was left out of the graph: %s", q["type"], q["id"], q["reason"])
             self._notify("quarantine", [], f"Stored record {q['type']} {q['id']} no longer validates and was left "
@@ -681,6 +689,14 @@ class AutologyService:
                     if root in service._starting:
                         raise ApiError(409, f"{root} already has a run being started (by {service._starting[root]}); "
                                             "wait for it to finish", {"root": root})
+                    blocking = [c for c in service.store.blocking_calls(root) if service._has_effect(c)]
+                    if blocking:  # an external call on this record may have happened: a person must say first
+                        call = blocking[0]
+                        raise ApiError(409, f"{root} has an external call whose outcome nobody has confirmed "
+                                            f"({call['action']} via {call['tool']}, {call['state'].replace('_', ' ')}"
+                                            f"{', from a run that was never saved' if call.get('orphan') else ''}). "
+                                            "Reconcile it first (GET /api/reconciliation), so it cannot happen twice",
+                                       {"root": root, "reconcile": [c["key"] for c in blocking]})
                     active = service._active_runs(root)
                     if active:
                         run = active[0]
@@ -725,7 +741,8 @@ class AutologyService:
                         return firing
                     base = snapshot(self.graph, sources)
                 with cfg.lock:
-                    result = cfg.agent.run(auto.run["goal"], case, f"{auto.name}:{inst.id}", started_by=who)
+                    result = cfg.agent.run(auto.run["goal"], case, f"{auto.name}:{inst.id}", started_by=who,
+                                           root=inst.id)
                     firing.run_id, changed = self._store_result(
                         result, cfg.name, sources=(template, inst.id, sources, bool(auto.run["write_back"]), base),
                         started_by=who)
@@ -757,9 +774,12 @@ class AutologyService:
                 _, changed = self._store_result(result, cfg.name, row["run_id"])
             resumed.append({"run_id": row["run_id"], "status": result.status})
             self._changed(changed)
+        recovered = self.recover()
         loads = self._due_pipelines()
         firings = self.automator.tick() if self.automations else []
         out = {"resumed": resumed, "firings": [f.as_dict() for f in firings]}
+        if recovered:
+            out["recovered"] = recovered
         if self.pipelines:
             out["ingested"] = loads
         every = self.reporting.get("every")
@@ -1051,7 +1071,7 @@ class AutologyService:
             with cfg.lock:
                 try:
                     result = cfg.agent.run(goal, case, str(body.get("case_id") or (sources[1] if sources else "case")),
-                                           started_by=user.name)
+                                           started_by=user.name, root=sources[1] if sources else None)
                 except OntologyError as exc:
                     raise ApiError(400, f"invalid case: {exc}") from None
                 run_id, changed = self._store_result(result, name, sources=sources, started_by=user.name)
@@ -1157,32 +1177,184 @@ class AutologyService:
                         action=str(review["action"]).partition("@")[0], approved=body["approved"])
         comment = str(body.get("comment", ""))
         with cfg.lock:
-            # Order matters: the review is marked decided only once the run has resumed, and reopened if
-            # saving fails, so the review and the run can never disagree (no stranded awaiting_review run).
             if self.store.get_review(review_id)["status"] != "pending":
                 raise ApiError(409, f"review {review_id} was already decided")
             stored = self.store.load_run(review["run_id"])
-            try:
-                result = cfg.agent.resume(stored, decision=ReviewDecision(body["approved"], user.name, comment))
-            except (ValueError, OntologyError) as exc:
-                raise ApiError(409, f"the run cannot continue: {exc}") from None
-            except Exception as exc:
-                self.log_error(f"resuming run {review['run_id']} after review {review_id}")
-                raise ApiError(500, f"the run could not continue ({type(exc).__name__}); the review is still "
-                                    "open") from None
+            if stored.status != "awaiting_review" or stored.run is None:
+                raise ApiError(409, f"the run cannot continue: it is {stored.status}")
+            if not getattr(stored, "integrity_problem", None) and stored.run.ontology_ref != cfg.agent.ontology.ref:
+                raise ApiError(409, f"the run cannot continue: it was started on {stored.run.ontology_ref}; the "
+                                    f"agent now uses {cfg.agent.ontology.ref}")
+            # Order matters (audit GAP-004): the decision is recorded before the run can act, and never undone.
+            # If the run then fails or cannot be saved, it is recovered from the journal: calls already made are
+            # replayed, never repeated, and the review is not opened again.
             try:
                 self.store.decide_review(review_id, body["approved"], user.name, comment)
             except StoreError as exc:
                 raise ApiError(409, str(exc)) from None
-            try:
-                _, changed = self._store_result(result, cfg.name, review["run_id"])
-            except Exception as exc:
-                self.store.reopen_review(review_id)
-                self.log_error(f"saving run {review['run_id']} after review {review_id}")
-                raise ApiError(500, f"the decision could not be saved ({type(exc).__name__}); the review is "
-                                    "still open") from None
+            changed = self._continue_after_review(cfg, review["run_id"], stored,
+                                                  ReviewDecision(body["approved"], user.name, comment),
+                                                  f"review {review_id}")
+            result = self.store.load_run(review["run_id"])
         self._changed(changed)
         return self._summary(result, review["run_id"], user, receipt=True)
+
+    def _continue_after_review(self, cfg: AgentConfig, run_id: str, stored, decision, what: str) -> List[str]:
+        """Resume a run with a recorded review decision and save it (the caller holds the agent's lock)."""
+        try:
+            result = cfg.agent.resume(stored, decision=decision)
+        except Exception as exc:
+            self.log_error(f"resuming run {run_id} after {what}")
+            raise ApiError(500, f"the decision is recorded but the run could not continue ({type(exc).__name__}); "
+                                "it will be recovered automatically, and no external call is repeated") from None
+        try:
+            _, changed = self._store_result(result, cfg.name, run_id)
+        except Exception as exc:
+            self.log_error(f"saving run {run_id} after {what}")
+            raise ApiError(500, f"the decision is recorded but the run could not be saved ({type(exc).__name__}); "
+                                "it will be recovered automatically, and no external call is repeated") from None
+        return changed
+
+    def recover(self) -> List[Dict[str, Any]]:
+        """Continue runs left behind by a crash or a failed save (at start-up and on every tick).
+
+        * A run still ``awaiting_review`` whose review was decided resumes with that decision.
+        * A run waiting on an external call that a person has since reconciled continues.
+        Calls the run already made are replayed from the journal, never made again.
+        """
+        recovered = []
+        decided = {}
+        for r in self.store.list_reviews(None):
+            if r["status"] in ("approved", "declined"):
+                decided[r["run_id"]] = r  # the latest decision per run (reviews are listed oldest first)
+        pending = {r["run_id"] for r in self.store.list_reviews("pending")}
+        for row in self.store.list_runs("awaiting_review", limit=10 ** 9):
+            review = decided.get(row["run_id"])
+            cfg = self.agents.get(row["agent"])
+            if review is None or row["run_id"] in pending or cfg is None:
+                continue
+            with cfg.lock:
+                stored = self.store.load_run(row["run_id"])
+                if stored.status != "awaiting_review":
+                    continue
+                decision = ReviewDecision(review["status"] == "approved", review.get("decided_by") or "?",
+                                          (review.get("decision") or {}).get("comment", "")
+                                          if isinstance(review.get("decision"), dict) else "")
+                try:
+                    changed = self._continue_after_review(cfg, row["run_id"], stored, decision, "recovery")
+                except ApiError:
+                    continue
+            recovered.append({"run_id": row["run_id"], "status": self.store.load_run(row["run_id"]).status})
+            self._changed(changed)
+        for status in ("uncertain", "pending_confirmation"):
+            for row in self.store.list_runs(status, limit=10 ** 9):
+                cfg = self.agents.get(row["agent"])
+                if cfg is None:
+                    continue
+                with cfg.lock:
+                    stored = self.store.load_run(row["run_id"])
+                    key = (stored.run.pending_external or {}).get("key") if stored.run else None
+                    call = self.store.get_call(key) if key else None
+                    if stored.status != status or not call or call["state"] not in ("resolved_done",
+                                                                                     "resolved_not_done"):
+                        continue
+                    try:
+                        result = cfg.agent.resume(stored)
+                        _, changed = self._store_result(result, cfg.name, row["run_id"])
+                    except Exception:
+                        self.log_error(f"continuing run {row['run_id']} after reconciliation")
+                        continue
+                recovered.append({"run_id": row["run_id"], "status": result.status})
+                self._changed(changed)
+        return recovered
+
+    # -- reconciliation of external calls (ACT-5) ----------------------------------------------
+    def _call_visible(self, call: Dict[str, Any], user: User) -> bool:
+        if "admin" in user.permissions:
+            return True
+        inst = self.graph._instances.get(call.get("root") or "")
+        return inst is None or self.visible(inst, user)
+
+    def _orphan(self, call: Dict[str, Any]) -> bool:
+        """Was the call made by a run that was never saved (a crash, a failed save)?"""
+        return not self.store._query("SELECT 1 FROM runs WHERE run_key=?", (call["run_key"],))
+
+    def _has_effect(self, call: Dict[str, Any]) -> bool:
+        action = self.ontology.actions.get(str(call.get("action") or "").partition("@")[0])
+        return action is None or action.side_effect != "none"
+
+    def list_reconciliation(self, user: User) -> Dict[str, Any]:
+        """External calls a person must settle: outcome unknown, accepted but unconfirmed, or made by a run that
+        was never saved."""
+        if not ({"reconcile", "admin", "audit"} & user.permissions):
+            raise ApiError(403, f"{user.name} lacks the 'reconcile' permission")
+        rows = self.store.list_calls(["in_flight", "unknown", "pending_confirmation"])
+        rows += [c for c in self.store.list_calls(["done"], orphans=True) if self._orphan(c) and self._has_effect(c)]
+        items = []
+        for c in rows:
+            if not self._call_visible(c, user):
+                continue
+            item = {k: c.get(k) for k in ("key", "run_id", "root", "agent", "action", "tool", "attempt", "state",
+                                          "detail", "created_at", "updated_at")}
+            item["orphan"] = self._orphan(c)
+            item["question"] = (f"Did {c['action']} via {c['tool']} happen? "
+                                + ("The run that made it was never saved: check the record's data too."
+                                   if item["orphan"] else "The run continues once you answer."))
+            items.append(item)
+        return {"items": items}
+
+    def reconcile(self, user: User, key: str, body: Dict[str, Any]) -> Dict[str, Any]:
+        """A person settles one external call: it happened (with what the system returned) or it did not."""
+        self.require(user, "reconcile")
+        call = self.store.get_call(key)
+        if call is None or not self._call_visible(call, user):
+            raise ApiError(404, f"no external call {key!r}")
+        if not isinstance(body.get("done"), bool):
+            raise ApiError(400, "done must be true (it happened) or false (it did not)")
+        comment = str(body.get("comment") or "").strip()
+        if len(comment) < 10:
+            raise ApiError(400, "say how you checked (comment of at least 10 characters)")
+        orphan = self._orphan(call)
+        if call["state"] not in ("in_flight", "unknown", "pending_confirmation") and not (orphan and
+                                                                                       call["state"] == "done"):
+            raise ApiError(409, f"this call is {call['state'].replace('_', ' ')}: there is nothing to reconcile")
+        if call.get("run_id") and self.store.run_starter(call["run_id"]) == user.name:
+            raise ApiError(403, "you started this run: someone else must confirm what happened outside")
+        fields: Dict[str, Any] = {}
+        action = self.ontology.actions.get(str(call["action"]).partition("@")[0])
+        if body["done"] and action is not None:
+            outcome = body.get("outcome") or call.get("outcome")
+            if outcome is not None and outcome not in [o.name for o in action.outcomes]:
+                raise ApiError(400, f"unknown outcome {outcome!r}; {action.name} has {[o.name for o in action.outcomes]}")
+            updates = body.get("updates") if body.get("updates") is not None else (call.get("updates") or {})
+            if not isinstance(updates, dict):
+                raise ApiError(400, "updates must be an object: Entity -> field -> value")
+            for entity, changes in updates.items():
+                for attr, value in (changes or {}).items():
+                    ref = f"{entity}.{attr}"
+                    if ref not in action.writes:
+                        raise ApiError(400, f"{action.name} does not write {ref}")
+                    declared = self.ontology.entities[entity].attributes.get(attr)
+                    if declared is not None and not type_ok(declared.type, value):
+                        raise ApiError(400, f"{ref} must be {declared.type}")
+            missing = [ref for ref in (action.confirmation.fields if action.confirmation else ())
+                       if (updates.get(ref.partition(".")[0]) or {}).get(ref.partition(".")[2]) in (None, "")]
+            if missing:
+                raise ApiError(400, f"to confirm {action.name}, give what the system returned: {', '.join(missing)}")
+            fields = {"outcome": outcome, "updates": updates, "message": f"confirmed by {user.name}"}
+        row = self.store.resolve_call(key, body["done"], user.name, comment, **fields)
+        self._notify("reconciliation", [], f"{user.name} confirmed that {call['action']} "
+                                           f"{'happened' if body['done'] else 'did not happen'} ({comment})",
+                     {"key": key, "run_id": call.get("run_id"), "root": call.get("root")})
+        out: Dict[str, Any] = {"call": {k: row.get(k) for k in ("key", "state", "resolved_by", "resolved_comment",
+                                                               "run_id", "action")}}
+        if orphan:
+            out["note"] = ("the run that made this call was never saved: if it happened, update the record's data "
+                           "(the run's other effects were not written back)")
+        continued = [r for r in self.recover() if r["run_id"] == call.get("run_id")]
+        if continued:
+            out["run"] = continued[0]
+        return out
 
     # -- what-if scenarios -----------------------------------------------------------
     def _roles_for(self, user: User, spec: Dict[str, Any]) -> List[str]:
@@ -1689,6 +1861,10 @@ class ApiExchange:
                 return self._send(200, service.metrics(user), "text/plain; version=0.0.4")
             if method == "GET" and parts == ["report"]:
                 return self._send(200, service.report(user), "text/markdown")
+            if method == "GET" and parts == ["reconciliation"]:
+                return self._send(200, service.list_reconciliation(user))
+            if method == "POST" and len(parts) == 2 and parts[0] == "reconciliation":
+                return self._send(200, service.reconcile(user, parts[1], self._body()))
             if len(parts) == 2:
                 kind, ident = parts
                 if method == "GET" and kind == "objects":

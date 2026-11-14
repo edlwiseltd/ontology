@@ -202,6 +202,8 @@ provider when `oidc` is configured: see [`integrations.md`](integrations.md)), e
 | `GET /api/reviews?status=pending` | review | Reviews the caller may decide |
 | `GET /api/reviews/{id}` | read | One review, for admins, its reviewers and the run's starter only |
 | `POST /api/reviews/{id}/decision` | review | `{"approved": true/false, "comment": "..."}`. Resumes the run, and can be decided once only |
+| `GET /api/reconciliation` | reconcile, audit or admin | External calls a person must settle: outcome unknown, accepted but unconfirmed, or made by a run that was never saved ([integrations](integrations.md#acting-in-other-systems-safely)) |
+| `POST /api/reconciliation/{key}` | reconcile | `{"done": true/false, "comment": "...", "updates": {...}}`. Not the run's starter. The run then continues without repeating the call |
 | `GET /api/report` | read | Compliance report (markdown) |
 | `GET /api/score` | read | Readiness scorecard over all stored runs |
 | `GET /api/objects/{id}/lineage` | read | Every data load that created or changed the object (Tier 3, [`integrations.md`](integrations.md)) |

@@ -60,6 +60,7 @@
     "assess_fraud": {
       "description": "Score the claim for fraud",
       "capability": "fraud.score",
+      "side_effect": "none",
       "requires": ["Claim.status == 'reported'"],
       "reads": ["Claim.amount", "Claim.reported_days_after"],
       "writes": ["Claim.fraud_score"],
@@ -87,6 +88,9 @@
       "capability": "payments.pay",
       "requires": ["Claim.status == 'approved'"],
       "writes": ["Payment.reference"],
+      "side_effect": "non_idempotent",
+      "confirmation": {"fields": ["Payment.reference"],
+                       "description": "A payment counts as sent only with the bank's transfer reference"},
       "effects": {"Claim": {"status": "paid"},
                   "Payment": {"status": "sent", "amount": {"compute": "Claim.approved_amount"}}}
     }

@@ -20,7 +20,7 @@ from .reasoners import (AnthropicChatModel, ChatModel, ClaudeReasoner, DecisionC
 from .reporting import compliance_report, metrics, ontology_gaps
 from .scoring import Scorecard, score_deployment, score_ontology
 from .state import WorldState
-from .tools import Tool, ToolCall, ToolError, ToolRegistry, ToolResult
+from .tools import NotSent, OutcomeUnknown, Rejected, Tool, ToolCall, ToolError, ToolRegistry, ToolResult
 from .versioning import OntologyRegistry, VersionError
 
 __version__ = "0.4.0"
@@ -30,7 +30,7 @@ __all__ = [
     "DecisionContext", "Escalation", "Expression", "ExpressionError", "GovernanceLayer", "Goal",
     "IntegrityError", "Ontology", "OntologyError", "PlanFollowingReasoner", "Planner", "Principal",
     "Proposal", "ReviewDecision", "ReviewRequest", "Rule", "RunResult", "StepRecord", "Tool", "ToolCall",
-    "ToolError", "ToolRegistry", "ToolResult", "Verdict", "WorkAgent", "WorldState", "compile_expression",
+    "ToolError", "NotSent", "OutcomeUnknown", "Rejected", "ToolRegistry", "ToolResult", "Verdict", "WorkAgent", "WorldState", "compile_expression",
     "Finding", "KnowledgeGraph", "OntologyRegistry", "ROIReport", "RoutingReasoner", "TCOModel", "VersionError",
     "compliance_report", "lint", "metrics", "ontology_gaps", "Scorecard", "score_deployment", "score_ontology",
     "DeferredApprover", "AnthropicChatModel", "ChatModel", "FunctionChatModel", "LLMReasoner", "LLMResponse",

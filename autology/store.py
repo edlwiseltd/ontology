@@ -39,7 +39,7 @@ from .audit import GENESIS, AuditLog
 from .graph import KnowledgeGraph
 from .ontology import Ontology, OntologyError
 
-SCHEMA_VERSION = 11
+SCHEMA_VERSION = 12
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -52,8 +52,15 @@ CREATE INDEX IF NOT EXISTS links_target ON links(target, kind);
 CREATE TABLE IF NOT EXISTS runs (
     run_id TEXT PRIMARY KEY, case_id TEXT NOT NULL, goal TEXT NOT NULL, ontology TEXT NOT NULL,
     agent TEXT, status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, record TEXT NOT NULL,
-    started_by TEXT, seal TEXT);
+    started_by TEXT, seal TEXT, run_key TEXT);
 CREATE INDEX IF NOT EXISTS runs_status ON runs(status);
+CREATE TABLE IF NOT EXISTS external_calls (
+    key TEXT PRIMARY KEY, run_key TEXT NOT NULL, run_id TEXT, case_id TEXT, root TEXT, agent TEXT, action TEXT,
+    tool TEXT, attempt INTEGER NOT NULL DEFAULT 0, inputs_digest TEXT, state TEXT NOT NULL, outcome TEXT,
+    updates TEXT, message TEXT, output TEXT, detail TEXT, resolved_by TEXT, resolved_comment TEXT,
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS external_calls_root ON external_calls(root, state);
+CREATE INDEX IF NOT EXISTS external_calls_run ON external_calls(run_key);
 CREATE TABLE IF NOT EXISTS audit (
     run_id TEXT NOT NULL, seq INTEGER NOT NULL, timestamp TEXT NOT NULL, event TEXT NOT NULL, data TEXT NOT NULL,
     prev_hash TEXT NOT NULL, hash TEXT NOT NULL, alg TEXT NOT NULL DEFAULT 'sha256', PRIMARY KEY (run_id, seq));
@@ -168,6 +175,8 @@ class Store:
                     self._db.execute("ALTER TABLE automation_state ADD COLUMN failures INTEGER NOT NULL DEFAULT 0")
                 if "alg" not in {r["name"] for r in self._db.execute("PRAGMA table_info(audit)")}:  # schema 6
                     self._db.execute("ALTER TABLE audit ADD COLUMN alg TEXT NOT NULL DEFAULT 'sha256'")
+                if "run_key" not in columns:  # schema 12: the run's identity, which its journal rows carry
+                    self._db.execute("ALTER TABLE runs ADD COLUMN run_key TEXT")
                 if "seal" not in columns:  # schema 11: every run record is sealed; existing ones are sealed now
                     self._db.execute("ALTER TABLE runs ADD COLUMN seal TEXT")
                     for r in self._db.execute("SELECT run_id FROM runs").fetchall():
@@ -287,8 +296,96 @@ class Store:
                            (run_id, result.case_id, result.goal, ontology_ref, agent, result.status, now, now,
                             json.dumps(record, default=str), started_by))
             db.execute("UPDATE runs SET seal=? WHERE run_id=?", (self._seal_of(db, run_id), run_id))
+            run_key = (record.get("run") or {}).get("run_key")
+            if run_key:  # the journal's calls now belong to a stored run
+                db.execute("UPDATE runs SET run_key=? WHERE run_id=?", (run_key, run_id))
+                db.execute("UPDATE external_calls SET run_id=? WHERE run_key=? AND run_id IS NULL", (run_id, run_key))
         result.run_id = run_id
         return run_id
+
+    # -- external calls journal (see autology.effects) ----------------------------------
+    _JSON_COLS = ("updates", "output")
+
+    def _call_row(self, row) -> Dict[str, Any]:
+        out = dict(row)
+        for col in self._JSON_COLS:
+            out[col] = json.loads(out[col]) if out.get(col) else None
+        return out
+
+    def get_call(self, key: str) -> Optional[Dict[str, Any]]:
+        rows = self._query("SELECT * FROM external_calls WHERE key=?", (key,))
+        return self._call_row(rows[0]) if rows else None
+
+    def record_intent(self, key: str, **fields: Any) -> None:
+        """Commit the intent to call before the call is made (state ``in_flight``)."""
+        now = _now()
+        cols = ("run_key", "case_id", "root", "agent", "action", "tool", "inputs_digest")
+        values = [fields.get(c) for c in cols]
+        with self._tx() as db:
+            if db.execute("SELECT 1 FROM external_calls WHERE key=?", (key,)).fetchone():
+                db.execute("UPDATE external_calls SET tool=?, inputs_digest=?, attempt=attempt+1, state='in_flight', "
+                           "detail=NULL, updated_at=? WHERE key=?", (fields.get("tool"), fields.get("inputs_digest"),
+                                                                   now, key))
+            else:
+                db.execute(f"INSERT INTO external_calls (key, {', '.join(cols)}, attempt, state, created_at, "
+                           f"updated_at) VALUES (?, {', '.join('?' for _ in cols)}, 1, 'in_flight', ?, ?)",
+                           [key] + values + [now, now])
+
+    def record_call_result(self, key: str, state: str, **fields: Any) -> None:
+        cols = [c for c in ("outcome", "updates", "message", "output", "detail") if c in fields]
+        vals = [json.dumps(fields[c], default=str) if c in self._JSON_COLS else fields[c] for c in cols]
+        with self._tx() as db:
+            db.execute(f"UPDATE external_calls SET state=?, updated_at=?{''.join(f', {c}=?' for c in cols)} "
+                       "WHERE key=?", [state, _now()] + vals + [key])
+
+    def resolve_call(self, key: str, done: bool, by: str, comment: str, **fields: Any) -> Dict[str, Any]:
+        from .effects import RESOLVED_DONE, RESOLVED_NOT_DONE
+
+        cols = [c for c in ("outcome", "updates", "message", "output") if c in fields]
+        vals = [json.dumps(fields[c], default=str) if c in self._JSON_COLS else fields[c] for c in cols]
+        with self._tx() as db:
+            db.execute(f"UPDATE external_calls SET state=?, resolved_by=?, resolved_comment=?, updated_at=?"
+                       f"{''.join(f', {c}=?' for c in cols)} WHERE key=?",
+                       [RESOLVED_DONE if done else RESOLVED_NOT_DONE, by, comment, _now()] + vals + [key])
+        return self.get_call(key)
+
+    def list_calls(self, states: Optional[Iterable[str]] = None, root: Optional[str] = None,
+                   run_key: Optional[str] = None, orphans: bool = False) -> List[Dict[str, Any]]:
+        sql, where, args = "SELECT * FROM external_calls", [], []
+        if states is not None:
+            states = list(states)
+            where.append(f"state IN ({', '.join('?' for _ in states)})" if states else "0")
+            args += states
+        if root is not None:
+            where.append("root=?")
+            args.append(root)
+        if run_key is not None:
+            where.append("run_key=?")
+            args.append(run_key)
+        if orphans:
+            where.append("run_id IS NULL")
+        if where:
+            sql += " WHERE " + " AND ".join(where)
+        return [self._call_row(r) for r in self._query(sql + " ORDER BY created_at, key", tuple(args))]
+
+    def blocking_calls(self, root: str) -> List[Dict[str, Any]]:
+        """Calls on ``root`` that may have acted and that nobody has confirmed: those waiting for a person, and
+        calls that may have happened in a run that was never saved (a crash or a failed save)."""
+        rows = self._query(
+            "SELECT c.*, NOT EXISTS (SELECT 1 FROM runs r WHERE r.run_key = c.run_key) AS orphan "
+            "FROM external_calls c WHERE c.root=? AND (c.state IN ('in_flight', 'unknown', 'pending_confirmation') "
+            "OR (c.state='done' AND NOT EXISTS (SELECT 1 FROM runs r WHERE r.run_key = c.run_key))) "
+            "ORDER BY c.created_at", (root,))
+        return [self._call_row(r) for r in rows]
+
+    def mark_interrupted_calls(self) -> List[Dict[str, Any]]:
+        """At start-up nothing is executing: a call still ``in_flight`` was cut off by a crash. Its outcome is
+        unknown, so it becomes ``unknown`` and waits for a person."""
+        rows = self.list_calls(["in_flight"])
+        with self._tx() as db:
+            db.execute("UPDATE external_calls SET state='unknown', detail='the process stopped while this call "
+                       "was in flight', updated_at=? WHERE state='in_flight'", (_now(),))
+        return rows
 
     @staticmethod
     def _seal_of(db, run_id: str) -> Optional[str]:
@@ -752,3 +849,26 @@ class Store:
             plain = sqlite3.connect(path)  # opening it as a store switched it to WAL: back to one file
             plain.execute("PRAGMA journal_mode=DELETE")
             plain.close()
+
+
+class StoreJournal:
+    """The external effects journal (see :mod:`autology.effects`) kept in the store, so it survives a crash."""
+
+    def __init__(self, store: Store, agent: Optional[str] = None):
+        self.store = store
+        self.agent = agent
+
+    def get(self, key: str) -> Optional[Dict[str, Any]]:
+        return self.store.get_call(key)
+
+    def intent(self, key: str, **fields: Any) -> None:
+        self.store.record_intent(key, agent=fields.pop("agent", None) or self.agent, **fields)
+
+    def result(self, key: str, state: str, **fields: Any) -> None:
+        self.store.record_call_result(key, state, **fields)
+
+    def resolve(self, key: str, done: bool, by: str, comment: str, **fields: Any) -> Dict[str, Any]:
+        return self.store.resolve_call(key, done, by, comment, **fields)
+
+    def rows(self, run_key: Optional[str] = None) -> List[Dict[str, Any]]:
+        return self.store.list_calls(run_key=run_key)

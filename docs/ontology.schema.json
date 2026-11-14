@@ -207,6 +207,18 @@
       },
       "additionalProperties": false
     },
+    "confirmation": {
+      "type": "object",
+      "properties": {
+        "description": {},
+        "fields": {},
+        "accepted": {}
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false
+    },
     "action": {
       "type": "object",
       "properties": {
@@ -227,6 +239,16 @@
         "for_each": {},
         "on_failure": {
           "$ref": "#/$defs/on_failure"
+        },
+        "side_effect": {
+          "enum": [
+            "none",
+            "idempotent",
+            "non_idempotent"
+          ]
+        },
+        "confirmation": {
+          "$ref": "#/$defs/confirmation"
         }
       },
       "patternProperties": {

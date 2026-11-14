@@ -32,10 +32,12 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Protocol, Seque
 from .audit import AuditLog
 from .governance import Decision, GovernanceLayer, IntegrityError, Principal, Verdict
 from .ontology import STATUS, ActionType, Ontology, OntologyError, type_ok
+from .effects import (DONE, FAILED, NEEDS_PERSON, NOT_SENT, PENDING, REJECTED, REPLAY, RESOLVED_DONE,
+                      RESOLVED_NOT_DONE, UNKNOWN, MemoryJournal, idempotency_key, inputs_digest)
 from .planner import Planner, SearchBudgetExceeded, apply_outcome
 from .reasoners import DecisionContext, PlanFollowingReasoner, Proposal, Reasoner
 from .state import GroundAction, WorldState, ground
-from .tools import ToolCall, ToolError, ToolRegistry, ToolResult
+from .tools import NotSent, OutcomeUnknown, Rejected, ToolCall, ToolError, ToolRegistry, ToolResult
 
 
 # -- human-in-the-loop ------------------------------------------------------
@@ -169,11 +171,15 @@ class RunState:
     update_noticed: bool = False
     pending_review: Optional[Dict[str, Any]] = None  # review request the run is waiting on
     review_decisions: Dict[str, Dict[str, Any]] = field(default_factory=dict)  # ground action -> decision to apply
+    run_key: str = ""  # stable identity of the run, fixed at start: idempotency keys derive from it
+    root: Optional[str] = None  # the record the case was built from (for the journal and reconciliation)
+    pending_external: Optional[Dict[str, Any]] = None  # the external call a person must reconcile
 
 
 @dataclass
 class RunResult:
     status: str  # completed | blocked | escalated | deferred | paused | suspended | awaiting_review
+    #            | uncertain | pending_confirmation (an external call a person must reconcile)
     goal: str
     case_id: str
     steps: List[StepRecord]
@@ -217,7 +223,7 @@ class WorkAgent:
                  registry=None, on_ontology_update: str = "continue",
                  max_steps: Optional[int] = None, max_repeats: int = 3, max_inline_wait: float = 5.0,
                  clock: Callable[[], float] = time.time, sleep: Callable[[float], None] = time.sleep,
-                 observer: Optional[Observer] = None):
+                 observer: Optional[Observer] = None, journal=None):
         if on_ontology_update not in ("continue", "pause"):
             raise ValueError("on_ontology_update must be 'continue' or 'pause'")
         self.principal = Principal(name, roles)
@@ -236,6 +242,7 @@ class WorkAgent:
         self.clock = clock
         self.sleep = sleep
         self.observer = observer
+        self.journal = journal if journal is not None else MemoryJournal()  # external calls (autology.effects)
 
     @property
     def name(self) -> str:
@@ -367,32 +374,93 @@ class WorkAgent:
         if not candidates:
             extra = f" among allowed tools {list(action.tools)}" if action.tools else ""
             raise LookupError(f"no tool provides capability {action.capability!r} in this context{extra}")
+        key = idempotency_key(run.run_key, action.name, run.attempts[action.name])
+        prior = self.journal.get(key)
+        if prior and prior["state"] in REPLAY:  # done before (a retry, a resume, a restart): never call again
+            tool = next((t for t in candidates if t.name == prior.get("tool")), candidates[0])
+            self._log(audit, "step.replayed", case=run.case_id, action=action.name, key=key, tool=prior.get("tool"),
+                      state=prior["state"], resolved_by=prior.get("resolved_by"))
+            return "ok", tool, ToolResult(prior.get("outcome"), prior.get("updates") or {},
+                                          prior.get("message") or "", prior.get("output"))
+        if prior and prior["state"] in NEEDS_PERSON:  # it may have happened: a person must say
+            tool = next((t for t in candidates if t.name == prior.get("tool")), candidates[0])
+            run.pending_external = {"key": key, "action": action.name, "tool": prior.get("tool"),
+                                    "state": prior["state"], "detail": prior.get("detail")}
+            return ("pending" if prior["state"] == PENDING else "uncertain"), tool, \
+                prior.get("detail") or f"the outcome of {action.name} is {prior['state'].replace('_', ' ')}"
         if not policy.fallback_tools:
             candidates = candidates[:1]
         inputs = {ref: state.field(ref, action.binding) for ref in action.reads}
+        digest = inputs_digest(inputs)
         view = self.governance.redacted_view(state, executor.principal)
         error = "tool failed"
+        same_tool = None  # after an unknown outcome only the same system may be retried, with the same key
+
+        def stop(status: str, tool, detail: str, state_name: str):
+            run.pending_external = {"key": key, "action": action.name, "tool": tool.name, "state": state_name,
+                                    "detail": detail}
+            return status, tool, detail
+
         while True:
             round_no = run.failures[action.name] + 1
-            this_round = candidates if round_no > policy.fallback_after else candidates[:1]
+            this_round = [same_tool] if same_tool else (candidates if round_no > policy.fallback_after
+                                                        else candidates[:1])
             for tool in this_round:
-                call = ToolCall(action.action.name, action.capability, dict(inputs), view, round_no, action.target)
+                call = ToolCall(action.action.name, action.capability, dict(inputs), view, round_no, action.target,
+                                key)
+                # write-ahead: the intent is on record before anything can happen outside (audit GAP-007)
+                self.journal.intent(key, run_key=run.run_key, case_id=run.case_id, root=run.root,
+                                    agent=self.name, action=action.name, tool=tool.name, inputs_digest=digest)
+                self._log(audit, "step.intent", case=run.case_id, action=action.name, tool=tool.name, key=key,
+                          attempt=round_no, inputs_digest=digest, side_effect=action.side_effect)
                 self._log(audit, "tool.call", case=run.case_id, action=action.name, tool=tool.name,
                           attempt=round_no, executed_by=executor.name, cost=tool.cost)
                 run.costs["tools"] += tool.cost
                 try:
-                    return "ok", tool, (tool.handler(call) or ToolResult())
+                    result = tool.handler(call) or ToolResult()
+                except OutcomeUnknown as exc:
+                    error = str(exc)
+                    self.journal.result(key, UNKNOWN, detail=error)
+                    self._log(audit, "step.result", case=run.case_id, action=action.name, key=key, state=UNKNOWN,
+                              error=error)
+                    if action.side_effect == "non_idempotent":
+                        return stop("uncertain", tool, f"{tool.name}: {error}; it may have acted", UNKNOWN)
+                    same_tool = tool  # idempotent or read-only: retry this system with the same key, no fallback
+                    break
+                except Rejected as exc:
+                    error = str(exc)
+                    self.journal.result(key, REJECTED, detail=error)
+                    self._log(audit, "step.result", case=run.case_id, action=action.name, key=key, state=REJECTED,
+                              error=error)
+                    if not exc.retryable:
+                        return "failed", tool, error
                 except ToolError as exc:
                     error = str(exc)
+                    outcome = NOT_SENT if isinstance(exc, NotSent) else FAILED
+                    self.journal.result(key, outcome, detail=error)
                     self._log(audit, "tool.error", case=run.case_id, action=action.name, tool=tool.name,
-                              attempt=round_no, error=error)
-                except Exception as exc:  # a bug or an unexpected failure in the tool: stop, keep the record
+                              attempt=round_no, error=error, state=outcome)
+                except Exception as exc:  # a bug or an unexpected failure in the tool: it may have acted partly
                     error = f"{type(exc).__name__}: {exc}"
+                    self.journal.result(key, UNKNOWN, detail=error)
                     self._log(audit, "tool.exception", case=run.case_id, action=action.name, tool=tool.name,
                               attempt=round_no, error=error)
-                    return "crashed", tool, error
+                    return stop("crashed", tool, error, UNKNOWN)
+                else:
+                    state_name, detail = self._confirmation(action, result)
+                    self.journal.result(key, state_name, outcome=result.outcome, updates=result.updates,
+                                        message=result.message, output=result.output, detail=detail)
+                    self._log(audit, "step.result", case=run.case_id, action=action.name, key=key, state=state_name,
+                              detail=detail)
+                    if state_name == PENDING:
+                        return stop("pending", tool, detail, PENDING)
+                    if state_name == REJECTED:
+                        return "failed", tool, detail
+                    return "ok", tool, result
             run.failures[action.name] += 1
             if run.failures[action.name] >= policy.max_attempts:
+                if same_tool:  # retries of an unknown outcome ran out: a person decides what happened
+                    return stop("uncertain", same_tool, f"{same_tool.name}: {error}; it may have acted", UNKNOWN)
                 return "failed", candidates[0], error
             if policy.backoff_seconds > self.max_inline_wait:
                 run.resume_at = self.clock() + policy.backoff_seconds
@@ -400,16 +468,41 @@ class WorkAgent:
             if policy.backoff_seconds:
                 self.sleep(policy.backoff_seconds)
 
+    @staticmethod
+    def _confirmation(action: GroundAction, result: ToolResult) -> Tuple[str, str]:
+        """Is the reply a confirmation? ``done``, ``pending_confirmation`` or ``rejected``, with the reason."""
+        spec = action.action.confirmation
+        if result.pending:
+            return PENDING, f"{action.name}: the system accepted the request but has not confirmed it"
+        if spec is None:
+            return DONE, ""
+        if spec.accepted:
+            status = result.output.get("status") if isinstance(result.output, dict) else None
+            if status is None:
+                return PENDING, f"{action.name}: the reply has no status (expected one of {list(spec.accepted)})"
+            if str(status) not in spec.accepted:
+                return REJECTED, f"{action.name}: the system answered status {status!r}, not one of {list(spec.accepted)}"
+        missing = [ref for ref in spec.fields
+                   if (result.updates.get(ref.partition(".")[0]) or {}).get(ref.partition(".")[2]) in (None, "")]
+        if missing:
+            return PENDING, f"{action.name}: the reply does not confirm {', '.join(missing)}"
+        return DONE, ""
+
     # -- public API -----------------------------------------------------
     def run(self, goal_name: str, case: Mapping[str, Mapping[str, Any]], case_id: str = "case",
-            started_by: Optional[str] = None) -> RunResult:
+            started_by: Optional[str] = None, run_key: Optional[str] = None, root: Optional[str] = None) -> RunResult:
+        """Run toward a goal. ``run_key`` fixes the run's identity (and so its idempotency keys): pass the same
+        key to make a repeat of the same work replay its completed external calls instead of making them again."""
+        import uuid
+
         if goal_name not in self.ontology.goals:
             raise OntologyError(f"unknown goal {goal_name!r}")
-        run = RunState(goal_name, case_id, WorldState.initial(self.ontology, case), ontology_ref=self.ontology.ref)
+        run = RunState(goal_name, case_id, WorldState.initial(self.ontology, case), ontology_ref=self.ontology.ref,
+                       run_key=run_key or uuid.uuid4().hex, root=root)
         audit = AuditLog()
         self._log(audit, "run.start", case=case_id, agent=self.name, roles=sorted(self.principal.roles),
                   delegates=[d.name for d in self.delegates], goal=goal_name, ontology=self.ontology.ref,
-                  fingerprint=self.ontology.fingerprint, started_by=started_by)
+                  fingerprint=self.ontology.fingerprint, started_by=started_by, run_key=run.run_key)
         return self._loop(run, audit)
 
     def resume(self, previous: RunResult, force: bool = False,
@@ -419,9 +512,16 @@ class WorkAgent:
         Deferred runs wait for their retry window (unless ``force``); a run awaiting review needs the
         reviewer's ``decision``, which is applied to exactly the action that was waiting for it.
         """
-        if previous.run is None or previous.status not in ("deferred", "paused", "awaiting_review"):
+        if previous.run is None or previous.status not in ("deferred", "paused", "awaiting_review", "uncertain",
+                                                            "pending_confirmation"):
             raise ValueError(f"cannot resume a run with status {previous.status!r}")
         run = previous.run
+        if previous.status in ("uncertain", "pending_confirmation"):
+            pending = run.pending_external or {}
+            row = self.journal.get(pending.get("key", "")) if pending else None
+            if row is None or row["state"] not in (RESOLVED_DONE, RESOLVED_NOT_DONE):
+                raise ValueError(f"the outcome of {pending.get('action', 'an external call')} has not been "
+                                 "reconciled yet")
         if previous.status == "deferred" and not force and run.resume_at and self.clock() < run.resume_at:
             return previous
         problem = self._tampering(previous)
@@ -449,6 +549,12 @@ class WorkAgent:
             raise OntologyError(f"run was started on {run.ontology_ref}; this agent uses {self.ontology.ref}")
         run.resume_at = None
         audit = previous.audit
+        if previous.status in ("uncertain", "pending_confirmation"):
+            row = self.journal.get(run.pending_external["key"])
+            self._log(audit, "external.reconciled", case=run.case_id, action=run.pending_external["action"],
+                      key=row["key"], done=row["state"] == RESOLVED_DONE, by=row.get("resolved_by"),
+                      comment=row.get("resolved_comment"))
+            run.pending_external = None
         self._log(audit, "run.resume", case=run.case_id, agent=self.name, previous_status=previous.status)
         return self._loop(run, audit)
 
@@ -595,6 +701,7 @@ class WorkAgent:
                         action.name))
                 review = ReviewDecision(**{k: v for k, v in stored.items() if k in ReviewDecision.__dataclass_fields__}) \
                     if stored else self.approver.review(request)
+                used_decision = stored
                 if review is None:  # the reviewer will answer later (inbox, ticket, ...): park the run
                     run.attempts[action.name] -= 1
                     run.pending_review = dict(request.__dict__)
@@ -614,19 +721,31 @@ class WorkAgent:
                                                         "/".join(decision.reviewers), action.name,
                                                         [review.comment]))
 
+            else:
+                used_decision = None
             try:
                 status, tool, payload = self._execute(run, action, executor, audit)
             except LookupError as exc:
                 run.steps.append(record)
                 return finish("escalated", Escalation(str(exc), "it-integration", action.name))
             record.tool = tool.name
-            if status == "crashed":
-                run.attempts[action.name] -= 1
+            if status in ("crashed", "uncertain", "pending"):
+                # the outside system may have acted: never retry blindly, a person reconciles the step
+                run.attempts[action.name] -= 1  # the same step (and key) when the run continues
+                if used_decision:  # the approval covers this step until it really completes
+                    run.review_decisions[action.name] = used_decision
                 record.message = payload
                 run.steps.append(record)
-                return finish("escalated", Escalation(
-                    f"{action.name}: tool {tool.name} raised {payload}; it may have acted partly, check before "
-                    f"retrying", "it-integration", action.name))
+                if status == "pending":
+                    return finish("pending_confirmation", Escalation(
+                        f"{action.name}: waiting for confirmation ({payload})", "reconciliation", action.name,
+                        [f"idempotency key {run.pending_external['key']}"]))
+                reason = (f"{action.name}: tool {tool.name} raised {payload}; it may have acted partly"
+                          if status == "crashed" else f"{action.name}: outcome unknown ({payload})")
+                return finish("uncertain", Escalation(
+                    reason + "; confirm whether it happened before the run continues",
+                    "it-integration" if status == "crashed" else "reconciliation", action.name,
+                    [f"idempotency key {run.pending_external['key']}"]))
             if status != "ok":
                 run.attempts[action.name] -= 1  # the action did not run; don't count it as a repeat
                 if status == "deferred":

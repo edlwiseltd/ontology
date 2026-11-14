@@ -22,7 +22,41 @@ from .state import WorldState
 
 
 class ToolError(RuntimeError):
-    """Raised by a tool handler for a (possibly transient) failure."""
+    """Raised by a tool handler for a definite failure: the system did not do what was asked.
+
+    The failure policy may retry it and try fallback tools. When the tool cannot tell whether the system acted,
+    raise :class:`OutcomeUnknown` instead; when the request never left, :class:`NotSent`.
+    """
+
+    outcome = "failed"
+    retryable = True
+
+
+class NotSent(ToolError):
+    """The request never reached the system (connection refused, DNS, failure while sending): safe to retry."""
+
+    outcome = "not_sent"
+
+
+class Rejected(ToolError):
+    """The system received the request and refused it (e.g. HTTP 4xx). Retried only when ``retryable``."""
+
+    outcome = "rejected"
+
+    def __init__(self, message: str, retryable: bool = False):
+        super().__init__(message)
+        self.retryable = retryable
+
+
+class OutcomeUnknown(ToolError):
+    """The request was sent but its outcome is unknown (read timeout, reset, 5xx, unreadable reply).
+
+    Never retried blindly or sent to another provider: only an action declared ``idempotent`` (or with no side
+    effect) is retried, with the same idempotency key; otherwise a person reconciles the step.
+    """
+
+    outcome = "unknown"
+    retryable = False
 
 
 @dataclass
@@ -33,6 +67,7 @@ class ToolCall:
     context: Mapping[str, Mapping[str, Any]]  # redacted view of the case
     attempt: int = 1
     target: Optional[str] = None  # instance id for per-instance (for_each) actions
+    idempotency_key: Optional[str] = None  # the same for every retry of this step: pass it to the system
 
 
 @dataclass
@@ -41,6 +76,7 @@ class ToolResult:
     updates: Dict[str, Dict[str, Any]] = field(default_factory=dict)  # entity -> attr -> value (must be in ``writes``)
     message: str = ""
     output: Any = None
+    pending: bool = False  # the system accepted the request but has not confirmed it was done (e.g. HTTP 202)
 
 
 Handler = Callable[[ToolCall], ToolResult]

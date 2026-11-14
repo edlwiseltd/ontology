@@ -3,7 +3,7 @@
 import json
 import unittest
 
-from autology.store import Store
+from autology.store import SCHEMA_VERSION, Store
 
 from .test_ingest import service
 
@@ -81,7 +81,8 @@ class RunRecordSealTests(unittest.TestCase):
         db.execute("UPDATE meta SET value='10' WHERE key='schema_version'")
         self.svc.store.close()
         again = Store(path)
-        self.assertEqual(again._query("SELECT value FROM meta WHERE key='schema_version'")[0]["value"], "11")
+        self.assertEqual(again._query("SELECT value FROM meta WHERE key='schema_version'")[0]["value"],
+                         str(SCHEMA_VERSION))
         self.assertTrue(again.verify_audit(self.rid))
         again.close()
 

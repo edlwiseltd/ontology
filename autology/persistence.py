@@ -48,6 +48,7 @@ def result_to_dict(result: RunResult) -> Dict[str, Any]:
             "history": list(run.history), "attempts": dict(run.attempts), "failures": dict(run.failures),
             "ontology_ref": run.ontology_ref, "update_noticed": run.update_noticed,
             "pending_review": run.pending_review, "review_decisions": dict(run.review_decisions),
+            "run_key": run.run_key, "root": run.root, "pending_external": run.pending_external,
         },
     }
 
@@ -69,7 +70,8 @@ def result_from_dict(data: Dict[str, Any]) -> RunResult:
         run = RunState(data["goal"], data["case_id"], state, steps, list(r.get("history", [])),
                        Counter(r.get("attempts", {})), Counter(r.get("failures", {})), violations,
                        costs, data.get("resume_at"), r.get("ontology_ref", ""), bool(r.get("update_noticed")),
-                       r.get("pending_review"), dict(r.get("review_decisions") or {}))
+                       r.get("pending_review"), dict(r.get("review_decisions") or {}), r.get("run_key") or "",
+                       r.get("root"), r.get("pending_external"))
     return RunResult(data["status"], data["goal"], data["case_id"], steps, state, audit, escalation, violations,
                      costs, data.get("resume_at"), run)
 

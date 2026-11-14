@@ -43,6 +43,13 @@ Declare, per action:
 A review decision is recorded before the run acts, and never undone: if the run then fails or cannot be saved,
 the answer says so and recovery continues it without repeating any call. Reviews are not reopened.
 
+**Approvals apply to the facts that were reviewed.** Before a run continues after a review, it re-reads its live
+records. A field changed only outside (the claim's amount corrected by the claims feed) is brought into the run;
+if that changes a fact the reviewer saw, or the action no longer applies (the claim was rejected meanwhile), the
+approval is not used: the run plans again and asks for a new review if one is still needed (`case.refreshed` and
+`review.superseded` in the audit). A field the run had changed and someone changed outside too stops the run
+(`escalated` to operations, with both values): a person decides which is right.
+
 Run statuses `uncertain` and `pending_confirmation` count as open: they block a second run on the record, appear
 in reports among the runs waiting for people, and in `GET /api/reconciliation` (permissions `reconcile`, `audit`
 or `admin`; only records you may see).

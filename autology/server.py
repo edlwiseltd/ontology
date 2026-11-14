@@ -1199,10 +1199,38 @@ class AutologyService:
         self._changed(changed)
         return self._summary(result, review["run_id"], user, receipt=True)
 
+    def _live_changes(self, run_id: str, stored) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """What changed on the run's live records since it last read or wrote them (ACT-6): ``(refresh,
+        conflicts)``. A field only changed outside is refreshed; one the run changed too is a conflict."""
+        linked = self.store.run_sources(run_id)
+        if not linked or not linked.get("base") or stored.run is None:
+            return [], []
+        state, base = stored.run.state, linked["base"]
+        refresh, conflicts = [], []
+        with self.graph_lock:
+            for entity, src in linked["sources"].items():
+                for iid in (src if isinstance(src, list) else [src]):
+                    inst = self.graph._instances.get(iid)
+                    seen = base.get(iid)
+                    if inst is None or seen is None:
+                        continue
+                    mine = (state.collections.get(entity, {}).get(iid) if isinstance(src, list)
+                            else state.entities.get(entity)) or {}
+                    for attr, live in inst.attributes.items():
+                        if attr not in seen or live == seen.get(attr) or live == mine.get(attr):
+                            continue
+                        change = {"entity": entity, "instance": iid if isinstance(src, list) else None,
+                                  "id": iid, "attr": attr, "base": seen.get(attr), "live": live,
+                                  "run": mine.get(attr)}
+                        (refresh if mine.get(attr) == seen.get(attr) else conflicts).append(change)
+        return refresh, conflicts
+
     def _continue_after_review(self, cfg: AgentConfig, run_id: str, stored, decision, what: str) -> List[str]:
-        """Resume a run with a recorded review decision and save it (the caller holds the agent's lock)."""
+        """Resume a run with a recorded review decision and save it (the caller holds the agent's lock).
+        The run first re-reads its live records: a fact the reviewer saw that has changed means a new review."""
+        refresh, conflicts = self._live_changes(run_id, stored)
         try:
-            result = cfg.agent.resume(stored, decision=decision)
+            result = cfg.agent.resume(stored, decision=decision, refresh=refresh, conflicts=conflicts)
         except Exception as exc:
             self.log_error(f"resuming run {run_id} after {what}")
             raise ApiError(500, f"the decision is recorded but the run could not continue ({type(exc).__name__}); "

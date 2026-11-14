@@ -506,7 +506,8 @@ class WorkAgent:
         return self._loop(run, audit)
 
     def resume(self, previous: RunResult, force: bool = False,
-               decision: Optional[ReviewDecision] = None) -> RunResult:
+               decision: Optional[ReviewDecision] = None, refresh: Sequence[Mapping[str, Any]] = (),
+               conflicts: Sequence[Mapping[str, Any]] = ()) -> RunResult:
         """Continue a deferred, paused or awaiting-review run.
 
         Deferred runs wait for their retry window (unless ``force``); a run awaiting review needs the
@@ -540,6 +541,27 @@ class WorkAgent:
             entry = self._log(previous.audit, "review.decision", case=run.case_id, action=pending.get("action", ""),
                               approved=bool(decision.approved), reviewer=decision.reviewer,
                               comment=decision.comment, automatic=bool(getattr(decision, "automatic", False)))
+            stale = self._refresh(run, previous.audit, refresh, conflicts, pending) if (refresh or conflicts) else None
+            if stale == "conflict":  # the run and someone else both changed a field it relies on: a person decides
+                escalation = Escalation(
+                    "the records changed while the run waited for review, on fields the run had changed too; "
+                    "the decision was recorded but not applied", "operations", pending.get("action"),
+                    [f"{c['entity']}.{c['attr']}: run {c['run']!r}, live {c['live']!r}" for c in conflicts])
+                run.pending_review = None
+                self._log(previous.audit, "run.end", case=run.case_id, status="escalated",
+                          escalation=escalation.__dict__, state=run.state.snapshot(), costs=dict(run.costs),
+                          resume_at=None)
+                return RunResult("escalated", run.goal, run.case_id, run.steps, run.state, previous.audit,
+                                 escalation, run.violations, dict(run.costs), None, run)
+            if stale == "superseded" and decision.approved:
+                # the reviewer approved other facts than the ones now true: ask again (audit GAP-009)
+                self._log(previous.audit, "review.superseded", case=run.case_id, action=pending.get("action", ""),
+                          reviewer=decision.reviewer, reviewed=pending.get("facts"))
+                run.pending_review = None
+                run.resume_at = None
+                self._log(previous.audit, "run.resume", case=run.case_id, agent=self.name,
+                          previous_status=previous.status)
+                return self._loop(run, previous.audit)
             run.review_decisions[pending.get("action", "")] = {
                 "approved": bool(decision.approved), "reviewer": decision.reviewer, "comment": decision.comment,
                 "automatic": bool(getattr(decision, "automatic", False)),
@@ -557,6 +579,36 @@ class WorkAgent:
             run.pending_external = None
         self._log(audit, "run.resume", case=run.case_id, agent=self.name, previous_status=previous.status)
         return self._loop(run, audit)
+
+    def _refresh(self, run: RunState, audit: AuditLog, refresh: Sequence[Mapping[str, Any]],
+                 conflicts: Sequence[Mapping[str, Any]], pending: Mapping[str, Any]) -> Optional[str]:
+        """Bring in what changed on the live records while the run waited (ACT-6). Returns ``"conflict"`` when
+        a field the run had changed was changed outside too, ``"superseded"`` when a fact the reviewer saw is no
+        longer true, else ``None``."""
+        state = run.state
+        for change in refresh:
+            entity, iid = change["entity"], change.get("instance")
+            if iid is not None and entity in state.collections:
+                state.collections[entity].setdefault(iid, {})[change["attr"]] = change["live"]
+            elif entity in state.entities:
+                state.entities[entity][change["attr"]] = change["live"]
+        self._log(audit, "case.refreshed", case=run.case_id,
+                  changes=[{k: c.get(k) for k in ("entity", "instance", "attr", "base", "live")} for c in refresh],
+                  conflicts=[dict(c) for c in conflicts])
+        if conflicts:
+            return "conflict"
+        action = pending.get("action")
+        if not action:
+            return None
+        try:
+            ga = ground(self.ontology, action)
+        except (OntologyError, KeyError):
+            return "superseded"
+        now = self.governance.evaluate(ga, state, self.principal)
+        if not all(e.evaluate(state.resolver(ga.binding)) for e in ga.action.requires) or \
+                self._normal(now.facts) != self._normal(pending.get("facts") or {}):
+            return "superseded"
+        return None
 
     @staticmethod
     def _normal(value: Any) -> Any:

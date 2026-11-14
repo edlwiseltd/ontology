@@ -30,17 +30,16 @@ class WriteBackTests(unittest.TestCase):
         stored = self.svc.store.load_graph(self.svc.ontology).get("C-2").attributes
         self.assertEqual(stored["credit_limit"], 750000)
 
-    def test_a_field_the_run_wrote_that_moved_is_a_conflict(self):
+    def test_an_order_cancelled_during_the_review_is_not_shipped(self):
+        # ACT-6 (audit GAP-009): the run re-reads its records before acting on the approval
         self.edit("O-4", status="cancelled")  # someone cancelled the order while it waited for review
-        self.svc.decide(self.u["lena"], self.review, {"approved": True, "comment": "ok"})
+        done = self.svc.decide(self.u["lena"], self.review, {"approved": True, "comment": "ok"})
         self.assertEqual(self.svc.graph.get("O-4").attributes["status"], "cancelled")  # not overwritten
-        conflicts = self.svc.store.run_sources(self.run["run_id"])["conflicts"]
-        self.assertEqual([(c["id"], c["attribute"], c["live"], c["run"]) for c in conflicts],
-                         [("O-4", "status", "cancelled", "invoiced")])
-        notes = self.svc.list_notifications(self.u["admin"], None, 10)["items"]
-        self.assertIn("conflict", [n["kind"] for n in notes])
-        self.assertEqual(self.svc.get_run(self.u["olivia"], self.run["run_id"])["write_back_conflicts"],
-                         conflicts)
+        result = self.svc.store.load_run(self.run["run_id"])
+        self.assertNotIn("ship_order@O-4:done", result.path)
+        self.assertEqual(done["status"], "completed")  # all orders invoiced or cancelled
+        self.assertIn("review.superseded", [e.event for e in result.audit])
+        self.assertEqual(self.svc.store.run_sources(self.run["run_id"])["conflicts"], [])
 
     def test_repeated_saves_do_not_flag_the_runs_own_writes(self):
         # the first save (awaiting review) already wrote O-4 status 'picked'; the second must not see a conflict

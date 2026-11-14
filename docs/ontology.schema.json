@@ -1,0 +1,528 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "autology-ontology.schema.json",
+  "title": "Autology ontology",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "version": {},
+    "description": {},
+    "imports": {},
+    "modules": {},
+    "settings": {
+      "type": "object",
+      "properties": {
+        "max_violations": {}
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false
+    },
+    "entities": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/entity"
+      }
+    },
+    "interfaces": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/interface"
+      }
+    },
+    "relationships": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/relationship"
+      }
+    },
+    "actions": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/action"
+      }
+    },
+    "goals": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/goal"
+      }
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/rule"
+      }
+    },
+    "competency_questions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/competency_question"
+      }
+    },
+    "impact_rules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/impact_rule"
+      }
+    },
+    "scheduling": {
+      "$ref": "#/$defs/scheduling"
+    },
+    "case_templates": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/case_template"
+      }
+    },
+    "functions": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/function"
+      }
+    },
+    "$schema": {}
+  },
+  "patternProperties": {
+    "^x-": {}
+  },
+  "additionalProperties": false,
+  "required": [
+    "name"
+  ],
+  "$defs": {
+    "attribute": {
+      "oneOf": [
+        {
+          "enum": [
+            "string",
+            "number",
+            "integer",
+            "boolean",
+            "date",
+            "datetime"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "enum": [
+                "string",
+                "number",
+                "integer",
+                "boolean",
+                "date",
+                "datetime"
+              ]
+            },
+            "sensitivity": {},
+            "description": {}
+          },
+          "patternProperties": {
+            "^x-": {}
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "entity": {
+      "type": "object",
+      "properties": {
+        "description": {},
+        "attributes": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/attribute"
+          }
+        },
+        "states": {},
+        "initial": {},
+        "external_states": {},
+        "multiple": {},
+        "implements": {},
+        "aliases": {}
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false
+    },
+    "interface": {
+      "type": "object",
+      "properties": {
+        "description": {},
+        "attributes": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/attribute"
+          }
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false
+    },
+    "relationship": {
+      "type": "object",
+      "properties": {
+        "from": {},
+        "to": {},
+        "type": {},
+        "cardinality": {},
+        "description": {}
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false
+    },
+    "on_failure": {
+      "type": "object",
+      "properties": {
+        "max_attempts": {},
+        "backoff_seconds": {},
+        "fallback_tools": {},
+        "escalate_to": {},
+        "fallback_after": {}
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false
+    },
+    "outcome": {
+      "type": "object",
+      "properties": {
+        "description": {},
+        "effects": {}
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false
+    },
+    "action": {
+      "type": "object",
+      "properties": {
+        "description": {},
+        "capability": {},
+        "requires": {},
+        "outcomes": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/outcome"
+          }
+        },
+        "effects": {},
+        "reads": {},
+        "writes": {},
+        "cost": {},
+        "tools": {},
+        "for_each": {},
+        "on_failure": {
+          "$ref": "#/$defs/on_failure"
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false
+    },
+    "goal": {
+      "type": "object",
+      "properties": {
+        "description": {},
+        "target": {}
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false
+    },
+    "function": {
+      "type": "object",
+      "properties": {
+        "description": {},
+        "entity": {},
+        "expr": {},
+        "returns": {}
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false
+    },
+    "case_template": {
+      "type": "object",
+      "properties": {
+        "description": {},
+        "root": {},
+        "entities": {}
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false
+    },
+    "competency_question": {
+      "type": "object",
+      "properties": {
+        "id": {},
+        "question": {},
+        "description": {},
+        "find": {},
+        "where": {},
+        "follow": {},
+        "result_where": {},
+        "aggregate": {},
+        "params": {},
+        "expect": {}
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false
+    },
+    "impact_apply": {
+      "type": "object",
+      "properties": {
+        "path": {},
+        "set": {}
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false
+    },
+    "impact_rule": {
+      "type": "object",
+      "properties": {
+        "id": {},
+        "event": {},
+        "description": {},
+        "paths": {},
+        "when": {},
+        "adjust": {},
+        "apply": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/impact_apply"
+          }
+        }
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false
+    },
+    "scheduling_resource": {
+      "type": "object",
+      "properties": {
+        "step": {},
+        "alternatives": {}
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false
+    },
+    "scheduling_check": {
+      "type": "object",
+      "properties": {
+        "id": {},
+        "when": {},
+        "message": {},
+        "severity": {}
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false
+    },
+    "scheduling": {
+      "type": "object",
+      "properties": {
+        "job": {},
+        "task": {},
+        "job_tasks": {},
+        "sequence": {},
+        "duration": {},
+        "resources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/scheduling_resource"
+          }
+        },
+        "release": {},
+        "due": {},
+        "job_precedence": {},
+        "availability": {},
+        "checks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/scheduling_check"
+          }
+        },
+        "time_unit": {},
+        "context": {},
+        "job_context": {}
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": false
+    },
+    "rule": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "id": {},
+            "type": {
+              "const": "action_access"
+            },
+            "description": {},
+            "when": {},
+            "action": {},
+            "roles": {}
+          },
+          "patternProperties": {
+            "^x-": {}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {},
+            "type": {
+              "const": "checkpoint"
+            },
+            "description": {},
+            "when": {},
+            "on": {},
+            "field": {},
+            "goal": {},
+            "action": {},
+            "entity": {},
+            "approved": {},
+            "min_length": {}
+          },
+          "patternProperties": {
+            "^x-": {}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {},
+            "type": {
+              "const": "data_access"
+            },
+            "description": {},
+            "when": {},
+            "field": {},
+            "roles": {}
+          },
+          "patternProperties": {
+            "^x-": {}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {},
+            "type": {
+              "const": "human_review"
+            },
+            "description": {},
+            "when": {},
+            "action": {},
+            "reviewer": {},
+            "allow_self_review": {}
+          },
+          "patternProperties": {
+            "^x-": {}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {},
+            "type": {
+              "const": "mandatory_step"
+            },
+            "description": {},
+            "when": {},
+            "step": {},
+            "before": {},
+            "outcome": {},
+            "reset_by": {}
+          },
+          "patternProperties": {
+            "^x-": {}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {},
+            "type": {
+              "const": "prohibition"
+            },
+            "description": {},
+            "when": {},
+            "action": {}
+          },
+          "patternProperties": {
+            "^x-": {}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {},
+            "type": {
+              "const": "row_access"
+            },
+            "description": {},
+            "when": {},
+            "entity": {},
+            "roles": {}
+          },
+          "patternProperties": {
+            "^x-": {}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {},
+            "type": {
+              "const": "write_access"
+            },
+            "description": {},
+            "when": {},
+            "field": {},
+            "roles": {}
+          },
+          "patternProperties": {
+            "^x-": {}
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

@@ -71,6 +71,170 @@ class OntologyError(ValueError):
     """Raised when an ontology document is malformed or internally inconsistent."""
 
 
+# -- strict schema (audit GAP-016): every key the loader reads, and nothing else -----------------
+# A misspelled key used to be ignored, silently dropping a precondition or a rule. Keys starting with
+# "x-" are free for tooling, and "$schema" may point an editor at docs/ontology.schema.json.
+ATTRIBUTE_TYPES = ("string", "number", "integer", "boolean", "date", "datetime")
+_RULE_COMMON = ("id", "type", "description", "when")
+RULE_KEYS = {
+    "mandatory_step": ("step", "before", "outcome", "reset_by"),
+    "human_review": ("action", "reviewer", "allow_self_review"),
+    "prohibition": ("action",),
+    "action_access": ("action", "roles"),
+    "data_access": ("field", "roles"),
+    "write_access": ("field", "roles"),
+    "row_access": ("entity", "roles"),
+    "checkpoint": ("on", "field", "goal", "action", "entity", "approved", "min_length"),
+}
+SCHEMA_KEYS = {
+    "document": ("name", "version", "description", "imports", "modules", "settings", "entities", "interfaces",
+                 "relationships", "actions", "goals", "rules", "competency_questions", "impact_rules", "scheduling",
+                 "case_templates", "functions"),
+    "settings": ("max_violations",),
+    "entity": ("description", "attributes", "states", "initial", "external_states", "multiple", "implements",
+               "aliases"),
+    "interface": ("description", "attributes"),
+    "attribute": ("type", "sensitivity", "description"),
+    "relationship": ("from", "to", "type", "cardinality", "description"),
+    "action": ("description", "capability", "requires", "outcomes", "effects", "reads", "writes", "cost", "tools",
+               "for_each", "on_failure"),
+    "on_failure": ("max_attempts", "backoff_seconds", "fallback_tools", "escalate_to", "fallback_after"),
+    "outcome": ("description", "effects"),
+    "goal": ("description", "target"),
+    "function": ("description", "entity", "expr", "returns"),
+    "competency_question": ("id", "question", "description", "find", "where", "follow", "result_where",
+                            "aggregate", "params", "expect"),
+    "impact_rule": ("id", "event", "description", "paths", "when", "adjust", "apply"),
+    "impact_apply": ("path", "set"),
+    "case_template": ("description", "root", "entities"),
+    "scheduling": ("job", "task", "job_tasks", "sequence", "duration", "resources", "release", "due",
+                   "job_precedence", "availability", "checks", "time_unit", "context", "job_context"),
+    "scheduling_resource": ("step", "alternatives"),
+    "scheduling_check": ("id", "when", "message", "severity"),
+}
+
+
+def _closest(key: str, allowed: Iterable[str]) -> str:
+    import difflib
+
+    match = difflib.get_close_matches(key, list(allowed), n=1, cutoff=0.6)
+    return f"; did you mean {match[0]!r}?" if match else ""
+
+
+def _check_keys(value: Any, kind: str, path: str, allowed: Optional[Iterable[str]] = None) -> None:
+    if not isinstance(value, Mapping):
+        return
+    allowed = tuple(SCHEMA_KEYS[kind] if allowed is None else allowed)
+    for key in value:
+        if not isinstance(key, str) or key.startswith("x-") or (key == "$schema" and kind == "document"):
+            continue
+        if key not in allowed:
+            where = f"{path}: " if path else ""
+            raise OntologyError(f"{where}unknown key {key!r} in {kind.replace('_', ' ')}{_closest(key, allowed)} "
+                                f"(allowed: {', '.join(allowed)})")
+
+
+def check_document(doc: Mapping[str, Any], top_only: bool = False) -> None:
+    """Refuse unknown keys at every level and unknown attribute types, naming the path of the first one."""
+    if not isinstance(doc, Mapping):
+        raise OntologyError("an ontology document must be a JSON object")
+    _check_keys(doc, "document", "")
+    if top_only:
+        return
+    _check_keys(doc.get("settings"), "settings", "settings")
+    for kind, section in (("entity", "entities"), ("interface", "interfaces")):
+        for name, spec in (doc.get(section) or {}).items():
+            _check_keys(spec, kind, f"{section}.{name}")
+            for aname, aspec in ((spec or {}).get("attributes") or {}).items():
+                where = f"{section}.{name}.attributes.{aname}"
+                _check_keys(aspec, "attribute", where)
+                atype = aspec if isinstance(aspec, str) else (aspec or {}).get("type", "string")
+                if atype not in ATTRIBUTE_TYPES:
+                    raise OntologyError(f"{where}: unknown attribute type {atype!r}{_closest(str(atype), ATTRIBUTE_TYPES)}"
+                                        f" (allowed: {', '.join(ATTRIBUTE_TYPES)})")
+    for name, spec in (doc.get("actions") or {}).items():
+        where = f"actions.{name}"
+        _check_keys(spec, "action", where)
+        _check_keys((spec or {}).get("on_failure"), "on_failure", f"{where}.on_failure")
+        for oname, ospec in ((spec or {}).get("outcomes") or {}).items():
+            _check_keys(ospec, "outcome", f"{where}.outcomes.{oname}")
+    for kind, section in (("goal", "goals"), ("function", "functions"), ("case_template", "case_templates")):
+        for name, spec in (doc.get(section) or {}).items():
+            _check_keys(spec, kind, f"{section}.{name}")
+    for i, spec in enumerate(doc.get("rules") or []):
+        if isinstance(spec, Mapping):
+            kind = spec.get("type")
+            where = f"rules.{i}" + (f" ({spec['id']})" if isinstance(spec.get("id"), str) else "")
+            extra = RULE_KEYS.get(kind)
+            if extra is None:
+                _check_keys(spec, "rule", where, _RULE_COMMON + tuple(k for ks in RULE_KEYS.values() for k in ks))
+                raise OntologyError(f"{where}: unknown rule type {kind!r}{_closest(str(kind), RULE_KEYS)} "
+                                    f"(expected one of {', '.join(sorted(RULE_KEYS))})")
+            _check_keys(spec, f"{kind}_rule", where, _RULE_COMMON + extra)
+    for kind, section in (("relationship", "relationships"), ("competency_question", "competency_questions"),
+                          ("impact_rule", "impact_rules")):
+        for i, spec in enumerate(doc.get(section) or []):
+            _check_keys(spec, kind, f"{section}.{i}")
+            if kind == "impact_rule":
+                for j, apply in enumerate((spec or {}).get("apply") or []):
+                    _check_keys(apply, "impact_apply", f"{section}.{i}.apply.{j}")
+    sc = doc.get("scheduling")
+    if sc:
+        _check_keys(sc, "scheduling", "scheduling")
+        for i, r in enumerate(sc.get("resources") or []):
+            _check_keys(r, "scheduling_resource", f"scheduling.resources.{i}")
+        for i, c in enumerate(sc.get("checks") or []):
+            _check_keys(c, "scheduling_check", f"scheduling.checks.{i}")
+
+
+def json_schema() -> Dict[str, Any]:
+    """A JSON Schema (draft 2020-12) of the keys :func:`check_document` accepts, for editors and CI."""
+    def obj(kind: str, keys: Iterable[str], props: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        return {"type": "object", "properties": {k: (props or {}).get(k, {}) for k in keys},
+                "patternProperties": {"^x-": {}}, "additionalProperties": False}
+
+    def named(ref: str) -> Dict[str, Any]:
+        return {"type": "object", "additionalProperties": {"$ref": f"#/$defs/{ref}"}}
+
+    def listed(ref: str) -> Dict[str, Any]:
+        return {"type": "array", "items": {"$ref": f"#/$defs/{ref}"}}
+
+    attribute = {"oneOf": [{"enum": list(ATTRIBUTE_TYPES)},
+                           obj("attribute", SCHEMA_KEYS["attribute"], {"type": {"enum": list(ATTRIBUTE_TYPES)}})]}
+    attrs = {"attributes": {"type": "object", "additionalProperties": {"$ref": "#/$defs/attribute"}}}
+    defs = {
+        "attribute": attribute,
+        "entity": obj("entity", SCHEMA_KEYS["entity"], attrs),
+        "interface": obj("interface", SCHEMA_KEYS["interface"], attrs),
+        "relationship": obj("relationship", SCHEMA_KEYS["relationship"]),
+        "on_failure": obj("on_failure", SCHEMA_KEYS["on_failure"]),
+        "outcome": obj("outcome", SCHEMA_KEYS["outcome"]),
+        "action": obj("action", SCHEMA_KEYS["action"], {"on_failure": {"$ref": "#/$defs/on_failure"},
+                                                        "outcomes": named("outcome")}),
+        "goal": obj("goal", SCHEMA_KEYS["goal"]),
+        "function": obj("function", SCHEMA_KEYS["function"]),
+        "case_template": obj("case_template", SCHEMA_KEYS["case_template"]),
+        "competency_question": obj("competency_question", SCHEMA_KEYS["competency_question"]),
+        "impact_apply": obj("impact_apply", SCHEMA_KEYS["impact_apply"]),
+        "impact_rule": obj("impact_rule", SCHEMA_KEYS["impact_rule"], {"apply": listed("impact_apply")}),
+        "scheduling_resource": obj("scheduling_resource", SCHEMA_KEYS["scheduling_resource"]),
+        "scheduling_check": obj("scheduling_check", SCHEMA_KEYS["scheduling_check"]),
+        "scheduling": obj("scheduling", SCHEMA_KEYS["scheduling"], {"resources": listed("scheduling_resource"),
+                                                                    "checks": listed("scheduling_check")}),
+        "rule": {"oneOf": [obj(f"{kind}_rule", _RULE_COMMON + extra, {"type": {"const": kind}})
+                           for kind, extra in sorted(RULE_KEYS.items())]},
+    }
+    top = obj("document", SCHEMA_KEYS["document"] + ("$schema",), {
+        "name": {"type": "string"}, "settings": obj("settings", SCHEMA_KEYS["settings"]),
+        "entities": named("entity"), "interfaces": named("interface"), "actions": named("action"),
+        "goals": named("goal"), "functions": named("function"), "case_templates": named("case_template"),
+        "relationships": listed("relationship"), "rules": listed("rule"),
+        "competency_questions": listed("competency_question"), "impact_rules": listed("impact_rule"),
+        "scheduling": {"$ref": "#/$defs/scheduling"}})
+    return {"$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "autology-ontology.schema.json",
+            "title": "Autology ontology", **top, "required": ["name"], "$defs": defs}
+
+
 def _freeze(value: Any) -> Any:
     if isinstance(value, Mapping):
         return MappingProxyType({k: _freeze(v) for k, v in value.items()})
@@ -805,6 +969,7 @@ class Ontology:
 
     @classmethod
     def _from_dict(cls, doc: Mapping[str, Any]) -> "Ontology":
+        check_document(doc)
         # semantic fragmentation: every team's term for a concept resolves to one entity
         aliases: Dict[str, str] = {}
         taken = set(doc.get("entities", {})) | set(doc.get("interfaces") or {})
@@ -1030,6 +1195,10 @@ def load_document(path: str | Path, _stack: Tuple[Path, ...] = ()) -> Dict[str, 
     if path in _stack:
         raise OntologyError(f"circular import: {' -> '.join(p.name for p in _stack + (path,))}")
     doc = _read(path)
+    try:
+        check_document(doc)  # name the file: a typo in a module is reported where it is
+    except OntologyError as exc:
+        raise OntologyError(f"{path.name}: {exc}") from None
     imports = doc.get("imports", [])
     if not imports:
         return doc

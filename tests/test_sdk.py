@@ -50,8 +50,7 @@ class GeneratorTests(unittest.TestCase):
         taken = {"get_run"}
         self.assertEqual(_free("get_run", taken, "_object"), "get_run_object")
         doc = json.loads((EX / "ontology.json").read_text())
-        doc["entities"]["Run"] = {"states": ["open"], "attributes": {"class": "string", "odd-name": "number",
-                                                                      "blob": "json"}}
+        doc["entities"]["Run"] = {"states": ["open"], "attributes": {"class": "string", "odd-name": "number"}}
         onto = Ontology.from_dict(doc)
         helpers = names(onto)
         self.assertIn("get_run_object", helpers["python"])
@@ -60,7 +59,6 @@ class GeneratorTests(unittest.TestCase):
         self.assertIn("runFulfilContract", helpers["typescript"])
         mod = load_module(generate(onto, "python"), "client_collide")
         self.assertIn("odd-name", mod.RunAttributes.__annotations__)  # functional TypedDict for odd keys
-        self.assertIn('"blob"?: Json | null;', generate(onto, "typescript"))
         with self.assertRaises(ValueError):
             generate(onto, "cobol")
 

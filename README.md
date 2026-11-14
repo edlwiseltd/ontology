@@ -264,6 +264,8 @@ The other scenarios: `retail` (no human touch), `sanctioned` (a prohibition bloc
 
 Conditions use a small, sandboxed expression language: `Entity.attr`, literals, comparisons, `in`, `and`/`or`/`not`. Ontology files cannot run code.
 
+**The schema is strict.** A key the loader does not know, at any level, is an error that names its path and the closest valid key (`actions.pay_claim: unknown key 'requries' in action; did you mean 'requires'?`). So is an attribute type other than `string`, `number`, `integer`, `boolean`, `date` or `datetime`. Rule keys depend on the rule type. Keys starting with `x-` are free for your own tooling. [`docs/ontology.schema.json`](docs/ontology.schema.json) is the same schema as JSON Schema, for editors and CI: add `"$schema": "docs/ontology.schema.json"` to an ontology file.
+
 ## Using it from code
 
 ```python

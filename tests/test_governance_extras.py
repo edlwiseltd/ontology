@@ -172,19 +172,19 @@ class CheckpointTests(unittest.TestCase):
         tmp = Path(tempfile.mkdtemp())
         (tmp / "ontology.json").write_text(json.dumps(doc))
         svc = service(ontology=str(tmp / "ontology.json"), automations={}, chat=None)
-        olivia = next(u for u in svc.users if u.name == "olivia")
+        lena = next(u for u in svc.users if u.name == "lena")  # sees every record in K-1's case
         step = iter([{"tool_calls": [{"name": "start_run", "input": {
             "agent": "fulfilment", "goal": "fulfil_contract", "case_template": "contract_case", "root": "K-1",
             "justification": "the model made this up"}}]}, {"text": "You need to give a reason in the inbox."}])
-        GovernedChat(svc, ScriptedChatBackend(lambda m, t: next(step))).send(olivia, "run K-1")
-        pid = svc.list_proposals(olivia)["items"][0]["proposal_id"]
+        GovernedChat(svc, ScriptedChatBackend(lambda m, t: next(step))).send(lena, "run K-1")
+        pid = svc.list_proposals(lena)["items"][0]["proposal_id"]
         self.assertNotIn("justification", svc.store.get_proposal(pid)["body"])  # the model's reason is dropped
         with self.assertRaises(ApiError) as cm:
-            svc.confirm_proposal(olivia, pid, {"confirm": True})  # the person has not given one yet
+            svc.confirm_proposal(lena, pid, {"confirm": True})  # the person has not given one yet
         self.assertEqual(cm.exception.status, 428)
         self.assertEqual(svc.store.list_runs(), [])
         self.assertEqual(svc.store.get_proposal(pid)["status"], "pending")  # can still be confirmed
-        run = svc.confirm_proposal(olivia, pid, {"confirm": True, "justification": "month-end fulfilment"})
+        run = svc.confirm_proposal(lena, pid, {"confirm": True, "justification": "month-end fulfilment"})
         self.assertIn(run["status"], ("completed", "awaiting_review"))
 
 

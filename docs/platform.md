@@ -43,14 +43,14 @@ python -m autology serve server.json --port 8800
 
 Open `http://127.0.0.1:8800` and sign in with the admin token. Start a run from **Start a run** by pasting `case.json` as case data: only admins may hand an agent case data directly. The run pauses because order O-4 is worth more than 50,000. Sign in as Lena, who holds the logistics-manager reviewer role: the review is in her inbox with the rule, the facts and the history. Approve it and the run completes.
 
-Everyone else starts runs from the stored data: Olivia picks the `contract_case` template and an object to start from, such as `K-1`, and the case is assembled from the knowledge graph.
+Everyone else starts runs from the stored data: pick the `contract_case` template and an object to start from, such as `K-1`, and the case is assembled from the knowledge graph. A person may start a run only if they may see every record in its case. Olivia (ops) cannot start one on `K-1`, because its case includes the EU order O-3. Lena (ops and EU ops) can.
 
 The example has four users, each showing a different access level:
 
 | User | Permissions | Data roles | Sees |
 |---|---|---|---|
 | olivia | read, run | ops | 2 of 3 orders: the EU order is hidden; credit limits are redacted |
-| lena | read, review | ops, eu_ops | all orders; can decide logistics reviews |
+| lena | read, run, review | ops, eu_ops | all orders; can start runs on them and decide logistics reviews (never on runs she started) |
 | audrey | read, audit | finance | credit limits; raw audit entries |
 | admin | admin | — | everything; can upload data |
 
@@ -116,7 +116,8 @@ A `row_access` rule hides the records of an entity matching its `when` condition
 
 One policy (`autology/views.py`) decides what a user sees of runs and reviews, and every endpoint and assistant tool uses it:
 
-- **Runs over hidden records are hidden.** If a run's case holds a record the user may not see, the run is absent from their listings, reports and scores, and fetching it returns 404. The person who just started or resumed such a run gets a receipt with its id and status only.
+- **People start and resume runs only on records they may see.** A run built from a case template is refused (403) if its case includes a record the requester may not see. The answer names no hidden record. Otherwise the agent, acting with its own roles, could change records the person cannot reach. Firing an automation by hand follows the same rule: such a firing is `skipped`. Resuming a run the caller may not see returns 404. Automations that fire on their own act with their configured agent's roles and are recorded as `automation:<name>`.
+- **Runs over hidden records are hidden.** If a run's case holds a record the user may not see, the run is absent from their listings, reports and scores, and fetching it returns 404. If someone's access narrows after they started a run, they get a receipt with its id and status only.
 - **Visible runs go through the user's field access.** State fields they may not read are redacted, and checkpoint-gated fields read `"***justification required***"`. Restricted facts are scrubbed from step explanations and escalation details. The message of a step whose action reads or writes a restricted field is withheld.
 - **Reviews are readable only by** admins, holders of one of the review's reviewer roles, and the person who started the run. Each sees the case through their own field access. Anyone else gets 404, and the run summary shows them no review id.
 - **Answers check the fields they use.** A competency question that filters or aggregates on a field the user may not read on some record is refused (403). A checkpoint-gated field needs a `"justification"` in the request.
@@ -287,7 +288,7 @@ People can start the same kind of run from the API: `POST /api/runs` with `{"cas
 | Method and path | Permission | Purpose |
 |---|---|---|
 | `GET /api/automations` | read | Automations with their recent firings and the current status of the runs they started |
-| `POST /api/automations/{name}/run` | run | Fire now: `{"instance": "K-1"}` for one instance, or `{}` for every instance the caller may see where the condition holds. The condition must hold (otherwise the firing is `skipped`), the `start_run` checkpoint applies, and the caller is recorded as the run's starter, so they cannot approve its reviews |
+| `POST /api/automations/{name}/run` | run | Fire now: `{"instance": "K-1"}` for one instance, or `{}` for every instance the caller may see where the condition holds. The condition must hold (otherwise the firing is `skipped`), the `start_run` checkpoint applies, the caller is recorded as the run's starter, so they cannot approve its reviews, and a case that includes records the caller may not see is `skipped` |
 | `GET /api/notifications?since=&limit=` | read | Notifications for the caller's roles, newest first |
 | `POST /api/tick` | admin | Run one scheduler pass now |
 

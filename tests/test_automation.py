@@ -14,6 +14,7 @@ from autology.automation import Automation, Automator, Firing, load_automations
 from autology.expressions import compile_expression
 from autology.graph import Instance, KnowledgeGraph, build_case
 from autology.store import SCHEMA_VERSION, Store
+from autology.server import ApiError
 
 from .test_platform import EX, TOKENS, _Api, service
 
@@ -268,12 +269,14 @@ class ServiceAutomationTests(unittest.TestCase):
         self.assertEqual(self.svc.graph.get("O-9").attributes["status"], "invoiced")
 
     def test_start_run_from_a_case_template(self):
-        olivia = self.users["olivia"]
-        out = self.svc.start_run(olivia, {"case_template": "contract_case", "root": "K-1", "write_back": False})
+        olivia = self.users["olivia"]  # ops only: K-1's case includes the EU order O-3, hidden from her
+        with self.assertRaises(ApiError) as cm:
+            self.svc.start_run(olivia, {"case_template": "contract_case", "root": "K-1"})
+        self.assertEqual(cm.exception.status, 403)
+        out = self.svc.start_run(self.users["lena"], {"case_template": "contract_case", "root": "K-1",
+                                                      "write_back": False})
         self.assertEqual((out["status"], out["case_id"]), ("completed", "K-1"))
         self.assertEqual(self.svc.graph.get("O-3").attributes["status"], "received")  # write_back off
-        from autology.server import ApiError
-
         for body in [{"case_template": "contract_case", "root": "nobody"},
                      {"case_template": "ghost", "root": "K-1"}]:
             with self.subTest(body), self.assertRaises(ApiError):
@@ -300,12 +303,15 @@ class ServiceAutomationTests(unittest.TestCase):
             status, autos, _ = api.call("GET", "/api/automations", "olivia")
             self.assertEqual([a["name"] for a in autos["items"]], ["fulfil_signed_contracts", "large_order_watch"])
             self.assertEqual(api.call("POST", "/api/automations/ghost/run", "olivia", {})[0], 404)
-            self.assertEqual(api.call("POST", "/api/automations/large_order_watch/run", "lena", {})[0], 403)
+            self.assertEqual(api.call("POST", "/api/automations/large_order_watch/run", "audrey", {})[0], 403)
             self.assertEqual(api.call("POST", "/api/automations/large_order_watch/run", "olivia",
                                       {"instance": "O-3"})[0], 404)  # hidden from olivia
             self.assertEqual(api.call("POST", "/api/automations/large_order_watch/run", "olivia",
                                       {"instance": "K-1"})[0], 400)  # not an Order
             status, run, _ = api.call("POST", "/api/automations/fulfil_signed_contracts/run", "olivia",
+                                      {"instance": "K-1"})  # K-1's case includes the EU order hidden from her
+            self.assertEqual((run["firings"][0]["trigger"], run["firings"][0]["status"]), ("manual", "skipped"))
+            status, run, _ = api.call("POST", "/api/automations/fulfil_signed_contracts/run", "lena",
                                       {"instance": "K-1"})
             self.assertEqual(run["firings"][0]["trigger"], "manual")
             status, notes, _ = api.call("GET", "/api/notifications?limit=5", "lena")

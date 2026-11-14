@@ -214,7 +214,7 @@ class ScenarioApiTests(unittest.TestCase):
 
         svc, u = self.svc, self.users
         with self.assertRaises(ApiError) as cm:
-            svc.create_scenario(u["lena"], {"name": "x"})  # needs run permission
+            svc.create_scenario(u["audrey"], {"name": "x"})  # needs run permission
         self.assertEqual(cm.exception.status, 403)
         created = svc.create_scenario(u["olivia"], {"name": "rush", "edits": [NEW_ORDER]})
         sid = created["scenario_id"]

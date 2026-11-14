@@ -77,7 +77,7 @@ Status: ☐ to do · ◐ in progress · ☑ done · ⛔ blocked (decision needed
 | **GOV — Governance cannot be bypassed** | | | |
 | GOV-1 | Manual automation firing respects self-review, the automation's condition and checkpoints (GAP-011) | S | ☑ |
 | GOV-2 | Scenario comparisons never reveal fields the user may not read (GAP-012) | S | ☑ |
-| GOV-3 | A user cannot make an agent act on records they may not see (GAP-013) | M | ☐ |
+| GOV-3 | A user cannot make an agent act on records they may not see (GAP-013) | M | ☑ |
 | GOV-4 | The whole run record is protected by the audit MAC (GAP-014) | M | ☐ |
 | **MOD — The model cannot silently weaken itself** | | | |
 | MOD-1 | Misspelled ontology keys and unknown types are rejected (GAP-016) | M | ☐ |
@@ -220,7 +220,7 @@ and keeps coverage ≥ 95%.
 
 ## 10. Decisions needed
 
-D1 deployment model · D2 store (SQLite vs PostgreSQL) · D3 encryption at rest · D4 / GOV-3 semantics · D5 licence
+D1 deployment model · D2 store (SQLite vs PostgreSQL) · D3 encryption at rest · D4 / GOV-3 semantics (applied with the default in GOV-3: refuse cases with hidden records; still open: whether user-started runs should also act with the intersection of the requester's and the agent's roles) · D5 licence
 (blocks LEG-1) · D6 first pilot and Odoo access · D7 supported AI providers · `openpyxl` allowed as an optional
 dependency (XL-1).
 

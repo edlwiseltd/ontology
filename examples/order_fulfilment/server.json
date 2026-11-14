@@ -8,7 +8,7 @@
   },
   "users": [
     {"name": "olivia", "token_env": "AUTOLOGY_TOKEN_OLIVIA", "permissions": ["read", "run"], "roles": ["ops"]},
-    {"name": "lena", "token_env": "AUTOLOGY_TOKEN_LENA", "permissions": ["read", "review"],
+    {"name": "lena", "token_env": "AUTOLOGY_TOKEN_LENA", "permissions": ["read", "run", "review"],
      "roles": ["ops", "eu_ops"], "reviewer_roles": ["logistics_manager"]},
     {"name": "audrey", "token_env": "AUTOLOGY_TOKEN_AUDREY", "permissions": ["read", "audit"], "roles": ["finance"]},
     {"name": "admin", "token_env": "AUTOLOGY_TOKEN_ADMIN", "permissions": ["admin"]}

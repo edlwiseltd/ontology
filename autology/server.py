@@ -687,12 +687,14 @@ class AutologyService:
 
         return _Hold()
 
-    def _fire(self, auto: Automation, inst: Instance, trigger: str, starter: Optional[str] = None) -> Firing:
+    def _fire(self, auto: Automation, inst: Instance, trigger: str, starter: Optional[User] = None) -> Firing:
+        """Fire an automation on a record. With ``starter`` (a person firing it by hand) the run is theirs: they
+        are its starter and it may act only on records they may see. Otherwise it runs as the automation."""
         firing = Firing(auto.name, inst.id, trigger)
         if auto.run:
             cfg = self.agents[auto.run["agent"]]
             template = auto.run["case_template"]
-            who = starter or f"automation:{auto.name}"  # a person firing it by hand is the run's starter
+            who = starter.name if starter else f"automation:{auto.name}"
             try:
                 hold = self._exclusive(inst.id, who)
                 hold.__enter__()
@@ -703,6 +705,11 @@ class AutologyService:
             try:
                 with self.graph_lock:
                     case, sources = build_case(self.graph, template, inst.id)
+                    if starter is not None and self._case_hides_records(sources, starter):
+                        firing.status = "skipped"
+                        firing.detail = (f"the case for {inst.id} includes records you may not see; ask someone "
+                                         "who may see all of them to start this run")
+                        return firing
                     base = snapshot(self.graph, sources)
                 with cfg.lock:
                     result = cfg.agent.run(auto.run["goal"], case, f"{auto.name}:{inst.id}", started_by=who)
@@ -964,7 +971,7 @@ class AutologyService:
                             body.get("justification"), goal=auto.run["goal"])
         try:
             firings = self.automator.run_now(name, instance, allow=lambda i: self.visible(i, user),
-                                             starter=user.name)
+                                             starter=user)
         except KeyError:
             raise ApiError(400, f"{instance!r} is not a {self.automations[name].entity}") from None
         return {"firings": [f.as_dict() for f in firings]}
@@ -983,6 +990,11 @@ class AutologyService:
                 continue  # don't leak hidden rows through notification text
             items.append(note)
         return {"items": items}
+
+    def _case_hides_records(self, sources: Dict[str, Any], user: User) -> bool:
+        """Does a case built from the graph include a record the user may not see (audit GAP-013)?"""
+        ids = [i for src in sources.values() for i in (src if isinstance(src, list) else [src])]
+        return any(i in self.graph._instances and not self.visible(self.graph._instances[i], user) for i in ids)
 
     def start_run(self, user: User, body: Dict[str, Any]) -> Dict[str, Any]:
         self.require(user, "run")
@@ -1006,6 +1018,9 @@ class AutologyService:
                     case, found = build_case(self.graph, body["case_template"], root)
                 except OntologyError as exc:
                     raise ApiError(400, str(exc)) from None
+                if self._case_hides_records(found, user):  # the agent must not reach what the requester can't
+                    raise ApiError(403, f"the case for {root} includes records you may not see; ask someone who "
+                                        "may see all of them to start this run")
                 base = snapshot(self.graph, found)  # what the case read: write-back compares against it
             sources = (body["case_template"], root, found, body.get("write_back", True) is not False, base)
         else:
@@ -1073,6 +1088,8 @@ class AutologyService:
                    justification: Optional[str] = None) -> Dict[str, Any]:
         self.require(user, "run")
         cfg = self._agent_for(run_id)
+        if "admin" not in user.permissions and not self.views.can_see_run(user, self.store.load_run(run_id)):
+            raise ApiError(404, f"no run {run_id!r}")  # resuming would act on records the caller may not see
         self.checkpoint(user, "resume_run", run_id, justification)
         with cfg.lock:
             result = self.store.load_run(run_id)

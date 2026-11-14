@@ -52,7 +52,7 @@ class ChatTests(unittest.TestCase):
         self.assertIn("what_if", names["olivia"])
         self.assertNotIn("list_reviews", names["olivia"])
         self.assertIn("list_reviews", names["lena"])
-        self.assertNotIn("start_run", names["lena"])
+        self.assertNotIn("start_run", names["audrey"])
         self.assertNotIn("what_if", names["audrey"])
         for tools in names.values():
             self.assertNotIn("decide_review", tools)  # people decide reviews, never the assistant
@@ -99,11 +99,11 @@ class ChatTests(unittest.TestCase):
                             {"name": "fly", "input": {}},
                             {"name": "get_object", "input": {}}]},
             {"text": "Run completed; the scenario changes O-1."})
-        reply = chat.send(self.users["olivia"], "Fulfil K-1 and try a price change")
+        reply = chat.send(self.users["lena"], "Fulfil K-1 and try a price change")
         self.assertEqual([c["ok"] for c in reply.tool_calls], [True, True, False, False])
         self.assertEqual(self.svc.store.list_runs(), [])  # proposed, not started
-        pid = self.svc.list_proposals(self.users["olivia"])["items"][0]["proposal_id"]
-        run = self.svc.confirm_proposal(self.users["olivia"], pid, {"confirm": True})  # the person confirms
+        pid = self.svc.list_proposals(self.users["lena"])["items"][0]["proposal_id"]
+        run = self.svc.confirm_proposal(self.users["lena"], pid, {"confirm": True})  # the person confirms
         self.assertEqual(self.svc.store.load_run(run["run_id"]).status, "completed")
         self.assertEqual(self.svc.graph.get("O-3").attributes["status"], "invoiced")  # written back
         self.assertEqual(len(self.svc.store.list_scenarios("open")), 1)  # simulated, never committed

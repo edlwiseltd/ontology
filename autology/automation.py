@@ -227,12 +227,12 @@ class Automator:
             return fired + (self.on_change(ids) if ids else [])
 
     def run_now(self, name: str, instance: Optional[str] = None, allow: Optional[Callable[[Instance], bool]] = None,
-                starter: Optional[str] = None) -> List[Firing]:
+                starter: Optional[Any] = None) -> List[Firing]:
         """Fire an automation by hand: for one instance, or for every instance where it holds.
 
         The automation's condition must hold, as for automatic firing (a firing on an instance where it does not
         is recorded as ``skipped``). ``allow`` limits the instances to those the caller may see, and ``starter``
-        is the person firing it, who is recorded as the run's starter (so they cannot approve its reviews)."""
+        is the person (a ``User``) firing it, who is recorded as the run's starter (so they cannot approve its reviews)."""
         auto = self.automations[name]
         now = self.clock()
         candidates = [i for i in self.instances(auto.entity) if (i.id == instance if instance else True)]
@@ -270,7 +270,7 @@ class Automator:
                 self.store.set_automation_state(auto.name, inst.id, False)
         return fired
 
-    def _fire(self, auto: Automation, inst: Instance, trigger: str, now: float, starter: Optional[str] = None) -> Firing:
+    def _fire(self, auto: Automation, inst: Instance, trigger: str, now: float, starter: Optional[Any] = None) -> Firing:
         """Fire once. A firing that raises is not done: it stays armed and is retried after
         ``retry_seconds``, up to ``max_retries`` attempts; then the automation gives up on that instance."""
         import logging

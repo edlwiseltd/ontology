@@ -1,6 +1,6 @@
 # Autology — current state and gaps
 
-*Updated 14 November 2026, revision after Phase 1 (see [implementation log](AUTOLOGY_IMPLEMENTATION_LOG.md)).
+*Updated 14 November 2026 at the R1 close-out (earlier revision: after Phase 1 (see [implementation log](AUTOLOGY_IMPLEMENTATION_LOG.md)).
 Builds on the independent audit of 13 November ([`../audit/`](../audit/README.md)); every claim below cites code,
 tests or audit evidence.*
 
@@ -44,17 +44,16 @@ Status values: **Verified** (code + passing tests, some with real external syste
 | Studio (§9) | **Missing** | — |
 | Workspace end-user UI (§9) | **Partial** | The Console: conversation, commands, reviews, configuration; not generated per use case |
 
-## 3. Known defects still open (from the audit)
+## 3. Known defects
 
-Critical: GAP-001 to GAP-007 (external action safety). High: GAP-009 (stale data after review), GAP-010
-(unchecked tool output types), GAP-016 (typos accepted in ontologies), GAP-017 (missing entity treated as
-existing), GAP-018 (stale in-memory graph), GAP-031 (no licence). Fixed since the audit: GAP-008, GAP-015, and
-GAP-011 to GAP-014 (stories GOV-1 to GOV-4, see the [implementation log](AUTOLOGY_IMPLEMENTATION_LOG.md)). The
-suite now has 472 tests.
+See the [defect register](AUTOLOGY_DEFECT_REGISTER.md) (all 57 audit gaps with their current status). After R1:
+every Critical gap is fixed; of the High gaps, GAP-009 and GAP-018 keep a lower-risk residual, GAP-031 waits for
+legal sign-off, and GAP-032, 052 and 053 need an ERP sandbox, model API access and a customer pilot. The suite has
+548 tests.
 
 ## 4. Scores
 
 | Assessment | Value | Basis |
 |---|---|---|
-| (A) Platform/engine product maturity | **Last measured 47/100** (audit, 13 Nov). Not re-measured after this increment | Two audit gaps closed and the workspace foundation added; a re-audit is needed before quoting a new number |
-| (B) Use case / workspace readiness | **Not yet measurable** | The use-case scorecard of the instructions (§10) is not implemented yet |
+| (A) Platform/engine product maturity | **≈ 65 / 100, self-assessed after R1**; **47 / 100 last independently verified** (audit, 13 Nov) | [R1 close-out](AUTOLOGY_R1_CLOSEOUT.md) §6, same method as the audit; a re-audit is needed before quoting it as verified |
+| (B) Use case / workspace readiness | **Not yet measurable** | The use-case scorecard (REL-3) is an R2 story |

@@ -4,7 +4,7 @@
 |---|---|
 | Version | 1.1 — 14 November 2026 (owner decisions D1, D4–D7 and Excel recorded) |
 | Owner | Product owner (Autology) |
-| Status | Approved for R1 delivery. No production deployment is authorised. Full Studio work starts only after the R1 safety and isolation gates pass |
+| Status | R1 delivered ([close-out](AUTOLOGY_R1_CLOSEOUT.md)); R1 safety and isolation gates met in the repository. R2 planned. No production deployment is authorised |
 | Related | [current state](AUTOLOGY_CURRENT_STATE_AND_GAPS.md) · [architecture](AUTOLOGY_TARGET_ARCHITECTURE.md) · [requirements catalogue](AUTOLOGY_PRODUCT_REQUIREMENTS.md) · [security](AUTOLOGY_SECURITY_AND_TENANCY.md) · [readiness](AUTOLOGY_READINESS_AND_RELEASE_GATES.md) · [audit](../audit/README.md) |
 
 ## 1. Product vision
@@ -101,23 +101,44 @@ Status: ☐ to do · ◐ in progress · ☑ done · ⛔ blocked (decision needed
 
 ### R2 — Studio foundation
 
+Detailed plan, acceptance criteria and estimates: [AUTOLOGY_R2_PLAN.md](AUTOLOGY_R2_PLAN.md).
+
 | ID | Story | Size | Status |
 |---|---|---|---|
-| API-1 | OpenAPI 3.1 contract generated from the routes, with contract tests | M | ☐ |
+| **R2.0 — Prerequisites** | | | |
+| API-1 | OpenAPI 3.1 contract generated from one route table, with contract tests | M | ☐ |
 | API-2 | Versioned `/api/v1` paths and a deprecation policy | S | ☐ |
-| ADM-1 | Workspace administration API (members, grants, use cases) with approval and audit | L | ☐ |
-| REL-1 | Immutable use-case releases (Draft → Simulation → Pilot → Production) | L | ☐ |
+| ARC-0 | Split the service into services behind the route table (GAP-026) | L | ☐ |
+| MIG-1 | Ordered migrations in one transaction (GAP-041) | S | ☐ |
+| QA-1 | mypy, ruff and pip-audit in CI; pinned constraints (GAP-025, GAP-040) | S | ☐ |
+| AI-1 | Provider-neutral model adapter contract, validated with at least two adapters (D7) | M | ☐ |
+| UI-1 | Review inbox moved out of the engine process | S | ☐ |
+| **A — Dynamic workspaces and releases** | | | |
+| ADM-1 | Workspace administration API; grants active only after a second administrator approves | L | ☐ |
+| ADM-2 | Changes apply without restart; revocation immediate | S | ☐ |
+| REL-1 | Immutable use-case releases (Draft → Simulation → Pilot → Production), runs pinned to the fingerprint (GAP-020) | L | ☐ |
 | REL-2 | Promotion refused server-side when a hard gate fails, whatever the score | M | ☐ |
 | REL-3 | Use-case readiness scorecard with evidence and blockers | L | ☐ |
-| ARC-1 | Business brief → provisional draft ontology, validated | L | ☐ |
-| ARC-2 | Provenance label on every model element | M | ☐ |
+| REL-4 | Semantic diff covers every section (GAP-028) | S | ☐ |
+| **B — AI Solution Architect** | | | |
+| ARC-1 | Business brief → provisional draft ontology, validated, in a draft release | L | ☐ |
+| ARC-2 | Provenance label on every model element, with lineage | M | ☐ |
 | ARC-3 | Next questions generated from the model's gaps | M | ☐ |
-| XL-1 | Excel template pack generated from the ontology and open questions | L | ☐ |
-| XL-2 | Upload: safe parse, validation, row-level errors, diff preview | L | ☐ |
-| XL-3 | Confirmed, transactional commit with provenance and rescoring | M | ☐ |
-| UI-1 | Review inbox moved out of the engine process | S | ☐ |
-| AI-1 | Provider-neutral model adapter contract, validated with at least two adapters (D7) | M | ☐ |
-| STU-1 | Studio application shell (workspace selector, use-case catalog) on the public API | L | ☐ |
+| ARC-4 | Reconcile answers and documents; contradictions block promotion | M | ☐ |
+| BP-1 | Oil & Gas upstream and pharma blueprints (moved from R4: the R2 exit needs them) | M | ☐ |
+| SEC-A | Prompt-injection and data-boundary tests for briefs and documents (GAP-045) | S | ☐ |
+| **C — Excel Template Factory** | | | |
+| XL-1 | Template pack generated from the ontology and open questions | L | ☐ |
+| XL-2 | Upload: quarantine, safe parse, validation, row-level errors | L | ☐ |
+| XL-3 | Preview, confirmed transactional commit, provenance, rescoring | M | ☐ |
+| XL-4 | First templates: employees and roles; assets and equipment | S | ☐ |
+| **D — Studio (separate application)** | | | |
+| STU-1 | Shell: sign-in, workspace selector, use-case catalogue on the public API | L | ☐ |
+| STU-2 | Architect panel and provisional model view | L | ☐ |
+| STU-3 | Questions and missing-evidence queue | S | ☐ |
+| STU-4 | Template centre | M | ☐ |
+| STU-5 | Readiness and blockers dashboard | S | ☐ |
+| STU-6 | Releases, promotion approvals, rollback | S | ☐ |
 
 ### R3 — Integrations and runtime UI
 
@@ -139,7 +160,6 @@ Status: ☐ to do · ◐ in progress · ☑ done · ⛔ blocked (decision needed
 | OPS-1 | Restore drill in CI with measured recovery time | S | ☐ |
 | OPS-2 | Load test with agreed targets | M | ☐ |
 | OPS-3 | PostgreSQL store (if D2 requires it) | L | ☐ |
-| BP-1 | Oil & Gas upstream and pharma blueprints | M | ☐ |
 | SEC-1 | External penetration test and fixes | — | ☐ |
 
 ## 8. Story details (R1)
@@ -233,6 +253,8 @@ and keeps coverage ≥ 95%.
 | D6 | Prepare an Odoo 18 Enterprise sandbox integration. No production ERP writes until the external action safety requirements pass | ACT-1–6 (R1) gate INT-2/INT-3 (R3), which target the sandbox only |
 | D7 | Preserve provider independence; validate at least two model adapters | AI-1 (R2) |
 | Excel | `openpyxl` approved as a dependency, subject to dependency security and licence checks | XL-1 (R2); checked in LEG-1's licence inventory |
+| D8 | (audit) Actions without a declared side effect are non-idempotent | Applied in ACT-3: `side_effect` defaults to `non_idempotent` |
+| D9–D11 | *Open*: Studio technology, model providers and data residency for briefs, second approver for small customers | See the [R2 plan](AUTOLOGY_R2_PLAN.md) §6 |
 
 ## 11. Working agreement
 

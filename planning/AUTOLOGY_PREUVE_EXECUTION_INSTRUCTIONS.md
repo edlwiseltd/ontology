@@ -1,5 +1,7 @@
 # Preuve d'exécution — instructions maîtresses du 14 novembre 2026
 
+> **Mise à jour :** la release R1 est terminée depuis ce document ; voir [AUTOLOGY_R1_CLOSEOUT.md](AUTOLOGY_R1_CLOSEOUT.md) pour les preuves à jour.
+
 *Établi le 14 novembre 2026 sur la branche `claude/autology-ontology-agent-4ajjer`, commit `e69f06d`.
 Document : `AUTOLOGY_CLAUDE_CODE_MASTER_INSTRUCTIONS_2026-11-14.md` (186 lignes, MD5 `c1efa262f6c1c59219ab02a39f162f00`).*
 

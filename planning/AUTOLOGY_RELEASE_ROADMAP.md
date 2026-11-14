@@ -47,7 +47,7 @@ finish execution gates, release governance, workspace administration and the API
 
 | ID | Story | Why first | Acceptance | Est. |
 |---|---|---|---|---|
-| API-1 | OpenAPI 3.1 contract generated from one route table, with contract tests | Studio and third parties build against it | Every route in the table; a test fails if a route and the contract differ | 3 d |
+| API-1 | OpenAPI 3.1 contract generated from one route table, with contract tests | Studio and third parties build against it | Every route in the table; a test fails if a route and the contract differ | 3 d — **partly done 14 Nov**: route table and contract tests both ways; body schemas remain |
 | API-2 | `/api/v1` paths, deprecation policy, version header | UIs upgrade independently | Old paths answer with a deprecation header for one release | 1 d |
 | ARC-0 | Split `AutologyService` into services behind the route table (GAP-026) | The new services (admin, releases, architect, imports) would otherwise grow the god object | No behaviour change: the full suite passes unchanged | 5–8 d |
 | MIG-1 | Ordered migrations in one transaction (GAP-041) | R2 adds several tables | An interrupted migration leaves the old schema intact | 1 d |

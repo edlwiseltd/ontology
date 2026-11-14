@@ -2130,6 +2130,10 @@ class ApiExchange:
                 return self._send(200, (STATIC / name).read_bytes(), ctype)
             if path == "/api/health":
                 return self._send(200, service.health())
+            if path == "/api/openapi.json" and method == "GET":  # the API contract (API-1): no data, no token
+                from .openapi import spec
+
+                return self._send(200, spec())
             if not path.startswith("/api/"):
                 raise ApiError(404, "not found")
             if path == "/api/auth/config" and method == "GET":  # what the inbox needs to offer SSO sign-in

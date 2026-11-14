@@ -192,6 +192,17 @@ provider when `oidc` is configured: see [`integrations.md`](integrations.md)), e
 
 | Method and path | Permission | Purpose |
 |---|---|---|
+| `GET /api/health` | any | Liveness, stage and integrity summary (no token needed) |
+| `GET /api/openapi.json` | any | The API contract, OpenAPI 3.1 (no token needed; `autology/openapi.py`) |
+| `GET /api/auth/config` | any | What a sign-in page needs to offer company sign-in (no token needed) |
+| `POST /api/auth/token` | any | Exchange a company sign-in code for a token (no token needed) |
+| `GET /api/justifications` | audit | Reasons people gave at checkpoints |
+| `GET /api/audit-heads` | audit | The head of every run's audit chain |
+| `GET /api/runs/{id}/trace` | audit | A run as an OpenTelemetry trace |
+| `GET /api/runs/{id}/outcomes` | read | Recorded outcomes of a run |
+| `POST /api/runs/{id}/outcomes` | review | Record a decision's outcome |
+| `GET /api/outcomes` | read | Outcomes summary |
+| `GET /api/sdk/{language}` | read | A typed client for this ontology (`python`, `typescript`) |
 | `GET /api/me` | any | Who am I, with permissions and roles |
 | `GET /api/ontology` | read | Entities, actions, goals, rules, questions, agents |
 | `GET /api/objects?type=&limit=&offset=` | read | Objects, row- and field-filtered for the caller |

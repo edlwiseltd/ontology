@@ -378,7 +378,7 @@ function fillSide() {
   $("side-entities").replaceChildren(...Object.keys(o.entities).map((n) => el("li", {},
     el("button", { type: "button", onclick: () => run(`/objects ${n}`) }, n))));
   $("side-goals").replaceChildren(...Object.entries(o.goals).map(([n, g]) => el("li", {}, el("strong", {}, n), " — ", g.description || g.target)));
-  $("side-reviews").hidden = !can("review");
+  $("side-reviews").closest("section").hidden = !can("review");
   updateAssistantNote();
 }
 
@@ -393,6 +393,82 @@ async function refreshReviews() {
   try { $("review-count").textContent = (await api("GET", "reviews?status=pending")).items.length; } catch (e) { /* ignore */ }
 }
 
+// -- configuration (administrators): the engine's Claude assistant -------------------------------------------
+function selectTab(name) {
+  const config = name === "config";
+  $("tab-talk").setAttribute("aria-selected", String(!config));
+  $("tab-config").setAttribute("aria-selected", String(config));
+  $("config").hidden = !config;
+  $("thread").hidden = config;
+  $("composer").hidden = config;
+  if (config) loadConfig();
+  else $("message").focus();
+}
+
+function note(text, kind) { return el("div", { class: "note " + (kind || ""), role: "status" }, text); }
+
+async function loadConfig(message) {
+  const panel = $("config");
+  let cfg;
+  try { cfg = await api("GET", "settings/assistant"); }
+  catch (err) { panel.replaceChildren(errorCard(err)); return; }
+  S.assistant = cfg.enabled && !cfg.custom_backend ? true : (cfg.custom_backend ? S.assistant : false);
+  updateAssistantNote();
+
+  const enabled = el("input", { type: "checkbox", id: "cfg-enabled" });
+  enabled.checked = cfg.enabled;
+  const model = el("select", { id: "cfg-model" }, cfg.models.map((m) => el("option", { value: m }, m)));
+  model.value = cfg.model;
+  const effort = el("select", { id: "cfg-effort" }, cfg.efforts.map((m) => el("option", { value: m }, m)));
+  effort.value = cfg.effort;
+  const key = el("input", { type: "password", id: "cfg-key", autocomplete: "off", spellcheck: "false",
+    placeholder: cfg.key.set ? "Leave empty to keep the current key" : "sk-ant-api…" });
+  const remember = el("input", { type: "checkbox", id: "cfg-remember" });
+  remember.checked = cfg.key.set ? cfg.key.remembered : true;
+  const result = el("div");
+
+  const save = async (extra) => {
+    const body = { enabled: enabled.checked, model: model.value, effort: effort.value, remember: remember.checked, ...extra };
+    if (key.value.trim()) body.api_key = key.value.trim();
+    try {
+      await api("POST", "settings/assistant", body);
+      key.value = "";  // never keep the key in the page
+      loadConfig(note(extra && extra.clear_key ? "Key removed." : "Saved. The assistant uses these settings from the next message.", "ok"));
+    } catch (err) { result.replaceChildren(note(err.message, "bad")); }
+  };
+  const test = async () => {
+    result.replaceChildren(note("Checking with Claude…"));
+    try {
+      const out = await api("POST", "settings/assistant/test");
+      result.replaceChildren(out.ok ? note(`Connected: ${out.name || out.model} is available to this key.`, "ok")
+                                    : note(out.error, "bad"));
+    } catch (err) { result.replaceChildren(note(err.message, "bad")); }
+  };
+
+  const status = cfg.custom_backend ? "Custom backend set in the engine's config file (not changeable here)."
+    : cfg.enabled ? `On: ${cfg.model}, ${cfg.effort} effort.` : "Off: plain language is matched to the ontology instead.";
+  const keyStatus = cfg.key.set ? `Key set (${cfg.key.hint}), ${cfg.key.source}.` : `Key: ${cfg.key.source}.`;
+  panel.replaceChildren(
+    message || "",
+    card("Claude (AI assistant)",
+      el("p", {}, status), el("p", { class: "why" }, keyStatus),
+      cfg.custom_backend ? null : el("form", { id: "cfg-form", onsubmit: (e) => { e.preventDefault(); save(); } },
+        el("label", { class: "check" }, enabled, "Let people talk to the engine in their own words through Claude"),
+        el("div", { class: "row" }, el("label", { for: "cfg-model" }, "Model"), model),
+        el("div", { class: "row" }, el("label", { for: "cfg-effort" }, "Effort"), effort),
+        el("div", { class: "row" }, el("label", { for: "cfg-key" }, "Claude API key"), key),
+        el("label", { class: "check" }, remember, "Remember the key on the engine's computer"),
+        el("div", { class: "actions" },
+          el("button", { type: "submit", class: "primary" }, "Save"),
+          el("button", { type: "button", onclick: test }, "Test connection"),
+          cfg.key.set ? el("button", { type: "button", class: "bad", onclick: () => save({ clear_key: true }) }, "Remove key") : null),
+        result)),
+    card("About the key",
+      el("p", {}, "Create a key at console.anthropic.com → API Keys. Usage is billed to that Anthropic account (separate from a Claude.ai chat subscription)."),
+      el("p", {}, "The key is sent to the engine and kept there: in memory, and in a file readable only by the engine's user account if you tick “Remember”. It is never stored in the browser, never shown again in full and never written to the engine's database."),
+      el("p", { class: "why" }, "Without a key here, the engine uses ANTHROPIC_API_KEY or an `ant auth login` sign-in on its computer, if it has one. Only administrators see this tab.")));
+}
+
 // -- sign-in (API token, or company account via the engine's OpenID Connect) ------------------------------------
 function readToken() { try { return sessionStorage.getItem(TOKEN_KEY); } catch (e) { return S.token; } }
 function saveToken(t) {
@@ -405,6 +481,7 @@ function signOut(message) {
   S.me = null; S.chatId = null; S.assistant = null;
   $("thread").replaceChildren();
   $("app").hidden = true; $("who").hidden = true; $("signin").hidden = false;
+  $("config").replaceChildren();
   if (message) $("signin-note").textContent = message;
 }
 
@@ -421,6 +498,8 @@ async function enter() {
   $("who-name").textContent = `${S.me.name} · ${S.me.permissions.join(", ")}`;
   fillSide();
   refreshReviews();
+  $("tab-config").hidden = !S.me.permissions.includes("admin");
+  selectTab("talk");
   reply(card(`Connected to ${S.ontology.ref}`,
     el("p", {}, "Ask a question in your own words, pick one on the left, or type ", el("code", {}, "/"), " for commands."),
     el("div", { class: "actions" }, cmdButton("What can I say?", "/help"), cmdButton("What does it know?", "/ontology"),
@@ -482,6 +561,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     enter();
   });
   $("sign-out").addEventListener("click", () => signOut());
+  $("tab-talk").addEventListener("click", () => selectTab("talk"));
+  $("tab-config").addEventListener("click", () => selectTab("config"));
   $("side-reviews").addEventListener("click", () => run("/reviews"));
   $("composer").addEventListener("submit", (e) => {
     e.preventDefault();

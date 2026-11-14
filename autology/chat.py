@@ -109,8 +109,9 @@ class AnthropicChatBackend:
     the server-side refusal fallback on models that support it."""
 
     def __init__(self, client: Any = None, model: str = "claude-opus-5-5", effort: str = "medium",
-                 max_tokens: int = 16000):
+                 max_tokens: int = 16000, client_factory: Optional[Callable[[], Any]] = None):
         self._client = client  # created on first use, so a server starts without the SDK or credentials
+        self._factory = client_factory
         self.model = model
         self.effort = effort
         self.max_tokens = max_tokens
@@ -118,9 +119,12 @@ class AnthropicChatBackend:
     @property
     def client(self) -> Any:
         if self._client is None:
-            import anthropic
+            if self._factory is not None:
+                self._client = self._factory()
+            else:
+                import anthropic
 
-            self._client = anthropic.Anthropic()
+                self._client = anthropic.Anthropic()
         return self._client
 
     def turn(self, system: str, messages: List[Dict[str, Any]], tools: List[Dict[str, Any]]) -> ChatTurn:

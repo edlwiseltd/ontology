@@ -100,3 +100,19 @@ code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-
   .thread { padding: 14px; }
   .composer { padding: 10px 14px 14px; }
 }
+
+.tabs { display: flex; gap: 4px; padding: 8px 28px 0; border-bottom: 1px solid var(--line); background: var(--panel); }
+.tabs button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; padding: 8px 14px; }
+.tabs button[aria-selected="true"] { border-bottom-color: var(--accent); color: var(--accent); font-weight: 600; }
+.config { flex: 1; overflow-y: auto; padding: 20px 28px; }
+.config .card { max-width: 720px; margin-bottom: 16px; }
+.config .row { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 10px; align-items: center; margin: 10px 0; }
+.config .row label { margin: 0; }
+.config select { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line);
+                 border-radius: 8px; padding: 7px 10px; }
+.config .check { display: flex; gap: 8px; align-items: center; font-weight: 400; margin: 10px 0; }
+.config .check input { width: auto; }
+.note { padding: 8px 12px; border-radius: 8px; margin-top: 10px; border: 1px solid var(--line); }
+.note.ok { border-color: var(--good); color: var(--good); }
+.note.bad { border-color: var(--bad); color: var(--bad); }
+@media (max-width: 760px) { .config .row { grid-template-columns: 1fr; } .tabs, .config { padding-left: 14px; padding-right: 14px; } }

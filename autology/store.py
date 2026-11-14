@@ -580,6 +580,16 @@ class Store:
             db.execute("UPDATE proposals SET status=?, run_id=?, decided_at=? WHERE proposal_id=?",
                        (status, run_id, _now() if status != "pending" else None, pid))
 
+    # -- small settings (non-secret) -------------------------------------------
+    def get_meta(self, key: str) -> Optional[Any]:
+        rows = self._query("SELECT value FROM meta WHERE key=?", ("setting:" + key,))
+        return json.loads(rows[0]["value"]) if rows else None
+
+    def set_meta(self, key: str, value: Any) -> None:
+        with self._tx() as db:
+            db.execute("INSERT INTO meta VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                       ("setting:" + key, json.dumps(value)))
+
     # -- ingestion ---------------------------------------------------------
     def ingest_watermarks(self, pipeline: str) -> Dict[str, str]:
         return {r["source"]: r["watermark"]

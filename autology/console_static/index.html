@@ -59,6 +59,11 @@
     </aside>
 
     <main class="talk">
+      <nav class="tabs" role="tablist" aria-label="Console sections">
+        <button type="button" role="tab" id="tab-talk" aria-selected="true" aria-controls="thread">Conversation</button>
+        <button type="button" role="tab" id="tab-config" aria-selected="false" aria-controls="config" hidden>Configuration</button>
+      </nav>
+      <section id="config" class="config" hidden aria-label="Configuration"></section>
       <div id="thread" class="thread" role="log" aria-live="polite" aria-label="Conversation with the engine"></div>
       <form id="composer" class="composer">
         <div id="hints" class="hints" hidden></div>

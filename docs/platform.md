@@ -184,6 +184,8 @@ provider when `oidc` is configured: see [`integrations.md`](integrations.md)), e
 | `GET /api/ingest-batches/{id}` | ingest | One load, with its quarantined rows |
 | `GET /api/metrics` | audit | Operational metrics in the Prometheus text format (counts only) |
 | `POST /api/reporting` | admin | Rewrite the governed reporting database for BI tools |
+| `GET /api/settings/assistant` · `POST /api/settings/assistant` | admin | The Claude assistant's settings: on/off, model, effort, key (write-only; only its last four characters are ever returned) |
+| `POST /api/settings/assistant/test` | admin | Check the key and model with Claude (a model lookup: no tokens spent) |
 
 **Permissions:**
 

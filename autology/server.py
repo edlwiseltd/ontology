@@ -233,8 +233,13 @@ class AutologyService:
         self.chat_redact_fields = set(redact.get("fields", []))
         for ref in self.chat_redact_fields:
             self.ontology._check_field(ref, "chat_redact")
-        backend = load_backend(config.get("chat"), (str(base),))
-        self.chat = GovernedChat(self, backend) if backend else None
+        self._chat_spec = dict(config.get("chat") or {})
+        self._chat_search = (str(base),)
+        from .settings import AssistantSettings
+
+        self.assistant_settings = AssistantSettings(self.store, config.get("chat"))
+        self.chat: Optional[GovernedChat] = None
+        self._apply_assistant()
 
     @classmethod
     def from_file(cls, path: str, store: Optional[str] = None,
@@ -673,6 +678,69 @@ class AutologyService:
         if every and (self._last_report is None or time.monotonic() - self._last_report >= float(every)):
             out["reporting"] = self.refresh_reporting()["rows"]
         return out
+
+    # -- assistant settings (the Console's Configuration tab) ---------------------------------
+    def _apply_assistant(self) -> None:
+        from .chat import AnthropicChatBackend, GovernedChat, load_backend
+
+        cfg = self.assistant_settings
+        if cfg.custom_backend:  # a scripted or third-party backend from the config file
+            backend = load_backend(self._chat_spec, self._chat_search)
+        elif cfg.enabled:
+            backend = AnthropicChatBackend(model=cfg.model, effort=cfg.effort, max_tokens=cfg.max_tokens,
+                                           client_factory=cfg.client_factory())
+        else:
+            backend = None
+        self.chat = GovernedChat(self, backend) if backend else None
+
+    def assistant_view(self, user: User) -> Dict[str, Any]:
+        self.require(user, "admin")
+        return self.assistant_settings.view()
+
+    def update_assistant(self, user: User, body: Dict[str, Any]) -> Dict[str, Any]:
+        from .settings import SettingsError
+
+        self.require(user, "admin")
+        try:
+            self.assistant_settings.update(body)
+        except SettingsError as exc:
+            raise ApiError(400, str(exc)) from None
+        except OSError as exc:  # the secrets file could not be written
+            raise ApiError(500, f"could not save the key: {exc.strerror or exc}") from None
+        self._apply_assistant()
+        changed = sorted(k for k in body if k != "api_key") + (["api_key"] if body.get("api_key") else [])
+        self.log_access(user, "settings.assistant", ",".join(changed) or "-", 200)  # never the key itself
+        return self.assistant_settings.view()
+
+    def test_assistant(self, user: User) -> Dict[str, Any]:
+        """Check the key and model with Claude without spending tokens (a model lookup)."""
+        self.require(user, "admin")
+        cfg = self.assistant_settings
+        try:
+            import anthropic
+        except ImportError:
+            return {"ok": False, "error": "the anthropic package is not installed where the engine runs "
+                                          "(pip install anthropic)"}
+        try:
+            model = cfg.client_factory()().models.retrieve(cfg.model)
+        except anthropic.AuthenticationError:
+            return {"ok": False, "error": "Claude rejected the key: check it in console.anthropic.com"}
+        except anthropic.PermissionDeniedError:
+            return {"ok": False, "error": "the key is valid but not allowed to use this model or workspace"}
+        except anthropic.NotFoundError:
+            return {"ok": False, "error": f"{cfg.model} is not available to this key"}
+        except anthropic.APIConnectionError:
+            return {"ok": False, "error": "the engine cannot reach Claude (internet connection or proxy)"}
+        except anthropic.APIStatusError as exc:
+            return {"ok": False, "error": f"Claude answered {exc.status_code}"}
+        except Exception as exc:  # e.g. no credentials at all
+            from .chat import NO_CREDENTIALS
+
+            text = str(exc).lower()
+            return {"ok": False, "error": NO_CREDENTIALS if "authentication" in text or "api_key" in text
+                    else type(exc).__name__}
+        return {"ok": True, "model": getattr(model, "id", cfg.model),
+                "name": getattr(model, "display_name", None)}
 
     # -- reporting and metrics ---------------------------------------------------------
     def refresh_reporting(self) -> Dict[str, Any]:
@@ -1469,6 +1537,12 @@ def _handler(service: AutologyService):
                     if parts[1] not in GENERATORS:
                         raise ApiError(404, f"no client for {parts[1]!r}; available: {sorted(GENERATORS)}")
                     return self._send(200, GENERATORS[parts[1]](service.ontology), "text/plain")
+                if parts == ["settings", "assistant"]:
+                    if method == "POST":
+                        return self._send(200, service.update_assistant(user, body))
+                    return self._send(200, service.assistant_view(user))
+                if parts == ["settings", "assistant", "test"] and method == "POST":
+                    return self._send(200, service.test_assistant(user))
                 if method == "GET" and parts == ["metrics"]:
                     return self._send(200, service.metrics(user), "text/plain; version=0.0.4")
                 if method == "GET" and parts == ["report"]:

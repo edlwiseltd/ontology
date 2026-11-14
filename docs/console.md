@@ -17,8 +17,24 @@ service next to the engine on `http://127.0.0.1:8900`.
 
 ## Connecting Claude (the AI assistant)
 
-Without an assistant, the console matches what people type to the ontology's questions, objects and goals. To
-let people talk to the engine in their own words, start the engine with Claude switched on:
+Without an assistant, the console matches what people type to the ontology's questions, objects and goals.
+
+**From the Console (administrators):** sign in with an admin account and open the **Configuration** tab. Tick
+*Let people talk to the engine in their own words through Claude*, choose the model and effort, paste a Claude API
+key (console.anthropic.com → API Keys), and **Save**. **Test connection** checks the key and model with Claude
+without spending tokens. Changes apply from the next message; no restart.
+
+- The key goes to the engine, which is what talks to Claude. It is kept in the engine's memory and, with
+  *Remember* ticked, in a per-user file on the engine's computer, readable only by that account
+  (`%APPDATA%\Autology\secrets.json` on Windows, `~/.config/autology/secrets.json` elsewhere, or
+  `AUTOLOGY_SECRETS_FILE`). It is never stored in the browser, never shown again in full (only its last four
+  characters), never written to the engine's database or backups, and never written to the access log, which
+  records only that the settings changed and by whom.
+- Model, effort and on/off are saved in the engine's store and take precedence over the config file's `chat`
+  section and `--assistant`.
+- When the console and the engine are on different machines, put both behind HTTPS before entering a key.
+
+**From the command line:** start the engine with Claude switched on:
 
 ```bash
 python -m autology serve examples/auto_insurance/server.json --assistant              # Claude Opus 5.5, medium effort
@@ -53,6 +69,7 @@ deployment marks as confidential are withheld from Claude.
 | `/runs` · `/explain <run id>` | Recent runs; one run step by step, with the rules behind each decision and who approved what |
 | `/reviews` | Decisions waiting for you, with the facts and rules behind them; approve or decline in place |
 | `/proposals` | Runs the assistant proposed, to confirm or decline |
+| **Configuration** tab (administrators) | Switch the Claude assistant on or off, choose model and effort, enter or remove the key, test the connection |
 | `/outcomes` · `/ontology` · `/help` · `/clear` | Outcome analysis; what the engine knows; the command list; a fresh conversation |
 
 Any id in an answer is clickable. The left side lists the questions the engine can answer and the types it knows

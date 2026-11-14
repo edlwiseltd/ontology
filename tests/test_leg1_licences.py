@@ -100,6 +100,31 @@ class LicenceTests(unittest.TestCase):
                 if PACKAGES[name]["family"] != "permissive":
                     self.assertTrue(PACKAGES[name].get("review"), f"{name} needs a recorded legal-review note")
 
+    def test_the_image_is_pinned_and_every_pin_is_inventoried(self):
+        """GAP-031/GAP-040: what the image ships does not depend on the day it is built."""
+        dockerfile = (ROOT / "Dockerfile").read_text()
+        self.assertIn("ARG EXTRAS=llm,postgres", dockerfile)  # the default image is unchanged
+        self.assertIn("pip install -c constraints.txt", dockerfile)
+        pins = {}
+        for line in (ROOT / "deploy" / "image-constraints.txt").read_text().splitlines():
+            if line and not line.startswith("#"):
+                name, _, version = line.partition("==")
+                self.assertTrue(version, f"{line}: an exact version is required")
+                pins[norm(name)] = version
+        self.assertIn("psycopg", pins)
+        for name in pins:
+            self.assertIn(name, PACKAGES, f"{name} is pinned for the image but not inventoried")
+            self.assertTrue(PACKAGES[name]["shipped"].startswith("Docker image"),
+                            f"{name} is in the image: its inventory entry must say so")
+        for name, meta in PACKAGES.items():
+            if meta["shipped"].startswith("Docker image"):
+                self.assertIn(name, pins, f"{name} is marked as shipped in the image but is not pinned")
+
+    def test_the_legal_review_inputs_exist(self):
+        self.assertIn("[LEGAL ENTITY NAME", (ROOT / "LICENSE").read_text())  # still open: counsel decides
+        os_list = (ROOT / "deploy" / "image-os-packages.txt").read_text().splitlines()
+        self.assertGreater(len([line for line in os_list if line and not line.startswith("#")]), 50)
+
     def test_the_notices_list_every_inventoried_component(self):
         notices = (ROOT / "THIRD_PARTY_NOTICES.md").read_text()
         for name in PACKAGES:

@@ -23,14 +23,14 @@
       "licence": "LGPL-3.0-only",
       "family": "weak-copyleft",
       "use": "optional extra 'postgres': SQL pipelines and the reporting database",
-      "shipped": "Docker image",
+      "shipped": "Docker image (default build; not in the EXTRAS=llm build)",
       "review": "LGPL obligations for a bundled, unmodified library: keep its licence text in the image and allow it to be replaced. Confirm with counsel before distributing the image"
     },
     "psycopg-binary": {
       "licence": "LGPL-3.0-only",
       "family": "weak-copyleft",
       "use": "binary build of psycopg (bundles libpq, PostgreSQL licence)",
-      "shipped": "Docker image",
+      "shipped": "Docker image (default build; not in the EXTRAS=llm build)",
       "review": "as psycopg; libpq is under the PostgreSQL licence (permissive)"
     },
     "pyyaml": {
@@ -103,14 +103,14 @@
       "licence": "MPL-2.0",
       "family": "weak-copyleft",
       "use": "dependency of anthropic (httpx): CA bundle",
-      "shipped": "Docker image",
+      "shipped": "not in the pinned image (deploy/image-constraints.txt); other dependency resolutions install it",
       "review": "MPL-2.0 file-level copyleft; used unmodified"
     },
     "distro": {
       "licence": "Apache-2.0",
       "family": "permissive",
       "use": "dependency of anthropic",
-      "shipped": "Docker image"
+      "shipped": "not in the pinned image (deploy/image-constraints.txt); other dependency resolutions install it"
     },
     "docstring-parser": {
       "licence": "MIT",
@@ -128,13 +128,13 @@
       "licence": "BSD-3-Clause",
       "family": "permissive",
       "use": "dependency of anthropic (httpx)",
-      "shipped": "Docker image"
+      "shipped": "not in the pinned image (deploy/image-constraints.txt); other dependency resolutions install it"
     },
     "httpx": {
       "licence": "BSD-3-Clause",
       "family": "permissive",
       "use": "dependency of anthropic",
-      "shipped": "Docker image"
+      "shipped": "not in the pinned image (deploy/image-constraints.txt); other dependency resolutions install it"
     },
     "httpcore2": {
       "licence": "BSD-3-Clause",
@@ -200,36 +200,36 @@
       "licence": "Apache-2.0",
       "family": "permissive",
       "use": "dependency of psycopg on some platforms",
-      "shipped": "Docker image"
+      "shipped": "not in the pinned image (deploy/image-constraints.txt); other dependency resolutions install it"
     },
     "absl-py": {
       "licence": "Apache-2.0",
       "family": "permissive",
-      "use": "CI only: dependency of ortools",
+      "use": "dependency of anthropic (in the image) and of ortools (CI)",
       "shipped": "no"
     },
     "immutabledict": {
       "licence": "MIT",
       "family": "permissive",
-      "use": "CI only: dependency of ortools",
+      "use": "dependency of anthropic (in the image) and of ortools (CI)",
       "shipped": "no"
     },
     "numpy": {
       "licence": "BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0",
       "family": "permissive",
-      "use": "CI only: dependency of ortools",
+      "use": "dependency of anthropic (in the image) and of ortools (CI)",
       "shipped": "no"
     },
     "pandas": {
       "licence": "BSD-3-Clause",
       "family": "permissive",
-      "use": "CI only: dependency of ortools",
+      "use": "dependency of anthropic (in the image) and of ortools (CI)",
       "shipped": "no"
     },
     "protobuf": {
       "licence": "BSD-3-Clause",
       "family": "permissive",
-      "use": "CI only: dependency of ortools",
+      "use": "dependency of anthropic (in the image) and of ortools (CI)",
       "shipped": "no"
     },
     "python-dateutil": {
@@ -247,8 +247,8 @@
     "opentelemetry-api": {
       "licence": "Apache-2.0",
       "family": "permissive",
-      "use": "CI only: dependency of ortools",
-      "shipped": "no"
+      "use": "dependency of anthropic (in the image) and of ortools (CI)",
+      "shipped": "Docker image"
     },
     "importlib-metadata": {
       "licence": "Apache-2.0",
@@ -296,7 +296,7 @@
       "licence": "MIT",
       "family": "permissive",
       "use": "dependency of anyio on Python < 3.11",
-      "shipped": "Docker image (older Pythons)"
+      "shipped": "not in the pinned image (deploy/image-constraints.txt); other dependency resolutions install it"
     },
     "backports-zoneinfo": {
       "licence": "Apache-2.0",

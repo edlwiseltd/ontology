@@ -35,6 +35,7 @@ unrestricted external access.*
 | D15 | Production ERP writes after the sandbox (R4) | Pending, not authorised | Separate decision per customer and system, after sandbox evidence | Production writes stay disabled |
 | D16 | Real customer pilot and data | Pending | One process, test or staging system first | Gates 90.4 and 95.5 cannot be passed without it |
 | D17 | Which systems each stage may call (execution gates, R2 increment 1) | **Applied default**, owner confirmation pending | Simulation: simulated only; pilot: simulated and sandbox; production systems: no stage (follows D15) | Changing it widens or narrows what a pilot may reach |
+| D19 | Licensing decisions L1–L5 for GAP-031 (legal entity, licence text, LGPL driver in the default image, Debian base packages, dependency policy) | **Pending: counsel and owner** | See [GAP-031 package](AUTOLOGY_PARTIAL_GAPS_CLARIFICATION.md#gap-031--no-licence-redistribution-terms-undefined-high-blocks-customer-use); for L3, an image without the driver already builds and is checked in CI | No package or image may be distributed to a customer |
 | D18 | Whether draft and simulation may ingest real data through pipelines | **Applied default: yes (reads only)**, owner confirmation pending | Allow reads; no effect leaves through tools; revisit with D10/D16 for personal data | Restricting it would require sample data for design and simulation |
 
 ## 3. Evaluation: `openpyxl` (for decision XL)

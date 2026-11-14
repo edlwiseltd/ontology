@@ -65,20 +65,41 @@ scheduled with OPS-3 (PostgreSQL) instead; the gap then stays open with that dec
 
 ## GAP-031 — No licence; redistribution terms undefined (High, blocks customer use)
 
-| Part | Status | Evidence |
+**Status: engineering part done (Increment C); legal part open. GAP-031 stays Partly fixed.** Customer
+distribution of any package or image stays prohibited until the written decisions below are recorded. Internal
+engineering may continue. Nothing here is a legal conclusion: it is the factual input counsel asked for.
+
+### What engineering verified (Increment C, 14 November 2026)
+
+| Item | Finding | Evidence |
 |---|---|---|
-| Licence file and package metadata (proprietary, D5) | **Done (engineering)** | LEG-1, `6a23ff5`; `LICENSE`, `pyproject.toml` |
-| Third-party notices and a machine-readable inventory checked in CI | **Done** | `THIRD_PARTY_NOTICES.md`, `deploy/third_party_licences.json`, `tests/test_leg1_licences.py` |
-| Legal review of the licence text, name of the legal entity | **Not done (external: counsel)** | `LICENSE` leaves the entity and final text to the IP review |
-| LGPL-3.0 (`psycopg`, `psycopg-binary`) and MPL-2.0 (`certifi`) components shipped in the Docker image | **Not done (external: counsel)** | `THIRD_PARTY_NOTICES.md` rows marked "Confirm with counsel before distributing the image" |
+| The wheel (`pip install autology`) | No runtime dependency; extras are optional | `pyproject.toml` (`dependencies = []`) |
+| Python packages in the default image (`EXTRAS=llm,postgres`) | 18 third-party packages; all permissive except **`psycopg` and `psycopg-binary` (LGPL-3.0-only)**. `psycopg-binary` bundles `libpq` (PostgreSQL licence, permissive) | Built and listed on 14 Nov; CI re-checks every build (`deploy/image_licences.py`) |
+| MPL-2.0 `certifi` | **Not in the image any more**: the current `anthropic` resolution no longer installs it. Earlier builds contained it | same |
+| Reproducibility | The image's Python packages were unpinned, so its contents (and licences) depended on the build date. **Now pinned** in `deploy/image-constraints.txt`; CI fails if the built image differs from the pins or contains an uninventoried or forbidden component | `tests/test_leg1_licences.py`, CI step "Licences of what the image really contains" |
+| Image without the LGPL driver | `docker build --build-arg EXTRAS=llm` builds an image with **no weak-copyleft Python component**; it passes the full smoke test. It loses SQL pipelines and the PostgreSQL reporting target only | Built and smoke-tested locally on 14 Nov; CI builds, checks (`--no-weak-copyleft`) and smoke-tests it on every push |
+| Engine-only image | `--build-arg EXTRAS=` installs no third-party Python package (no assistant, no SQL pipelines) | `pip --dry-run` report: 1 package (Autology) |
+| Base image | `python:3.13-slim`: CPython (PSF) and **87 Debian packages**, among them GPL-2/GPL-3 tools and LGPL-2.1 libraries (for example glibc), each with its licence in `/usr/share/doc/<package>/copyright` | `deploy/image-os-packages.txt` (generated from the built image) |
+| Licence file | `LICENSE` is proprietary with the legal entity left as a placeholder | `LICENSE` |
 
-**Closure criteria (all required).**
-- C1: counsel's written sign-off on the licence text is recorded in the [decision register](AUTOLOGY_DECISION_REGISTER.md) (D5), with the
-  legal entity's name, and `LICENSE` updated accordingly.
-- C2: a recorded decision on the LGPL/MPL components in the image: either counsel confirms the obligations and
-  how they are met, or the default image is built without the optional PostgreSQL extra. That is a product and
-  legal choice; engineering can build either image.
-- C3: `tests/test_leg1_licences.py` passes with the final texts.
+Obligations commonly associated with these licences, **to be confirmed by counsel** (not concluded here):
+LGPL-3.0 for a bundled, unmodified library: provide the licence text and notices, and let the recipient replace
+the library with a modified version; MPL-2.0 (only if `certifi` returns): file-level, keep notices and make the
+source of the covered files available; GPL/LGPL Debian packages in a container image: whether shipping the base
+image is "mere aggregation" and which source offers are needed.
 
-Engineering cannot close GAP-031 alone. Until C1 and C2 are met, no image or package may be distributed to a
-customer.
+### Decisions only the owner and counsel can take
+
+| # | Exact question | Alternatives | Consequences | Recommended default (engineering) |
+|---|---|---|---|---|
+| L1 | Who is the copyright holder and licensor named in `LICENSE`? | The operating company; a holding entity | Contracts and notices name it | — (owner) |
+| L2 | Is the proprietary licence text in `LICENSE` final? | Keep as is; counsel's EULA; per-customer agreements only | Every package and image carries it | Counsel's text |
+| L3 | May the default image ship the LGPL `psycopg` driver? | (a) Yes, with the obligations counsel lists; (b) default image without it (`EXTRAS=llm`), PostgreSQL as a documented add-on the customer installs; (c) a separate PostgreSQL image | (b) removes the only weak-copyleft Python component from the default image; PostgreSQL features need the add-on | (b) until counsel answers, **if the owner agrees** (it changes what customers get by default) |
+| L4 | How are the base image's Debian packages handled? | Distribute the image with source offers; let customers build the image from the Dockerfile; another base image | Affects every image distribution | Counsel |
+| L5 | Is a written dependency-licence policy (allowed / review / forbidden families, already in `deploy/third_party_licences.json`) approved? | Approve; amend | CI enforces it on every build | Approve as written |
+
+### Closure criteria (all required; unchanged in substance)
+
+- C1: counsel's written sign-off on the licence text and the legal entity recorded in the decision register (L1, L2), `LICENSE` updated.
+- C2: written decisions on L3 and L4, applied to the Dockerfile and the notices.
+- C3: `tests/test_leg1_licences.py` and the CI image licence checks pass with the final texts and the chosen image.

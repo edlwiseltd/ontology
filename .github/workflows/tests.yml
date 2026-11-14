@@ -85,6 +85,18 @@ jobs:
       - name: Smoke-test the image
         run: deploy/smoke_test.sh autology:ci
 
+      - name: Licences of what the image really contains (GAP-031)
+        run: |
+          docker run --rm -i --entrypoint python autology:ci - < deploy/image_licences.py > /tmp/installed.json
+          python deploy/image_licences.py check /tmp/installed.json
+
+      - name: Image without the LGPL PostgreSQL driver builds, contains no weak copyleft and passes the smoke test
+        run: |
+          docker build --build-arg EXTRAS=llm -t autology:ci-no-postgres .
+          docker run --rm -i --entrypoint python autology:ci-no-postgres - < deploy/image_licences.py > /tmp/installed-no-postgres.json
+          python deploy/image_licences.py check /tmp/installed-no-postgres.json --no-weak-copyleft
+          SMOKE_PORT=18801 deploy/smoke_test.sh autology:ci-no-postgres
+
       - name: Compose file is valid
         run: |
           cp deploy/.env.example deploy/.env

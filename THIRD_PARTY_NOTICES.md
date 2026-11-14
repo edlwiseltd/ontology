@@ -10,40 +10,40 @@ there with the licence its own metadata states, and that none is under a licence
 
 | Component | Licence | Used for | Shipped in | Review |
 |---|---|---|---|---|
-| absl-py | Apache-2.0 | CI only: dependency of ortools | no |  |
+| absl-py | Apache-2.0 | dependency of anthropic (in the image) and of ortools (CI) | no |  |
 | annotated-types | MIT | dependency of anthropic (pydantic) | Docker image |  |
 | anthropic | Apache-2.0 | optional extra 'llm': the Claude model client (assistant, model reasoners) | Docker image |  |
 | anyio | MIT | dependency of anthropic | Docker image |  |
 | backports-zoneinfo | Apache-2.0 | dependency of psycopg on old Pythons | no |  |
 | build | MIT | CI and release: wheel build | no |  |
-| certifi | MPL-2.0 | dependency of anthropic (httpx): CA bundle | Docker image | MPL-2.0 file-level copyleft; used unmodified |
+| certifi | MPL-2.0 | dependency of anthropic (httpx): CA bundle | not in the pinned image (deploy/image-constraints.txt); other dependency resolutions install it | MPL-2.0 file-level copyleft; used unmodified |
 | cffi | MIT-0 | CI only: dependency of cryptography | no |  |
 | colorama | BSD-3-Clause | CI and release: dependency of build | no |  |
 | coverage | Apache-2.0 | CI only: coverage gate | no |  |
 | cryptography | Apache-2.0 OR BSD-3-Clause | CI only: interoperability test of the built-in RSA signature check | no |  |
-| distro | Apache-2.0 | dependency of anthropic | Docker image |  |
+| distro | Apache-2.0 | dependency of anthropic | not in the pinned image (deploy/image-constraints.txt); other dependency resolutions install it |  |
 | docstring-parser | MIT | dependency of anthropic | Docker image |  |
 | et-xmlfile | MIT | dependency of openpyxl | not yet |  |
-| exceptiongroup | MIT | dependency of anyio on Python < 3.11 | Docker image (older Pythons) |  |
+| exceptiongroup | MIT | dependency of anyio on Python < 3.11 | not in the pinned image (deploy/image-constraints.txt); other dependency resolutions install it |  |
 | h11 | MIT | dependency of anthropic (httpx) | Docker image |  |
-| httpcore | BSD-3-Clause | dependency of anthropic (httpx) | Docker image |  |
+| httpcore | BSD-3-Clause | dependency of anthropic (httpx) | not in the pinned image (deploy/image-constraints.txt); other dependency resolutions install it |  |
 | httpcore2 | BSD-3-Clause | dependency of anthropic (some versions) | Docker image |  |
-| httpx | BSD-3-Clause | dependency of anthropic | Docker image |  |
+| httpx | BSD-3-Clause | dependency of anthropic | not in the pinned image (deploy/image-constraints.txt); other dependency resolutions install it |  |
 | httpx2 | BSD-3-Clause | dependency of anthropic (some versions) | Docker image |  |
 | idna | BSD-3-Clause | dependency of anthropic (httpx) | Docker image |  |
-| immutabledict | MIT | CI only: dependency of ortools | no |  |
+| immutabledict | MIT | dependency of anthropic (in the image) and of ortools (CI) | no |  |
 | importlib-metadata | Apache-2.0 | CI only: dependency of opentelemetry-api on some versions | no |  |
 | isodate | BSD-3-Clause | CI only: dependency of rdflib on some versions | no |  |
 | jiter | MIT | dependency of anthropic | Docker image |  |
-| numpy | BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0 | CI only: dependency of ortools | no |  |
+| numpy | BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0 | dependency of anthropic (in the image) and of ortools (CI) | no |  |
 | openpyxl | MIT | approved for the Excel template factory (XL-1, R2); not used yet | not yet |  |
-| opentelemetry-api | Apache-2.0 | CI only: dependency of ortools | no |  |
+| opentelemetry-api | Apache-2.0 | dependency of anthropic (in the image) and of ortools (CI) | Docker image |  |
 | ortools | Apache-2.0 | CI only: the scheduling example's CP-SAT solver tests | no |  |
 | packaging | Apache-2.0 OR BSD-2-Clause | CI and release: dependency of build | no |  |
-| pandas | BSD-3-Clause | CI only: dependency of ortools | no |  |
-| protobuf | BSD-3-Clause | CI only: dependency of ortools | no |  |
-| psycopg | LGPL-3.0-only | optional extra 'postgres': SQL pipelines and the reporting database | Docker image | LGPL obligations for a bundled, unmodified library: keep its licence text in the image and allow it to be replaced. Confirm with counsel before distributing the image |
-| psycopg-binary | LGPL-3.0-only | binary build of psycopg (bundles libpq, PostgreSQL licence) | Docker image | as psycopg; libpq is under the PostgreSQL licence (permissive) |
+| pandas | BSD-3-Clause | dependency of anthropic (in the image) and of ortools (CI) | no |  |
+| protobuf | BSD-3-Clause | dependency of anthropic (in the image) and of ortools (CI) | no |  |
+| psycopg | LGPL-3.0-only | optional extra 'postgres': SQL pipelines and the reporting database | Docker image (default build; not in the EXTRAS=llm build) | LGPL obligations for a bundled, unmodified library: keep its licence text in the image and allow it to be replaced. Confirm with counsel before distributing the image |
+| psycopg-binary | LGPL-3.0-only | binary build of psycopg (bundles libpq, PostgreSQL licence) | Docker image (default build; not in the EXTRAS=llm build) | as psycopg; libpq is under the PostgreSQL licence (permissive) |
 | pycparser | BSD-3-Clause | CI only: dependency of cffi | no |  |
 | pydantic | MIT | dependency of anthropic | Docker image |  |
 | pydantic-core | MIT | dependency of anthropic | Docker image |  |
@@ -60,7 +60,7 @@ there with the licence its own metadata states, and that none is under a licence
 | truststore | MIT | dependency of anthropic (some versions) | Docker image |  |
 | typing-extensions | PSF-2.0 | dependency of anthropic, psycopg | Docker image |  |
 | typing-inspection | MIT | dependency of anthropic (pydantic) | Docker image |  |
-| tzdata | Apache-2.0 | dependency of psycopg on some platforms | Docker image |  |
+| tzdata | Apache-2.0 | dependency of psycopg on some platforms | not in the pinned image (deploy/image-constraints.txt); other dependency resolutions install it |  |
 | zipp | MIT | CI only: dependency of importlib-metadata | no |  |
 
 **Not Python packages.**
@@ -68,5 +68,8 @@ there with the licence its own metadata states, and that none is under a licence
 - **python:3.13-slim (Docker base image)**: Debian packages under their own licences and CPython under the PSF licence; review the image's /usr/share/doc/*/copyright before distributing it
 - **Console and inbox (autology/static, autology/console_static)**: own code, no third-party JavaScript or CSS
 
-**Open for the legal review:** the LGPL-3.0 PostgreSQL driver bundled in the Docker image, MPL-2.0 `certifi`, the
-Debian packages of the base image, and the final licence text and legal entity in `LICENSE`.
+**Open for the legal review:** the LGPL-3.0 PostgreSQL driver bundled in the default Docker image (an image built
+with `--build-arg EXTRAS=llm` leaves it out; CI builds and checks both), MPL-2.0 `certifi` if a future dependency
+resolution brings it back (the pinned image, `deploy/image-constraints.txt`, does not contain it), the Debian
+packages of the base image (listed in `deploy/image-os-packages.txt`), and the final licence text and legal entity
+in `LICENSE`. Customer distribution stays prohibited until counsel's written decisions are recorded.

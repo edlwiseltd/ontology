@@ -49,7 +49,7 @@ GAP-032 (ERP connector), GAP-052 (real models) and GAP-053 (real process) need e
 | GAP-028 | Semantic diff ignores impact rules, scheduling, question contents, settings, descriptions | Med | **Open** |  | R2: needed by REL-1 (release diffs) |
 | GAP-029 | Anthropic adapter lets non-API exceptions escape; chat contract vendor-shaped; one provider adapter | Med | **Partly fixed** |  | Adapter boundary unchanged; second provider adapter is R2 AI-1 (D7) |
 | GAP-030 | API tokens never expire or rotate without restart; no rate limiting or lockout | Med | **Open** |  | R3: token expiry, rotation, rate limiting |
-| GAP-031 | No licence; redistribution terms undefined | High (blocks any customer use) | **Partly fixed** | LEG-1 · `6a23ff5` | `tests/test_leg1_licences.py`. Open: legal sign-off, legal entity, LGPL psycopg in the image |
+| GAP-031 | No licence; redistribution terms undefined | High (blocks any customer use) | **Partly fixed** (engineering done; legal open) | LEG-1 · `6a23ff5`; Increment C (see log) | `tests/test_leg1_licences.py`; CI checks the licences of what each built image contains; image pinned (`deploy/image-constraints.txt`); an image without the LGPL driver builds and passes the smoke test; base-image packages listed. **Open (legal):** decisions L1–L5 (D19). Customer distribution prohibited until recorded |
 | GAP-032 | No ERP connector (Odoo or other) | High for target market | **Open** |  | R3 INT-2/INT-3 on an Odoo 18 sandbox (D6), now possible since ACT-1–6 pass |
 | GAP-033 | Restore never exercised; no scheduled backups | Med | **Open** |  | R4 OPS-1 restore drill in CI |
 | GAP-034 | No encryption at rest for the store | Med (customer-dependent) | **Open (owner decision)** |  | D3 still open |

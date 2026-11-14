@@ -438,7 +438,8 @@ class AutologyService:
 
     def object_view(self, inst: Instance, user: User, justified: bool = False) -> Dict[str, Any]:
         attrs = {attr: self.field_value(inst, attr, user, justified) for attr in inst.attributes}
-        out = {"id": inst.id, "type": inst.type, "attributes": attrs}
+        out = {"id": inst.id, "type": inst.type, "attributes": attrs,
+               "revision": self.revisions.get(inst.id, 0)}  # send it back as expected_revision to avoid lost updates
         computed = {}
         for fn in self.ontology.functions.values():
             if fn.entity != inst.type or {e for e, _ in fn.expr.references} - {inst.type}:
@@ -559,7 +560,19 @@ class AutologyService:
         self.checkpoint(user, "upsert_object", str(iid), body.get("justification"), entity=etype)
         from .store import ABSENT, RecordConflict
 
+        expected_by_client = body.get("expected_revision")
+        if expected_by_client is not None and (isinstance(expected_by_client, bool)
+                                               or not isinstance(expected_by_client, int) or expected_by_client < 0):
+            raise ApiError(400, "expected_revision must be a non-negative integer (0: the record must not exist yet)")
         with self.graph_lock:
+            if expected_by_client is not None and self.revisions.get(iid, 0) != expected_by_client:
+                # the client read an older revision: refuse, and give it the current one (no lost update)
+                current = self.graph._instances.get(iid)
+                raise ApiError(409, f"{iid} was changed since you read it (revision {self.revisions.get(iid, 0)}, "
+                                    f"you sent {expected_by_client}); nothing was written",
+                               {"record": iid, "revision": self.revisions.get(iid, 0),
+                                "current": self.object_view(current, user) if current is not None and
+                                self.visible(current, user) else None})
             candidate = KnowledgeGraph(self.ontology)
             try:
                 inst = candidate.add(etype, iid, **attrs)  # validates type, attributes and state
@@ -2021,13 +2034,22 @@ class AutologyService:
         self.require(user, "admin")
         row, scenario = self._load_scenario(sid, user, write=True)
         self.checkpoint(user, "commit_scenario", sid, (body or {}).get("justification"))
+        from .store import ABSENT, RecordConflict
+
         with self.graph_lock:
-            try:
-                written = scenario.commit(self.graph, self.store)
+            try:  # one transaction over the revisions this process holds (GAP-018); live changes only after it
+                written = scenario.commit(self.graph, self.store, expected={
+                    iid: self.revisions.get(iid, ABSENT) for iid in list(scenario.diff()["added"])
+                    + list(scenario.diff()["changed"])})
             except ConflictError as exc:
                 raise ApiError(409, str(exc)) from None
             except OntologyError as exc:
                 raise ApiError(409, f"cannot commit: {exc}") from None
+            except RecordConflict as exc:
+                self._record_conflict(exc)
+                raise ApiError(409, f"{exc}; nothing was committed", {"record": exc.iid, "tampered": exc.tampered}) \
+                    from None
+            self.revisions.update(self.store.instance_revisions(written))
         self.store.save_scenario(sid, row["name"], row["created_by"], scenario.edits, scenario.snapshot, "committed")
         fired = self._changed(written)
         return {"scenario_id": sid, "status": "committed", "written": written,

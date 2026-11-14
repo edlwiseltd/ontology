@@ -35,7 +35,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 from .governance import GovernanceLayer, Principal, Verdict
-from .graph import KnowledgeGraph, build_case, fork, snapshot, write_back
+from .graph import Instance, KnowledgeGraph, build_case, fork, snapshot, write_back
 from .ontology import ID, OntologyError
 from .planner import Planner, SearchBudgetExceeded
 from .state import WorldState, ground
@@ -291,35 +291,51 @@ class Scenario:
                 "on_hold": dict(problem.on_hold), "late_jobs": sorted(late),
                 "total_tardiness": sum(late.values()), "solver": sched.solver}
 
-    def commit(self, live: Optional[KnowledgeGraph] = None, store: Any = None) -> List[str]:
-        """Apply the scenario's net changes to ``live`` (default: the graph it was forked from) and ``store``.
-
-        Raises :class:`ConflictError` if live values the scenario changes have moved since it read them.
-        Returns the ids of instances written.
-        """
-        live = live or self.base
+    def plan_commit(self, live: KnowledgeGraph) -> Tuple[Dict[str, Instance], List[Tuple[str, str, str]]]:
+        """The records and links committing would write, validated on a copy of ``live`` (nothing changes).
+        Raises :class:`ConflictError` if live values the scenario changes have moved since it read them, and
+        :class:`OntologyError` if the result would not be valid."""
         conflicts = self.conflicts(live)
         if conflicts:
             raise ConflictError(conflicts)
         d = self.diff()
-        written = []
+        trial = fork(live)
+        records: Dict[str, Instance] = {}
         for iid in d["added"]:
             inst = self.graph.get(iid)
-            live.add(inst.type, iid, **{k: v for k, v in inst.attributes.items()})
-            written.append(iid)
+            records[iid] = trial.add(inst.type, iid, **dict(inst.attributes))
         for iid, delta in d["changed"].items():
-            live.get(iid).attributes.update({a: v[1] for a, v in delta.items()})
-            written.append(iid)
-        for s, k, t in self._links:
-            if (s, k, t) not in live._links:
-                live.link(s, k, t)
+            base = trial.get(iid)
+            records[iid] = KnowledgeGraph(live.ontology).add(base.type, iid, **{**base.attributes,
+                                                                             **{a: v[1] for a, v in delta.items()}})
+            trial._instances[iid] = records[iid]
+        links = [tuple(l) for l in self._links if tuple(l) not in live._links]
+        for s, k, t in links:
+            trial.link(s, k, t)
+        return records, links
+
+    def commit(self, live: Optional[KnowledgeGraph] = None, store: Any = None,
+               expected: Optional[Dict[str, Any]] = None) -> List[str]:
+        """Apply the scenario's net changes to ``live`` (default: the graph it was forked from) and ``store``.
+
+        Everything is validated first; the store is written in one transaction (with ``expected`` revisions, a
+        stale or tampered record refuses the whole commit), and ``live`` changes only after that succeeded.
+        Raises :class:`ConflictError` if live values the scenario changes have moved since it read them.
+        Returns the ids of instances written.
+        """
+        live = live or self.base
+        records, links = self.plan_commit(live)
         if store is not None:
-            for iid in written:
-                inst = live.get(iid)
-                store.upsert_instance(inst.type, iid, inst.attributes)
-            for s, k, t in self._links:
-                store.add_link(s, k, t)
-        return written
+            from .store import ANY_REVISION
+
+            store.write_records([(iid, inst.type, inst.attributes,
+                                  expected.get(iid) if expected is not None else ANY_REVISION)
+                                 for iid, inst in records.items()], links)
+        for iid, inst in records.items():
+            live._instances[iid] = Instance(inst.type, iid, dict(inst.attributes))
+        for s, k, t in links:
+            live.link(s, k, t)
+        return list(records)
 
     def as_dict(self) -> Dict[str, Any]:
         return {"name": self.name, "edits": self.edits, "results": self.results, "diff": self.diff()}

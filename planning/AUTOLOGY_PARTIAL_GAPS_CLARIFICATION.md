@@ -38,6 +38,8 @@ Estimated effort: about 1 day. Proposed as a small increment after the execution
 
 ## GAP-018 — The server's graph is never refreshed from the store (High)
 
+> **Update (directive 02, re-verification):** the Increment B claim that C1 was met was premature: `POST /api/scenarios/{id}/commit` still wrote records with no revision or seal check, record by record. Fixed, with an interrupted-migration defect and an API lost-update defect found at the same time (`tests/test_gap018_directive02.py`). C1 (every write path revision- and seal-checked: API objects with optional client `expected_revision`, run write-back, ingestion, scenario commits), C2 (MCP through the platform, no second writer) and C3 (MOD-4 and ISO-1 tests green) are now met.
+>
 > **Update (Increment B):** C1–C3 met; GAP-018 is now **Fixed** in the repository. Limits that remain: detection, not prevention, of direct database writes; in the engine's demo mode (no audit key) seals are plain hashes and detect accidents only; changes made before the schema-14 upgrade are sealed as found; library and tooling writes that do not name a revision (`ANY_REVISION`) skip the revision check but not the seal check; MCP over HTTP answers JSON (no server-sent events). Evidence: `tests/test_gap018_record_consistency.py`, [implementation log](AUTOLOGY_IMPLEMENTATION_LOG.md).
 
 | Part of the audit's remedy | Status | Evidence |

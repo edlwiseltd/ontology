@@ -207,7 +207,7 @@ provider when `oidc` is configured: see [`integrations.md`](integrations.md)), e
 | `GET /api/ontology` | read | Entities, actions, goals, rules, questions, agents |
 | `GET /api/objects?type=&limit=&offset=` | read | Objects, row- and field-filtered for the caller |
 | `GET /api/objects/{id}` | read | One object with its visible links |
-| `POST /api/objects` | admin | Create or update an object and its outgoing links, validated against the ontology |
+| `POST /api/objects` | admin | Create or update an object and its outgoing links, validated against the ontology. Optional `"expected_revision"` (from the object's `revision`; 0 = must not exist yet): if the record changed since, 409 with the current revision and nothing written |
 | `POST /api/questions/{id}` | read | Answer a competency question, with `{"params": {...}, "justification": "..."}` (the reason is needed when the question reads a checkpoint-gated field) |
 | `POST /api/runs` | run | Start a run from the graph: `{"agent", "goal", "case_template", "root"}`. Free-form `{"case", "case_id"}` only for admins or with `"simulation": true` |
 | `GET /api/runs?status=` | read | List runs |

@@ -136,3 +136,15 @@ run 55 (`2939b00`, GAP-031) and run 56 (`8bfec1c`, API-1) **failed** in the pack
 excluded the constraints file; tests and coverage passed); run 57 (`4f8de46`, fix, contains both) success on all
 jobs including the image licence checks and the image without the LGPL driver; run 58 (`ddc8095`, Studio) success
 on all four jobs (Python 3.10 and 3.13 with PostgreSQL, package, studio incl. browser tests).
+
+## 14 November 2026 — Directive 02: GAP-018 re-verified; three remaining defects fixed
+
+Re-checked the repository against each acceptance criterion of the directive instead of relying on Increment B.
+
+| Finding | Before | Fix | Test (fails on the earlier code) |
+|---|---|---|---|
+| Scenario commit bypassed revision and seal checks | `POST /api/scenarios/{id}/commit` changed the live graph first, then wrote record by record with no expected revision: a tampered or stale row was overwritten, a failure left a partial commit | `Scenario.plan_commit` validates on a copy; `Store.write_records` writes all records and links in one transaction with expected revisions; live graph changes only after it; refusals reload the authoritative record | `ScenarioCommitTests` (4) |
+| Interrupted schema upgrade | Columns added but rows not yet sealed → at the next start every record looked tampered and was left out | Every upgrade step and the version bump run in one transaction (SQLite DDL is transactional); an interrupted upgrade leaves the old schema and runs again | `MigrationRestartTests` |
+| Lost update between API clients | The server checked only its own revision: two clients doing read-modify-write could silently lose one update | Object views carry `revision`; `POST /api/objects` accepts `expected_revision` (0 = must not exist): 409 with the current record when stale | `ClientRevisionTests` |
+| Concurrency evidence | No test with parallel requests | 6 writers × 5 read-modify-write increments over HTTP with `expected_revision` + 2 MCP relay readers + 1 governed run, at once: final value and revision exact (30 increments, 61 stale writes refused and retried in the measured run, plus 1 run write-back), every record's seal and the record set verify, memory equals store, one writer lease | `ConcurrencyTests` |
+Directive 02 suite: 644 OK (2 PostgreSQL tests skipped locally); 96.29 % lines (10,736 statements, 398 missed).

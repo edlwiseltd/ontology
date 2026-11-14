@@ -34,7 +34,7 @@ import threading
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 from .agent import ReviewRequest, RunResult
 from .audit import GENESIS, AuditLog
@@ -235,43 +235,51 @@ class Store:
             elif int(row["value"]) > SCHEMA_VERSION:
                 raise StoreError(f"store schema {row['value']} is newer than this Autology ({SCHEMA_VERSION})")
             elif int(row["value"]) < SCHEMA_VERSION:  # older store: the new tables were just created
-                columns = {r["name"] for r in self._db.execute("PRAGMA table_info(runs)")}
-                if "started_by" not in columns:  # schema 4: who started each run
-                    self._db.execute("ALTER TABLE runs ADD COLUMN started_by TEXT")
-                source_columns = {r["name"] for r in self._db.execute("PRAGMA table_info(run_sources)")}
-                for col in ("base", "conflicts"):  # schema 5: write-back snapshots and conflicts
-                    if col not in source_columns:
-                        self._db.execute(f"ALTER TABLE run_sources ADD COLUMN {col} TEXT")
-                if "failures" not in {r["name"] for r in self._db.execute("PRAGMA table_info(automation_state)")}:
-                    self._db.execute("ALTER TABLE automation_state ADD COLUMN failures INTEGER NOT NULL DEFAULT 0")
-                if "alg" not in {r["name"] for r in self._db.execute("PRAGMA table_info(audit)")}:  # schema 6
-                    self._db.execute("ALTER TABLE audit ADD COLUMN alg TEXT NOT NULL DEFAULT 'sha256'")
-                instance_columns = {r["name"] for r in self._db.execute("PRAGMA table_info(instances)")}
-                if "revision" not in instance_columns:  # schema 14: record revisions and seals (audit GAP-018)
-                    self._db.execute("ALTER TABLE instances ADD COLUMN revision INTEGER NOT NULL DEFAULT 0")
-                    self._db.execute("ALTER TABLE instances ADD COLUMN seal TEXT")
-                    # existing rows are sealed as they are: a change made before this upgrade cannot be told apart
-                    for r in self._db.execute("SELECT id, type, attributes, revision FROM instances").fetchall():
-                        self._db.execute("UPDATE instances SET seal=? WHERE id=?",
-                                         (self._instance_seal(r["id"], r["type"], r["attributes"], r["revision"]),
-                                          r["id"]))
-                    self._set_digest(self._db, self._compute_digest(self._db))
-                if "wb_version" not in source_columns:  # schema 13: atomic write-back (audit GAP-009)
-                    self._db.execute("ALTER TABLE run_sources ADD COLUMN wb_version TEXT")
-                    self._db.execute("ALTER TABLE run_sources ADD COLUMN wb_state TEXT")
-                    # existing runs were written back field by field already: mark them done, never replay them
-                    self._db.execute(
-                        "UPDATE run_sources SET wb_version=(SELECT updated_at FROM runs WHERE runs.run_id="
-                        "run_sources.run_id), wb_state=CASE WHEN conflicts IS NULL OR conflicts='[]' THEN "
-                        "'committed' ELSE 'conflict' END")
-                if "run_key" not in columns:  # schema 12: the run's identity, which its journal rows carry
-                    self._db.execute("ALTER TABLE runs ADD COLUMN run_key TEXT")
-                if "seal" not in columns:  # schema 11: every run record is sealed; existing ones are sealed now
-                    self._db.execute("ALTER TABLE runs ADD COLUMN seal TEXT")
-                    for r in self._db.execute("SELECT run_id FROM runs").fetchall():
-                        self._db.execute("UPDATE runs SET seal=? WHERE run_id=?",
-                                         (self._seal_of(self._db, r["run_id"]), r["run_id"]))
-                self._db.execute("UPDATE meta SET value=? WHERE key='schema_version'", (str(SCHEMA_VERSION),))
+                # every step and the version bump in ONE transaction: an upgrade interrupted half-way leaves the old
+                # schema intact and is simply run again at the next start (restart-safe; SQLite DDL is transactional)
+                self._db.execute("BEGIN IMMEDIATE")
+                try:
+                    columns = {r["name"] for r in self._db.execute("PRAGMA table_info(runs)")}
+                    if "started_by" not in columns:  # schema 4: who started each run
+                        self._db.execute("ALTER TABLE runs ADD COLUMN started_by TEXT")
+                    source_columns = {r["name"] for r in self._db.execute("PRAGMA table_info(run_sources)")}
+                    for col in ("base", "conflicts"):  # schema 5: write-back snapshots and conflicts
+                        if col not in source_columns:
+                            self._db.execute(f"ALTER TABLE run_sources ADD COLUMN {col} TEXT")
+                    if "failures" not in {r["name"] for r in self._db.execute("PRAGMA table_info(automation_state)")}:
+                        self._db.execute("ALTER TABLE automation_state ADD COLUMN failures INTEGER NOT NULL DEFAULT 0")
+                    if "alg" not in {r["name"] for r in self._db.execute("PRAGMA table_info(audit)")}:  # schema 6
+                        self._db.execute("ALTER TABLE audit ADD COLUMN alg TEXT NOT NULL DEFAULT 'sha256'")
+                    instance_columns = {r["name"] for r in self._db.execute("PRAGMA table_info(instances)")}
+                    if "revision" not in instance_columns:  # schema 14: record revisions and seals (audit GAP-018)
+                        self._db.execute("ALTER TABLE instances ADD COLUMN revision INTEGER NOT NULL DEFAULT 0")
+                        self._db.execute("ALTER TABLE instances ADD COLUMN seal TEXT")
+                        # existing rows are sealed as they are: a change made before this upgrade cannot be told apart
+                        for r in self._db.execute("SELECT id, type, attributes, revision FROM instances").fetchall():
+                            self._db.execute("UPDATE instances SET seal=? WHERE id=?",
+                                             (self._instance_seal(r["id"], r["type"], r["attributes"], r["revision"]),
+                                              r["id"]))
+                        self._set_digest(self._db, self._compute_digest(self._db))
+                    if "wb_version" not in source_columns:  # schema 13: atomic write-back (audit GAP-009)
+                        self._db.execute("ALTER TABLE run_sources ADD COLUMN wb_version TEXT")
+                        self._db.execute("ALTER TABLE run_sources ADD COLUMN wb_state TEXT")
+                        # existing runs were written back field by field already: mark them done, never replay them
+                        self._db.execute(
+                            "UPDATE run_sources SET wb_version=(SELECT updated_at FROM runs WHERE runs.run_id="
+                            "run_sources.run_id), wb_state=CASE WHEN conflicts IS NULL OR conflicts='[]' THEN "
+                            "'committed' ELSE 'conflict' END")
+                    if "run_key" not in columns:  # schema 12: the run's identity, which its journal rows carry
+                        self._db.execute("ALTER TABLE runs ADD COLUMN run_key TEXT")
+                    if "seal" not in columns:  # schema 11: every run record is sealed; existing ones are sealed now
+                        self._db.execute("ALTER TABLE runs ADD COLUMN seal TEXT")
+                        for r in self._db.execute("SELECT run_id FROM runs").fetchall():
+                            self._db.execute("UPDATE runs SET seal=? WHERE run_id=?",
+                                             (self._seal_of(self._db, r["run_id"]), r["run_id"]))
+                    self._db.execute("UPDATE meta SET value=? WHERE key='schema_version'", (str(SCHEMA_VERSION),))
+                except BaseException:
+                    self._db.execute("ROLLBACK")
+                    raise
+                self._db.execute("COMMIT")
 
     def close(self) -> None:
         with self._lock:
@@ -318,6 +326,21 @@ class Store:
         with self._tx() as db:
             self._check_instance(db, instance_id, expected)
             return self._write_instance(db, instance_id, entity_type, attributes, _now())
+
+    def write_records(self, writes: List[Tuple[str, str, Dict[str, Any], Any]],
+                      links: Iterable[Tuple[str, str, str]] = ()) -> Dict[str, int]:
+        """Write several records and links in **one transaction** (all or nothing). Each write is
+        ``(id, type, attributes, expected revision)``; a stale or tampered row refuses the whole set
+        (:class:`RecordConflict`). Returns the new revisions."""
+        now, out = _now(), {}
+        with self._tx() as db:
+            for iid, _type, _attrs, expected in writes:
+                self._check_instance(db, iid, expected)
+            for iid, etype, attrs, _expected in writes:
+                out[iid] = self._write_instance(db, iid, etype, attrs, now)
+            for source, kind, target in links:
+                db.execute("INSERT OR IGNORE INTO links VALUES (?, ?, ?)", (source, kind, target))
+        return out
 
     # -- record revisions and seals (audit GAP-018) -------------------------------------------------------
     def _instance_seal(self, iid: str, etype: str, attributes_json: str, revision: int) -> str:

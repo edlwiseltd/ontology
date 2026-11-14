@@ -55,7 +55,7 @@ coverage and no skipped test, builds the wheel and the Docker image and smoke-te
 | `6806549` | Gates 80.1–80.3 fault matrix | `test_external_effects_matrix.py` (112 combinations) | 546 | 39 | **failure**: same smoke-test cause |
 | `f0a385a` | MOD-4 fix: release the lease on shutdown | `test_mod4_single_writer.py` (+2) | 548 | 40 | success (all jobs; image smoke test incl. stop and restart) |
 | `282ccbb`, `7cea28c`, `a3fb26a` | Close-out documents | — | 548 | 41–43 | success |
-| `dfe8b3f` | R1-C: per-workspace credential scope, isolation matrix, headless engine | `test_iso4_isolation_matrix.py` (8), `test_engine_headless.py` (4) | 559 | 44 | see the run |
+| `dfe8b3f` | R1-C: per-workspace credential scope, isolation matrix, headless engine | `test_iso4_isolation_matrix.py` (8), `test_engine_headless.py` (4) | 559 | 44 | success |
 
 Each story's tests were written to fail first; the implementation log records how many failed before the fix.
 For the external-effects suite and the isolation stories that introduced new APIs, the test modules could not run

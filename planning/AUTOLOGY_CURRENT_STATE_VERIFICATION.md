@@ -52,7 +52,8 @@ failed while CI was being set up. The 44 runs therefore match the pushes, not th
 | 37–39 | `fd7ab77` (MOD-4), `d92b6da`, `6806549` | **failure**: test jobs and coverage passed on both Pythons; the container smoke test failed (a restarted container was refused its store) |
 | 40 | `f0a385a` (fix: release the store lease on shutdown) | success (all jobs) |
 | 41–43 | close-out documents | success |
-| 44 | `dfe8b3f` (R1-C increment) | see the run |
+| 44 | `dfe8b3f` (R1-C increment) | success (all jobs, coverage gate included) |
+| 45 | `d7de163` (verification documents) | see the run |
 
 Full table per commit: [R1 completion report §3](AUTOLOGY_R1_COMPLETION_REPORT.md).
 

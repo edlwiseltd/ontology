@@ -30,6 +30,43 @@ mode. The same `server.json` can therefore back a use case in several workspaces
 | `GET /platform/health` | anyone | `{"status": "ok"}`, nothing else |
 | `GET /platform/me` | a member | Their workspace, and the use cases they may open, with their permissions and API path |
 | `/w/<workspace>/u/<use case>/api/...` | a member granted that use case | The use case's REST API, exactly as for a single engine ([`platform.md`](platform.md)) |
+| `GET /platform/templates` | a workspace administrator | The operator's approved templates (id, name, description; never file paths) |
+| `GET /platform/workspaces/<ws>/use-cases` | a member | The use cases of their workspace they may open, each with its stage |
+| `POST /platform/workspaces/<ws>/use-cases` | a workspace administrator | Create a use case from a template: `{"id", "name", "template"}`; it starts in draft |
+| `GET /platform/workspaces/<ws>/use-cases/<uc>` | a member granted it | Detail: stage, stale flag, integrity problem, ontology fingerprint, stage history |
+| `GET /platform/workspaces/<ws>/use-cases/<uc>/checks?to=<stage>` | a member granted it | The checks of the target stage, evaluated now; nothing is recorded |
+| `POST /platform/workspaces/<ws>/use-cases/<uc>/stage` | a workspace administrator | `{"to", "reason"}`: move one stage, if every check passes |
+
+Another workspace, a use case not granted and one that does not exist all get the same `404 not found` on these
+routes too. A member granted a use case but not administrator gets `403` on the writes.
+
+## Lifecycle stages (Draft → Simulation → Pilot)
+
+Every use case has a stage, kept by the platform in `<data_dir>/lifecycle.db`; nothing in a use case's own
+configuration can set it. Stages advance one at a time and only when every check passes, evaluated on the server
+at the moment of the move. Moving back is always allowed. Every move records who, why, the checks and the ontology
+fingerprint, in a chain keyed with the workspace's audit key.
+
+| Target | Checks |
+|---|---|
+| Simulation | configuration valid (strict schema); audit chains signed with the workspace key; no quarantined record |
+| Pilot | the simulation checks; the engine's own `simulation` mode (automatic approvals, free-form cases) off; every reviewer role of the rules held by a named member; every run audit chain verifies; no external call waiting for reconciliation; at least one run completed since entering simulation; the configuration is the one simulated |
+| Production | **refused**: no production deployment is authorised in this release |
+
+A stage is reported **stale** when the ontology fingerprint changed after it was granted, and the use case is
+reported in draft with an **integrity problem** when its history was edited outside Autology (forward moves are
+then refused). In this release a stage is a governance record: it does not yet change what the engine allows at
+run time, and a pilot stage authorises no real data, customer or ERP write.
+
+## Use cases created from templates
+
+The operator lists approved configurations under `"templates"` in `platform.json`
+(`{"claims-starter": {"name": "...", "description": "...", "config": "../auto_insurance/server.json"}}`). A
+workspace administrator creates use cases from them, never from a configuration of their own. A created use case
+gets its own store, the workspace's credential scope applies to it (a template naming another workspace's
+variable is refused), it is recorded in `lifecycle.db` and loaded again at every start. An identifier whose data
+directory already holds data is never reused. Only workspace administrators can open a created use case until
+member grants can be managed through the API (ADM-1).
 
 ## Isolation guarantees
 
@@ -103,8 +140,8 @@ refusal.
 
 ## Not yet included
 
-Workspace administration through the API (members and use cases are defined in `platform.json` and loaded at
-start), shared
+Member administration through the API (members and grants are defined in `platform.json` and loaded at
+start; use cases can be created from templates, not renamed or archived), stages enforced at run time, shared
 resources between use cases, and a database other than SQLite per use case. See [`../planning/AUTOLOGY_IMPLEMENTATION_BACKLOG.md`](../planning/AUTOLOGY_IMPLEMENTATION_BACKLOG.md).
 
 **Agent grants per use case.** A member's grant for a use case may carry `"run_as": {"claims": ["fraud_analytics", "finance"]}`: the roles that member may use through that agent, beyond their own (see "What an agent may do for a person" in [platform.md](platform.md)). Without it, the agent acts with the member's own roles only.

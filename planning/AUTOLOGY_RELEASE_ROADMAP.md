@@ -34,6 +34,11 @@ Goal: an administrator manages workspaces and use cases. The architecture is ver
 the model visually on the engine's own schema. The AI Solution Architect proposes a provisional ontology and asks
 questions derived from what is missing. Promotion is blocked server-side when a gate fails.
 
+**First slice started (14 Nov, owner's instruction):** Studio workspace shell, use-case management from
+templates, Draft → Simulation → Pilot stages with server-side checks; no ERP writes, no deployment. It covers part
+of ADM-1, REL-1, REL-2 and STU-1, ahead of the prerequisites below (an owner-requested order change). Criteria,
+evidence and what remains: [R2 slice report](AUTOLOGY_R2_SLICE_REPORT.md).
+
 ### 3.1 Prerequisites
 
 | ID | Story | Why first | Acceptance | Est. |

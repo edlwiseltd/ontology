@@ -23,6 +23,8 @@ def platform_file():
     for ws in spec["workspaces"].values():  # keep the use-case configs reachable from the copied file
         for uc in ws["use_cases"].values():
             uc["config"] = str((EX / uc["config"]).resolve())
+    for template in (spec.get("templates") or {}).values():
+        template["config"] = str((EX / template["config"]).resolve())
     path.write_text(json.dumps(spec))
     return str(path)
 

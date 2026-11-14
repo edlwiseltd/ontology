@@ -1,6 +1,6 @@
 # Autology — defect register (after R1)
 
-*Updated 14 November 2026 at the R1 close-out (`f0a385a`). Source: the audit's register
+*Updated 14 November 2026 at the R1 close-out (`f0a385a`); GAP-051 updated with the first R2 slice. Source: the audit's register
 ([`../audit/04_AUTOLOGY_GAP_REGISTER.md`](../audit/04_AUTOLOGY_GAP_REGISTER.md)), whose descriptions, severities and
 evidence are unchanged; this file adds the current status. "Fixed" means the remedy is implemented and a test that
 reproduces the audit's finding passes in CI; it has not been re-verified by an independent auditor.*
@@ -8,10 +8,10 @@ reproduces the audit's finding passes in CI; it has not been re-verified by an i
 | Status | Count |
 |---|---|
 | Fixed | 17 |
-| Open | 26 |
+| Open | 25 |
 | Open (external evidence) | 5 |
 | Open (owner decision) | 2 |
-| Partly fixed | 7 |
+| Partly fixed | 8 |
 
 **Critical and High gaps not fully fixed:** GAP-009, GAP-018, GAP-031, GAP-032, GAP-052, GAP-053. Each is explained below: GAP-009 and
 GAP-018 keep a residual, lower-risk part (atomic write-back; reload on write); GAP-031 waits for legal sign-off;
@@ -69,7 +69,7 @@ GAP-032 (ERP connector), GAP-052 (real models) and GAP-053 (real process) need e
 | GAP-048 | NaN and negative amounts accepted in case data and tool results | Low | **Open** |  | R2 (small): reject NaN/inf |
 | GAP-049 | Release workflow never executed | Low | **Open (external evidence)** |  | R2: cut a release candidate |
 | GAP-050 | Unsupported methods return HTML 501; internal `ValueError` becomes 400 with the message | Low | **Partly fixed** | `4509b97` | Unsupported methods answer JSON 405; ValueError → 400 mapping open |
-| GAP-051 | No administration UI: users, roles and pipelines change only by editing config and restarting | Med | **Open** |  | R2 ADM-1 (administration API) and Studio |
+| GAP-051 | No administration UI: users, roles and pipelines change only by editing config and restarting | Med | **Partly fixed** | R2 slice | Use cases can be created from approved templates and moved through stages from the Studio shell (`tests/test_r2_use_case_lifecycle.py`, `tests/test_studio_shell.py`). Open: members, grants, roles and pipelines (ADM-1) |
 | GAP-052 | Never run with a real AI model | High (for AI claims) | **Open (external evidence)** |  | R2 AI-1: needs API access to two providers |
 | GAP-053 | No real end-to-end business process | High | **Open (external evidence)** |  | R3 pilot (customer) |
 | GAP-054 | No independent human security review | Med | **Open (external evidence)** |  | R4 SEC-1 (external) |

@@ -19,7 +19,13 @@ platform) and serves only:
 * ``GET /platform/health`` (no details);
 * ``GET /platform/me``: the caller's workspace and the use cases they may open;
 * ``/w/<workspace>/u/<use case>/api/...``: the use case's REST API, unchanged (the same dispatcher as a
-  single-engine server, so every permission, rule and the use case's access log apply).
+  single-engine server, so every permission, rule and the use case's access log apply);
+* use-case management and lifecycle stages (R2 slice, see :mod:`autology.lifecycle`):
+  ``GET /platform/templates`` (workspace administrators: the operator's approved templates),
+  ``GET|POST /platform/workspaces/<ws>/use-cases`` (list the use cases you may open; administrators create one
+  from a template), ``GET /platform/workspaces/<ws>/use-cases/<uc>`` (detail and stage history),
+  ``GET .../<uc>/checks?to=<stage>`` (the checks of a stage, evaluated now, nothing recorded) and
+  ``POST .../<uc>/stage`` with ``{"to": stage, "reason": text}`` (administrators).
 
 A workspace the caller is not a member of, a use case they were not granted, and one that does not exist all get
 the same ``404 not found``: nobody learns what other workspaces exist. Refusals are written to the platform's own
@@ -39,6 +45,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlsplit
 
+from .audit import audit_key, workspace_key
+from .lifecycle import Lifecycle, LifecycleError, STAGES
 from .server import ApiExchange, AutologyService, PERMISSIONS, hash_token, read_body
 from .store import Store
 
@@ -71,6 +79,8 @@ class UseCase:
     workspace: str
     name: str
     service: AutologyService
+    origin: str = "configuration"  # "configuration" (platform.json) or "template" (created through the API)
+    template: Optional[str] = None
 
 
 @dataclass
@@ -130,8 +140,24 @@ class Platform:
         self.data_dir = (base_dir / spec.get("data_dir", "data")).resolve()
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.log = Store(self.data_dir / "platform.db")  # the platform's own append-only access log
+        # stages and created use cases, chained with each workspace's derived audit key
+        self.lifecycle = Lifecycle(self.data_dir / "lifecycle.db", lambda ws: workspace_key(audit_key(), ws))
         self.workspaces: Dict[str, Workspace] = {}
         self._tokens: Dict[str, Member] = {}
+        self._base_dir = base_dir
+        self._lock = threading.RLock()
+        self._stops: List[threading.Event] = []
+        self.running = False
+        # templates: configurations the operator approved; a workspace administrator may create use cases from
+        # them, never from a configuration of their own (it could name another workspace's files or credentials)
+        self.templates: Dict[str, Dict[str, Any]] = {}
+        for t_id, t in (spec.get("templates") or {}).items():
+            if not ID.match(t_id) or not isinstance(t, dict) or not t.get("config"):
+                raise PlatformError(f"template {t_id!r}: an id of lowercase letters, digits and '-' and a config")
+            if not (base_dir / t["config"]).resolve().is_file():
+                raise PlatformError(f"template {t_id}: configuration file {t['config']} not found")
+            self.templates[t_id] = {"id": t_id, "name": str(t.get("name") or t_id),
+                                    "description": str(t.get("description") or ""), "config": t["config"]}
         for ws_id, ws_spec in (spec.get("workspaces") or {}).items():
             self._load_workspace(ws_id, ws_spec, base_dir)
         if not self.workspaces:
@@ -174,6 +200,16 @@ class Platform:
             unknown = set(member.use_cases) - set(ws.use_cases)
             if unknown:
                 raise PlatformError(f"workspace {ws_id} member {member.name}: unknown use cases {sorted(unknown)}")
+        for row in self.lifecycle.created(ws_id):  # use cases created through the API come back after a restart
+            if row["id"] in ws.use_cases:
+                raise PlatformError(f"workspace {ws_id}: use case {row['id']} is both configured and created")
+            if row["template"] not in self.templates:
+                raise PlatformError(f"workspace {ws_id} use case {row['id']}: its template {row['template']} "
+                                    "is no longer in the platform configuration")
+            uc = self._load_use_case(ws, row["id"], {"name": row["name"],
+                                                     "config": self.templates[row["template"]]["config"]}, base_dir)
+            uc.origin, uc.template = "template", row["template"]
+            ws.use_cases[row["id"]] = uc
         self.workspaces[ws_id] = ws
 
     def _load_use_case(self, ws: Workspace, uc_id: str, spec: Dict[str, Any], base_dir: Path) -> UseCase:
@@ -220,8 +256,117 @@ class Platform:
                 "workspace_admin": member.workspace_admin,
                 "use_cases": [{"id": uc.id, "name": uc.name, "ontology": uc.service.ontology.ref,
                                "permissions": member.grant(uc.id)["permissions"],
+                               "stage": self.stage_of(uc)["stage"],
                                "path": f"/w/{ws.id}/u/{uc.id}"}
                               for uc in ws.use_cases.values() if member.grant(uc.id)]}
+
+    # -- use-case management and stages (R2 slice) -------------------------------------------------------------
+    def stage_of(self, uc: UseCase) -> Dict[str, Any]:
+        return self.lifecycle.status(uc.workspace, uc.id, uc.service.ontology.fingerprint)
+
+    def use_case_view(self, uc: UseCase, member: Member, detail: bool = False) -> Dict[str, Any]:
+        st = self.stage_of(uc)
+        view = {"id": uc.id, "name": uc.name, "origin": uc.origin, "template": uc.template,
+                "ontology": uc.service.ontology.ref, "fingerprint": uc.service.ontology.fingerprint,
+                "path": f"/w/{uc.workspace}/u/{uc.id}", "permissions": member.grant(uc.id)["permissions"],
+                "stage": st["stage"], "stale": st["stale"], "integrity_problem": st["integrity_problem"],
+                "stages": list(STAGES)}
+        if detail:
+            view["history"] = st["history"]
+        return view
+
+    def create_use_case(self, member: Member, uc_id: str, name: str, template: str) -> UseCase:
+        ws = self.workspaces[member.workspace]
+        if not isinstance(uc_id, str) or not ID.match(uc_id):
+            raise LifecycleError(400, "id: lowercase letters, digits and '-' only (at most 63)")
+        if not isinstance(name, str) or not (1 <= len(name.strip()) <= 120):
+            raise LifecycleError(400, "name: 1 to 120 characters")
+        if template not in self.templates:
+            raise LifecycleError(400, f"unknown template {template!r}")
+        with self._lock:
+            if uc_id in ws.use_cases:
+                raise LifecycleError(409, f"use case {uc_id} already exists")
+            home = self.data_dir / ws.id / uc_id
+            if home.exists() and any(home.iterdir()):  # never hand an earlier use case's data to a new one
+                raise LifecycleError(409, f"the id {uc_id} was used before in this workspace and its data is kept; "
+                                          "choose another id")
+            try:
+                uc = self._load_use_case(ws, uc_id, {"name": name.strip(),
+                                                     "config": self.templates[template]["config"]}, self._base_dir)
+            except PlatformError as exc:
+                raise LifecycleError(400, str(exc))
+            uc.origin, uc.template = "template", template
+            self.lifecycle.record_created(ws.id, uc_id, uc.name, template, member.name)
+            ws.use_cases[uc_id] = uc
+            if self.running:
+                self._stops.append(uc.service.start_background())
+        return uc
+
+    def _json(self, raw_body: Optional[bytes], body_error: Optional[Tuple[int, str]]) -> Dict[str, Any]:
+        if body_error:
+            raise LifecycleError(body_error[0], body_error[1])
+        try:
+            body = json.loads(raw_body or b"{}")
+        except ValueError:
+            raise LifecycleError(400, "the body must be JSON")
+        if not isinstance(body, dict):
+            raise LifecycleError(400, "the body must be a JSON object")
+        return body
+
+    def _manage(self, member: Member, method: str, parts: List[str], query: str, raw_body: Optional[bytes],
+                body_error: Optional[Tuple[int, str]]) -> Tuple[int, Any]:
+        """``/platform/templates`` and ``/platform/workspaces/<ws>/use-cases[/<uc>[/checks|/stage]]``."""
+        if parts[2:] == ["templates"] and method == "GET":
+            if not member.workspace_admin:
+                raise LifecycleError(403, "workspace administrators only")
+            return 200, {"items": [{k: t[k] for k in ("id", "name", "description")} for t in self.templates.values()]}
+        if len(parts) < 5 or parts[2] != "workspaces" or parts[4] != "use-cases" or len(parts) > 7:
+            return 404, None
+        ws = self.workspaces.get(parts[3]) if parts[3] == member.workspace else None
+        if ws is None:
+            return 404, None  # another workspace, or none: the same answer
+        if len(parts) == 5:
+            if method == "GET":
+                return 200, {"items": [self.use_case_view(uc, member) for uc in ws.use_cases.values()
+                                       if member.grant(uc.id)]}
+            if method == "POST":
+                if not member.workspace_admin:
+                    raise LifecycleError(403, "workspace administrators only")
+                body = self._json(raw_body, body_error)
+                uc = self.create_use_case(member, body.get("id"), body.get("name") or body.get("id") or "",
+                                          body.get("template"))
+                return 201, self.use_case_view(uc, member, detail=True)
+            return 405, {"error": f"{method} is not supported here"}
+        uc = ws.use_cases.get(parts[5])
+        if uc is None or not member.grant(uc.id):
+            return 404, None
+        action = parts[6] if len(parts) == 7 else None
+        if action is None and method == "GET":
+            return 200, self.use_case_view(uc, member, detail=True)
+        if action == "checks" and method == "GET":
+            target = dict(p.split("=", 1) for p in query.split("&") if "=" in p).get("to", "")
+            return 200, self.lifecycle.move(ws.id, uc.id, uc.service, target, member.name, "", dry_run=True)
+        if action == "stage" and method == "POST":
+            if not member.workspace_admin:
+                raise LifecycleError(403, "workspace administrators only")
+            body = self._json(raw_body, body_error)
+            moved = self.lifecycle.move(ws.id, uc.id, uc.service, str(body.get("to") or ""),
+                                        f"{member.name}@{ws.id}", str(body.get("reason") or ""))
+            return 200, {**moved, "use_case": self.use_case_view(uc, member, detail=True)}
+        return 404, None
+
+    def start_background(self) -> None:
+        """Start every use case's scheduler; use cases created later start when they are created."""
+        with self._lock:
+            self.running = True
+            self._stops = [svc.start_background() for svc in self.services()]
+
+    def stop_background(self) -> None:
+        with self._lock:
+            self.running = False
+            for s in self._stops:
+                s.set()
+            self._stops = []
 
     def handle(self, method: str, raw_path: str, headers: Any, raw_body: Optional[bytes] = None,
                body_error: Optional[Tuple[int, str]] = None) -> Tuple[int, str, bytes, Dict[str, str]]:
@@ -249,6 +394,16 @@ class Platform:
             return 401, "application/json", json.dumps({"error": "missing or invalid token"}).encode(), {}
         if path == "/platform/me" and method == "GET":
             return 200, "application/json", json.dumps(self.me(member)).encode(), {}
+        if len(parts) >= 3 and parts[1] == "platform" and ".." not in parts:
+            try:
+                status, out = self._manage(member, method, parts, split.query, raw_body, body_error)
+            except LifecycleError as exc:
+                status, out = exc.status, {"error": str(exc), **({"checks": exc.checks} if exc.checks else {})}
+            if method != "GET" or status >= 400:
+                self._log(member, method, path, status)
+            if out is None:
+                return 404, "application/json", NOT_FOUND, {}
+            return status, "application/json", json.dumps(out).encode(), {}
         if uc is None or ws.id != member.workspace or not member.grant(uc.id):
             self._log(member, method, path, 404)
             return 404, "application/json", NOT_FOUND, {}
@@ -264,7 +419,8 @@ class Platform:
             log.exception("writing the platform access log failed")
 
     def services(self) -> List[AutologyService]:
-        return [uc.service for ws in self.workspaces.values() for uc in ws.use_cases.values()]
+        with self._lock:
+            return [uc.service for ws in self.workspaces.values() for uc in ws.use_cases.values()]
 
 
 def make_platform_server(platform: Platform, host: str = "127.0.0.1", port: int = 8700) -> ThreadingHTTPServer:
@@ -316,7 +472,7 @@ def serve(path: str, host: str = "127.0.0.1", port: int = 8700) -> None:  # prag
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     platform = Platform.from_file(path)
     server = make_platform_server(platform, host, port)
-    stops = [svc.start_background() for svc in platform.services()]
+    platform.start_background()
 
     def stop(signum, frame):
         raise KeyboardInterrupt
@@ -331,9 +487,9 @@ def serve(path: str, host: str = "127.0.0.1", port: int = 8700) -> None:  # prag
     except KeyboardInterrupt:
         pass
     finally:
-        for s in stops:
-            s.set()
+        platform.stop_background()
         server.server_close()
         for svc in platform.services():
             svc.close()
+        platform.lifecycle.close()
         platform.log.close()

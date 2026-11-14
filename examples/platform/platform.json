@@ -1,5 +1,12 @@
 {
   "data_dir": "data",
+  "templates": {
+    "claims-starter": {
+      "name": "Motor claims starter",
+      "description": "Motor claims settlement with fraud screening and two human reviews",
+      "config": "../auto_insurance/server.json"
+    }
+  },
   "workspaces": {
     "acme": {
       "name": "Acme Insurance & Logistics",

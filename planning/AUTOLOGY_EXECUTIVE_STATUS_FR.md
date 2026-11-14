@@ -51,6 +51,11 @@ Aucun déploiement en production n'a eu lieu.
 
 Le détail figure dans le [registre des décisions](AUTOLOGY_DECISION_REGISTER.md).
 
+## Depuis : note de clôture R1 et première tranche R2
+
+- **Clôture R1 :** chaque écart corrigé est relié à son commit, à son exécution CI et à son test ([note de clôture](AUTOLOGY_R1_CLOSURE_NOTE.md)). Restent hors du dépôt : revue indépendante, validation juridique, essais sur systèmes réels.
+- **R2, tranche étroite demandée :** un shell Studio séparé (provisoire, la technologie D9 reste à décider), la création de cas d'usage à partir de modèles approuvés par l'opérateur, et les états Brouillon → Simulation → Pilote avec contrôles côté serveur. La production est refusée. Aucune écriture ERP, aucun déploiement ([rapport](AUTOLOGY_R2_SLICE_REPORT.md)).
+
 ## Prochaine étape
 
 R2, en commençant par :

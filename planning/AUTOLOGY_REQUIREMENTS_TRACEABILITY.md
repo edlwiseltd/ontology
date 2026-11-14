@@ -10,7 +10,7 @@ Supersedes the section-by-section table of [AUTOLOGY_PREUVE_EXECUTION_INSTRUCTIO
 |---|---|---|---|---|---|---|
 | 1 | Engine independent of all UIs | [Architecture §1, §6](AUTOLOGY_ARCHITECTURE_TARGET.md) | `server.py` (optional inbox), `console.py` (separate) | `test_engine_headless.py`, `test_console.py` | Implemented and verified; versioned API contract not started | R2 exit (§2A test) |
 | 2 | Two workspaces cannot access each other's data or tools [MI 1] | [Security §3](AUTOLOGY_SECURITY_AND_TENANCY.md) | `platform.py`, `audit.py`, `mcp.py` | `test_workspaces.py`, `test_iso1`–`iso4_*.py` | Implemented and verified for every existing path; document uploads do not exist yet | R1 (G3) |
-| 3 | Several use cases with independent configuration and readiness [MI 2] | ADR-001 | `platform.py` | `test_workspaces.py`, `test_iso4_isolation_matrix.py` | Partially implemented: configuration yes, readiness status per use case not started (REL-3) | R2 |
+| 3 | Several use cases with independent configuration and readiness [MI 2] | ADR-001; [R2 slice](AUTOLOGY_R2_SLICE_REPORT.md) | `platform.py`, `lifecycle.py` | `test_workspaces.py`, `test_iso4_isolation_matrix.py`, `test_r2_use_case_lifecycle.py` | Partially implemented: independent configuration and an independent lifecycle stage per use case (Draft/Simulation/Pilot, server-side checks); readiness score per use case not started (REL-3) | R2 |
 | 4 | Studio generates an initial ontology from a description [MI 3] | [Roadmap R2](AUTOLOGY_RELEASE_ROADMAP.md) ARC-1 | — | — | Not started | R2 exit |
 | 5 | Discovery questions adapt [MI 4] | ARC-3 | — | — | Not started | R2 exit |
 | 6 | Excel templates generated, validated, reimported [MI 5] | XL-1–4 | — | — | Not started (`openpyxl` approved and evaluated) | R3 exit |
@@ -18,7 +18,7 @@ Supersedes the section-by-section table of [AUTOLOGY_PREUVE_EXECUTION_INSTRUCTIO
 | 8 | Agent definitions and hierarchies generated under governance [MI 6] | AGF-1 | `agent.py` delegation, GOV-5 roles | `test_gov5_effective_permissions.py` (governance part) | Not started (factory); the governance it relies on is verified | R4 exit |
 | 9 | Plugins, skills, connectors cannot bypass policies [MI 9] | INT-1, HRM-1 | `agent.py` result validation, journal | `test_agent.py` guardrails, `test_mod3_typed_outputs.py`, `test_external_effects*.py` | Partially implemented: every tool goes through governance and the journal; registry, plugins and Hermes adapter not started | R4 exit |
 | 10 | External actions reliable, recoverable, audited [MI 10] | [R1 report §4](AUTOLOGY_R1_COMPLETION_REPORT.md) ACT-1–6 | `effects.py`, `agent.py`, `adapters.py`, `store.py`, `server.py` | `test_external_effects.py`, `test_external_effects_matrix.py` (112), `test_act6_revalidation.py` | Implemented and verified against simulated systems; not yet against a real ERP | R1 (G1); R4 sandbox |
-| 11 | Production blocked when a gate fails [MI 7, 8] | REL-2 | `scoring.py` (scores only) | — | Not started (no release objects yet) | R2 |
+| 11 | Production blocked when a gate fails [MI 7, 8] | REL-2 | `lifecycle.py` | `test_r2_use_case_lifecycle.py` | Partially implemented: production is refused outright; Simulation and Pilot moves need every check to pass; no release objects or score-based gates yet | R2 |
 | — | Existing behaviour preserved [MI 11] | Rule 1 | — | full suite, 559 | Implemented and verified | every increment |
 
 ## 2. Architectural principles (MP §2, MI §2, §2A)
@@ -43,8 +43,8 @@ Supersedes the section-by-section table of [AUTOLOGY_PREUVE_EXECUTION_INSTRUCTIO
 | Per-workspace agents and executions | Implemented and verified | `test_iso4_isolation_matrix.py` |
 | Per-workspace secrets and credentials | Implemented and verified | `test_workspaces.py`, `test_iso4_isolation_matrix.py` |
 | Per-workspace audit | Implemented and verified | `test_iso2_*.py` |
-| Per-workspace maturity and deployment status | Not started | REL-1/3 |
-| Use-case lifecycle Draft → Simulation → Pilot → Production | Not started | REL-1 |
+| Per-workspace maturity and deployment status | Partially implemented: lifecycle stage per use case; maturity score not started | `test_r2_use_case_lifecycle.py`; REL-3 |
+| Use-case lifecycle Draft → Simulation → Pilot → Production | Partially implemented: stages with server-side checks and a keyed history; production refused (PROD); stages not enforced at run time; no immutable releases | `test_r2_use_case_lifecycle.py`; REL-1 |
 | Cross-use-case access policy defined and tested | Implemented and verified: none implicit | `test_iso4_isolation_matrix.py`: `UseCaseBoundaryTests` |
 | Industry templates hold no customer data | Not started (blueprints) | BP-1 |
 
@@ -52,7 +52,7 @@ Supersedes the section-by-section table of [AUTOLOGY_PREUVE_EXECUTION_INSTRUCTIO
 
 | Requirement | Release | Status |
 |---|---|---|
-| Studio as a separate application | R2 | Not started |
+| Studio as a separate application | R2 | Partially implemented: interim shell (`studio/`, separate process, imports nothing from the engine; `test_studio_shell.py`); technology open (D9) |
 | Natural-language brief → provisional ontology with provenance | R2 | Not started |
 | Dynamic discovery (no fixed questionnaire) | R2 | Not started |
 | Visual architecture producing engine-valid configuration (one model, the strict schema) | R2 | Not started; the strict schema (MOD-1, `docs/ontology.schema.json`) is the shared model |

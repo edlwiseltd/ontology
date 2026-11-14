@@ -127,7 +127,8 @@ class AutologyService:
         if config.get("data") and self.store.count_instances() == 0:
             data = json.loads(Path(rel(config["data"])).read_text(encoding="utf-8"))
             self.store.save_graph(KnowledgeGraph.from_dict(self.ontology, data))
-        self.graph = self.store.load_graph(self.ontology)
+        self.quarantined: List[Dict[str, Any]] = []  # stored records that no longer validate (audit GAP-010)
+        self.graph = self.store.load_graph(self.ontology, quarantine=self.quarantined)
         self.graph_lock = threading.RLock()
         self.access = GovernanceLayer(self.ontology, max_violations=0)  # row/field rules for API callers
         # simulation mode: requesters may supply case data, and automatic approvers may decide reviews.
@@ -246,6 +247,11 @@ class AutologyService:
                                                     (base / secrets_file).resolve() if secrets_file else None)
         self.chat: Optional[GovernedChat] = None
         self._apply_assistant()
+        for q in self.quarantined:  # tell admins, once per start, which stored records were left out
+            log.error("stored %s %s fails validation and was left out of the graph: %s", q["type"], q["id"], q["reason"])
+            self._notify("quarantine", [], f"Stored record {q['type']} {q['id']} no longer validates and was left "
+                                           f"out: {q['reason']}. Fix it with an upsert or the ingestion pipeline.",
+                         {"instance": q["id"], "type": q["type"]})
 
     @classmethod
     def from_file(cls, path: str, store: Optional[str] = None,
@@ -631,6 +637,13 @@ class AutologyService:
     def _graph_instances(self, entity: Optional[str]) -> List[Instance]:
         with self.graph_lock:
             return list(self.graph.instances(entity))
+
+    def health(self) -> Dict[str, Any]:
+        from .audit import audit_key
+
+        return {"status": "degraded" if self.quarantined else "ok", "ontology": self.ontology.ref,
+                "simulation": self.simulation, "audit_keyed": audit_key() is not None,
+                "scheduler": self.scheduler_status, "quarantined_records": len(self.quarantined)}
 
     def _notify(self, kind: str, roles, message: str, ref: Dict[str, Any]) -> Dict[str, Any]:
         note = self.store.add_notification(kind, roles, message, ref)
@@ -1617,11 +1630,7 @@ class ApiExchange:
                 ctype = {"html": "text/html", "js": "application/javascript", "css": "text/css"}[name.rsplit(".")[-1]]
                 return self._send(200, (STATIC / name).read_bytes(), ctype)
             if path == "/api/health":
-                from .audit import audit_key
-
-                return self._send(200, {"status": "ok", "ontology": service.ontology.ref,
-                                        "simulation": service.simulation, "audit_keyed": audit_key() is not None,
-                                        "scheduler": service.scheduler_status})
+                return self._send(200, service.health())
             if not path.startswith("/api/"):
                 raise ApiError(404, "not found")
             if path == "/api/auth/config" and method == "GET":  # what the inbox needs to offer SSO sign-in

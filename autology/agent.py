@@ -31,7 +31,7 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Protocol, Seque
 
 from .audit import AuditLog
 from .governance import Decision, GovernanceLayer, IntegrityError, Principal, Verdict
-from .ontology import STATUS, ActionType, Ontology, OntologyError
+from .ontology import STATUS, ActionType, Ontology, OntologyError, type_ok
 from .planner import Planner, SearchBudgetExceeded, apply_outcome
 from .reasoners import DecisionContext, PlanFollowingReasoner, Proposal, Reasoner
 from .state import GroundAction, WorldState, ground
@@ -344,6 +344,14 @@ class WorkAgent:
                     return f"tool attempted to write {ref} on an instance the action is not working on"
                 if not self.governance.can_write(ref, state, executor.principal, action.binding):
                     return f"{executor.name} may not modify {ref}"
+                etype = self.ontology.entities.get(entity)
+                value = changes[attr]
+                if etype is not None and attr == STATUS and value not in etype.states:
+                    return f"tool returned {ref} = {value!r}, which is not a state of {entity}"
+                declared = etype.attributes.get(attr) if etype is not None else None
+                if declared is not None and not type_ok(declared.type, value):  # audit GAP-010
+                    return (f"tool returned {ref} = {value!r} ({type(value).__name__}), but {ref} is "
+                            f"{declared.type}; nothing was applied")
         return None
 
     def _execute(self, run: RunState, action: GroundAction, executor: "WorkAgent", audit: AuditLog):

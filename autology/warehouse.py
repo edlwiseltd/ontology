@@ -310,6 +310,8 @@ def metrics_text(service: Any) -> str:
                "SELECT status / 100 s, COUNT(*) c FROM access_log GROUP BY status / 100 ORDER BY s")])
     metric("autology_audit_unverified_runs", "gauge", "Runs whose audit chain does not verify (should be 0)",
            [({}, service.unverified_runs())])
+    metric("autology_quarantined_records", "gauge", "Stored records left out of the graph because they no longer "
+           "validate (should be 0)", [({}, len(getattr(service, "quarantined", ())))])
     status = service.scheduler_status
     metric("autology_scheduler_errors", "gauge", "1 if the last scheduler pass failed",
            [({}, 1 if status.get("last_error") else 0)])

@@ -37,7 +37,7 @@ from typing import Any, Dict, Iterable, List, Optional, Union
 from .agent import ReviewRequest, RunResult
 from .audit import GENESIS, AuditLog
 from .graph import KnowledgeGraph
-from .ontology import Ontology
+from .ontology import Ontology, OntologyError
 
 SCHEMA_VERSION = 11
 
@@ -224,13 +224,24 @@ class Store:
         with self._tx() as db:
             db.execute("INSERT OR IGNORE INTO links VALUES (?, ?, ?)", (source, kind, target))
 
-    def load_graph(self, ontology: Ontology) -> KnowledgeGraph:
-        """Rebuild the graph; every instance and link is re-validated against ``ontology``."""
+    def load_graph(self, ontology: Ontology, quarantine: Optional[List[Dict[str, Any]]] = None) -> KnowledgeGraph:
+        """Rebuild the graph; every instance and link is re-validated against ``ontology``.
+
+        With a ``quarantine`` list, a row that fails validation is left out of the graph (with its links) and
+        described in the list instead of stopping the load (audit GAP-010). The row stays in the store for repair.
+        """
         graph = KnowledgeGraph(ontology)
         for row in self._query("SELECT id, type, attributes FROM instances ORDER BY id"):
-            attrs = json.loads(row["attributes"])
-            graph.add(row["type"], row["id"], **attrs)
+            try:
+                attrs = json.loads(row["attributes"])
+                graph.add(row["type"], row["id"], **attrs)
+            except (OntologyError, ValueError, TypeError) as exc:
+                if quarantine is None:
+                    raise
+                quarantine.append({"id": row["id"], "type": row["type"], "reason": str(exc)})
         for row in self._query("SELECT source, kind, target FROM links ORDER BY source, kind, target"):
+            if quarantine is not None and {row["source"], row["target"]} - set(graph._instances):
+                continue  # a link to a quarantined record
             graph.link(row["source"], row["kind"], row["target"])
         return graph
 

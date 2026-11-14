@@ -83,7 +83,7 @@ Status: ☐ to do · ◐ in progress · ☑ done · ⛔ blocked (decision needed
 | **MOD — The model cannot silently weaken itself** | | | |
 | MOD-1 | Misspelled ontology keys and unknown types are rejected (GAP-016) | M | ☑ |
 | MOD-2 | Missing linked records are unknown, never "valid by default" (GAP-017) | S | ☑ |
-| MOD-3 | Tool outputs are type-checked; a bad stored row never stops a restart (GAP-010) | S | ☐ |
+| MOD-3 | Tool outputs are type-checked; a bad stored row never stops a restart (GAP-010) | S | ☑ |
 | **ACT — External actions are safe** | | | |
 | ACT-1 | Every external call is recorded (intent) before it is made, and its result after (GAP-007) | M | ☐ |
 | ACT-2 | Every external call carries a stable idempotency key (GAP-002) | S | ☐ |

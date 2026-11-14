@@ -183,6 +183,7 @@ scrape_configs:
 | `autology_reviews_pending{reviewer}`, `autology_review_oldest_pending_seconds{reviewer}` | alert when reviews pile up or wait too long |
 | `autology_runs{agent,status}` | watch run outcomes; alert on `blocked` or `escalated` growth |
 | `autology_audit_unverified_runs` | alert if any audit chain stops verifying (should always be 0) |
+| `autology_quarantined_records` | alert if a stored record no longer validates and was left out of the graph at start-up (should always be 0) |
 | `autology_agents_suspended` | alert when governance suspends an agent |
 | `autology_ingest_last_success_timestamp_seconds{pipeline}`, `autology_ingest_rejected_rows_total{pipeline}` | alert on stale feeds and on bad data |
 | `autology_automation_firings_total{automation,status}`, `autology_scheduler_errors` | spot failing automations |

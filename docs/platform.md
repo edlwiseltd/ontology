@@ -89,6 +89,10 @@ Three safeguards stop a requester from steering which rules apply:
 
 Nothing fails silently. The scheduler, webhook deliveries, trace exports, automation firings, the access log and unexpected errors in any endpoint are logged with a traceback to the `autology` logger. `autology serve` prints the log to standard error, and `"log_file": "autology.log"` in the server config also writes it to a file. Clients still get only `internal error: <ExceptionType>`. `GET /api/health` shows the scheduler's last successful tick and its last error.
 
+**Tool results are type-checked.** A value a tool returns must match the attribute's type (`number`, `integer`, `boolean`, ...; a boolean is not a number), and a returned `status` must be a state of the entity. Otherwise nothing from the result is applied, the run escalates to `it-integration`, and the audit records a `governance.reject_result` entry with the value.
+
+**A bad stored record never stops a restart.** At start-up, every stored record is validated again. One that no longer validates (edited by hand, or written by an older version) is left out of the graph with its links, kept in the store for repair, logged, and reported to admins as a `quarantine` notification. `GET /api/health` then reads `"status": "degraded"` with `quarantined_records`, and the `autology_quarantined_records` metric counts them. Upserting the record with valid values brings it back.
+
 ## Agent suspension
 
 An agent whose proposals governance refuses `settings.max_violations` times **within one run** is suspended. Violations are counted per run, so separate runs of the same agent never add up. The suspension is stored, so it survives restarts, and it applies to every later run of that agent until an admin lifts it:

@@ -270,7 +270,7 @@ def tools_for(service: Any, user: Any) -> List[Dict[str, Any]]:
                                                                                      "additionalProperties": True}}},
                                               ["name", "edits", "checks"]),
                       "run": lambda a: _what_if(service, user, a)})
-    return tools
+    return [t for t in tools if user.can(t["permission"])]  # never offer a tool the user may not use
 
 
 def redacted_refs(service: Any) -> set:

@@ -53,7 +53,7 @@ coverage and no skipped test, builds the wheel and the Docker image and smoke-te
 | `fd7ab77` | MOD-4 (GAP-018) | `test_mod4_single_writer.py` (5) | 542 | 37 | **failure**: tests and coverage passed on both Pythons; the image smoke test failed (a restarted container was refused the store) |
 | `d92b6da` | Gate 80.4 entry-point matrix | `test_entry_point_matrix.py` (3) | 545 | 38 | **failure**: same smoke-test cause |
 | `6806549` | Gates 80.1–80.3 fault matrix | `test_external_effects_matrix.py` (112 combinations) | 546 | 39 | **failure**: same smoke-test cause |
-| `f0a385a` | MOD-4 fix: release the lease on shutdown | `test_mod4_single_writer.py` (+2) | 548 | 40 | see the run; the smoke test passed locally on a freshly built image |
+| `f0a385a` | MOD-4 fix: release the lease on shutdown | `test_mod4_single_writer.py` (+2) | 548 | 40 | **package job success** (image smoke test, including stop and restart, passes in CI and locally); the two test jobs were still running when this report was written: check run 40 |
 
 Each story's tests were written to fail first; the implementation log records how many failed before the fix.
 For the external-effects suite and the isolation stories that introduced new APIs, the test modules could not run

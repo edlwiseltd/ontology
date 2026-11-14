@@ -96,4 +96,4 @@ increment 2 provides "submit for validation"; the milestone is demonstrated end 
 |---|---|
 | Full suite (local, before the push) | **604 tests, OK** (2 PostgreSQL tests skipped locally; CI runs them); 592 before, +12 |
 | Coverage (engine package) | **96.5 % lines** (10,317 statements, 364 missed) |
-| Commit and CI | recorded in the [implementation log](AUTOLOGY_IMPLEMENTATION_LOG.md) once the run finishes |
+| Commit and CI | [`40f7780`](https://github.com/edlwiseltd/ontology/commit/40f7780) → [run 50](https://github.com/edlwiseltd/ontology/actions/runs/43620645339): **success** (tests and coverage gate on Python 3.10 and 3.13 with PostgreSQL, wheel, Docker smoke test) |

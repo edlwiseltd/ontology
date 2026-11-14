@@ -1,6 +1,6 @@
 # Autology — current state and gaps
 
-*Updated 14 November 2026 at the R1 close-out (earlier revision: after Phase 1 (see [implementation log](AUTOLOGY_IMPLEMENTATION_LOG.md)).
+*Updated 14 November 2026 at the R1 close-out; the previous revision followed Phase 1 (see the [implementation log](AUTOLOGY_IMPLEMENTATION_LOG.md)).
 Builds on the independent audit of 13 November ([`../audit/`](../audit/README.md)); every claim below cites code,
 tests or audit evidence.*
 

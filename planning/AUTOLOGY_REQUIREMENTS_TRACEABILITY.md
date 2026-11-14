@@ -52,7 +52,7 @@ Supersedes the section-by-section table of [AUTOLOGY_PREUVE_EXECUTION_INSTRUCTIO
 
 | Requirement | Release | Status |
 |---|---|---|
-| Studio as a separate application | R2 | Partially implemented: interim shell (`studio/`, separate process, imports nothing from the engine; `test_studio_shell.py`); technology open (D9) |
+| Studio as a separate application | R2 | Implemented and verified for the shell (Next.js, `studio/web`, D9 approved): catalogue, overview, stage moves, creation, read-only ontology canvas; Vitest, Playwright browser tests, `test_studio_separation.py`. Editing, AI Architect, releases: blocked on engine APIs ([matrix](AUTOLOGY_STUDIO_API_CONTRACT_MATRIX.md)) |
 | Natural-language brief → provisional ontology with provenance | R2 | Not started |
 | Dynamic discovery (no fixed questionnaire) | R2 | Not started |
 | Visual architecture producing engine-valid configuration (one model, the strict schema) | R2 | Not started; the strict schema (MOD-1, `docs/ontology.schema.json`) is the shared model |

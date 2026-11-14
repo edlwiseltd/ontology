@@ -122,3 +122,11 @@ image build could not copy `deploy/image-constraints.txt`. The local check had u
 did not apply `.dockerignore`, so it did not reproduce CI. Fixed by an exception in `.dockerignore`; re-verified by
 building from the repository's own context (legacy builder, since Docker Hub rate-limited BuildKit locally) and
 running the licence check on that image.
+
+## 14 November 2026 — Studio in Next.js (owner package of 14 Nov): Increments 0 and 1
+
+| Story | Change | Tests | Behaviour change |
+|---|---|---|---|
+| Increment 0 | `planning/AUTOLOGY_STUDIO_UI_UX_SPEC.md` (reconciled with the repository), `…_JOURNEYS_AND_SCREEN_MAP.md`, `…_FRONTEND_ADR.md`, `…_API_CONTRACT_MATRIX.md`; D9 recorded as approved (Next.js) | — | — |
+| Increment 1 | `studio/web`: Next.js 16 / React 19 / TypeScript, exact pins and lock file; one narrow relay (`lib/forward.ts`: GET/POST under `/platform/` and `/w/`, two headers, no redirects, 1 MB); typed client; workbench (catalogue, overview with execution state, checks, stage moves, history, creation from templates, light/dark themes); read-only ontology canvas (React Flow) with an entity list and inspector sharing one selection. Engine: `GET /api/ontology` now includes relationships. The interim Python shell is retired (all its functions covered). Found while doing it: Next.js installs optional `sharp`/`libvips` (LGPL-3.0) and `caniuse-lite` (CC-BY-4.0): Studio disables the image optimiser and the point is added to the legal package (L6) | `studio/web`: Vitest 13 (relay confinement, projection incl. 300 entities < 250 ms, client, separation); Playwright `e2e/run.sh` 13 browser checks + Studio-stopped engine check (desktop 1280 px and iPhone 13, keyboard selection, contrast 16.2:1 / 15.4:1, non-admin and cross-workspace direct calls refused 403/404/404); `tests/test_studio_separation.py` (4) replaces `tests/test_studio_shell.py`; new CI job `studio` | `python -m studio` no longer exists: run `studio/web` (see `studio/README.md`) |
+Python suite after the Studio change: 637 OK (643 − 10 retired shell tests + 4 separation tests); 96.26 % lines. Studio: 13 Vitest, 13 + 1 browser checks.

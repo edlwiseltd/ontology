@@ -1,5 +1,7 @@
 # Autology — R2 first slice: workspace shell, use-case management, Draft → Simulation → Pilot
 
+> **Update (14 Nov, later):** the interim Python Studio shell (`studio/server.py`, `tests/test_studio_shell.py`) was replaced by the Next.js Studio (`studio/web`, owner decision D9); its separation guarantees moved to `tests/test_studio_separation.py`, `studio/web/tests` and `studio/web/e2e`. See [the Studio frontend ADR](AUTOLOGY_STUDIO_FRONTEND_ADR.md).
+
 *14 November 2026 · branch `claude/autology-ontology-agent-4ajjer`. Scope set by the owner: "start R2 only with a
 narrow slice: Workspace shell in Studio, use-case management, and draft-simulation-pilot states, with no ERP write
 integrations or real deployments." Nothing here writes to an ERP, deploys anything or authorises production.*

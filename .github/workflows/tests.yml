@@ -102,3 +102,40 @@ jobs:
           cp deploy/.env.example deploy/.env
           touch deploy/prometheus-token
           docker compose -f deploy/docker-compose.yml --profile monitoring config -q
+
+  studio:
+    # Studio (Next.js, studio/web) is its own application: it type-checks, passes its unit tests, builds, and passes
+    # its browser tests against a real platform; then the engine is shown to keep working with Studio stopped.
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: studio/web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install (exact versions from the lock file)
+        run: npm ci --no-audit --no-fund
+
+      - name: Type-check and unit tests
+        run: |
+          npm run typecheck
+          npm test
+
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+
+      - name: Browser tests against a real platform, then the engine without Studio
+        run: |
+          npx playwright install --with-deps chromium
+          e2e/run.sh
+

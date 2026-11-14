@@ -81,7 +81,7 @@ finish execution gates, release governance, workspace administration and the API
 
 | ID | Story | Acceptance | Est. |
 |---|---|---|---|
-| STU-1 | Shell: sign-in, workspace selector, use-case catalogue, built from the OpenAPI client | Builds, runs and deploys on its own; the engine's suite passes with Studio stopped; a user without admin rights gets nothing extra by changing routes | 6 d |
+| STU-1 | Shell: sign-in, workspace selector, use-case catalogue, built from the OpenAPI client (**done 14 Nov in Next.js, D9**, except the generated client; see [Studio spec](AUTOLOGY_STUDIO_UI_UX_SPEC.md)) | Builds, runs and deploys on its own; the engine's suite passes with Studio stopped; a user without admin rights gets nothing extra by changing routes | 6 d |
 | STU-2 | Architect panel and provisional model view (entities, relations, actions, rules, provenance), editing through the API | Edits are validated server-side; provisional elements are marked as such | 8 d |
 | STU-3 | Questions and missing-evidence queue | Follows ARC-3 | 3 d |
 | STU-5 | Readiness and blockers dashboard | Read-only view of REL-3 | 3 d |

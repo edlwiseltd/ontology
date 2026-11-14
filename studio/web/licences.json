@@ -1,0 +1,544 @@
+{
+ "_note": "Production (shipped) npm packages of Studio, from package-lock.json; regenerate with the command in README. Dev-only packages are not shipped.",
+ "packages": [
+  {
+   "name": "@emnapi/runtime",
+   "version": "1.11.3",
+   "license": "MIT",
+   "optional": true,
+   "family": "permissive"
+  },
+  {
+   "name": "@img/colour",
+   "version": "1.1.0",
+   "license": "MIT",
+   "optional": true,
+   "family": "permissive"
+  },
+  {
+   "name": "@img/sharp-darwin-arm64",
+   "version": "0.35.5",
+   "license": "Apache-2.0",
+   "optional": true,
+   "family": "permissive"
+  },
+  {
+   "name": "@img/sharp-darwin-x64",
+   "version": "0.35.5",
+   "license": "Apache-2.0",
+   "optional": true,
+   "family": "permissive"
+  },
+  {
+   "name": "@img/sharp-freebsd-wasm32",
+   "version": "0.35.5",
+   "license": "Apache-2.0",
+   "optional": true,
+   "family": "permissive"
+  },
+  {
+   "name": "@img/sharp-libvips-darwin-arm64",
+   "version": "1.3.4",
+   "license": "LGPL-3.0-or-later",
+   "optional": true,
+   "family": "weak-copyleft"
+  },
+  {
+   "name": "@img/sharp-libvips-darwin-x64",
+   "version": "1.3.4",
+   "license": "LGPL-3.0-or-later",
+   "optional": true,
+   "family": "weak-copyleft"
+  },
+  {
+   "name": "@img/sharp-libvips-linux-arm",
+   "version": "1.3.4",
+   "license": "LGPL-3.0-or-later",
+   "optional": true,
+   "family": "weak-copyleft"
+  },
+  {
+   "name": "@img/sharp-libvips-linux-arm64",
+   "version": "1.3.4",
+   "license": "LGPL-3.0-or-later",
+   "optional": true,
+   "family": "weak-copyleft"
+  },
+  {
+   "name": "@img/sharp-libvips-linux-ppc64",
+   "version": "1.3.4",
+   "license": "LGPL-3.0-or-later",
+   "optional": true,
+   "family": "weak-copyleft"
+  },
+  {
+   "name": "@img/sharp-libvips-linux-riscv64",
+   "version": "1.3.4",
+   "license": "LGPL-3.0-or-later",
+   "optional": true,
+   "family": "weak-copyleft"
+  },
+  {
+   "name": "@img/sharp-libvips-linux-s390x",
+   "version": "1.3.4",
+   "license": "LGPL-3.0-or-later",
+   "optional": true,
+   "family": "weak-copyleft"
+  },
+  {
+   "name": "@img/sharp-libvips-linux-x64",
+   "version": "1.3.4",
+   "license": "LGPL-3.0-or-later",
+   "optional": true,
+   "family": "weak-copyleft"
+  },
+  {
+   "name": "@img/sharp-libvips-linuxmusl-arm64",
+   "version": "1.3.4",
+   "license": "LGPL-3.0-or-later",
+   "optional": true,
+   "family": "weak-copyleft"
+  },
+  {
+   "name": "@img/sharp-libvips-linuxmusl-x64",
+   "version": "1.3.4",
+   "license": "LGPL-3.0-or-later",
+   "optional": true,
+   "family": "weak-copyleft"
+  },
+  {
+   "name": "@img/sharp-linux-arm",
+   "version": "0.35.5",
+   "license": "Apache-2.0",
+   "optional": true,
+   "family": "permissive"
+  },
+  {
+   "name": "@img/sharp-linux-arm64",
+   "version": "0.35.5",
+   "license": "Apache-2.0",
+   "optional": true,
+   "family": "permissive"
+  },
+  {
+   "name": "@img/sharp-linux-ppc64",
+   "version": "0.35.5",
+   "license": "Apache-2.0",
+   "optional": true,
+   "family": "permissive"
+  },
+  {
+   "name": "@img/sharp-linux-riscv64",
+   "version": "0.35.5",
+   "license": "Apache-2.0",
+   "optional": true,
+   "family": "permissive"
+  },
+  {
+   "name": "@img/sharp-linux-s390x",
+   "version": "0.35.5",
+   "license": "Apache-2.0",
+   "optional": true,
+   "family": "permissive"
+  },
+  {
+   "name": "@img/sharp-linux-x64",
+   "version": "0.35.5",
+   "license": "Apache-2.0",
+   "optional": true,
+   "family": "permissive"
+  },
+  {
+   "name": "@img/sharp-linuxmusl-arm64",
+   "version": "0.35.5",
+   "license": "Apache-2.0",
+   "optional": true,
+   "family": "permissive"
+  },
+  {
+   "name": "@img/sharp-linuxmusl-x64",
+   "version": "0.35.5",
+   "license": "Apache-2.0",
+   "optional": true,
+   "family": "permissive"
+  },
+  {
+   "name": "@img/sharp-wasm32",
+   "version": "0.35.5",
+   "license": "Apache-2.0 AND LGPL-3.0-or-later AND MIT",
+   "optional": true,
+   "family": "weak-copyleft"
+  },
+  {
+   "name": "@img/sharp-webcontainers-wasm32",
+   "version": "0.35.5",
+   "license": "Apache-2.0",
+   "optional": true,
+   "family": "permissive"
+  },
+  {
+   "name": "@img/sharp-win32-arm64",
+   "version": "0.35.5",
+   "license": "Apache-2.0 AND LGPL-3.0-or-later",
+   "optional": true,
+   "family": "weak-copyleft"
+  },
+  {
+   "name": "@img/sharp-win32-ia32",
+   "version": "0.35.5",
+   "license": "Apache-2.0 AND LGPL-3.0-or-later",
+   "optional": true,
+   "family": "weak-copyleft"
+  },
+  {
+   "name": "@img/sharp-win32-x64",
+   "version": "0.35.5",
+   "license": "Apache-2.0 AND LGPL-3.0-or-later",
+   "optional": true,
+   "family": "weak-copyleft"
+  },
+  {
+   "name": "@next/env",
+   "version": "16.4.6",
+   "license": "MIT",
+   "optional": false,
+   "family": "permissive"
+  },
+  {
+   "name": "@next/swc-darwin-arm64",
+   "version": "16.4.6",
+   "license": "MIT",
+   "optional": true,
+   "family": "permissive"
+  },
+  {
+   "name": "@next/swc-darwin-x64",
+   "version": "16.4.6",
+   "license": "MIT",
+   "optional": true,
+   "family": "permissive"
+  },
+  {
+   "name": "@next/swc-linux-arm64-gnu",
+   "version": "16.4.6",
+   "license": "MIT",
+   "optional": true,
+   "family": "permissive"
+  },
+  {
+   "name": "@next/swc-linux-arm64-musl",
+   "version": "16.4.6",
+   "license": "MIT",
+   "optional": true,
+   "family": "permissive"
+  },
+  {
+   "name": "@next/swc-linux-x64-gnu",
+   "version": "16.4.6",
+   "license": "MIT",
+   "optional": true,
+   "family": "permissive"
+  },
+  {
+   "name": "@next/swc-linux-x64-musl",
+   "version": "16.4.6",
+   "license": "MIT",
+   "optional": true,
+   "family": "permissive"
+  },
+  {
+   "name": "@next/swc-win32-arm64-msvc",
+   "version": "16.4.6",
+   "license": "MIT",
+   "optional": true,
+   "family": "permissive"
+  },
+  {
+   "name": "@next/swc-win32-x64-msvc",
+   "version": "16.4.6",
+   "license": "MIT",
+   "optional": true,
+   "family": "permissive"
+  },
+  {
+   "name": "@swc/helpers",
+   "version": "0.5.23",
+   "license": "Apache-2.0",
+   "optional": false,
+   "family": "permissive"
+  },
+  {
+   "name": "@types/d3-color",
+   "version": "3.1.3",
+   "license": "MIT",
+   "optional": false,
+   "family": "permissive"
+  },
+  {
+   "name": "@types/d3-drag",
+   "version": "3.0.7",
+   "license": "MIT",
+   "optional": false,
+   "family": "permissive"
+  },
+  {
+   "name": "@types/d3-interpolate",
+   "version": "3.0.4",
+   "license": "MIT",
+   "optional": false,
+   "family": "permissive"
+  },
+  {
+   "name": "@types/d3-selection",
+   "version": "3.0.12",
+   "license": "MIT",
+   "optional": false,
+   "family": "permissive"
+  },
+  {
+   "name": "@types/d3-transition",
+   "version": "3.0.9",
+   "license": "MIT",
+   "optional": false,
+   "family": "permissive"
+  },
+  {
+   "name": "@types/d3-zoom",
+   "version": "3.0.9",
+   "license": "MIT",
+   "optional": false,
+   "family": "permissive"
+  },
+  {
+   "name": "@types/react",
+   "version": "19.3.0",
+   "license": "MIT",
+   "optional": false,
+   "family": "permissive"
+  },
+  {
+   "name": "@types/react-dom",
+   "version": "19.3.0",
+   "license": "MIT",
+   "optional": false,
+   "family": "permissive"
+  },
+  {
+   "name": "@xyflow/react",
+   "version": "12.12.1",
+   "license": "MIT",
+   "optional": false,
+   "family": "permissive"
+  },
+  {
+   "name": "@xyflow/system",
+   "version": "0.0.84",
+   "license": "MIT",
+   "optional": false,
+   "family": "permissive"
+  },
+  {
+   "name": "baseline-browser-mapping",
+   "version": "2.11.37",
+   "license": "Apache-2.0",
+   "optional": false,
+   "family": "permissive"
+  },
+  {
+   "name": "caniuse-lite",
+   "version": "1.0.30001826",
+   "license": "CC-BY-4.0",
+   "optional": false,
+   "family": "unknown"
+  },
+  {
+   "name": "classcat",
+   "version": "5.0.5",
+   "license": "MIT",
+   "optional": false,
+   "family": "permissive"
+  },
+  {
+   "name": "client-only",
+   "version": "0.0.1",
+   "license": "MIT",
+   "optional": false,
+   "family": "permissive"
+  },
+  {
+   "name": "csstype",
+   "version": "3.2.3",
+   "license": "MIT",
+   "optional": false,
+   "family": "permissive"
+  },
+  {
+   "name": "d3-color",
+   "version": "3.1.1",
+   "license": "ISC",
+   "optional": false,
+   "family": "permissive"
+  },
+  {
+   "name": "d3-dispatch",
+   "version": "3.0.2",
+   "license": "ISC",
+   "optional": false,
+   "family": "permissive"
+  },
+  {
+   "name": "d3-drag",
+   "version": "3.0.1",
+   "license": "ISC",
+   "optional": false,
+   "family": "permissive"
+  },
+  {
+   "name": "d3-ease",
+   "version": "3.0.2",
+   "license": "BSD-3-Clause",
+   "optional": false,
+   "family": "permissive"
+  },
+  {
+   "name": "d3-interpolate",
+   "version": "3.0.2",
+   "license": "ISC",
+   "optional": false,
+   "family": "permissive"
+  },
+  {
+   "name": "d3-selection",
+   "version": "3.0.1",
+   "license": "ISC",
+   "optional": false,
+   "family": "permissive"
+  },
+  {
+   "name": "d3-timer",
+   "version": "3.0.2",
+   "license": "ISC",
+   "optional": false,
+   "family": "permissive"
+  },
+  {
+   "name": "d3-transition",
+   "version": "3.0.2",
+   "license": "ISC",
+   "optional": false,
+   "family": "permissive"
+  },
+  {
+   "name": "d3-zoom",
+   "version": "3.0.1",
+   "license": "ISC",
+   "optional": false,
+   "family": "permissive"
+  },
+  {
+   "name": "detect-libc",
+   "version": "2.1.2",
+   "license": "Apache-2.0",
+   "optional": false,
+   "family": "permissive"
+  },
+  {
+   "name": "nanoid",
+   "version": "3.3.20",
+   "license": "MIT",
+   "optional": false,
+   "family": "permissive"
+  },
+  {
+   "name": "next",
+   "version": "16.4.6",
+   "license": "MIT",
+   "optional": false,
+   "family": "permissive"
+  },
+  {
+   "name": "picocolors",
+   "version": "1.1.1",
+   "license": "ISC",
+   "optional": false,
+   "family": "permissive"
+  },
+  {
+   "name": "postcss",
+   "version": "8.5.23",
+   "license": "MIT",
+   "optional": false,
+   "family": "permissive"
+  },
+  {
+   "name": "react",
+   "version": "19.3.1",
+   "license": "MIT",
+   "optional": false,
+   "family": "permissive"
+  },
+  {
+   "name": "react-dom",
+   "version": "19.3.1",
+   "license": "MIT",
+   "optional": false,
+   "family": "permissive"
+  },
+  {
+   "name": "scheduler",
+   "version": "0.28.0",
+   "license": "MIT",
+   "optional": false,
+   "family": "permissive"
+  },
+  {
+   "name": "semver",
+   "version": "7.8.6",
+   "license": "ISC",
+   "optional": true,
+   "family": "permissive"
+  },
+  {
+   "name": "sharp",
+   "version": "0.35.5",
+   "license": "Apache-2.0",
+   "optional": true,
+   "family": "permissive"
+  },
+  {
+   "name": "source-map-js",
+   "version": "1.2.2",
+   "license": "BSD-3-Clause",
+   "optional": false,
+   "family": "permissive"
+  },
+  {
+   "name": "styled-jsx",
+   "version": "5.1.6",
+   "license": "MIT",
+   "optional": false,
+   "family": "permissive"
+  },
+  {
+   "name": "tslib",
+   "version": "2.9.1",
+   "license": "0BSD",
+   "optional": false,
+   "family": "permissive"
+  },
+  {
+   "name": "use-sync-external-store",
+   "version": "1.7.0",
+   "license": "MIT",
+   "optional": false,
+   "family": "permissive"
+  },
+  {
+   "name": "zustand",
+   "version": "4.5.7",
+   "license": "MIT",
+   "optional": false,
+   "family": "permissive"
+  }
+ ]
+}

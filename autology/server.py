@@ -496,6 +496,8 @@ class AutologyService:
                 "entities": {e.name: {"states": list(e.states), "multiple": e.multiple, "aliases": list(e.aliases),
                                       "attributes": {a.name: a.type for a in e.attributes.values()}}
                              for e in o.entities.values()},
+                "relationships": [{"source": r.source, "target": r.target, "kind": r.kind,
+                                   "cardinality": r.cardinality} for r in o.relationships],
                 "actions": {a.name: {"description": a.description, "for_each": a.for_each} for a in o.actions.values()},
                 "goals": {g.name: {"description": g.description, "target": str(g.target)} for g in o.goals.values()},
                 "functions": {k: {"returns": f.returns, "expr": f.source, "description": f.description}

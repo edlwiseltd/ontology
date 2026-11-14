@@ -1,21 +1,22 @@
-# Autology Studio (interim shell)
+# Autology Studio
 
-A separate application for workspace administrators and members: it lists the use cases of the signed-in
-person's workspace with their lifecycle stage, creates use cases from the operator's approved templates, shows
-the readiness checks of the next stage and records stage moves (Draft → Simulation → Pilot; Production is not
-authorised).
+The design workbench for workspace administrators and solution architects: a **separate Next.js application**
+(`studio/web`, Next.js App Router + React + TypeScript, owner decision D9) that reaches Autology only through the
+platform's HTTP API. It never imports the engine, holds no database connection and no secret; every permission,
+check, stage rule and workspace boundary is the platform's and the engine's.
 
 ```bash
-python -m autology platform examples/platform/platform.json --port 8700   # the platform (engine)
-python -m studio --platform http://127.0.0.1:8700 --port 8950             # Studio, its own process
+python -m autology platform examples/platform/platform.json --port 8700     # the platform (engine)
+cd studio/web && npm ci && npm run build
+AUTOLOGY_PLATFORM_URL=http://127.0.0.1:8700 npm start                       # Studio on :8960
 ```
 
-* It talks to the platform over HTTP only and never imports the `autology` package; it is not shipped in the
-  engine's wheel.
-* It forwards only `GET`/`POST` under `/platform/` and `/w/`, with `Authorization` and `Content-Type` only; the
-  person's token stays in their browser tab. Every permission, check and stage rule is the platform's.
-* The technology of the final Studio is an open owner decision (**D9**). This shell is deliberately small
-  (standard library and plain JavaScript) so it can be replaced without touching the engine.
+| Command (in `studio/web`) | What it does |
+|---|---|
+| `npm run typecheck` / `npm test` | TypeScript check; unit tests (relay confinement, model projection, client, separation) |
+| `npm run build` | Production build |
+| `e2e/run.sh` | Browser tests (Playwright) against a real example platform, desktop and mobile, then stops Studio and shows the engine still answers |
 
-Not in this shell yet: the AI Solution Architect, the visual model editor, member and grant administration,
-Excel templates. See `planning/AUTOLOGY_R2_SLICE_REPORT.md`.
+Licences of the npm packages Studio ships: `studio/web/licences.json` (see the legal package, D19).
+Design and plans: `planning/AUTOLOGY_STUDIO_*.md`. The earlier interim Python shell was retired on 14 November
+2026 once every one of its functions was covered by this application and its browser tests.

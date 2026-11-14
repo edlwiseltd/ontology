@@ -1,0 +1,58 @@
+// The only server-side code in Studio: a narrow relay to the Autology platform, so the browser talks to one origin.
+// It decides nothing. It forwards GET and POST under /platform/ and /w/ only, with Authorization and Content-Type
+// only, never follows redirects, bounds request bodies, and answers 502 when the platform cannot be reached.
+// Every permission, check, stage and isolation rule is the platform's.
+
+export const FORWARDED_PREFIXES = ["/platform/", "/w/"];
+export const FORWARDED_HEADERS = ["authorization", "content-type"];
+export const MAX_BODY = 1_000_000;
+
+export function forwardable(method: string, path: string): boolean {
+  return (method === "GET" || method === "POST") && FORWARDED_PREFIXES.some((p) => path.startsWith(p))
+    && !path.includes("..") && !path.includes("//") && !path.includes("\\") && !/%2e|%2f|%5c/i.test(path);
+}
+
+export function platformBase(raw: string | undefined): string {
+  if (!raw) throw new Error("set AUTOLOGY_PLATFORM_URL to the platform's base URL, e.g. http://127.0.0.1:8700");
+  const url = new URL(raw);
+  if (!["http:", "https:"].includes(url.protocol) || (url.pathname !== "/" && url.pathname !== "") || url.search || url.hash) {
+    throw new Error("AUTOLOGY_PLATFORM_URL must be a base URL such as http://127.0.0.1:8700");
+  }
+  return `${url.protocol}//${url.host}`;
+}
+
+function json(status: number, error: string): Response {
+  return new Response(JSON.stringify({ error }), { status, headers: { "Content-Type": "application/json" } });
+}
+
+export async function forward(req: Request, base = process.env.AUTOLOGY_PLATFORM_URL,
+                              fetcher: typeof fetch = fetch): Promise<Response> {
+  const url = new URL(req.url);
+  if (!forwardable(req.method, url.pathname)) return json(404, "not found");
+  let target: string;
+  try {
+    target = platformBase(base) + url.pathname + url.search;
+  } catch (e) {
+    return json(500, (e as Error).message);
+  }
+  const headers = new Headers();
+  for (const name of FORWARDED_HEADERS) {
+    const value = req.headers.get(name);
+    if (value) headers.set(name, value);
+  }
+  let body: ArrayBuffer | undefined;
+  if (req.method === "POST") {
+    const length = req.headers.get("content-length");
+    if (length !== null && !/^\d+$/.test(length)) return json(411, "a valid Content-Length is required");
+    body = await req.arrayBuffer();
+    if (body.byteLength > MAX_BODY) return json(413, "request body too large");
+  }
+  try {
+    const res = await fetcher(target, { method: req.method, headers, body, redirect: "manual", cache: "no-store" });
+    const out = new Headers({ "Content-Type": res.headers.get("content-type") ?? "application/json",
+                              "Cache-Control": "no-store" });
+    return new Response(await res.arrayBuffer(), { status: res.status, headers: out });
+  } catch {
+    return json(502, "the platform cannot be reached");
+  }
+}

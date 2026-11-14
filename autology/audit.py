@@ -59,6 +59,15 @@ def _digest(seq: int, timestamp: str, event: str, data: Dict[str, Any], prev_has
     return hashlib.sha256(payload).hexdigest()
 
 
+def record_seal(run_id: str, fields: List[Any], key: Optional[bytes] = None) -> str:
+    """MAC over a stored run record and the columns that steer it (status, starter, chain head...), bound to its
+    run id: the resumable state lives outside the chain, so it is sealed as a whole each time Autology writes it."""
+    payload = json.dumps(["autology-run", run_id, *fields], default=str).encode()
+    if key:
+        return hmac.new(key, payload, hashlib.sha256).hexdigest()
+    return hashlib.sha256(payload).hexdigest()
+
+
 def _head_mac(length: int, last: str, key: bytes) -> str:
     return hmac.new(key, f"autology-head:{length}:{last}".encode(), hashlib.sha256).hexdigest()
 

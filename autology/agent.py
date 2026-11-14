@@ -428,6 +428,8 @@ class WorkAgent:
     def _tampering(self, previous: RunResult) -> Optional[str]:
         """Why the stored, resumable run cannot be trusted, or None."""
         audit, run = previous.audit, previous.run
+        if getattr(previous, "integrity_problem", None):
+            return previous.integrity_problem
         if not audit.verify():
             return "the audit chain does not verify"
         ends = audit.events("run.end")

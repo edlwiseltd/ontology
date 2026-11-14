@@ -54,7 +54,7 @@ so keep that key with the backups' recovery instructions, not with the backups.
 
 1. Take a backup.
 2. Start the new version on the same volume. The store's schema is upgraded in place on start-up (new tables and
-   columns only; nothing is dropped). This release moves it to schema 10.
+   columns only; nothing is dropped). This release moves it to schema 11. Schema 11 seals every stored run record (see the audit notes in [platform.md](platform.md)). Records already in the store are sealed as they are, so check them first: the step-1 backup (`autology backup`) lists any run whose audit chain does not verify, and the `autology_audit_unverified_runs` metric must be 0.
 3. Rolling back means restoring the backup: an older version refuses to open a store with a newer schema.
 
 The ontology is versioned separately: check a new ontology with `autology diff OLD NEW` before you deploy it.

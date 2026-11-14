@@ -39,7 +39,7 @@ from .audit import GENESIS, AuditLog
 from .graph import KnowledgeGraph
 from .ontology import Ontology
 
-SCHEMA_VERSION = 10
+SCHEMA_VERSION = 11
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -52,7 +52,7 @@ CREATE INDEX IF NOT EXISTS links_target ON links(target, kind);
 CREATE TABLE IF NOT EXISTS runs (
     run_id TEXT PRIMARY KEY, case_id TEXT NOT NULL, goal TEXT NOT NULL, ontology TEXT NOT NULL,
     agent TEXT, status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, record TEXT NOT NULL,
-    started_by TEXT);
+    started_by TEXT, seal TEXT);
 CREATE INDEX IF NOT EXISTS runs_status ON runs(status);
 CREATE TABLE IF NOT EXISTS audit (
     run_id TEXT NOT NULL, seq INTEGER NOT NULL, timestamp TEXT NOT NULL, event TEXT NOT NULL, data TEXT NOT NULL,
@@ -168,6 +168,11 @@ class Store:
                     self._db.execute("ALTER TABLE automation_state ADD COLUMN failures INTEGER NOT NULL DEFAULT 0")
                 if "alg" not in {r["name"] for r in self._db.execute("PRAGMA table_info(audit)")}:  # schema 6
                     self._db.execute("ALTER TABLE audit ADD COLUMN alg TEXT NOT NULL DEFAULT 'sha256'")
+                if "seal" not in columns:  # schema 11: every run record is sealed; existing ones are sealed now
+                    self._db.execute("ALTER TABLE runs ADD COLUMN seal TEXT")
+                    for r in self._db.execute("SELECT run_id FROM runs").fetchall():
+                        self._db.execute("UPDATE runs SET seal=? WHERE run_id=?",
+                                         (self._seal_of(self._db, r["run_id"]), r["run_id"]))
                 self._db.execute("UPDATE meta SET value=? WHERE key='schema_version'", (str(SCHEMA_VERSION),))
 
     def close(self) -> None:
@@ -270,8 +275,34 @@ class Store:
                            "record, started_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                            (run_id, result.case_id, result.goal, ontology_ref, agent, result.status, now, now,
                             json.dumps(record, default=str), started_by))
+            db.execute("UPDATE runs SET seal=? WHERE run_id=?", (self._seal_of(db, run_id), run_id))
         result.run_id = run_id
         return run_id
+
+    @staticmethod
+    def _seal_of(db, run_id: str) -> Optional[str]:
+        """The seal the run's stored row and chain head should carry (None if there is no such run)."""
+        from .audit import audit_key, record_seal
+
+        row = db.execute("SELECT case_id, goal, ontology, agent, status, started_by, record FROM runs WHERE run_id=?",
+                         (run_id,)).fetchone()
+        if row is None:
+            return None
+        head = db.execute("SELECT length, hash FROM audit_heads WHERE run_id=?", (run_id,)).fetchone()
+        return record_seal(run_id, [row["case_id"], row["goal"], row["ontology"], row["agent"], row["status"],
+                                    row["started_by"], row["record"], head and head["length"], head and head["hash"]],
+                           audit_key())
+
+    def seal_ok(self, run_id: str) -> bool:
+        """Does the stored run record still match the seal Autology gave it? (True when there is no record.)"""
+        import hmac
+
+        with self._lock:
+            expected = self._seal_of(self._db, run_id)
+            row = self._db.execute("SELECT seal FROM runs WHERE run_id=?", (run_id,)).fetchone()
+        if expected is None:
+            return True
+        return bool(row["seal"]) and hmac.compare_digest(row["seal"], expected)
 
     def audit_log(self, run_id: str) -> AuditLog:
         rows = self._query("SELECT * FROM audit WHERE run_id=? ORDER BY seq", (run_id,))
@@ -295,6 +326,8 @@ class Store:
         record["audit"] = self.audit_log(run_id).to_list()  # the append-only table is authoritative
         result = result_from_dict(record)
         result.run_id = run_id
+        if not self.seal_ok(run_id):  # an edit outside Autology: the run must not resume (audit GAP-014)
+            result.integrity_problem = "the stored run record was changed outside Autology (its seal does not match)"
         return result
 
     def list_runs(self, status: Optional[str] = None, limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:
@@ -311,7 +344,7 @@ class Store:
 
     def verify_audit(self, run_id: str) -> bool:
         log = self.audit_log(run_id)
-        return log.verify() and (len(log) == 0 or list(log)[0].prev_hash == GENESIS)
+        return log.verify() and (len(log) == 0 or list(log)[0].prev_hash == GENESIS) and self.seal_ok(run_id)
 
     def audit_events(self, event: Optional[str] = None, run_id: Optional[str] = None,
                      limit: int = 200) -> List[Dict[str, Any]]:

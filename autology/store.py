@@ -343,9 +343,11 @@ class Store:
             if row is not None and row["instance"] != instance and not (row["host"] == host and row["pid"] == pid):
                 fresh = now - row["heartbeat"] < ttl
                 if fresh and _process_alive(row["host"], row["pid"]):
+                    expires = datetime.fromtimestamp(row["heartbeat"] + ttl, timezone.utc).isoformat(timespec="seconds")
                     raise StoreError(f"the store is in use by another Autology process (pid {row['pid']} on "
                                      f"{row['host']}, since {row['started_at']}): one writer per store. While the "
-                                     "server runs, write through its API (for example POST /api/pipelines/{name}/run)")
+                                     "server runs, write through its API (for example POST /api/pipelines/{name}/run). "
+                                     f"If that process stopped without shutting down, the store is freed at {expires}")
             db.execute("INSERT INTO writer_lease VALUES (1, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET "
                        "instance=excluded.instance, host=excluded.host, pid=excluded.pid, "
                        "started_at=excluded.started_at, heartbeat=excluded.heartbeat",

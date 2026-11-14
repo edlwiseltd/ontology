@@ -7,9 +7,11 @@ import sys
 import tempfile
 import time
 import unittest
+import unittest.mock
 from pathlib import Path
 
 from autology.server import AutologyService
+from autology.store import Store
 
 from .test_ingest import EX, TOKENS
 from .helpers import ROOT
@@ -60,6 +62,20 @@ class SingleWriterTests(unittest.TestCase):
         dead = 2 ** 22 + 12345  # no such process on this host
         self.fake_holder(dead)
         AutologyService(config(self.store), EX)
+
+    def test_a_server_that_stops_cleanly_frees_the_store_at_once(self):
+        # a container restarted on the same volume gets a new hostname: it must not wait for the lease to expire
+        self.svc.close()
+        self.assertIsNone(Store(self.store).lease())
+        other = dict(config(self.store))
+        with unittest.mock.patch("socket.gethostname", return_value="another-container"):
+            AutologyService(other, EX)
+
+    def test_the_refusal_says_when_a_crashed_holders_lease_expires(self):
+        self.fake_holder(os.getppid())
+        with self.assertRaises(ValueError) as cm:
+            AutologyService(config(self.store), EX)
+        self.assertIn("the store is freed at", str(cm.exception))
 
     def test_read_only_tools_run_next_to_the_server(self):
         self.fake_holder(os.getppid())

@@ -297,5 +297,5 @@ def serve(path: str, host: str = "127.0.0.1", port: int = 8700) -> None:  # prag
             s.set()
         server.server_close()
         for svc in platform.services():
-            svc.store.close()
+            svc.close()
         platform.log.close()

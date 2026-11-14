@@ -699,6 +699,15 @@ class AutologyService:
         with self.graph_lock:
             return list(self.graph.instances(entity))
 
+    def close(self) -> None:
+        """Stop writing: give up the store's writer lease (so the next server starts at once) and close it."""
+        if self.writer:
+            try:
+                self.store.release_lease(self.lease_instance)
+            except Exception:  # never block a shutdown
+                log.warning("could not release the store's writer lease", exc_info=True)
+        self.store.close()
+
     def health(self) -> Dict[str, Any]:
         from .audit import audit_key
 
@@ -2106,5 +2115,5 @@ def serve(config_path: str, host: str = "127.0.0.1", port: int = 8800,
     finally:
         stop.set()
         server.server_close()
-        service.store.close()
+        service.close()
         print("Autology stopped", flush=True)

@@ -232,10 +232,19 @@ def load_tools(config: Union[str, Path, Mapping[str, Any]], base_dir: Optional[P
 class HttpApprover:
     """Send review requests to a workflow service (ticketing, chat ops...). Fails closed."""
 
-    def __init__(self, url: str, headers: Optional[Mapping[str, str]] = None, timeout: float = 30.0):
-        self.url, self.headers, self.timeout = url, dict(headers or {}), timeout
+    def __init__(self, url: str, headers: Optional[Mapping[str, str]] = None, timeout: float = 30.0,
+                 environment: str = "production"):
+        from .tools import ENVIRONMENTS
+
+        if environment not in ENVIRONMENTS:
+            raise AdapterError(f"approver {url!r}: environment must be one of {', '.join(ENVIRONMENTS)}")
+        self.url, self.headers, self.timeout, self.environment = url, dict(headers or {}), timeout, environment
+        self.gate = None  # set by the service: the use case's stage decides whether this system may be reached
 
     def review(self, request: ReviewRequest) -> ReviewDecision:
+        refused = self.gate(self.environment, "the review service") if self.gate else None
+        if refused:  # not sent at all: declining is the safe answer (fail closed)
+            return ReviewDecision(False, "autology", f"declined: review request not sent ({refused})")
         target = _expand(self.url)
         resolved = {k: _expand(v) for k, v in self.headers.items()}
         try:
@@ -287,7 +296,8 @@ def load_approver(spec: Union[str, Mapping[str, Any], None]):
                      for action, rule in dict(spec.get("decisions", {})).items()}
         return AutoApprover(decisions, bool(spec.get("default", False)), spec.get("reviewer", "policy"))
     if kind == "http":
-        return HttpApprover(spec["url"], spec.get("headers"), float(spec.get("timeout", 30)))
+        return HttpApprover(spec["url"], spec.get("headers"), float(spec.get("timeout", 30)),
+                            spec.get("environment", "production"))
     raise AdapterError(f"unknown approver type {kind!r} (policy | http)")
 
 

@@ -65,7 +65,7 @@ by leaving and re-entering simulation, since a run in draft is now impossible.
 | Limit | Consequence | Where it is handled |
 |---|---|---|
 | A tool's environment is **declared** by the operator, not verified (an `http` tool marked `sandbox` could point at a production system) | The gate is as good as the declaration; only operator-approved templates can be used by workspaces | Integration Hub registry with verified endpoints (R4) |
-| HTTP **approvers** and **notifications** are not gated by stage | A review request or notification can leave the platform in any stage | Next increments (gate approvers like tools) |
+| ~~HTTP approvers and webhooks not gated~~ **Fixed 14 Nov:** both declare an environment and follow the stage (a review request not sent is declined; a webhook not delivered stays in the inbox). Found while checking for bypasses; it was one: in simulation a review request reached the HTTP approver | — | `tests/test_r2_execution_gates.py` `OutboundIntegrationTests` (fails on the earlier code) |
 | **Pipelines** may read external sources in any stage | Draft and simulation may ingest real data (a read, not an effect) | Owner decision on data use in simulation (D10/D16) |
 | Releases are not immutable yet: the stage is pinned to the ontology fingerprint only, not to the whole configuration (tools, rules files) | A change to `tools.json` alone does not make the stage stale | Increment 2 (release governance) |
 | MCP served from a platform file cannot run next to the platform server (it is a second writer) | Safe, but MCP and server cannot serve one use case at once | GAP-018 C2 ([clarification](AUTOLOGY_PARTIAL_GAPS_CLARIFICATION.md)) |

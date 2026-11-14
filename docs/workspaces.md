@@ -69,7 +69,7 @@ every tool call):
 | simulation | yes | `simulated` |
 | pilot | yes | `simulated`, `sandbox` |
 
-`production` tools are called by no stage. Declare each tool's `"environment"` in `tools.json`
+`production` tools are called by no stage. **Webhooks** and **HTTP approvers** reach outside systems too and follow the same rule: each declares an `"environment"` (default `production`); a webhook that may not be reached is not delivered (the notification stays in the inbox), and a review request that may not be sent is declined (fail closed). Declare each tool's `"environment"` in `tools.json`
 (`simulated`, `sandbox`, `production`; `table` tools are `simulated`; others default to `production`). A step
 with no allowed tool is not sent: the run escalates and the audit records `step.blocked`. `GET /api/health`
 reports `stage`, `runs_allowed` and `tool_environments`. A standalone engine (no platform) is not governed by

@@ -199,6 +199,8 @@ class AutologyService:
             self.agents[name] = AgentConfig(name, agent, goals)
             for member in [agent] + agent.delegates:
                 member.tool_gate = self._tool_refused
+            if hasattr(approver, "gate"):  # an HTTP approver reaches an outside system: the stage decides
+                approver.gate = self._environment_refused
             held = self.store.active_suspension(name)
             if held:  # a suspension outlives restarts: only an admin reinstates the agent
                 agent.governance.suspended[agent.principal.name] = held["reason"]
@@ -279,7 +281,12 @@ class AutologyService:
         for hook in config.get("webhooks", []):
             if urlparse(str(hook.get("url", ""))).scheme not in ("http", "https"):
                 raise ValueError(f"webhook {hook.get('url')!r}: url must be http or https")
-            self.webhooks.append({"url": hook["url"], "kinds": set(hook.get("kinds") or [])})
+            from .tools import ENVIRONMENTS
+
+            if hook.get("environment", "production") not in ENVIRONMENTS:
+                raise ValueError(f"webhook {hook.get('url')!r}: environment must be one of {', '.join(ENVIRONMENTS)}")
+            self.webhooks.append({"url": hook["url"], "kinds": set(hook.get("kinds") or []),
+                                  "environment": hook.get("environment", "production")})
         self.deliveries: List[threading.Thread] = []  # webhook deliveries in flight (joined by tests)
         self.automator = Automator(self.automations, self.store, self._graph_instances, self._fire)
         from .views import ViewPolicy
@@ -885,11 +892,15 @@ class AutologyService:
         return None if policy is None or policy["runs"] else policy["refusal"]
 
     def _tool_refused(self, tool: Any) -> Optional[str]:
+        return self._environment_refused(tool.environment, f"tool {tool.name}")
+
+    def _environment_refused(self, environment: str, what: str) -> Optional[str]:
+        """None if the use case's stage lets ``what`` reach a system of this environment, else the reason."""
         policy = self.execution_policy()
-        if policy is None or tool.environment in policy["environments"]:
+        if policy is None or environment in policy["environments"]:
             return None
-        return (f"tool {tool.name} reaches a {tool.environment} system, which the use case's stage "
-                f"({policy['stage']}) does not allow")
+        return (f"{what} reaches a {environment} system, which the use case's stage ({policy['stage']}) "
+                "does not allow")
 
     def _require_runs(self) -> None:
         refusal = self._runs_refused()
@@ -900,6 +911,10 @@ class AutologyService:
         note = self.store.add_notification(kind, roles, message, ref)
         for hook in self.webhooks:
             if not hook["kinds"] or kind in hook["kinds"]:
+                refused = self._environment_refused(hook["environment"], "a webhook")
+                if refused:  # the notification stays in the inbox; nothing leaves the platform
+                    log.info("webhook not delivered: %s", refused)
+                    continue
                 t = threading.Thread(target=self._deliver, args=(hook["url"], note), daemon=True)
                 t.start()
                 self.deliveries.append(t)

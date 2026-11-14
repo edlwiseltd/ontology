@@ -93,7 +93,7 @@ Status: ☐ to do · ◐ in progress · ☑ done · ⛔ blocked (decision needed
 | ACT-6 | A run resumed after review re-checks the data it relies on (GAP-009) | M | ☑ |
 | **ISO — Workspace isolation everywhere** | | | |
 | ISO-1 | MCP clients reach one use case of their own workspace only | S | ☐ |
-| ISO-2 | Each workspace's audit chains are signed with its own key | M | ☐ |
+| ISO-2 | Each workspace's audit chains are signed with its own key | M | ☑ |
 | ISO-3 | Company sign-in (OIDC) configured per workspace | M | ☐ |
 | **LEG — Legal** | | | |
 | LEG-1 | Proprietary licence notice and third-party licence inventory, checked in CI (D5) | S | ☐ |

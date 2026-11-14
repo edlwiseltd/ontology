@@ -250,6 +250,8 @@ def _build_parser() -> argparse.ArgumentParser:
     bk.add_argument("config")
     bk.add_argument("out")
     bk.add_argument("--store", help="store file, overriding the config")
+    bk.add_argument("--audit-scope", help="workspace id, for a use case's store behind the platform router "
+                                          "(its chains use that workspace's audit key)")
     rp = sub.add_parser("reporting", help="write the governed reporting database that BI tools read")
     rp.add_argument("config")
     rp.add_argument("--out", help="SQLite file (default: the server config's reporting.target)")
@@ -354,7 +356,7 @@ def _cmd_backup(args) -> int:
     from .server import AutologyService
     from .store import StoreError
 
-    service = AutologyService.from_file(args.config, args.store)
+    service = AutologyService.from_file(args.config, args.store, audit_scope=args.audit_scope)
     try:
         out = service.store.backup(args.out)
     except StoreError as exc:

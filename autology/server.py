@@ -128,7 +128,13 @@ class AutologyService:
         base = Path(base_dir)
         rel = lambda p: str((base / p).resolve())  # noqa: E731
         self.ontology = Ontology.load(rel(config["ontology"]))
-        self.store = Store(rel(config["store"]) if config.get("store", ":memory:") != ":memory:" else ":memory:")
+        from .audit import audit_key as env_audit_key, workspace_key
+
+        # a workspace's chains are keyed with a key derived for it (ISO-2); otherwise AUTOLOGY_AUDIT_KEY itself
+        self.audit_scope = config.get("audit_scope")
+        self.audit_key = workspace_key(env_audit_key(), str(self.audit_scope)) if self.audit_scope else env_audit_key()
+        self.store = Store(rel(config["store"]) if config.get("store", ":memory:") != ":memory:" else ":memory:",
+                           audit_key=self.audit_key)
         if config.get("data") and self.store.count_instances() == 0:
             data = json.loads(Path(rel(config["data"])).read_text(encoding="utf-8"))
             self.store.save_graph(KnowledgeGraph.from_dict(self.ontology, data))
@@ -150,12 +156,13 @@ class AutologyService:
             root.setLevel(min(root.level or logging.INFO, logging.INFO))
         from .audit import KEY_ENV, audit_key
 
-        if audit_key() is None and not self.simulation:
+        if self.audit_key is None and not self.simulation:
             raise ValueError(f"set {KEY_ENV} to a secret so the audit chain is keyed (HMAC); without it anyone who "
                              "can edit the store can rewrite the log undetected")
         self.agents: Dict[str, AgentConfig] = {}
         for name, spec in (config.get("agents") or {}).items():
-            delegates = [WorkAgent(d["name"], self.ontology, load_tools(rel(d["tools"])), roles=d.get("roles", []))
+            delegates = [WorkAgent(d["name"], self.ontology, load_tools(rel(d["tools"])), roles=d.get("roles", []),
+                                   audit_key=self.audit_key)
                          for d in spec.get("delegates", [])]
             approver_spec = spec.get("approver", "inbox")
             approver = DeferredApprover() if approver_spec == "inbox" else load_approver(
@@ -166,7 +173,8 @@ class AutologyService:
             agent = WorkAgent(name, self.ontology, load_tools(rel(spec["tools"])), roles=spec.get("roles", []),
                               delegates=delegates, approver=approver,
                               reasoner=load_reasoner(spec.get("reasoner"), (str(base),)),
-                              journal=StoreJournal(self.store, name))  # external calls survive a crash
+                              journal=StoreJournal(self.store, name),  # external calls survive a crash
+                              audit_key=self.audit_key)
             goals = list(spec.get("goals") or self.ontology.goals)
             unknown = [g for g in goals if g not in self.ontology.goals]
             if unknown:
@@ -293,7 +301,7 @@ class AutologyService:
 
     @classmethod
     def from_file(cls, path: str, store: Optional[str] = None,
-                  assistant: Optional[str] = None) -> "AutologyService":
+                  assistant: Optional[str] = None, audit_scope: Optional[str] = None) -> "AutologyService":
         """Load a server config; ``store`` overrides its store path (e.g. a volume in a container) and
         ``assistant`` turns on the governed assistant with that Claude model (or ``model:effort``)."""
         p = Path(path).resolve()
@@ -304,6 +312,8 @@ class AutologyService:
             model, _, effort = assistant.partition(":")
             config["chat"] = {**(config.get("chat") or {}), "model": model or "claude-opus-5-5",
                               **({"effort": effort} if effort else {})}
+        if audit_scope:  # a workspace's store behind the platform router uses that workspace's audit key
+            config["audit_scope"] = audit_scope
         return cls(config, p.parent)
 
     # -- auth ---------------------------------------------------------------
@@ -680,7 +690,7 @@ class AutologyService:
         from .audit import audit_key
 
         return {"status": "degraded" if self.quarantined else "ok", "ontology": self.ontology.ref,
-                "simulation": self.simulation, "audit_keyed": audit_key() is not None,
+                "simulation": self.simulation, "audit_keyed": self.audit_key is not None,
                 "scheduler": self.scheduler_status, "quarantined_records": len(self.quarantined)}
 
     def _notify(self, kind: str, roles, message: str, ref: Dict[str, Any]) -> Dict[str, Any]:

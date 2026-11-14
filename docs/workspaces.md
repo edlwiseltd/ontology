@@ -49,12 +49,16 @@ These are enforced server-side and tested in `tests/test_workspaces.py` through 
   workspace's secrets file and is not visible from another.
 - **Refusals are logged** in the platform's append-only access log (`<data_dir>/platform.db`) as
   `member@workspace`.
+- **Each workspace signs its own audit chains.** Its key is derived from the platform's `AUTOLOGY_AUDIT_KEY` and
+  the workspace id (HMAC-SHA256), so a chain or run copied from one workspace's store into another's does not
+  verify there, and holding one workspace's key does not reveal another's. Back up a use case's store with
+  `autology backup CONFIG OUT --store <data_dir>/<ws>/<uc>/autology.db --audit-scope <ws>` so the copy is checked
+  with the right key.
 
 ## Not yet included
 
 Workspace administration through the API (members and use cases are defined in `platform.json` and loaded at
 start), company sign-in per workspace, MCP access per workspace (`autology mcp` serves a single engine), shared
-resources between use cases, per-workspace audit keys (one platform audit key signs every chain), and a database
-other than SQLite per use case. See [`../planning/AUTOLOGY_IMPLEMENTATION_BACKLOG.md`](../planning/AUTOLOGY_IMPLEMENTATION_BACKLOG.md).
+resources between use cases, and a database other than SQLite per use case. See [`../planning/AUTOLOGY_IMPLEMENTATION_BACKLOG.md`](../planning/AUTOLOGY_IMPLEMENTATION_BACKLOG.md).
 
 **Agent grants per use case.** A member's grant for a use case may carry `"run_as": {"claims": ["fraud_analytics", "finance"]}`: the roles that member may use through that agent, beyond their own (see "What an agent may do for a person" in [platform.md](platform.md)). Without it, the agent acts with the member's own roles only.

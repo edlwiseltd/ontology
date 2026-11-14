@@ -148,8 +148,11 @@ def _now() -> str:
 
 
 class Store:
-    def __init__(self, path: Union[str, Path] = ":memory:"):
+    def __init__(self, path: Union[str, Path] = ":memory:", audit_key: Any = None):
+        from .audit import ENV_KEY
+
         self.path = str(path)
+        self.audit_key = ENV_KEY if audit_key is None else audit_key  # the key its chains and seals use
         self._lock = threading.RLock()
         self._db = sqlite3.connect(self.path, check_same_thread=False, isolation_level=None)
         self._db.row_factory = sqlite3.Row
@@ -387,11 +390,11 @@ class Store:
                        "was in flight', updated_at=? WHERE state='in_flight'", (_now(),))
         return rows
 
-    @staticmethod
-    def _seal_of(db, run_id: str) -> Optional[str]:
+    def _seal_of(self, db, run_id: str) -> Optional[str]:
         """The seal the run's stored row and chain head should carry (None if there is no such run)."""
-        from .audit import audit_key, record_seal
+        from .audit import record_seal, resolve_key
 
+        key = self.audit_key
         row = db.execute("SELECT case_id, goal, ontology, agent, status, started_by, record FROM runs WHERE run_id=?",
                          (run_id,)).fetchone()
         if row is None:
@@ -399,7 +402,7 @@ class Store:
         head = db.execute("SELECT length, hash FROM audit_heads WHERE run_id=?", (run_id,)).fetchone()
         return record_seal(run_id, [row["case_id"], row["goal"], row["ontology"], row["agent"], row["status"],
                                     row["started_by"], row["record"], head and head["length"], head and head["hash"]],
-                           audit_key())
+                           resolve_key(key))
 
     def seal_ok(self, run_id: str) -> bool:
         """Does the stored run record still match the seal Autology gave it? (True when there is no record.)"""
@@ -418,7 +421,7 @@ class Store:
         return AuditLog.from_list([{"seq": r["seq"], "timestamp": r["timestamp"], "event": r["event"],
                                     "data": json.loads(r["data"]), "prev_hash": r["prev_hash"], "hash": r["hash"],
                                     "alg": r["alg"]} for r in rows],
-                                  dict(heads[0]) if heads else None)
+                                  dict(heads[0]) if heads else None, key=self.audit_key)
 
     def audit_heads(self) -> List[Dict[str, Any]]:
         """Every run's chain head (length, last hash, MAC): publish these somewhere the operators cannot edit."""
@@ -433,6 +436,7 @@ class Store:
         record = json.loads(rows[0]["record"])
         record["audit"] = self.audit_log(run_id).to_list()  # the append-only table is authoritative
         result = result_from_dict(record)
+        result.audit.key = self.audit_key
         result.run_id = run_id
         if not self.seal_ok(run_id):  # an edit outside Autology: the run must not resume (audit GAP-014)
             result.integrity_problem = "the stored run record was changed outside Autology (its seal does not match)"
@@ -837,7 +841,7 @@ class Store:
         finally:
             if os.path.exists(tmp):
                 os.unlink(tmp)
-        copy = Store(path)
+        copy = Store(path, audit_key=self.audit_key)
         try:
             runs = [r["run_id"] for r in copy.list_runs(limit=10 ** 9)]
             bad = [r for r in runs if not copy.verify_audit(r)]

@@ -68,12 +68,28 @@ def record_seal(run_id: str, fields: List[Any], key: Optional[bytes] = None) -> 
     return hashlib.sha256(payload).hexdigest()
 
 
+ENV_KEY = object()  # "use AUTOLOGY_AUDIT_KEY": the default for logs, stores and agents
+
+
+def workspace_key(base: Optional[bytes], scope: str) -> Optional[bytes]:
+    """The audit key of one workspace, derived from the platform's key (audit ISO-2): a chain written in one
+    workspace never verifies in another, and no workspace can compute another's key without the platform key."""
+    if not base:
+        return None
+    return hmac.new(base, f"autology-workspace:{scope}".encode(), hashlib.sha256).hexdigest().encode()
+
+
+def resolve_key(key: Any) -> Optional[bytes]:
+    return audit_key() if key is ENV_KEY else key
+
+
 def _head_mac(length: int, last: str, key: bytes) -> str:
     return hmac.new(key, f"autology-head:{length}:{last}".encode(), hashlib.sha256).hexdigest()
 
 
 class AuditLog:
-    def __init__(self) -> None:
+    def __init__(self, key: Any = ENV_KEY) -> None:
+        self.key = key  # bytes, None (unkeyed) or ENV_KEY (AUTOLOGY_AUDIT_KEY)
         self._entries: List[AuditEntry] = []
         self.recorded_head: Optional[Dict[str, Any]] = None  # set when loaded from a store or run file
         self.loaded = False  # rebuilt from storage: then only a recorded head rules out truncation
@@ -83,7 +99,7 @@ class AuditLog:
         if self.loaded:  # continuing a stored log: it must match its recorded head before anything is added
             self.broken = self.broken or not self.verify()
             self.loaded, self.recorded_head = False, None
-        key = audit_key()
+        key = resolve_key(self.key)
         seq = len(self._entries)
         prev = self._entries[-1].hash if self._entries else GENESIS
         ts = datetime.now(timezone.utc).isoformat()
@@ -95,7 +111,7 @@ class AuditLog:
 
     def head(self) -> Dict[str, Any]:
         """Length and last hash of the chain, with a MAC under the audit key (``None`` without one)."""
-        key = audit_key()
+        key = resolve_key(self.key)
         last = self._entries[-1].hash if self._entries else GENESIS
         return {"length": len(self._entries), "hash": last,
                 "mac": _head_mac(len(self._entries), last, key) if key else None}
@@ -107,7 +123,7 @@ class AuditLog:
         """
         if self.broken:
             return False
-        key = audit_key()
+        key = resolve_key(self.key)
         expected_alg = key_id(key) if key else PLAIN
         prev = GENESIS
         for i, e in enumerate(self._entries):
@@ -145,9 +161,10 @@ class AuditLog:
         return [dict(e.__dict__) for e in self._entries]
 
     @classmethod
-    def from_list(cls, entries: List[Dict[str, Any]], head: Optional[Dict[str, Any]] = None) -> "AuditLog":
+    def from_list(cls, entries: List[Dict[str, Any]], head: Optional[Dict[str, Any]] = None,
+                  key: Any = ENV_KEY) -> "AuditLog":
         """Rebuild a log from stored entries; :meth:`verify` still detects any tampering in storage."""
-        log = cls()
+        log = cls(key)
         log._entries = [AuditEntry(int(e["seq"]), e["timestamp"], e["event"], dict(e["data"]), e["prev_hash"],
                                    e["hash"], e.get("alg") or PLAIN) for e in entries]
         log.recorded_head = head

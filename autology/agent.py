@@ -226,7 +226,7 @@ class WorkAgent:
                  registry=None, on_ontology_update: str = "continue",
                  max_steps: Optional[int] = None, max_repeats: int = 3, max_inline_wait: float = 5.0,
                  clock: Callable[[], float] = time.time, sleep: Callable[[float], None] = time.sleep,
-                 observer: Optional[Observer] = None, journal=None):
+                 observer: Optional[Observer] = None, journal=None, audit_key: Any = None):
         if on_ontology_update not in ("continue", "pause"):
             raise ValueError("on_ontology_update must be 'continue' or 'pause'")
         self.principal = Principal(name, roles)
@@ -246,6 +246,9 @@ class WorkAgent:
         self.sleep = sleep
         self.observer = observer
         self.journal = journal if journal is not None else MemoryJournal()  # external calls (autology.effects)
+        from .audit import ENV_KEY
+
+        self.audit_key = ENV_KEY if audit_key is None else audit_key  # the key its audit chains are written with
 
     @property
     def name(self) -> str:
@@ -506,7 +509,7 @@ class WorkAgent:
         run = RunState(goal_name, case_id, WorldState.initial(self.ontology, case), ontology_ref=self.ontology.ref,
                        run_key=run_key or uuid.uuid4().hex, root=root,
                        roles=sorted(roles) if roles is not None else None)
-        audit = AuditLog()
+        audit = AuditLog(self.audit_key)
         effective = self.principal.roles & frozenset(roles) if roles is not None else self.principal.roles
         self._log(audit, "run.start", case=case_id, agent=self.name, roles=sorted(effective),
                   agent_roles=sorted(self.principal.roles), acting_as=acting_as,

@@ -157,6 +157,7 @@ class Platform:
         if isinstance(reporting, dict) and isinstance(reporting.get("target"), str):
             reporting["target"] = str(home / "reporting.db")
         config["secrets_file"] = str(self.data_dir / ws.id / "secrets.json")
+        config["audit_scope"] = ws.id  # the workspace's own audit key, derived from the platform's (ISO-2)
         users = []
         for member in ws.members.values():
             grant = member.grant(uc_id)

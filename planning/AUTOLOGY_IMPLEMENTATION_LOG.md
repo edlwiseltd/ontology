@@ -116,3 +116,9 @@ Suite 632 OK; 96.22 % lines.
 |---|---|---|---|
 | API-1 | `autology/openapi.py`: one route table (58 operations on 53 paths, each with its permission) generating an OpenAPI 3.1 document, served at `GET /api/openapi.json` (no token: it holds no data). **Found:** 11 routes were served but missing from the documented table (health, OpenAPI, sign-in config and token, justifications, audit heads, run trace, run outcomes GET/POST, outcomes summary, SDK); they are now documented, so the entry-point matrix checks their permissions too | `tests/test_api_contract.py` (C1 structure and public serving; C2 every contract route is served; C3 every path the dispatcher matches is in the contract; C4 contract = documentation, permissions included) | New public route `GET /api/openapi.json`. Not yet: request/response body schemas, `/api/v1` (API-2), a generated Studio client |
 Suite 643 OK; 96.26 % lines.
+
+**CI failure and fix (Increment C):** run 55 failed in the package job: `.dockerignore` excludes `deploy/`, so the
+image build could not copy `deploy/image-constraints.txt`. The local check had used a copied build context that
+did not apply `.dockerignore`, so it did not reproduce CI. Fixed by an exception in `.dockerignore`; re-verified by
+building from the repository's own context (legacy builder, since Docker Hub rate-limited BuildKit locally) and
+running the licence check on that image.

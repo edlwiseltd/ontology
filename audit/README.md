@@ -20,3 +20,15 @@ Re-run any piece of evidence from the repository root, e.g.:
 ```bash
 PYTHONPATH=. AUTOLOGY_AUDIT_KEY=k python3 audit/evidence/reliability/s07_08_http.py
 ```
+
+## Status since the audit
+
+The reports above describe revision `fdfaf01` and are left unchanged. Gaps fixed afterwards:
+
+| Gap | Fix | Evidence |
+|---|---|---|
+| GAP-008 Two concurrent runs on the same record both execute | One open run per record (start, automation, confirmed proposal); approving is refused while duplicates exist | `tests/test_one_run_per_record.py`; `evidence/reliability/s11_concurrency.py` 11a now shows one run and one payment (was two) |
+| GAP-015 (Console only) Negative `Content-Length` | The Console's own server refuses it (411); the engine is still affected | `tests/test_console.py` |
+
+Still open from the same script: 11b/11c (GAP-009, a run resumed after review does not re-check data changed while
+it waited).

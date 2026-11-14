@@ -8,3 +8,4 @@ dist/
 htmlcov/
 deploy/.env
 deploy/prometheus-token
+audit/evidence/*/work/

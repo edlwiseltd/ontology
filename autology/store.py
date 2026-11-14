@@ -448,6 +448,16 @@ class Store:
                        (run_id, template, root, json.dumps(sources), int(write_back),
                         json.dumps(base, default=str) if base is not None else None))
 
+    def active_runs_for_root(self, root: str, final: Iterable[str]) -> List[Dict[str, Any]]:
+        """Runs built from ``root`` (a case template's root object) that have not reached a final status."""
+        final = list(final)
+        marks = ", ".join("?" * len(final))
+        rows = self._query(
+            f"SELECT r.run_id, r.status, r.goal, r.started_by, r.created_at FROM runs r JOIN run_sources s "
+            f"ON s.run_id = r.run_id WHERE s.root = ? AND r.status NOT IN ({marks}) ORDER BY r.created_at, r.run_id",
+            (root, *final))
+        return [dict(r) for r in rows]
+
     def update_write_back(self, run_id: str, base: Dict[str, Any], conflicts: List[Dict[str, Any]]) -> None:
         with self._tx() as db:
             db.execute("UPDATE run_sources SET base=?, conflicts=? WHERE run_id=?",

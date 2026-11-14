@@ -197,6 +197,10 @@ class AutologyService:
         self.automations = load_automations(config.get("automations") or {}, self.ontology,
                                             {n: a.goals for n, a in self.agents.items()})
         self.automation_interval = float(config.get("automation_interval", 60))
+        # one open run per record: a second run on the same claim could repeat its actions (e.g. pay twice)
+        self.one_active_run_per_record = bool(config.get("one_active_run_per_record", True))
+        self._starting: Dict[str, str] = {}  # root object -> who is starting a run on it right now
+        self._starting_lock = threading.Lock()
         from .ingest import load_pipelines
 
         self.pipelines = load_pipelines(config.get("pipelines") or {}, self.ontology, base)
@@ -629,20 +633,64 @@ class AutologyService:
         except Exception:  # best effort: the notification stays in the store either way
             log.warning("webhook delivery to %s failed", urlparse(url).netloc, exc_info=True)  # no path: may hold tokens
 
+    def _active_runs(self, root: str, exclude: Optional[str] = None) -> List[Dict[str, Any]]:
+        return [r for r in self.store.active_runs_for_root(root, FINAL_STATUSES) if r["run_id"] != exclude]
+
+    def _exclusive(self, root: str, who: str):
+        """Hold ``root`` while a run on it is started and stored; refuse if it already has an open run."""
+        service = self
+
+        class _Hold:
+            def __enter__(self):
+                if not service.one_active_run_per_record:
+                    return self
+                with service._starting_lock:
+                    if root in service._starting:
+                        raise ApiError(409, f"{root} already has a run being started (by {service._starting[root]}); "
+                                            "wait for it to finish", {"root": root})
+                    active = service._active_runs(root)
+                    if active:
+                        run = active[0]
+                        raise ApiError(409, f"{root} already has an open run {run['run_id']} "
+                                            f"({run['status'].replace('_', ' ')}, started by {run['started_by']}). "
+                                            "Finish it (decide its review) or decline it before starting another, "
+                                            "so its actions cannot run twice",
+                                       {"root": root, "active_run": run["run_id"], "active_status": run["status"]})
+                    service._starting[root] = who
+                return self
+
+            def __exit__(self, *exc):
+                if service.one_active_run_per_record:
+                    with service._starting_lock:
+                        service._starting.pop(root, None)
+                return False
+
+        return _Hold()
+
     def _fire(self, auto: Automation, inst: Instance, trigger: str) -> Firing:
         firing = Firing(auto.name, inst.id, trigger)
         if auto.run:
             cfg = self.agents[auto.run["agent"]]
             template = auto.run["case_template"]
-            with self.graph_lock:
-                case, sources = build_case(self.graph, template, inst.id)
-                base = snapshot(self.graph, sources)
-            with cfg.lock:
-                result = cfg.agent.run(auto.run["goal"], case, f"{auto.name}:{inst.id}",
-                                       started_by=f"automation:{auto.name}")
-                firing.run_id, changed = self._store_result(
-                    result, cfg.name, sources=(template, inst.id, sources, bool(auto.run["write_back"]), base),
-                    started_by=f"automation:{auto.name}")
+            try:
+                hold = self._exclusive(inst.id, f"automation:{auto.name}")
+                hold.__enter__()
+            except ApiError as exc:  # the record already has an open run: never start a second one
+                firing.status, firing.detail = "skipped", exc.message
+                firing.run_id = exc.extra.get("active_run")
+                return firing
+            try:
+                with self.graph_lock:
+                    case, sources = build_case(self.graph, template, inst.id)
+                    base = snapshot(self.graph, sources)
+                with cfg.lock:
+                    result = cfg.agent.run(auto.run["goal"], case, f"{auto.name}:{inst.id}",
+                                           started_by=f"automation:{auto.name}")
+                    firing.run_id, changed = self._store_result(
+                        result, cfg.name, sources=(template, inst.id, sources, bool(auto.run["write_back"]), base),
+                        started_by=f"automation:{auto.name}")
+            finally:
+                hold.__exit__(None, None, None)
             firing.status = result.status
             firing.detail = result.escalation.reason if result.escalation else ""
             self._changed(changed)
@@ -943,13 +991,20 @@ class AutologyService:
             case = body.get("case")
             if not isinstance(case, dict):
                 raise ApiError(400, "case must be an object (or give case_template and root)")
-        with cfg.lock:
-            try:
-                result = cfg.agent.run(goal, case, str(body.get("case_id") or (sources[1] if sources else "case")),
-                                       started_by=user.name)
-            except OntologyError as exc:
-                raise ApiError(400, f"invalid case: {exc}") from None
-            run_id, changed = self._store_result(result, name, sources=sources, started_by=user.name)
+        hold = self._exclusive(sources[1], user.name) if sources else None
+        if hold is not None:
+            hold.__enter__()
+        try:
+            with cfg.lock:
+                try:
+                    result = cfg.agent.run(goal, case, str(body.get("case_id") or (sources[1] if sources else "case")),
+                                           started_by=user.name)
+                except OntologyError as exc:
+                    raise ApiError(400, f"invalid case: {exc}") from None
+                run_id, changed = self._store_result(result, name, sources=sources, started_by=user.name)
+        finally:
+            if hold is not None:
+                hold.__exit__(None, None, None)
         self._changed(changed)
         return self._summary(result, run_id, user, receipt=True)
 
@@ -1034,6 +1089,14 @@ class AutologyService:
             if not rules or not all(r.params.get("allow_self_review") for r in rules):
                 raise ApiError(403, "you started this run: another reviewer must decide its review "
                                     "(a rule can allow this with \"allow_self_review\": true)")
+        linked = self.store.run_sources(review["run_id"])
+        if body["approved"] and linked and self.one_active_run_per_record:
+            others = self._active_runs(linked["root"], exclude=review["run_id"])
+            if others:  # duplicates from before this rule existed: approving could repeat the same action
+                raise ApiError(409, f"{linked['root']} has {len(others)} other open run(s) "
+                                    f"({', '.join(r['run_id'] for r in others)}). Decline the duplicates first, so "
+                                    "the same action cannot happen twice; declining is always allowed",
+                               {"root": linked["root"], "other_runs": [r["run_id"] for r in others]})
         cfg = self._agent_for(review["run_id"])
         self.checkpoint(user, "decide", review_id, body.get("justification") or body.get("comment"),
                         action=str(review["action"]).partition("@")[0], approved=body["approved"])

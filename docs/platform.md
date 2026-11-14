@@ -123,6 +123,26 @@ One policy (`autology/views.py`) decides what a user sees of runs and reviews, a
 - **Scenario diffs** show restricted before and after values as redacted.
 - **Admins** see every record and field, but they too must justify checkpoint-gated fields.
 
+## One open run per record
+
+A record that a case is built from (the case template's root, such as a claim or a contract) has **at most one open
+run** at a time. "Open" means not yet finished: awaiting a review, deferred or paused. A second start on the same
+record, by a person, a confirmed assistant proposal or an automation, is refused while the first is open:
+
+- `POST /api/runs` answers **409** and names the open run (`active_run`, `active_status`);
+- an automation's firing is recorded as **skipped**, with the open run's id, and is not retried;
+- two simultaneous starts on the same record produce exactly one run.
+
+The record is free again as soon as its run finishes (completed, declined in review, blocked, escalated).
+Duplicates created before this rule, or while it was off, cannot both go ahead: **approving** a review is refused
+while the same record has another open run (409 with `other_runs`); **declining** is always allowed, so decline
+the duplicates first. Set `"one_active_run_per_record": false` in the server config only if your processes really
+need parallel runs on one record.
+
+This prevents a second run from repeating actions that the first already took (for example paying a claim twice).
+It does not, on its own, make a single run safe against timeouts or crashes after an external action; see the
+audit's GAP-001 to GAP-007.
+
 ## Persistent store
 
 ```python

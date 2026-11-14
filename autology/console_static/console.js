@@ -70,7 +70,11 @@ function reply(...nodes) {
 function card(title, ...children) { return el("div", { class: "card" }, title ? el("h3", {}, title) : null, ...children); }
 function errorCard(err) {
   const status = err.status ? ` (${err.status})` : "";
-  return el("div", { class: "card error" }, el("h3", {}, "The engine refused" + status), el("p", {}, err.message));
+  const data = err.data || {};
+  const runs = data.active_run ? [data.active_run] : (data.other_runs || []);
+  return el("div", { class: "card error" }, el("h3", {}, "The engine refused" + status), el("p", {}, err.message),
+    runs.length ? el("div", { class: "actions" }, runs.map((id) => cmdButton(`See run ${id}`, `/explain ${id}`)),
+                     data.other_runs && can("review") ? cmdButton("Open my reviews", "/reviews") : null) : null);
 }
 function pill(text) { return el("span", { class: "pill " + String(text) }, String(text).replace(/_/g, " ")); }
 function idLink(id) { return el("button", { type: "button", class: "idlink", onclick: () => run(`/object ${id}`) }, id); }

@@ -61,6 +61,9 @@ CREATE TABLE IF NOT EXISTS external_calls (
     created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS external_calls_root ON external_calls(root, state);
 CREATE INDEX IF NOT EXISTS external_calls_run ON external_calls(run_key);
+CREATE TABLE IF NOT EXISTS writer_lease (
+    id INTEGER PRIMARY KEY CHECK (id = 1), instance TEXT NOT NULL, host TEXT NOT NULL, pid INTEGER NOT NULL,
+    started_at TEXT NOT NULL, heartbeat REAL NOT NULL);
 CREATE TABLE IF NOT EXISTS audit (
     run_id TEXT NOT NULL, seq INTEGER NOT NULL, timestamp TEXT NOT NULL, event TEXT NOT NULL, data TEXT NOT NULL,
     prev_hash TEXT NOT NULL, hash TEXT NOT NULL, alg TEXT NOT NULL DEFAULT 'sha256', PRIMARY KEY (run_id, seq));
@@ -137,6 +140,23 @@ CREATE TRIGGER IF NOT EXISTS lineage_no_update BEFORE UPDATE ON lineage
 CREATE TRIGGER IF NOT EXISTS lineage_no_delete BEFORE DELETE ON lineage
     BEGIN SELECT RAISE(ABORT, 'lineage is append-only'); END;
 """
+
+
+def _process_alive(host: str, pid: int) -> bool:
+    """Is process ``pid`` still running? Only answerable on this host and where signals are supported;
+    otherwise assume it is (the heartbeat's age decides)."""
+    import os
+    import socket
+
+    if host != socket.gethostname() or os.name == "nt":
+        return True
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
 
 
 class StoreError(RuntimeError):
@@ -305,6 +325,47 @@ class Store:
                 db.execute("UPDATE external_calls SET run_id=? WHERE run_key=? AND run_id IS NULL", (run_id, run_key))
         result.run_id = run_id
         return run_id
+
+    # -- one writer per store (audit GAP-018) ------------------------------------------------
+    def acquire_lease(self, instance: str, ttl: float) -> None:
+        """Become the store's only writer, or raise :class:`StoreError` naming the process that is.
+
+        The server keeps its graph in memory, so a second process writing the same store (a CLI ingest next to a
+        running server) would diverge from it. A lease is free when its holder's heartbeat is older than ``ttl``
+        seconds, when its process is gone (same host), or when it belongs to this very process."""
+        import os
+        import socket
+        import time
+
+        host, pid, now = socket.gethostname(), os.getpid(), time.time()
+        with self._tx() as db:
+            row = db.execute("SELECT * FROM writer_lease WHERE id=1").fetchone()
+            if row is not None and row["instance"] != instance and not (row["host"] == host and row["pid"] == pid):
+                fresh = now - row["heartbeat"] < ttl
+                if fresh and _process_alive(row["host"], row["pid"]):
+                    raise StoreError(f"the store is in use by another Autology process (pid {row['pid']} on "
+                                     f"{row['host']}, since {row['started_at']}): one writer per store. While the "
+                                     "server runs, write through its API (for example POST /api/pipelines/{name}/run)")
+            db.execute("INSERT INTO writer_lease VALUES (1, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET "
+                       "instance=excluded.instance, host=excluded.host, pid=excluded.pid, "
+                       "started_at=excluded.started_at, heartbeat=excluded.heartbeat",
+                       (instance, host, pid, _now(), now))
+
+    def refresh_lease(self, instance: str) -> bool:
+        """Renew the lease; False if another process holds it now."""
+        import time
+
+        with self._tx() as db:
+            cur = db.execute("UPDATE writer_lease SET heartbeat=? WHERE id=1 AND instance=?", (time.time(), instance))
+            return cur.rowcount == 1
+
+    def release_lease(self, instance: str) -> None:
+        with self._tx() as db:
+            db.execute("DELETE FROM writer_lease WHERE id=1 AND instance=?", (instance,))
+
+    def lease(self) -> Optional[Dict[str, Any]]:
+        rows = self._query("SELECT * FROM writer_lease WHERE id=1")
+        return dict(rows[0]) if rows else None
 
     # -- external calls journal (see autology.effects) ----------------------------------
     _JSON_COLS = ("updates", "output")

@@ -135,6 +135,17 @@ class AutologyService:
         self.audit_key = workspace_key(env_audit_key(), str(self.audit_scope)) if self.audit_scope else env_audit_key()
         self.store = Store(rel(config["store"]) if config.get("store", ":memory:") != ":memory:" else ":memory:",
                            audit_key=self.audit_key)
+        import uuid
+
+        # one writer per store (audit GAP-018): this process keeps the graph in memory, so no other may write
+        self.lease_instance = uuid.uuid4().hex
+        self.lease_ttl = max(180.0, 3 * float(config.get("automation_interval", 60)))
+        self.writer = bool(config.get("writer", True))
+        if self.writer:
+            try:
+                self.store.acquire_lease(self.lease_instance, self.lease_ttl)
+            except StoreError as exc:
+                raise ValueError(str(exc)) from None
         if config.get("data") and self.store.count_instances() == 0:
             data = json.loads(Path(rel(config["data"])).read_text(encoding="utf-8"))
             self.store.save_graph(KnowledgeGraph.from_dict(self.ontology, data))
@@ -300,8 +311,8 @@ class AutologyService:
                          {"instance": q["id"], "type": q["type"]})
 
     @classmethod
-    def from_file(cls, path: str, store: Optional[str] = None,
-                  assistant: Optional[str] = None, audit_scope: Optional[str] = None) -> "AutologyService":
+    def from_file(cls, path: str, store: Optional[str] = None, assistant: Optional[str] = None,
+                  audit_scope: Optional[str] = None, writer: bool = True) -> "AutologyService":
         """Load a server config; ``store`` overrides its store path (e.g. a volume in a container) and
         ``assistant`` turns on the governed assistant with that Claude model (or ``model:effort``)."""
         p = Path(path).resolve()
@@ -314,6 +325,8 @@ class AutologyService:
                               **({"effort": effort} if effort else {})}
         if audit_scope:  # a workspace's store behind the platform router uses that workspace's audit key
             config["audit_scope"] = audit_scope
+        if not writer:  # read-only tools (backup, reporting) may run next to the server
+            config["writer"] = False
         return cls(config, p.parent)
 
     # -- auth ---------------------------------------------------------------
@@ -816,6 +829,8 @@ class AutologyService:
                 _, changed = self._store_result(result, cfg.name, row["run_id"])
             resumed.append({"run_id": row["run_id"], "status": result.status})
             self._changed(changed)
+        if self.writer and not self.store.refresh_lease(self.lease_instance):
+            log.error("another Autology process took over this store: stop one of them")
         recovered = self.recover()
         loads = self._due_pipelines()
         firings = self.automator.tick() if self.automations else []

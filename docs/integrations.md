@@ -149,6 +149,13 @@ as Airbyte, dlt or a dbt job's final step signs in as a user with only the `inge
 `POST /api/pipelines/{name}/run`. `GET /api/objects/{id}/lineage` tells anyone who may read an object where it
 came from.
 
+
+**One writer per store.** A running server keeps the knowledge graph in memory, so it is the only process that
+may write its store: `autology ingest` (or a second server) against a store a live server holds is refused and
+names the server's process. Run pipelines through the server's API instead (`POST /api/pipelines/{name}/run`).
+`autology backup` and `autology reporting` only read, and run next to the server. The lease is freed when the
+server stops, when its process is gone, or when its heartbeat (renewed on every scheduler tick) is older than
+three scheduler intervals (at least three minutes).
 ### Using a pipeline tool in front
 
 Use an extraction tool when the source is awkward (a SaaS API with OAuth, change data capture from a production

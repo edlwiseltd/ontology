@@ -357,7 +357,7 @@ def _cmd_backup(args) -> int:
     from .server import AutologyService
     from .store import StoreError
 
-    service = AutologyService.from_file(args.config, args.store, audit_scope=args.audit_scope)
+    service = AutologyService.from_file(args.config, args.store, audit_scope=args.audit_scope, writer=False)
     try:
         out = service.store.backup(args.out)
     except StoreError as exc:
@@ -375,7 +375,7 @@ def _cmd_backup(args) -> int:
 def _cmd_reporting(args) -> int:
     from .server import AutologyService
 
-    service = AutologyService.from_file(args.config, args.store)
+    service = AutologyService.from_file(args.config, args.store, writer=False)
     if args.out:
         service.reporting["target"] = str(Path(args.out).resolve())
     if args.roles is not None:
@@ -396,7 +396,11 @@ def _cmd_reporting(args) -> int:
 def _cmd_ingest(args) -> int:
     from .server import ApiError, AutologyService
 
-    service = AutologyService.from_file(args.config, args.store)
+    try:
+        service = AutologyService.from_file(args.config, args.store)
+    except ValueError as exc:  # e.g. a running server holds the store
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     pushed = json.loads(Path(args.rows).read_text(encoding="utf-8")) if args.rows else None
     try:
         out = service.ingest(args.pipeline, "cli", args.dry_run, pushed)

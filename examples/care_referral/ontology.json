@@ -58,6 +58,7 @@
     },
     "CarePlan": {
       "description": "Agreed treatment plan",
+      "when_absent": "initial",
       "states": [
         "none",
         "approved"

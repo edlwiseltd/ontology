@@ -92,7 +92,7 @@ SCHEMA_KEYS = {
                  "case_templates", "functions"),
     "settings": ("max_violations",),
     "entity": ("description", "attributes", "states", "initial", "external_states", "multiple", "implements",
-               "aliases"),
+               "aliases", "when_absent"),
     "interface": ("description", "attributes"),
     "attribute": ("type", "sensitivity", "description"),
     "relationship": ("from", "to", "type", "cardinality", "description"),
@@ -145,6 +145,8 @@ def check_document(doc: Mapping[str, Any], top_only: bool = False) -> None:
     for kind, section in (("entity", "entities"), ("interface", "interfaces")):
         for name, spec in (doc.get(section) or {}).items():
             _check_keys(spec, kind, f"{section}.{name}")
+            if kind == "entity" and (spec or {}).get("when_absent", "unknown") not in ("unknown", "initial"):
+                raise OntologyError(f"{section}.{name}: when_absent must be 'unknown' or 'initial'")
             for aname, aspec in ((spec or {}).get("attributes") or {}).items():
                 where = f"{section}.{name}.attributes.{aname}"
                 _check_keys(aspec, "attribute", where)
@@ -308,6 +310,9 @@ class EntityType:
     multiple: bool = False  # a case may hold many instances (e.g. several orders under one contract)
     implements: Tuple[str, ...] = ()  # interfaces: shared shapes such as "Party" for Customer and Supplier
     aliases: Tuple[str, ...] = ()  # other teams' names for the same concept ("Case" for Claim)
+    # a case without this record: "unknown" (it should exist; nothing about it may be assumed) or "initial"
+    # (the process creates it, so it starts in its initial state). Audit GAP-017.
+    when_absent: str = "unknown"
 
     def has_attribute(self, attr: str) -> bool:
         return attr in (STATUS, ID) or attr in self.attributes
@@ -1029,7 +1034,7 @@ class Ontology:
                                         spec.get("initial", states[0] if states else ""),
                                         spec.get("description", ""), tuple(spec.get("external_states", ())),
                                         bool(spec.get("multiple", False)), tuple(spec.get("implements", ())),
-                                        tuple(spec.get("aliases", ())))
+                                        tuple(spec.get("aliases", ())), str(spec.get("when_absent", "unknown")))
         interfaces = {}
         for name, spec in (doc.get("interfaces") or {}).items():
             iattrs = {}

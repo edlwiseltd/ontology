@@ -35,6 +35,17 @@ def apply_outcome(state: WorldState, outcome: Outcome, binding: Optional[Dict[st
         state.set(entity, attr, value, binding.get(entity))
 
 
+def unknown_computed(state: WorldState, action: ActionType, binding: Optional[Dict[str, str]] = None) -> List[str]:
+    """Computed effects of the action (any outcome) whose value would be unknown right now. Such an action may
+    not run: it would write an unknown amount, date or score (audit GAP-017)."""
+    from .ontology import Computed
+
+    resolve = state.resolver(binding or {})
+    return sorted({f"{entity}.{attr} = {value.source}" for outcome in action.outcomes
+                   for entity, changes in outcome.effects.items() for attr, value in changes.items()
+                   if isinstance(value, Computed) and value.expr.value(resolve) is None})
+
+
 class SearchBudgetExceeded(RuntimeError):
     """The search stopped at its expansion budget before finding a path or proving there is none."""
 
@@ -71,7 +82,7 @@ class Planner:
             for target in targets:
                 ga = GroundAction(action, target)
                 resolve = state.resolver(ga.binding)
-                if all(e.evaluate(resolve) for e in action.requires) and (
+                if all(e.evaluate(resolve) for e in action.requires) and not unknown_computed(state, action, ga.binding) and (
                         not enforce_rules or any(self.governance.permits_in_plan(ga, state, m, enforce_rules == "steps")
                                                  for m in members)):
                     found.append(ga)

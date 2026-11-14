@@ -144,7 +144,8 @@
         "external_states": {},
         "multiple": {},
         "implements": {},
-        "aliases": {}
+        "aliases": {},
+        "when_absent": {}
       },
       "patternProperties": {
         "^x-": {}

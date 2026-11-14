@@ -276,7 +276,8 @@ class WorkAgent:
         except SearchBudgetExceeded as exc:
             return [f"could not work out which rule blocks the way: {exc}"]
         if unconstrained is None:
-            return ["no sequence of ontology actions leads from the current state to the goal"]
+            return self._unknown_blockers(state) or [
+                "no sequence of ontology actions leads from the current state to the goal"]
         probe = state.copy()
         for name, outcome in unconstrained:
             ga = ground(self.ontology, name)
@@ -288,6 +289,35 @@ class WorkAgent:
                 return [f"{name}: {r}" for d in decisions for r in d.reasons]
             probe = self.planner.simulate(probe, ga, ga.action.outcome(outcome))
         return ["the only paths to the goal violate governance rules"]  # pragma: no cover
+
+    def _unknown_blockers(self, state: WorldState) -> List[str]:
+        """Actions that cannot run because a record is missing from the case or a computed value is unknown."""
+        absent = sorted(e for e, values in state.entities.items() if values.get(STATUS) is None)
+        settable = {f"{e}.{a}" for act in self.ontology.actions.values() for ref in act.writes
+                    for e, _, a in [ref.partition(".")]}
+        settable |= {f"{e}.{a}" for act in self.ontology.actions.values() for o in act.outcomes
+                     for e, changes in o.effects.items() for a in changes}
+        out = []
+        for action in self.ontology.actions.values():
+            if action.for_each:
+                continue
+            used = {e for expr in action.requires for e, _ in expr.references} & set(absent)
+            for entity in sorted(used):
+                out.append(f"{action.name}: {entity} is not in the case, so nothing about it is known "
+                           f"(link the {entity} record, or mark the entity \"when_absent\": \"initial\" if the "
+                           "process creates it)")
+            if used:
+                continue
+            for outcome in action.outcomes:  # a computed value from a field that is unknown and nothing sets
+                for entity, changes in outcome.effects.items():
+                    for attr, value in changes.items():
+                        missing = sorted(f"{e}.{a}" for e, a in getattr(getattr(value, "expr", None),
+                                                                        "references", ())
+                                         if state.get(e, a) is None and f"{e}.{a}" not in settable)
+                        if missing:
+                            out.append(f"{action.name}: cannot compute {entity}.{attr} = {value.source}: "
+                                       f"{', '.join(missing)} is unknown")
+        return sorted(set(out))
 
     def _authorize(self, action: str, state: WorldState) -> Tuple[Optional["WorkAgent"], Decision]:
         """Evaluate for this agent, else find a delegate that is allowed to act."""

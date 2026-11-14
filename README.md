@@ -264,6 +264,8 @@ The other scenarios: `retail` (no human touch), `sanctioned` (a prohibition bloc
 
 Conditions use a small, sandboxed expression language: `Entity.attr`, literals, comparisons, `in`, `and`/`or`/`not`. Ontology files cannot run code.
 
+**Missing records are unknown.** If a case has no record for an entity (a claim whose policy is not linked), the record's status and fields are unknown: preconditions on it fail, an effect computed from an unknown value blocks its action, and the escalation names the missing record. Mark an entity `"when_absent": "initial"` when the process itself creates it (a care plan drafted during the referral): it then starts in its initial state.
+
 **The schema is strict.** A key the loader does not know, at any level, is an error that names its path and the closest valid key (`actions.pay_claim: unknown key 'requries' in action; did you mean 'requires'?`). So is an attribute type other than `string`, `number`, `integer`, `boolean`, `date` or `datetime`. Rule keys depend on the rule type. Keys starting with `x-` are free for your own tooling. [`docs/ontology.schema.json`](docs/ontology.schema.json) is the same schema as JSON Schema, for editors and CI: add `"$schema": "docs/ontology.schema.json"` to an ontology file.
 
 ## Using it from code

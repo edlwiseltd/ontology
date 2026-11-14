@@ -25,6 +25,7 @@ def load_doc():
 def retail_case(**overrides):
     case = {
         "Customer": {"name": "Acme Retail", "industry": "Retail", "tax_id": "GB-1234"},
+        "Contact": {},  # the signatory exists; it starts unverified
         "Contract": {"value": 48_000, "nonstandard_terms": False, "revision": 0},
         "BillingAccount": {"method": "card"},
         "Order": {"sku": "PLAN-STARTER"},

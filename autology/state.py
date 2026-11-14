@@ -103,7 +103,12 @@ class WorldState:
             else:
                 if given is not None and not isinstance(given, Mapping):
                     raise OntologyError(f"case data for {name} must be an object")
-                entities[name] = cls._values(etype, dict(given or {}), repr(name))
+                if given is None and etype.when_absent != "initial":
+                    # no such record in the case: nothing about it may be assumed (audit GAP-017)
+                    entities[name] = {attr: None for attr in etype.attributes}
+                    entities[name][STATUS] = None
+                else:
+                    entities[name] = cls._values(etype, dict(given or {}), repr(name))
         return cls(entities, collections=collections)
 
     # -- access ---------------------------------------------------------

@@ -157,6 +157,8 @@ class ClaudeConnectionTests(unittest.TestCase):
         self.assertEqual((tuned.chat.backend.model, tuned.chat.backend.effort), ("claude-sonnet-5-5", "low"))
         hana = next(u for u in on.users if u.name == "hana")
         self.assertIs(on.ontology_summary(hana)["assistant"], True)
+        self.assertEqual(on.store.path, ":memory:")  # an in-memory store, not a file named ":memory:"
+        self.assertFalse((ROOT / ":memory:").exists())
 
     def test_missing_claude_sign_in_is_explained(self):
         from autology.chat import NO_CREDENTIALS, AnthropicChatBackend

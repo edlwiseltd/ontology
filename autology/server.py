@@ -244,7 +244,7 @@ class AutologyService:
         p = Path(path).resolve()
         config = json.loads(p.read_text(encoding="utf-8"))
         if store:
-            config["store"] = str(Path(store).resolve())
+            config["store"] = store if store == ":memory:" else str(Path(store).resolve())
         if assistant:
             model, _, effort = assistant.partition(":")
             config["chat"] = {**(config.get("chat") or {}), "model": model or "claude-opus-5-5",

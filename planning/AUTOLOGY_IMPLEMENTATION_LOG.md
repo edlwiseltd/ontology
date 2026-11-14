@@ -3,7 +3,7 @@
 ## 14 November 2026 — Phase 0 and Phase 1 (workspace foundation)
 
 **Inputs read.** The repository at `5400ad8`, the audit of 13 November (`audit/`), the master instructions of
-14 November. The historical PDF was compared through the audit and [current state](AUTOLOGY_CURRENT_STATE_AND_GAPS.md).
+14 November. The historical PDF was compared through the audit and [current state](AUTOLOGY_CURRENT_STATE_VERIFICATION.md).
 
 **Changed.**
 
@@ -57,3 +57,4 @@ P0-1 (external action safety), which gates every connector write.
 | ISO-4 (R1-C) | Credentials scoped per workspace: the platform refuses to load a use case whose configuration (or any JSON file it references) names an environment variable outside the workspace's prefix (`${VAR}`, `*_env`, `{"env": ...}`); background jobs and the use-case boundary inside a workspace covered by tests | `tests/test_iso4_isolation_matrix.py` (8, the 4 credential tests failed before the fix; the scheduler and use-case boundary tests passed already: isolation by construction) | A `platform.json` workspace takes `env_prefix` (default `<WS>_`); a use case naming another workspace's variable no longer loads |
 | ENG-1 (§2A) | Headless engine: the inbox is optional (`GET /` → 404 "not installed" instead of 500 when absent); a standard-library client runs a full governed process with no UI files; no engine module imports a UI or Hermes | `tests/test_engine_headless.py` (4; 1 failed before the fix); suite 559 OK | none for installed deployments |
 | Docs | Stale statements fixed: README test counts (408), methodology (122, now marked historical), platform.md "not yet included" multi-tenant line | — | — |
+| Verification pass | Every claim of the earlier evidence document re-run at `a03ed96` in a separate worktree (472 tests OK, 37 targeted OK, 96.8 % lines) and at the current commit (559 OK; 95.9 % lines before the R1-C tests); CI runs reconciled with commits; one inaccurate claim found (commit count window); eight required documents produced or renamed from existing ones (`CURRENT_STATE_VERIFICATION`, `ARCHITECTURE_TARGET`, `REQUIREMENTS_TRACEABILITY`, `R1_COMPLETION_REPORT`, `MATURITY_SCORECARD`, `RELEASE_ROADMAP` (owner's R1–R6 sequence), `DECISION_REGISTER`, `EXECUTIVE_STATUS_FR`); `openpyxl` evaluated (MIT, no known vulnerabilities, use with `defusedxml`) | — | Planning documents renamed: links updated |

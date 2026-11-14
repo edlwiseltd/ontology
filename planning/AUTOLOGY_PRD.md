@@ -2,10 +2,10 @@
 
 | | |
 |---|---|
-| Version | 1.1 — 14 November 2026 (owner decisions D1, D4–D7 and Excel recorded) |
+| Version | 1.2 — 14 November 2026 (six-release sequence; decisions moved to the register) |
 | Owner | Product owner (Autology) |
-| Status | R1 delivered ([close-out](AUTOLOGY_R1_CLOSEOUT.md)); R1 safety and isolation gates met in the repository. R2 planned. No production deployment is authorised |
-| Related | [current state](AUTOLOGY_CURRENT_STATE_AND_GAPS.md) · [architecture](AUTOLOGY_TARGET_ARCHITECTURE.md) · [requirements catalogue](AUTOLOGY_PRODUCT_REQUIREMENTS.md) · [security](AUTOLOGY_SECURITY_AND_TENANCY.md) · [readiness](AUTOLOGY_READINESS_AND_RELEASE_GATES.md) · [audit](../audit/README.md) |
+| Status | R1 delivered ([close-out](AUTOLOGY_R1_COMPLETION_REPORT.md)); R1 safety and isolation gates met in the repository. R2 planned. No production deployment is authorised |
+| Related | [current state](AUTOLOGY_CURRENT_STATE_VERIFICATION.md) · [architecture](AUTOLOGY_ARCHITECTURE_TARGET.md) · [requirements catalogue](AUTOLOGY_PRODUCT_REQUIREMENTS.md) · [security](AUTOLOGY_SECURITY_AND_TENANCY.md) · [readiness](AUTOLOGY_READINESS_AND_RELEASE_GATES.md) · [audit](../audit/README.md) |
 
 ## 1. Product vision
 
@@ -59,12 +59,10 @@ existing behaviour and tests are preserved.
 
 ## 6. Releases
 
-| Release | Theme | Exit criteria |
-|---|---|---|
-| **R1 — Safe pilot** | Close the audit's critical and high gaps; finish workspace isolation | Gate 80 of the audit: G1 = 0, G2 = 0, G3 = 0, licence decided |
-| **R2 — Studio foundation** | API contract, releases and gates, AI Solution Architect, Excel factory, UIs separated | Acceptance tests 3, 4, 5, 7, 8 of the master instructions |
-| **R3 — Integrations and runtime UI** | Capability registry, Odoo read-only then safe writes, org and agent models, generated Workspace UI, first pilot | Gate 90; one real process in pilot |
-| **R4 — Enterprise and commercial** | Second customer on a different system, scale, restore drills, external pentest, blueprints | Gate 95 |
+Six releases, in the owner's sequence of 14 November: **R1** engineering foundation (done), **R2** Studio
+foundation, **R3** structured enterprise onboarding, **R4** Agent Factory and integrations, **R5** operational
+experience, **R6** product readiness. Scope, stories, estimates, exit criteria and dependencies:
+[release roadmap](AUTOLOGY_RELEASE_ROADMAP.md) (authoritative for R2–R6).
 
 ## 7. Epics and stories
 
@@ -99,68 +97,9 @@ Status: ☐ to do · ◐ in progress · ☑ done · ⛔ blocked (decision needed
 | **LEG — Legal** | | | |
 | LEG-1 | Proprietary licence notice and third-party licence inventory, checked in CI (D5) | S | ☑ |
 
-### R2 — Studio foundation
+### R2 – R6
 
-Detailed plan, acceptance criteria and estimates: [AUTOLOGY_R2_PLAN.md](AUTOLOGY_R2_PLAN.md).
-
-| ID | Story | Size | Status |
-|---|---|---|---|
-| **R2.0 — Prerequisites** | | | |
-| API-1 | OpenAPI 3.1 contract generated from one route table, with contract tests | M | ☐ |
-| API-2 | Versioned `/api/v1` paths and a deprecation policy | S | ☐ |
-| ARC-0 | Split the service into services behind the route table (GAP-026) | L | ☐ |
-| MIG-1 | Ordered migrations in one transaction (GAP-041) | S | ☐ |
-| QA-1 | mypy, ruff and pip-audit in CI; pinned constraints (GAP-025, GAP-040) | S | ☐ |
-| AI-1 | Provider-neutral model adapter contract, validated with at least two adapters (D7) | M | ☐ |
-| UI-1 | Review inbox moved out of the engine process | S | ☐ |
-| **A — Dynamic workspaces and releases** | | | |
-| ADM-1 | Workspace administration API; grants active only after a second administrator approves | L | ☐ |
-| ADM-2 | Changes apply without restart; revocation immediate | S | ☐ |
-| REL-1 | Immutable use-case releases (Draft → Simulation → Pilot → Production), runs pinned to the fingerprint (GAP-020) | L | ☐ |
-| REL-2 | Promotion refused server-side when a hard gate fails, whatever the score | M | ☐ |
-| REL-3 | Use-case readiness scorecard with evidence and blockers | L | ☐ |
-| REL-4 | Semantic diff covers every section (GAP-028) | S | ☐ |
-| **B — AI Solution Architect** | | | |
-| ARC-1 | Business brief → provisional draft ontology, validated, in a draft release | L | ☐ |
-| ARC-2 | Provenance label on every model element, with lineage | M | ☐ |
-| ARC-3 | Next questions generated from the model's gaps | M | ☐ |
-| ARC-4 | Reconcile answers and documents; contradictions block promotion | M | ☐ |
-| BP-1 | Oil & Gas upstream and pharma blueprints (moved from R4: the R2 exit needs them) | M | ☐ |
-| SEC-A | Prompt-injection and data-boundary tests for briefs and documents (GAP-045) | S | ☐ |
-| **C — Excel Template Factory** | | | |
-| XL-1 | Template pack generated from the ontology and open questions | L | ☐ |
-| XL-2 | Upload: quarantine, safe parse, validation, row-level errors | L | ☐ |
-| XL-3 | Preview, confirmed transactional commit, provenance, rescoring | M | ☐ |
-| XL-4 | First templates: employees and roles; assets and equipment | S | ☐ |
-| **D — Studio (separate application)** | | | |
-| STU-1 | Shell: sign-in, workspace selector, use-case catalogue on the public API | L | ☐ |
-| STU-2 | Architect panel and provisional model view | L | ☐ |
-| STU-3 | Questions and missing-evidence queue | S | ☐ |
-| STU-4 | Template centre | M | ☐ |
-| STU-5 | Readiness and blockers dashboard | S | ☐ |
-| STU-6 | Releases, promotion approvals, rollback | S | ☐ |
-
-### R3 — Integrations and runtime UI
-
-| ID | Story | Size | Status |
-|---|---|---|---|
-| INT-1 | Capability registry with declared effects, scopes, idempotency, health | M | ☐ |
-| INT-2 | Odoo 18 Enterprise read-only connector against a sandbox database (D6) | L | ☐ |
-| INT-3 | Odoo safe writes on the sandbox only, after ACT-1–6 pass; production writes stay disabled (D6) | L | ☐ |
-| ORG-1 | Human organisation model from templates or read-only HRIS sync | M | ☐ |
-| ORG-2 | Access recommendations need approval; no self-granting | M | ☐ |
-| AGF-1 | Versioned agent specifications with supervisors and approval | L | ☐ |
-| WUI-1 | Workspace UI rendered from the published use case | L | ☐ |
-| HRM-1 | Optional Hermes adapter (only after verifying its real interfaces) | M | ☐ |
-
-### R4 — Enterprise and commercial
-
-| ID | Story | Size | Status |
-|---|---|---|---|
-| OPS-1 | Restore drill in CI with measured recovery time | S | ☐ |
-| OPS-2 | Load test with agreed targets | M | ☐ |
-| OPS-3 | PostgreSQL store (if D2 requires it) | L | ☐ |
-| SEC-1 | External penetration test and fixes | — | ☐ |
+See the [release roadmap](AUTOLOGY_RELEASE_ROADMAP.md).
 
 ## 8. Story details (R1)
 
@@ -243,18 +182,8 @@ and keeps coverage ≥ 95%.
 
 ## 10. Decisions
 
-| ID | Decision (owner, 14 Nov 2026, unless marked open) | Consequence |
-|---|---|---|
-| D1 | Design for multi-tenancy while supporting dedicated, isolated customer deployments. Start with isolated pilot deployments | ADR-001 kept (a store per use case, router for shared hosting); pilots run as dedicated deployments; the platform router stays the multi-tenant path |
-| D2 | *Open.* Proposal: SQLite for the isolated pilots (D1); PostgreSQL when a shared deployment needs it | OPS-3 (R4) |
-| D3 | *Open.* Proposal: encrypted volumes per pilot deployment | Deployment guide |
-| D4 | Agent permissions are the intersection of the initiating user's effective permissions, the agent's permissions, workspace boundaries and governance policies. Scheduled agents use explicitly authorised service identities with least privilege | GOV-3 (records) done; GOV-5 (roles and service identities) |
-| D5 | Proprietary commercial distribution, subject to intellectual-property and third-party licence review | LEG-1 |
-| D6 | Prepare an Odoo 18 Enterprise sandbox integration. No production ERP writes until the external action safety requirements pass | ACT-1–6 (R1) gate INT-2/INT-3 (R3), which target the sandbox only |
-| D7 | Preserve provider independence; validate at least two model adapters | AI-1 (R2) |
-| Excel | `openpyxl` approved as a dependency, subject to dependency security and licence checks | XL-1 (R2); checked in LEG-1's licence inventory |
-| D8 | (audit) Actions without a declared side effect are non-idempotent | Applied in ACT-3: `side_effect` defaults to `non_idempotent` |
-| D9–D11 | *Open*: Studio technology, model providers and data residency for briefs, second approver for small customers | See the [R2 plan](AUTOLOGY_R2_PLAN.md) §6 |
+All owner decisions (approved, pending, applied defaults) are in the
+[decision register](AUTOLOGY_DECISION_REGISTER.md).
 
 ## 11. Working agreement
 

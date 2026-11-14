@@ -1,5 +1,7 @@
 # Autology — product requirements
 
+> *Status 14 Nov 2026: requirement-by-requirement status and evidence are in [AUTOLOGY_REQUIREMENTS_TRACEABILITY.md](AUTOLOGY_REQUIREMENTS_TRACEABILITY.md).*
+
 Each requirement has an ID used by the [backlog](AUTOLOGY_IMPLEMENTATION_BACKLOG.md). "Accept" lines are the
 acceptance tests; numbers in brackets refer to the master instructions' §13 acceptance tests.
 

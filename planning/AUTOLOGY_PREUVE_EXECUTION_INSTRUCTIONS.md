@@ -1,6 +1,8 @@
 # Preuve d'exécution — instructions maîtresses du 14 novembre 2026
 
-> **Mise à jour :** la release R1 est terminée depuis ce document ; voir [AUTOLOGY_R1_CLOSEOUT.md](AUTOLOGY_R1_CLOSEOUT.md) pour les preuves à jour.
+> **Remplacé :** la traçabilité à jour est dans [AUTOLOGY_REQUIREMENTS_TRACEABILITY.md](AUTOLOGY_REQUIREMENTS_TRACEABILITY.md) et la vérification dans [AUTOLOGY_CURRENT_STATE_VERIFICATION.md](AUTOLOGY_CURRENT_STATE_VERIFICATION.md). Ce document reste comme trace historique (commit `a03ed96`) ; une erreur y est corrigée dans la vérification (nombre de commits après réception des instructions).
+
+> **Mise à jour :** la release R1 est terminée depuis ce document ; voir [AUTOLOGY_R1_COMPLETION_REPORT.md](AUTOLOGY_R1_COMPLETION_REPORT.md) pour les preuves à jour.
 
 *Établi le 14 novembre 2026 sur la branche `claude/autology-ontology-agent-4ajjer`, commit `e69f06d`.
 Document : `AUTOLOGY_CLAUDE_CODE_MASTER_INSTRUCTIONS_2026-11-14.md` (186 lignes, MD5 `c1efa262f6c1c59219ab02a39f162f00`).*
@@ -35,7 +37,7 @@ Statuts : **Fait** · **Partiel** · **Non commencé** · **Non vérifiable ici*
 
 | § | Exigence | Statut | Preuve ou raison |
 |---|---|---|---|
-| 1 | Lire le dépôt, comparer au PDF, classer chaque capacité | **Fait** | `AUTOLOGY_CURRENT_STATE_AND_GAPS.md` §1 (PDF contre code) et §2 (classement Vérifié / Partiel / Manquant avec sources) ; audit du 13 nov. dans `audit/` |
+| 1 | Lire le dépôt, comparer au PDF, classer chaque capacité | **Fait** | `AUTOLOGY_CURRENT_STATE_VERIFICATION.md` §1 (PDF contre code) et §2 (classement Vérifié / Partiel / Manquant avec sources) ; audit du 13 nov. dans `audit/` |
 | 1 | Ne pas reprendre 60/100 comme base | **Fait** | Score mesuré 47/100 (audit) ; non re-mesuré depuis, écrit tel quel |
 | 2.1 | Un seul moteur, agnostique | **Fait** (préservé) | Aucun nouveau moteur ; la plateforme réutilise `AutologyService` tel quel (`autology/platform.py`) |
 | 2.4 | Hermes optionnel, jamais une dépendance | **Fait** (par absence) | Aucune dépendance Hermes ajoutée ; adaptateur non commencé (§8) |

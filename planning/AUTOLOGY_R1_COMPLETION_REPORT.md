@@ -1,12 +1,12 @@
-# Autology — Release R1 close-out
+# Autology — Release R1 completion report
 
-*14 November 2026 · branch `claude/autology-ontology-agent-4ajjer` · last commit `f0a385a` · no production deployment
+*14 November 2026, updated after the verification pass · branch `claude/autology-ontology-agent-4ajjer` · last commit `dfe8b3f` · no production deployment
 is authorised or was made. Companion documents: [defect register](AUTOLOGY_DEFECT_REGISTER.md),
-[R2 plan](AUTOLOGY_R2_PLAN.md), [implementation log](AUTOLOGY_IMPLEMENTATION_LOG.md), [PRD](AUTOLOGY_PRD.md).*
+[release roadmap](AUTOLOGY_RELEASE_ROADMAP.md), [implementation log](AUTOLOGY_IMPLEMENTATION_LOG.md), [PRD](AUTOLOGY_PRD.md).*
 
 ## 1. Summary
 
-All R1 stories are done: GOV-1–5, MOD-1–4, ACT-1–6, ISO-1–3, LEG-1. Two items were added at close-out because the
+All R1 stories are done: GOV-1–5, MOD-1–4, ACT-1–6, ISO-1–4, LEG-1, ENG-1 (ISO-4 and ENG-1 were added in the verification pass: per-workspace credential scope and the isolation test matrix; the headless engine). Two items were added at close-out because the
 audit's gate 80 requires them and the original story list missed them: **MOD-4** (GAP-018, High) and an
 **entry-point matrix** with a **full fault-injection matrix**. Every repository-verifiable gate 80 criterion is met.
 What remains for gate 80 is external: legal sign-off on the licence (80.7). Independent re-verification of the
@@ -20,7 +20,7 @@ fixes has not happened yet; every claim below cites the test that shows it.
 | D4 intersection of permissions; least-privilege service identities | GOV-3 (records) and GOV-5 (roles, `run_as`, `service_identities`, delegates narrowed, roles sealed with the run) | `tests/test_gov3_requester_scope.py`, `tests/test_gov5_effective_permissions.py` |
 | D5 proprietary distribution, subject to review | LEG-1: `LICENSE`, `THIRD_PARTY_NOTICES.md`, inventory checked in CI | `tests/test_leg1_licences.py` |
 | D6 Odoo 18 sandbox; no production ERP writes until action safety passes | Action safety (ACT-1–6) passes in the repository; INT-2/INT-3 scoped to a sandbox in R3; nothing writes to any ERP | PRD §7 |
-| D7 provider independence, two adapters | Scheduled as AI-1 (R2) | PRD §7, R2 plan |
+| D7 provider independence, two adapters | Scheduled as AI-1 (R2) | [Roadmap](AUTOLOGY_RELEASE_ROADMAP.md) |
 | openpyxl approved, subject to checks | Inventoried (MIT, with `et-xmlfile` MIT); used from XL-1 (R2) | `deploy/third_party_licences.json` |
 
 ## 3. Test evidence and CI commit mapping
@@ -53,7 +53,9 @@ coverage and no skipped test, builds the wheel and the Docker image and smoke-te
 | `fd7ab77` | MOD-4 (GAP-018) | `test_mod4_single_writer.py` (5) | 542 | 37 | **failure**: tests and coverage passed on both Pythons; the image smoke test failed (a restarted container was refused the store) |
 | `d92b6da` | Gate 80.4 entry-point matrix | `test_entry_point_matrix.py` (3) | 545 | 38 | **failure**: same smoke-test cause |
 | `6806549` | Gates 80.1–80.3 fault matrix | `test_external_effects_matrix.py` (112 combinations) | 546 | 39 | **failure**: same smoke-test cause |
-| `f0a385a` | MOD-4 fix: release the lease on shutdown | `test_mod4_single_writer.py` (+2) | 548 | 40 | **package job success** (image smoke test, including stop and restart, passes in CI and locally); the two test jobs were still running when this report was written: check run 40 |
+| `f0a385a` | MOD-4 fix: release the lease on shutdown | `test_mod4_single_writer.py` (+2) | 548 | 40 | success (all jobs; image smoke test incl. stop and restart) |
+| `282ccbb`, `7cea28c`, `a3fb26a` | Close-out documents | — | 548 | 41–43 | success |
+| `dfe8b3f` | R1-C: per-workspace credential scope, isolation matrix, headless engine | `test_iso4_isolation_matrix.py` (8), `test_engine_headless.py` (4) | 559 | 44 | see the run |
 
 Each story's tests were written to fail first; the implementation log records how many failed before the fix.
 For the external-effects suite and the isolation stories that introduced new APIs, the test modules could not run
@@ -82,6 +84,8 @@ on the old code; the audit's proofs of concept on the old code are the "before" 
 | ISO-2 | Per-workspace derived audit keys; a chain from one workspace does not verify in another | `test_iso2_workspace_audit_keys.py` | ✅ |
 | ISO-3 | Per-workspace OIDC; workspace A's tokens refused by B | `test_iso3_oidc_per_workspace.py` | ✅ |
 | LEG-1 | Licence and third-party notices | `test_leg1_licences.py` | ✅ in the repository; legal sign-off external |
+| ISO-4 | Isolation across every existing execution path: credentials scoped per workspace; background jobs; use-case boundary | `test_iso4_isolation_matrix.py`; [matrix](AUTOLOGY_SECURITY_AND_TENANCY.md) | ✅ |
+| ENG-1 | The engine runs with no UI installed and without Hermes; a third-party client runs a whole governed process | `test_engine_headless.py` | ✅ |
 
 **R1 exit criteria (PRD §6).** G1 (duplicates or false confirmations) = 0 in the 112-combination fault matrix;
 G2 (unauthorised actions or disclosures) = 0 in the entry-point matrix and the audit's PoC tests; G3
@@ -104,49 +108,10 @@ G2 (unauthorised actions or disclosures) = 0 in the entry-point matrix and the a
 evidence. Studio work in R2 may start on that basis. The legal item and an independent re-verification remain
 open and are not prerequisites for building, only for distributing.
 
-## 6. Maturity assessment (self-assessed)
+## 6. Maturity
 
-Same method, subcriteria, weights and evidence caps as the audit ([03](../audit/03_AUTOLOGY_MATURITY_SCORECARD.md));
-credit is restored only where the cause of a deduction was removed and a test shows it. **This is a self-assessment
-by the same AI agent that wrote the fixes**: the audit's **47 / 100 remains the last independently verified
-score** until a re-audit.
-
-| # | Subcriterion | Max | Audit | Now | Why |
-|---|---|---|---|---|---|
-| 1.1 | Ontology model and validation | 8 | 5.5 | 6.4 | GAP-016 fixed (capped at 80 % for B evidence); GAP-027/028 open |
-| 1.2 | Agent engine | 8 | 5.5 | 6.0 | GAP-017 fixed; no real-model evidence; GAP-029 open |
-| 1.3 | State, persistence, recovery | 6 | 2.5 | 4.2 | Intent journal, typed outputs, one writer; GAP-041 open |
-| 1.4 | Maintainability | 4 | 2.0 | 2.0 | Unchanged; the service grew (GAP-026) |
-| 1.5 | Agnosticism | 4 | 3.0 | 3.0 | Unchanged; one provider adapter |
-| 2.1 | Governance across entry points | 8 | 4.0 | 6.4 | GAP-011/012/013 fixed, D4 intersection, entry-point matrix |
-| 2.2 | Auditability | 5 | 3.0 | 3.7 | GAP-014 and GAP-007 fixed; GAP-020 open |
-| 2.3 | Test depth | 5 | 3.5 | 3.9 | Fault-injection and entry-point matrices; no load tests |
-| 2.4 | Quality gates | 2 | 0.5 | 0.6 | Licence gate added; still no mypy, linting, vulnerability audit |
-| 3.1 | Outbound execution reliability | 8 | 1.0 | 5.6 | Core requirement met against a simulated bank; no real ERP; no automated confirmation polling |
-| 3.2 | Recovery and reconciliation | 4 | 0.5 | 2.8 | Recovery and reconciliation API |
-| 3.3 | Inbound integration | 4 | 3.0 | 3.0 | Unchanged |
-| 3.4 | Consistency under concurrency | 4 | 1.0 | 2.8 | GAP-008 and GAP-009 fixed; write-back not atomic |
-| 4.1 | Authentication | 4 | 3.0 | 3.0 | Per-workspace OIDC added; GAP-019/030 open |
-| 4.2 | Authorization and data protection | 4 | 2.0 | 2.8 | GAP-011/012/013 fixed; no encryption at rest (D3) |
-| 4.3 | Input hardening | 2 | 0.5 | 1.1 | GAP-015 fixed; GAP-038 open |
-| 4.4 | Deployment, backup, observability | 5 | 3.0 | 3.0 | Unchanged; restore never exercised |
-| 5.1 | Real end-to-end process | 5 | 0.5 | 0.5 | None yet |
-| 5.2 | Real AI provider validation | 2 | 0.0 | 0.0 | None yet |
-| 5.3 | Legal and distribution | 3 | 1.0 | 1.8 | Licence and notices; legal sign-off and a real release pending |
-| 5.4 | Reuse and isolation | 3 | 1.0 | 1.8 | Organisation isolation built and tested; no real external system |
-| 5.5 | Documentation and support | 2 | 1.0 | 1.0 | Unchanged |
-| | **Total** | **100** | **47.0** | **≈ 65** | |
-
-| Score | Audit | Self-assessed now |
-|---|---|---|
-| A — Technical framework | 59 | 72 |
-| B — Enterprise operational readiness | 44 | 71 |
-| C — Commercial product readiness | 41 | 47 |
-| **Overall** | **47** | **≈ 65 (not independently verified)** |
-| Use case / workspace readiness (scorecard of §10 of the instructions) | not measurable | **not yet measurable** (REL-3, R2) |
-
-Score C barely moves on purpose: it rests on real-world evidence (a pilot, real models, a release, legal), which
-no repository change can supply. The path to 95 still needs gates 90 and 95, whose criteria are mostly external.
+Self-assessed ≈ 65 / 100 (audit's 47 remains the last independently verified score); use-case maturity not yet
+measurable. Details and the criteria that prevent 95: [AUTOLOGY_MATURITY_SCORECARD.md](AUTOLOGY_MATURITY_SCORECARD.md).
 
 ## 7. Known limitations carried into R2
 
@@ -176,4 +141,4 @@ Bilan :
 - **Maturité :** environ 65/100 en auto-évaluation, contre 47 à l'audit. Ce chiffre n'est pas vérifié de façon indépendante ; le 47 reste le dernier score vérifié.
 - **Maturité par cas d'usage :** pas encore mesurable.
 
-Aucun déploiement en production n'a été effectué. Le plan R2 est dans [AUTOLOGY_R2_PLAN.md](AUTOLOGY_R2_PLAN.md).
+Aucun déploiement en production n'a été effectué. Le plan R2 est dans [AUTOLOGY_RELEASE_ROADMAP.md](AUTOLOGY_RELEASE_ROADMAP.md).

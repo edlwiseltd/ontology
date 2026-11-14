@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -49,12 +50,16 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 def normalise_engine(url: str) -> str:
+    """The engine's base URL: a single engine (http://host:8800) or one use case behind the workspace router
+    (http://host:8700/w/<workspace>/u/<use case>)."""
     parsed = urllib.parse.urlparse(url.strip())
     if parsed.scheme not in ("http", "https") or not parsed.netloc:
         raise ValueError(f"engine must be an http(s) URL, got {url!r}")
-    if parsed.path not in ("", "/") or parsed.query or parsed.fragment:
-        raise ValueError("engine must be the server's base URL, e.g. http://127.0.0.1:8800")
-    return f"{parsed.scheme}://{parsed.netloc}"
+    path = parsed.path.rstrip("/")
+    if parsed.query or parsed.fragment or (path and not re.fullmatch(r"/w/[a-z0-9-]+/u/[a-z0-9-]+", path)):
+        raise ValueError("engine must be the server's base URL (http://127.0.0.1:8800) or a workspace use case "
+                         "(http://127.0.0.1:8700/w/<workspace>/u/<use case>)")
+    return f"{parsed.scheme}://{parsed.netloc}{path}"
 
 
 class Console:

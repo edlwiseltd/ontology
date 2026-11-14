@@ -241,7 +241,9 @@ class AutologyService:
         self._chat_search = (str(base),)
         from .settings import AssistantSettings
 
-        self.assistant_settings = AssistantSettings(self.store, config.get("chat"))
+        secrets_file = config.get("secrets_file")  # where a Claude key saved from the Console is kept
+        self.assistant_settings = AssistantSettings(self.store, config.get("chat"),
+                                                    (base / secrets_file).resolve() if secrets_file else None)
         self.chat: Optional[GovernedChat] = None
         self._apply_assistant()
 

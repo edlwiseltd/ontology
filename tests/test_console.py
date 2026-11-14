@@ -107,7 +107,9 @@ class ConsoleProxyTests(unittest.TestCase):
         self.assertEqual(resp.status, 502)
         self.assertIn("cannot be reached", json.loads(resp.read())["error"])
         self.assertEqual(normalise_engine("http://engine:8800/"), "http://engine:8800")
-        for bad in ("ftp://x", "engine:8800", "http://engine:8800/api", "http://"):
+        self.assertEqual(normalise_engine("http://host:8700/w/acme/u/claims/"), "http://host:8700/w/acme/u/claims")
+        for bad in ("ftp://x", "engine:8800", "http://engine:8800/api", "http://", "http://h/w/acme",
+                    "http://h/w/../u/claims", "http://h/w/acme/u/claims?x=1"):
             with self.subTest(bad), self.assertRaises(ValueError):
                 normalise_engine(bad)
 

@@ -1,0 +1,39 @@
+{
+  "data_dir": "data",
+  "workspaces": {
+    "acme": {
+      "name": "Acme Insurance & Logistics",
+      "members": [
+        {"name": "ada", "token_env": "ACME_TOKEN_ADA", "workspace_admin": true},
+        {"name": "hana", "token_env": "ACME_TOKEN_HANA",
+         "use_cases": {"claims": {"permissions": ["read", "run"], "roles": ["claims_handler"]}}},
+        {"name": "ivan", "token_env": "ACME_TOKEN_IVAN",
+         "use_cases": {"claims": {"permissions": ["read", "review"], "reviewer_roles": ["special_investigations"]}}},
+        {"name": "maria", "token_env": "ACME_TOKEN_MARIA",
+         "use_cases": {"claims": {"permissions": ["read", "review"], "roles": ["claims_handler"],
+                                  "reviewer_roles": ["claims_manager"]}}},
+        {"name": "olivia", "token_env": "ACME_TOKEN_OLIVIA",
+         "use_cases": {"orders": {"permissions": ["read", "run"], "roles": ["ops"]}}},
+        {"name": "lena", "token_env": "ACME_TOKEN_LENA",
+         "use_cases": {"orders": {"permissions": ["read", "review"], "roles": ["ops", "eu_ops"],
+                                  "reviewer_roles": ["logistics_manager"]}}}
+      ],
+      "use_cases": {
+        "claims": {"name": "Motor claims", "config": "../auto_insurance/server.json"},
+        "orders": {"name": "Order fulfilment", "config": "../order_fulfilment/server.json"}
+      }
+    },
+    "northwind": {
+      "name": "Northwind Mutual",
+      "members": [
+        {"name": "nadia", "token_env": "NORTHWIND_TOKEN_NADIA", "workspace_admin": true},
+        {"name": "hana", "token_env": "NORTHWIND_TOKEN_HANA",
+         "use_cases": {"claims": {"permissions": ["read", "run", "review"], "roles": ["claims_handler"],
+                                  "reviewer_roles": ["special_investigations", "claims_manager"]}}}
+      ],
+      "use_cases": {
+        "claims": {"name": "Motor claims", "config": "../auto_insurance/server.json"}
+      }
+    }
+  }
+}

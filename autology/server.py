@@ -1487,6 +1487,206 @@ class AutologyService:
 
 
 # -- HTTP layer ------------------------------------------------------------------------
+class ApiExchange:
+    """One API request and its response, independent of how it arrived (HTTP server, workspace router, tests).
+
+    Every entry point that speaks the REST API goes through this one dispatcher, so authentication, permissions,
+    row and field rules and the access log are the same whichever server or router received the request.
+    """
+
+    def __init__(self, service: "AutologyService", method: str, path: str, headers: Any,
+                 raw_body: Optional[bytes] = None, body_error: Optional[Tuple[int, str]] = None):
+        self.service, self.command, self.path, self.headers = service, method, path, headers
+        self.raw_body, self.body_error = raw_body, body_error
+        self.status, self.content_type, self.data = 500, "application/json", b""
+        self.response_headers: Dict[str, str] = {}
+        self._status, self._user = 500, None
+
+    def _send(self, status: int, body: Any, content_type: str = "application/json") -> None:
+        self.data = body if isinstance(body, bytes) else (
+            body.encode() if isinstance(body, str) else json.dumps(body, default=str).encode())
+        self.status = self._status = status
+        self.content_type = content_type + ("; charset=utf-8" if "text" in content_type or "json" in content_type
+                                            or "javascript" in content_type else "")
+        self.response_headers = {"X-Content-Type-Options": "nosniff", "Cache-Control": "no-store"}
+        if content_type == "text/html":
+            self.response_headers["Content-Security-Policy"] = (
+                "default-src 'self'; style-src 'self'; script-src 'self'; frame-ancestors 'none'")
+
+    def _body(self) -> Dict[str, Any]:
+        if self.body_error:
+            raise ApiError(*self.body_error)
+        if not self.raw_body:
+            return {}
+        try:
+            data = json.loads(self.raw_body)
+        except ValueError:
+            raise ApiError(400, "body must be JSON") from None
+        if not isinstance(data, dict):
+            raise ApiError(400, "body must be a JSON object")
+        return data
+
+    def run(self) -> "ApiExchange":
+        method, service = self.command, self.service
+        url = urlparse(self.path)
+        path = url.path.rstrip("/") or "/"
+        query = {k: v[-1] for k, v in parse_qs(url.query).items()}
+        self._status, self._user = 500, None
+        try:
+            self._dispatch(method, path, query)
+        finally:
+            if path.startswith("/api/") and path != "/api/health":
+                try:  # every API request, including failed sign-ins, goes to the append-only log
+                    service.log_access(self._user, "http", f"{method} {path}", self._status)
+                except Exception:  # logging must never break a response
+                    log.exception("writing the access log failed")
+        return self
+
+    def _dispatch(self, method: str, path: str, query: Dict[str, str]) -> None:
+        service = self.service
+        try:
+            if method == "GET" and path in ("/", "/index.html", "/app.js", "/app.css"):
+                name = {"/": "index.html"}.get(path, path.lstrip("/"))
+                ctype = {"html": "text/html", "js": "application/javascript", "css": "text/css"}[name.rsplit(".")[-1]]
+                return self._send(200, (STATIC / name).read_bytes(), ctype)
+            if path == "/api/health":
+                from .audit import audit_key
+
+                return self._send(200, {"status": "ok", "ontology": service.ontology.ref,
+                                        "simulation": service.simulation, "audit_keyed": audit_key() is not None,
+                                        "scheduler": service.scheduler_status})
+            if not path.startswith("/api/"):
+                raise ApiError(404, "not found")
+            if path == "/api/auth/config" and method == "GET":  # what the inbox needs to offer SSO sign-in
+                return self._send(200, service.sso_config())
+            if path == "/api/auth/token" and method == "POST":
+                return self._send(200, service.sso_token(self._body()))
+            user = service.authenticate(self.headers.get("Authorization"))
+            self._user = user
+            parts = path.split("/")[2:]
+            limit = max(1, min(int(query.get("limit", 100)), 1000))
+            offset = max(0, int(query.get("offset", 0)))
+            body = self._body() if method == "POST" else {}
+            routes = {
+                ("GET", "me"): lambda: service.me(user),
+                ("GET", "ontology"): lambda: service.ontology_summary(user),
+                ("GET", "objects"): lambda: service.list_objects(user, query.get("type"), limit, offset,
+                                                                 query.get("justification")),
+                ("GET", "justifications"): lambda: service.justifications(user, limit),
+                ("GET", "audit-heads"): lambda: (service.require(user, "audit"),
+                                                 {"items": service.store.audit_heads()})[1],
+                ("POST", "objects"): lambda: service.upsert_object(user, body),
+                ("GET", "runs"): lambda: service.list_runs(user, query.get("status"), limit, offset),
+                ("POST", "runs"): lambda: service.start_run(user, body),
+                ("GET", "reviews"): lambda: service.list_reviews(user, query.get("status", "pending")),
+                ("GET", "score"): lambda: service.score(user),
+                ("GET", "automations"): lambda: service.list_automations(user),
+                ("GET", "notifications"): lambda: service.list_notifications(user, query.get("since"), limit),
+                ("POST", "tick"): lambda: (service.require(user, "admin"), service.tick())[1],
+                ("GET", "scenarios"): lambda: service.list_scenarios(user, query.get("status")),
+                ("POST", "scenarios"): lambda: service.create_scenario(user, body),
+                ("POST", "chat"): lambda: service.chat_send(user, body),
+                ("GET", "access-log"): lambda: service.access_log(user, query.get("principal"), limit),
+                ("GET", "agents"): lambda: service.list_agents(user),
+                ("GET", "proposals"): lambda: service.list_proposals(user),
+                ("GET", "outcomes"): lambda: service.outcomes_summary(user),
+                ("GET", "pipelines"): lambda: service.list_pipelines(user),
+                ("POST", "reporting"): lambda: (service.require(user, "admin"), service.refresh_reporting())[1],
+            }
+            key = (method, parts[0]) if len(parts) == 1 else None
+            if key in routes:
+                return self._send(200, routes[key]())
+            if method == "GET" and len(parts) == 2 and parts[0] == "sdk":
+                from .sdk import GENERATORS
+
+                service.require(user, "read")
+                if parts[1] not in GENERATORS:
+                    raise ApiError(404, f"no client for {parts[1]!r}; available: {sorted(GENERATORS)}")
+                return self._send(200, GENERATORS[parts[1]](service.ontology), "text/plain")
+            if parts == ["settings", "assistant"]:
+                if method == "POST":
+                    return self._send(200, service.update_assistant(user, body))
+                return self._send(200, service.assistant_view(user))
+            if parts == ["settings", "assistant", "test"] and method == "POST":
+                return self._send(200, service.test_assistant(user))
+            if method == "GET" and parts == ["metrics"]:
+                return self._send(200, service.metrics(user), "text/plain; version=0.0.4")
+            if method == "GET" and parts == ["report"]:
+                return self._send(200, service.report(user), "text/markdown")
+            if len(parts) == 2:
+                kind, ident = parts
+                if method == "GET" and kind == "objects":
+                    return self._send(200, service.get_object(user, ident, query.get("justification")))
+                if method == "GET" and kind == "runs":
+                    return self._send(200, service.get_run(user, ident))
+                if method == "GET" and kind == "reviews":
+                    return self._send(200, service.get_review(user, ident))
+                if method == "GET" and kind == "scenarios":
+                    return self._send(200, service.get_scenario(user, ident))
+                if method == "GET" and kind == "ingest-batches":
+                    return self._send(200, service.ingest_batch(user, ident))
+                if method == "GET" and kind == "chat":
+                    return self._send(200, service.chat_get(user, ident))
+                if method == "POST" and kind == "questions":
+                    return self._send(200, service.answer(user, ident, body.get("params") or {},
+                                                          body.get("justification")))
+            if len(parts) == 3 and parts[0] == "objects" and parts[2] == "lineage" and method == "GET":
+                return self._send(200, service.object_lineage(user, parts[1]))
+            if len(parts) == 3 and parts[0] == "pipelines" and parts[2] == "run" and method == "POST":
+                return self._send(200, service.run_pipeline(user, parts[1], body))
+            if len(parts) == 3 and parts[0] == "runs":
+                if method == "GET" and parts[2] == "audit":
+                    return self._send(200, service.run_audit(user, parts[1]))
+                if parts[2] == "outcomes":
+                    if method == "POST":
+                        return self._send(200, service.record_outcome(user, parts[1], body))
+                    return self._send(200, service.list_outcomes(user, parts[1]))
+                if method == "GET" and parts[2] == "trace":
+                    return self._send(200, service.run_trace(user, parts[1]))
+                if method == "POST" and parts[2] == "resume":
+                    return self._send(200, service.resume_run(user, parts[1], bool(body.get("force")),
+                                                              body.get("justification")))
+            if len(parts) == 3 and parts[0] == "scenarios" and method == "POST":
+                sid, verb = parts[1], parts[2]
+                handlers = {"edits": lambda: service.add_scenario_edits(user, sid, body),
+                            "compare": lambda: service.compare_scenario(user, sid, body),
+                            "commit": lambda: service.commit_scenario(user, sid, body),
+                            "discard": lambda: service.discard_scenario(user, sid)}
+                if verb in handlers:
+                    return self._send(200, handlers[verb]())
+            if len(parts) == 3 and parts[0] == "proposals" and parts[2] == "decision" and method == "POST":
+                return self._send(200, service.confirm_proposal(user, parts[1], body))
+            if len(parts) == 3 and parts[0] == "agents" and parts[2] == "reinstate" and method == "POST":
+                return self._send(200, service.reinstate_agent(user, parts[1], body))
+            if len(parts) == 3 and parts[0] == "automations" and parts[2] == "run" and method == "POST":
+                return self._send(200, service.run_automation(user, parts[1], body))
+            if len(parts) == 3 and parts[0] == "reviews" and parts[2] == "decision" and method == "POST":
+                return self._send(200, service.decide(user, parts[1], body))
+            raise ApiError(404 if method == "GET" else 405, f"no route for {method} {path}")
+        except ApiError as exc:
+            self._send(exc.status, {"error": exc.message, **exc.extra})
+        except ValueError as exc:
+            self._send(400, {"error": str(exc)})
+        except Exception as exc:  # never leak a traceback to clients; keep it in the server log
+            service.log_error(f"{self.command} {urlparse(self.path).path}")
+            self._send(500, {"error": f"internal error: {type(exc).__name__}"})
+
+
+def read_body(headers: Any, rfile: Any, method: str) -> Tuple[Optional[bytes], Optional[Tuple[int, str]]]:
+    """Read a request body safely: a valid, non-negative Content-Length of at most MAX_BODY, never "until EOF"."""
+    if method != "POST":
+        return None, None
+    raw = headers.get("Content-Length")
+    if raw is None:
+        return b"", None
+    if not raw.strip().isdigit():  # refuses negative and malformed lengths (rfile.read(-1) would read to EOF)
+        return None, (411, "a valid Content-Length is required")
+    length = int(raw)
+    if length > MAX_BODY:
+        return None, (413, "request body too large")
+    return (rfile.read(length) if length else b""), None
+
+
 def _handler(service: AutologyService):
     class Handler(BaseHTTPRequestHandler):
         server_version = "Autology"
@@ -1495,184 +1695,33 @@ def _handler(service: AutologyService):
         def log_message(self, fmt, *args):  # quiet by default; plug in your own access log
             pass
 
-        def _send(self, status: int, body: Any, content_type: str = "application/json") -> None:
-            data = body if isinstance(body, bytes) else (
-                body.encode() if isinstance(body, str) else json.dumps(body, default=str).encode())
-            self.send_response(status)
-            self._status = status
-            self.send_header("Content-Type", content_type + ("; charset=utf-8" if "text" in content_type
-                                                             or "json" in content_type or "javascript" in content_type
-                                                             else ""))
+        def _respond(self, method: str) -> None:
+            raw, error = read_body(self.headers, self.rfile, method)
+            ex = ApiExchange(service, method, self.path, self.headers, raw, error).run()
+            self.send_response(ex.status)
+            self.send_header("Content-Type", ex.content_type)
+            self.send_header("Content-Length", str(len(ex.data)))
+            for name, value in ex.response_headers.items():
+                self.send_header(name, value)
+            self.end_headers()
+            self.wfile.write(ex.data)
+
+        def do_GET(self):  # noqa: N802
+            self._respond("GET")
+
+        def do_POST(self):  # noqa: N802
+            self._respond("POST")
+
+        def _not_allowed(self):  # a JSON answer, not the standard library's HTML 501 page
+            data = json.dumps({"error": f"{self.command} is not supported"}).encode()
+            self.send_response(405)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(data)))
-            self.send_header("X-Content-Type-Options", "nosniff")
-            self.send_header("Cache-Control", "no-store")
-            if content_type == "text/html":
-                self.send_header("Content-Security-Policy",
-                                 "default-src 'self'; style-src 'self'; script-src 'self'; frame-ancestors 'none'")
+            self.send_header("Allow", "GET, POST")
             self.end_headers()
             self.wfile.write(data)
 
-        def _body(self) -> Dict[str, Any]:
-            length = int(self.headers.get("Content-Length") or 0)
-            if length > MAX_BODY:
-                raise ApiError(413, "request body too large")
-            if not length:
-                return {}
-            try:
-                data = json.loads(self.rfile.read(length))
-            except ValueError:
-                raise ApiError(400, "body must be JSON") from None
-            if not isinstance(data, dict):
-                raise ApiError(400, "body must be a JSON object")
-            return data
-
-        def _route(self, method: str) -> None:
-            url = urlparse(self.path)
-            path = url.path.rstrip("/") or "/"
-            query = {k: v[-1] for k, v in parse_qs(url.query).items()}
-            self._status, self._user = 500, None
-            try:
-                self._dispatch(method, path, query)
-            finally:
-                if path.startswith("/api/") and path != "/api/health":
-                    try:  # every API request, including failed sign-ins, goes to the append-only log
-                        service.log_access(self._user, "http", f"{method} {path}", self._status)
-                    except Exception:  # logging must never break a response
-                        log.exception("writing the access log failed")
-
-        def _dispatch(self, method: str, path: str, query: Dict[str, str]) -> None:
-            try:
-                if method == "GET" and path in ("/", "/index.html", "/app.js", "/app.css"):
-                    name = {"/": "index.html"}.get(path, path.lstrip("/"))
-                    ctype = {"html": "text/html", "js": "application/javascript", "css": "text/css"}[name.rsplit(".")[-1]]
-                    return self._send(200, (STATIC / name).read_bytes(), ctype)
-                if path == "/api/health":
-                    from .audit import audit_key
-
-                    return self._send(200, {"status": "ok", "ontology": service.ontology.ref,
-                                            "simulation": service.simulation, "audit_keyed": audit_key() is not None,
-                                            "scheduler": service.scheduler_status})
-                if not path.startswith("/api/"):
-                    raise ApiError(404, "not found")
-                if path == "/api/auth/config" and method == "GET":  # what the inbox needs to offer SSO sign-in
-                    return self._send(200, service.sso_config())
-                if path == "/api/auth/token" and method == "POST":
-                    return self._send(200, service.sso_token(self._body()))
-                user = service.authenticate(self.headers.get("Authorization"))
-                self._user = user
-                parts = path.split("/")[2:]
-                limit = max(1, min(int(query.get("limit", 100)), 1000))
-                offset = max(0, int(query.get("offset", 0)))
-                body = self._body() if method == "POST" else {}
-                routes = {
-                    ("GET", "me"): lambda: service.me(user),
-                    ("GET", "ontology"): lambda: service.ontology_summary(user),
-                    ("GET", "objects"): lambda: service.list_objects(user, query.get("type"), limit, offset,
-                                                                     query.get("justification")),
-                    ("GET", "justifications"): lambda: service.justifications(user, limit),
-                    ("GET", "audit-heads"): lambda: (service.require(user, "audit"),
-                                                     {"items": service.store.audit_heads()})[1],
-                    ("POST", "objects"): lambda: service.upsert_object(user, body),
-                    ("GET", "runs"): lambda: service.list_runs(user, query.get("status"), limit, offset),
-                    ("POST", "runs"): lambda: service.start_run(user, body),
-                    ("GET", "reviews"): lambda: service.list_reviews(user, query.get("status", "pending")),
-                    ("GET", "score"): lambda: service.score(user),
-                    ("GET", "automations"): lambda: service.list_automations(user),
-                    ("GET", "notifications"): lambda: service.list_notifications(user, query.get("since"), limit),
-                    ("POST", "tick"): lambda: (service.require(user, "admin"), service.tick())[1],
-                    ("GET", "scenarios"): lambda: service.list_scenarios(user, query.get("status")),
-                    ("POST", "scenarios"): lambda: service.create_scenario(user, body),
-                    ("POST", "chat"): lambda: service.chat_send(user, body),
-                    ("GET", "access-log"): lambda: service.access_log(user, query.get("principal"), limit),
-                    ("GET", "agents"): lambda: service.list_agents(user),
-                    ("GET", "proposals"): lambda: service.list_proposals(user),
-                    ("GET", "outcomes"): lambda: service.outcomes_summary(user),
-                    ("GET", "pipelines"): lambda: service.list_pipelines(user),
-                    ("POST", "reporting"): lambda: (service.require(user, "admin"), service.refresh_reporting())[1],
-                }
-                key = (method, parts[0]) if len(parts) == 1 else None
-                if key in routes:
-                    return self._send(200, routes[key]())
-                if method == "GET" and len(parts) == 2 and parts[0] == "sdk":
-                    from .sdk import GENERATORS
-
-                    service.require(user, "read")
-                    if parts[1] not in GENERATORS:
-                        raise ApiError(404, f"no client for {parts[1]!r}; available: {sorted(GENERATORS)}")
-                    return self._send(200, GENERATORS[parts[1]](service.ontology), "text/plain")
-                if parts == ["settings", "assistant"]:
-                    if method == "POST":
-                        return self._send(200, service.update_assistant(user, body))
-                    return self._send(200, service.assistant_view(user))
-                if parts == ["settings", "assistant", "test"] and method == "POST":
-                    return self._send(200, service.test_assistant(user))
-                if method == "GET" and parts == ["metrics"]:
-                    return self._send(200, service.metrics(user), "text/plain; version=0.0.4")
-                if method == "GET" and parts == ["report"]:
-                    return self._send(200, service.report(user), "text/markdown")
-                if len(parts) == 2:
-                    kind, ident = parts
-                    if method == "GET" and kind == "objects":
-                        return self._send(200, service.get_object(user, ident, query.get("justification")))
-                    if method == "GET" and kind == "runs":
-                        return self._send(200, service.get_run(user, ident))
-                    if method == "GET" and kind == "reviews":
-                        return self._send(200, service.get_review(user, ident))
-                    if method == "GET" and kind == "scenarios":
-                        return self._send(200, service.get_scenario(user, ident))
-                    if method == "GET" and kind == "ingest-batches":
-                        return self._send(200, service.ingest_batch(user, ident))
-                    if method == "GET" and kind == "chat":
-                        return self._send(200, service.chat_get(user, ident))
-                    if method == "POST" and kind == "questions":
-                        return self._send(200, service.answer(user, ident, body.get("params") or {},
-                                                              body.get("justification")))
-                if len(parts) == 3 and parts[0] == "objects" and parts[2] == "lineage" and method == "GET":
-                    return self._send(200, service.object_lineage(user, parts[1]))
-                if len(parts) == 3 and parts[0] == "pipelines" and parts[2] == "run" and method == "POST":
-                    return self._send(200, service.run_pipeline(user, parts[1], body))
-                if len(parts) == 3 and parts[0] == "runs":
-                    if method == "GET" and parts[2] == "audit":
-                        return self._send(200, service.run_audit(user, parts[1]))
-                    if parts[2] == "outcomes":
-                        if method == "POST":
-                            return self._send(200, service.record_outcome(user, parts[1], body))
-                        return self._send(200, service.list_outcomes(user, parts[1]))
-                    if method == "GET" and parts[2] == "trace":
-                        return self._send(200, service.run_trace(user, parts[1]))
-                    if method == "POST" and parts[2] == "resume":
-                        return self._send(200, service.resume_run(user, parts[1], bool(body.get("force")),
-                                                                  body.get("justification")))
-                if len(parts) == 3 and parts[0] == "scenarios" and method == "POST":
-                    sid, verb = parts[1], parts[2]
-                    handlers = {"edits": lambda: service.add_scenario_edits(user, sid, body),
-                                "compare": lambda: service.compare_scenario(user, sid, body),
-                                "commit": lambda: service.commit_scenario(user, sid, body),
-                                "discard": lambda: service.discard_scenario(user, sid)}
-                    if verb in handlers:
-                        return self._send(200, handlers[verb]())
-                if len(parts) == 3 and parts[0] == "proposals" and parts[2] == "decision" and method == "POST":
-                    return self._send(200, service.confirm_proposal(user, parts[1], body))
-                if len(parts) == 3 and parts[0] == "agents" and parts[2] == "reinstate" and method == "POST":
-                    return self._send(200, service.reinstate_agent(user, parts[1], body))
-                if len(parts) == 3 and parts[0] == "automations" and parts[2] == "run" and method == "POST":
-                    return self._send(200, service.run_automation(user, parts[1], body))
-                if len(parts) == 3 and parts[0] == "reviews" and parts[2] == "decision" and method == "POST":
-                    return self._send(200, service.decide(user, parts[1], body))
-                raise ApiError(404 if method == "GET" else 405, f"no route for {method} {path}")
-            except ApiError as exc:
-                self._send(exc.status, {"error": exc.message, **exc.extra})
-            except ValueError as exc:
-                self._send(400, {"error": str(exc)})
-            except Exception as exc:  # never leak a traceback to clients; keep it in the server log
-                service.log_error(f"{self.command} {urlparse(self.path).path}")
-                self._send(500, {"error": f"internal error: {type(exc).__name__}"})
-
-        def do_GET(self):  # noqa: N802
-            self._route("GET")
-
-        def do_POST(self):  # noqa: N802
-            self._route("POST")
+        do_PUT = do_DELETE = do_PATCH = do_OPTIONS = _not_allowed  # noqa: N815
 
     return Handler
 

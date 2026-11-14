@@ -1,0 +1,336 @@
+{
+  "_policy": {
+    "allowed": [
+      "permissive"
+    ],
+    "needs_legal_review": [
+      "weak-copyleft"
+    ],
+    "forbidden": [
+      "strong-copyleft",
+      "unknown"
+    ],
+    "note": "Autology is distributed under a proprietary licence (owner decision D5, subject to intellectual-property and third-party licence review). Permissive licences are allowed; LGPL (weak copyleft) only as an optional, unmodified, dynamically imported dependency and after legal review; GPL/AGPL are not allowed."
+  },
+  "packages": {
+    "anthropic": {
+      "licence": "Apache-2.0",
+      "family": "permissive",
+      "use": "optional extra 'llm': the Claude model client (assistant, model reasoners)",
+      "shipped": "Docker image"
+    },
+    "psycopg": {
+      "licence": "LGPL-3.0-only",
+      "family": "weak-copyleft",
+      "use": "optional extra 'postgres': SQL pipelines and the reporting database",
+      "shipped": "Docker image",
+      "review": "LGPL obligations for a bundled, unmodified library: keep its licence text in the image and allow it to be replaced. Confirm with counsel before distributing the image"
+    },
+    "psycopg-binary": {
+      "licence": "LGPL-3.0-only",
+      "family": "weak-copyleft",
+      "use": "binary build of psycopg (bundles libpq, PostgreSQL licence)",
+      "shipped": "Docker image",
+      "review": "as psycopg; libpq is under the PostgreSQL licence (permissive)"
+    },
+    "pyyaml": {
+      "licence": "MIT",
+      "family": "permissive",
+      "use": "optional extra 'yaml': YAML ontologies",
+      "shipped": "not in the image"
+    },
+    "openpyxl": {
+      "licence": "MIT",
+      "family": "permissive",
+      "use": "approved for the Excel template factory (XL-1, R2); not used yet",
+      "shipped": "not yet"
+    },
+    "et-xmlfile": {
+      "licence": "MIT",
+      "family": "permissive",
+      "use": "dependency of openpyxl",
+      "shipped": "not yet"
+    },
+    "ortools": {
+      "licence": "Apache-2.0",
+      "family": "permissive",
+      "use": "CI only: the scheduling example's CP-SAT solver tests",
+      "shipped": "no"
+    },
+    "rdflib": {
+      "licence": "BSD-3-Clause",
+      "family": "permissive",
+      "use": "CI only: RDF/OWL export tests",
+      "shipped": "no"
+    },
+    "cryptography": {
+      "licence": "Apache-2.0 OR BSD-3-Clause",
+      "family": "permissive",
+      "use": "CI only: interoperability test of the built-in RSA signature check",
+      "shipped": "no"
+    },
+    "coverage": {
+      "licence": "Apache-2.0",
+      "family": "permissive",
+      "use": "CI only: coverage gate",
+      "shipped": "no"
+    },
+    "build": {
+      "licence": "MIT",
+      "family": "permissive",
+      "use": "CI and release: wheel build",
+      "shipped": "no"
+    },
+    "setuptools": {
+      "licence": "MIT",
+      "family": "permissive",
+      "use": "build backend",
+      "shipped": "no"
+    },
+    "annotated-types": {
+      "licence": "MIT",
+      "family": "permissive",
+      "use": "dependency of anthropic (pydantic)",
+      "shipped": "Docker image"
+    },
+    "anyio": {
+      "licence": "MIT",
+      "family": "permissive",
+      "use": "dependency of anthropic",
+      "shipped": "Docker image"
+    },
+    "certifi": {
+      "licence": "MPL-2.0",
+      "family": "weak-copyleft",
+      "use": "dependency of anthropic (httpx): CA bundle",
+      "shipped": "Docker image",
+      "review": "MPL-2.0 file-level copyleft; used unmodified"
+    },
+    "distro": {
+      "licence": "Apache-2.0",
+      "family": "permissive",
+      "use": "dependency of anthropic",
+      "shipped": "Docker image"
+    },
+    "docstring-parser": {
+      "licence": "MIT",
+      "family": "permissive",
+      "use": "dependency of anthropic",
+      "shipped": "Docker image"
+    },
+    "h11": {
+      "licence": "MIT",
+      "family": "permissive",
+      "use": "dependency of anthropic (httpx)",
+      "shipped": "Docker image"
+    },
+    "httpcore": {
+      "licence": "BSD-3-Clause",
+      "family": "permissive",
+      "use": "dependency of anthropic (httpx)",
+      "shipped": "Docker image"
+    },
+    "httpx": {
+      "licence": "BSD-3-Clause",
+      "family": "permissive",
+      "use": "dependency of anthropic",
+      "shipped": "Docker image"
+    },
+    "httpcore2": {
+      "licence": "BSD-3-Clause",
+      "family": "permissive",
+      "use": "dependency of anthropic (some versions)",
+      "shipped": "Docker image"
+    },
+    "httpx2": {
+      "licence": "BSD-3-Clause",
+      "family": "permissive",
+      "use": "dependency of anthropic (some versions)",
+      "shipped": "Docker image"
+    },
+    "idna": {
+      "licence": "BSD-3-Clause",
+      "family": "permissive",
+      "use": "dependency of anthropic (httpx)",
+      "shipped": "Docker image"
+    },
+    "jiter": {
+      "licence": "MIT",
+      "family": "permissive",
+      "use": "dependency of anthropic",
+      "shipped": "Docker image"
+    },
+    "pydantic": {
+      "licence": "MIT",
+      "family": "permissive",
+      "use": "dependency of anthropic",
+      "shipped": "Docker image"
+    },
+    "pydantic-core": {
+      "licence": "MIT",
+      "family": "permissive",
+      "use": "dependency of anthropic",
+      "shipped": "Docker image"
+    },
+    "sniffio": {
+      "licence": "MIT OR Apache-2.0",
+      "family": "permissive",
+      "use": "dependency of anthropic",
+      "shipped": "Docker image"
+    },
+    "truststore": {
+      "licence": "MIT",
+      "family": "permissive",
+      "use": "dependency of anthropic (some versions)",
+      "shipped": "Docker image"
+    },
+    "typing-extensions": {
+      "licence": "PSF-2.0",
+      "family": "permissive",
+      "use": "dependency of anthropic, psycopg",
+      "shipped": "Docker image"
+    },
+    "typing-inspection": {
+      "licence": "MIT",
+      "family": "permissive",
+      "use": "dependency of anthropic (pydantic)",
+      "shipped": "Docker image"
+    },
+    "tzdata": {
+      "licence": "Apache-2.0",
+      "family": "permissive",
+      "use": "dependency of psycopg on some platforms",
+      "shipped": "Docker image"
+    },
+    "absl-py": {
+      "licence": "Apache-2.0",
+      "family": "permissive",
+      "use": "CI only: dependency of ortools",
+      "shipped": "no"
+    },
+    "immutabledict": {
+      "licence": "MIT",
+      "family": "permissive",
+      "use": "CI only: dependency of ortools",
+      "shipped": "no"
+    },
+    "numpy": {
+      "licence": "BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0",
+      "family": "permissive",
+      "use": "CI only: dependency of ortools",
+      "shipped": "no"
+    },
+    "pandas": {
+      "licence": "BSD-3-Clause",
+      "family": "permissive",
+      "use": "CI only: dependency of ortools",
+      "shipped": "no"
+    },
+    "protobuf": {
+      "licence": "BSD-3-Clause",
+      "family": "permissive",
+      "use": "CI only: dependency of ortools",
+      "shipped": "no"
+    },
+    "python-dateutil": {
+      "licence": "Apache-2.0 AND BSD-3-Clause",
+      "family": "permissive",
+      "use": "CI only: dependency of pandas",
+      "shipped": "no"
+    },
+    "six": {
+      "licence": "MIT",
+      "family": "permissive",
+      "use": "CI only: dependency of python-dateutil",
+      "shipped": "no"
+    },
+    "opentelemetry-api": {
+      "licence": "Apache-2.0",
+      "family": "permissive",
+      "use": "CI only: dependency of ortools",
+      "shipped": "no"
+    },
+    "importlib-metadata": {
+      "licence": "Apache-2.0",
+      "family": "permissive",
+      "use": "CI only: dependency of opentelemetry-api on some versions",
+      "shipped": "no"
+    },
+    "zipp": {
+      "licence": "MIT",
+      "family": "permissive",
+      "use": "CI only: dependency of importlib-metadata",
+      "shipped": "no"
+    },
+    "pyparsing": {
+      "licence": "MIT",
+      "family": "permissive",
+      "use": "CI only: dependency of rdflib",
+      "shipped": "no"
+    },
+    "isodate": {
+      "licence": "BSD-3-Clause",
+      "family": "permissive",
+      "use": "CI only: dependency of rdflib on some versions",
+      "shipped": "no"
+    },
+    "cffi": {
+      "licence": "MIT-0",
+      "family": "permissive",
+      "use": "CI only: dependency of cryptography",
+      "shipped": "no"
+    },
+    "pycparser": {
+      "licence": "BSD-3-Clause",
+      "family": "permissive",
+      "use": "CI only: dependency of cffi",
+      "shipped": "no"
+    },
+    "pytz": {
+      "licence": "MIT",
+      "family": "permissive",
+      "use": "CI only: dependency of pandas on some versions",
+      "shipped": "no"
+    },
+    "exceptiongroup": {
+      "licence": "MIT",
+      "family": "permissive",
+      "use": "dependency of anyio on Python < 3.11",
+      "shipped": "Docker image (older Pythons)"
+    },
+    "backports-zoneinfo": {
+      "licence": "Apache-2.0",
+      "family": "permissive",
+      "use": "dependency of psycopg on old Pythons",
+      "shipped": "no"
+    },
+    "colorama": {
+      "licence": "BSD-3-Clause",
+      "family": "permissive",
+      "use": "CI and release: dependency of build",
+      "shipped": "no"
+    },
+    "packaging": {
+      "licence": "Apache-2.0 OR BSD-2-Clause",
+      "family": "permissive",
+      "use": "CI and release: dependency of build",
+      "shipped": "no"
+    },
+    "pyproject-hooks": {
+      "licence": "MIT",
+      "family": "permissive",
+      "use": "CI and release: dependency of build",
+      "shipped": "no"
+    },
+    "tomli": {
+      "licence": "MIT",
+      "family": "permissive",
+      "use": "CI and release on Python 3.10: dependency of build",
+      "shipped": "no"
+    }
+  },
+  "not_python": {
+    "python:3.13-slim (Docker base image)": "Debian packages under their own licences and CPython under the PSF licence; review the image's /usr/share/doc/*/copyright before distributing it",
+    "Console and inbox (autology/static, autology/console_static)": "own code, no third-party JavaScript or CSS"
+  }
+}

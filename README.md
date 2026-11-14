@@ -299,3 +299,7 @@ docs/methodology.md            the engineering methodology, section by section, 
 ```
 
 This repository also has notes on video tooling (`video-skills.md`, `.claude/skills/`). They are unrelated to Autology.
+
+## Licence
+
+Proprietary: see [LICENSE](LICENSE). Third-party components and their licences: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) (checked in CI by `tests/test_leg1_licences.py`). The licence text and the legal entity are subject to the intellectual-property review.

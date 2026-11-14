@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| Version | 1.0 — 14 November 2026 |
+| Version | 1.1 — 14 November 2026 (owner decisions D1, D4–D7 and Excel recorded) |
 | Owner | Product owner (Autology) |
-| Status | Approved for R1 delivery; R2–R4 subject to owner decisions (§10) |
+| Status | Approved for R1 delivery. No production deployment is authorised. Full Studio work starts only after the R1 safety and isolation gates pass |
 | Related | [current state](AUTOLOGY_CURRENT_STATE_AND_GAPS.md) · [architecture](AUTOLOGY_TARGET_ARCHITECTURE.md) · [requirements catalogue](AUTOLOGY_PRODUCT_REQUIREMENTS.md) · [security](AUTOLOGY_SECURITY_AND_TENANCY.md) · [readiness](AUTOLOGY_READINESS_AND_RELEASE_GATES.md) · [audit](../audit/README.md) |
 
 ## 1. Product vision
@@ -79,6 +79,7 @@ Status: ☐ to do · ◐ in progress · ☑ done · ⛔ blocked (decision needed
 | GOV-2 | Scenario comparisons never reveal fields the user may not read (GAP-012) | S | ☑ |
 | GOV-3 | A user cannot make an agent act on records they may not see (GAP-013) | M | ☑ |
 | GOV-4 | The whole run record is protected by the audit MAC (GAP-014) | M | ☑ |
+| GOV-5 | Runs act with the intersection of the requester's permissions, the agent's permissions, the workspace and the rules; scheduled agents use an explicitly authorised, least-privilege service identity (D4) | M | ☐ |
 | **MOD — The model cannot silently weaken itself** | | | |
 | MOD-1 | Misspelled ontology keys and unknown types are rejected (GAP-016) | M | ☑ |
 | MOD-2 | Missing linked records are unknown, never "valid by default" (GAP-017) | S | ☐ |
@@ -95,7 +96,7 @@ Status: ☐ to do · ◐ in progress · ☑ done · ⛔ blocked (decision needed
 | ISO-2 | Each workspace's audit chains are signed with its own key | M | ☐ |
 | ISO-3 | Company sign-in (OIDC) configured per workspace | M | ☐ |
 | **LEG — Legal** | | | |
-| LEG-1 | Licence and third-party notices | S | ⛔ D5 |
+| LEG-1 | Proprietary licence notice and third-party licence inventory, checked in CI (D5) | S | ☐ |
 
 ### R2 — Studio foundation
 
@@ -114,6 +115,7 @@ Status: ☐ to do · ◐ in progress · ☑ done · ⛔ blocked (decision needed
 | XL-2 | Upload: safe parse, validation, row-level errors, diff preview | L | ☐ |
 | XL-3 | Confirmed, transactional commit with provenance and rescoring | M | ☐ |
 | UI-1 | Review inbox moved out of the engine process | S | ☐ |
+| AI-1 | Provider-neutral model adapter contract, validated with at least two adapters (D7) | M | ☐ |
 | STU-1 | Studio application shell (workspace selector, use-case catalog) on the public API | L | ☐ |
 
 ### R3 — Integrations and runtime UI
@@ -121,8 +123,8 @@ Status: ☐ to do · ◐ in progress · ☑ done · ⛔ blocked (decision needed
 | ID | Story | Size | Status |
 |---|---|---|---|
 | INT-1 | Capability registry with declared effects, scopes, idempotency, health | M | ☐ |
-| INT-2 | Odoo 18 read-only connector | L | ☐ |
-| INT-3 | Odoo safe writes (after ACT-1–5) on a test database | L | ☐ |
+| INT-2 | Odoo 18 Enterprise read-only connector against a sandbox database (D6) | L | ☐ |
+| INT-3 | Odoo safe writes on the sandbox only, after ACT-1–6 pass; production writes stay disabled (D6) | L | ☐ |
 | ORG-1 | Human organisation model from templates or read-only HRIS sync | M | ☐ |
 | ORG-2 | Access recommendations need approval; no self-granting | M | ☐ |
 | AGF-1 | Versioned agent specifications with supervisors and approval | L | ☐ |
@@ -218,11 +220,18 @@ for pilots with a proven restore); performance targets set with the first pilot 
 for UIs; Python 3.10+; no runtime dependencies in the engine core; every story keeps the suite green, adds tests,
 and keeps coverage ≥ 95%.
 
-## 10. Decisions needed
+## 10. Decisions
 
-D1 deployment model · D2 store (SQLite vs PostgreSQL) · D3 encryption at rest · D4 / GOV-3 semantics (applied with the default in GOV-3: refuse cases with hidden records; still open: whether user-started runs should also act with the intersection of the requester's and the agent's roles) · D5 licence
-(blocks LEG-1) · D6 first pilot and Odoo access · D7 supported AI providers · `openpyxl` allowed as an optional
-dependency (XL-1).
+| ID | Decision (owner, 14 Nov 2026, unless marked open) | Consequence |
+|---|---|---|
+| D1 | Design for multi-tenancy while supporting dedicated, isolated customer deployments. Start with isolated pilot deployments | ADR-001 kept (a store per use case, router for shared hosting); pilots run as dedicated deployments; the platform router stays the multi-tenant path |
+| D2 | *Open.* Proposal: SQLite for the isolated pilots (D1); PostgreSQL when a shared deployment needs it | OPS-3 (R4) |
+| D3 | *Open.* Proposal: encrypted volumes per pilot deployment | Deployment guide |
+| D4 | Agent permissions are the intersection of the initiating user's effective permissions, the agent's permissions, workspace boundaries and governance policies. Scheduled agents use explicitly authorised service identities with least privilege | GOV-3 (records) done; GOV-5 (roles and service identities) |
+| D5 | Proprietary commercial distribution, subject to intellectual-property and third-party licence review | LEG-1 |
+| D6 | Prepare an Odoo 18 Enterprise sandbox integration. No production ERP writes until the external action safety requirements pass | ACT-1–6 (R1) gate INT-2/INT-3 (R3), which target the sandbox only |
+| D7 | Preserve provider independence; validate at least two model adapters | AI-1 (R2) |
+| Excel | `openpyxl` approved as a dependency, subject to dependency security and licence checks | XL-1 (R2); checked in LEG-1's licence inventory |
 
 ## 11. Working agreement
 

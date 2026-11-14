@@ -206,19 +206,17 @@ def build_case(graph: "KnowledgeGraph", template: str, root_id: str) -> Tuple[Di
     return case, sources
 
 
-def write_back(graph: "KnowledgeGraph", state: Any, sources: Mapping[str, Any],
-               base: Dict[str, Dict[str, Any]]) -> Tuple[List[str], List[Dict[str, Any]]]:
-    """Write a run's results back to the graph instances its case was built from (see :func:`build_case`).
+def plan_write_back(graph: "KnowledgeGraph", state: Any, sources: Mapping[str, Any],
+                    base: Dict[str, Dict[str, Any]]) -> Tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
+    """What a run would write back, without changing anything (audit GAP-009).
 
-    ``base`` holds each source instance's values as the case read them. Only fields the run changed
-    (its value differs from ``base``) are written, so live edits to other fields survive. If a field the
-    run changed has also moved on the live record since, it is a **conflict**: the live value is kept and
-    the conflict returned for a person to resolve. ``base`` advances to what was written, so a run saved
-    several times (for example before and after a review) does not mistake its own writes for conflicts.
+    ``base`` holds each source instance's values as the case read them. Only fields the run changed (its value
+    differs from ``base``) are written, so live edits to other fields survive. A field the run changed that has
+    also moved on the live record since is a **conflict**.
 
-    Returns ``(changed instance ids, conflicts)``.
+    Returns ``(writes, conflicts)``: ``writes`` maps each instance id to the fields to set on it.
     """
-    changed: List[str] = []
+    writes: Dict[str, Dict[str, Any]] = {}
     conflicts: List[Dict[str, Any]] = []
     for entity, src in sources.items():
         if isinstance(src, list):
@@ -234,25 +232,49 @@ def write_back(graph: "KnowledgeGraph", state: Any, sources: Mapping[str, Any],
                 conflicts.append({"id": iid, "type": inst.type, "attribute": None, "base": None, "live": None,
                                   "run": None, "reason": "no snapshot of the values the case was built from"})
                 continue
-            wrote = False
             for attr, new in values.items():
                 if attr not in inst.attributes or new == seen.get(attr):
                     continue  # the run did not change this field
                 live = inst.attributes.get(attr)
                 if live == new:
-                    seen[attr] = new
-                    continue
+                    continue  # already so: nothing to write
                 if live != seen.get(attr):
                     conflicts.append({"id": iid, "type": inst.type, "attribute": attr, "base": seen.get(attr),
                                       "live": live, "run": new, "reason": "changed on the live record since the "
                                                                         "case was built"})
                     continue
-                inst.attributes[attr] = new
-                seen[attr] = new
-                wrote = True
-            if wrote:
-                changed.append(iid)
-    return changed, conflicts
+                writes.setdefault(iid, {})[attr] = new
+    return writes, conflicts
+
+
+def advance_base(graph: "KnowledgeGraph", state: Any, sources: Mapping[str, Any],
+                 base: Dict[str, Dict[str, Any]]) -> None:
+    """After a committed write-back, ``base`` records what the run's fields now hold, so a run saved several times
+    (before and after a review) does not mistake its own writes for conflicts."""
+    for entity, src in sources.items():
+        pairs = ([(iid, state.collections.get(entity, {}).get(iid)) for iid in src] if isinstance(src, list)
+                 else [(src, state.entities.get(entity))])
+        for iid, values in pairs:
+            inst, seen = graph._instances.get(iid), base.get(iid)
+            if not values or inst is None or seen is None:
+                continue
+            for attr, new in values.items():
+                if attr in inst.attributes and inst.attributes.get(attr) == new:
+                    seen[attr] = new
+
+
+def write_back(graph: "KnowledgeGraph", state: Any, sources: Mapping[str, Any],
+               base: Dict[str, Dict[str, Any]]) -> Tuple[List[str], List[Dict[str, Any]]]:
+    """Write a run's results back to the in-memory graph, **all or nothing**: if any field conflicts, nothing
+    is written and the conflicts are returned for a person to resolve. Returns ``(changed ids, conflicts)``.
+    The service persists the same write set in one store transaction (``Store.commit_write_set``)."""
+    writes, conflicts = plan_write_back(graph, state, sources, base)
+    if conflicts:
+        return [], conflicts
+    for iid, fields in writes.items():
+        graph._instances[iid].attributes.update(fields)
+    advance_base(graph, state, sources, base)
+    return list(writes), []
 
 
 def snapshot(graph: "KnowledgeGraph", sources: Mapping[str, Any]) -> Dict[str, Dict[str, Any]]:

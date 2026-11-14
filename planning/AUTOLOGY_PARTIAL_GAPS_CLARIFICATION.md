@@ -6,6 +6,8 @@ register (`audit/04_AUTOLOGY_GAP_REGISTER.md`) for the defect and its remedy; th
 
 ## GAP-009 — Resumed runs act on stale data; write-back is partial (High)
 
+> **Update (Increment A):** C1–C3 met; GAP-009 is now **Fixed** in the repository. Evidence: `tests/test_gap009_atomic_write_back.py` and the [implementation log](AUTOLOGY_IMPLEMENTATION_LOG.md).
+
 The audit's remedy has three parts.
 
 | Part | Status | Evidence |

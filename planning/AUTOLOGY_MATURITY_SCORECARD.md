@@ -28,7 +28,7 @@ change the rounded total, so none is claimed.
 | 3.1 | Outbound execution reliability | 8 | 1.0 | 5.6 | Core requirement met against a simulated bank; no real ERP; no automated confirmation polling |
 | 3.2 | Recovery and reconciliation | 4 | 0.5 | 2.8 | Recovery and reconciliation API |
 | 3.3 | Inbound integration | 4 | 3.0 | 3.0 | Unchanged |
-| 3.4 | Consistency under concurrency | 4 | 1.0 | 2.8 | GAP-008 and GAP-009 fixed; write-back not atomic |
+| 3.4 | Consistency under concurrency | 4 | 1.0 | 3.0 | GAP-008 and GAP-009 fixed, write-back atomic per run (local records); GAP-018 version check open |
 | 4.1 | Authentication | 4 | 3.0 | 3.0 | Per-workspace OIDC added; GAP-019/030 open |
 | 4.2 | Authorization and data protection | 4 | 2.0 | 2.8 | GAP-011/012/013 fixed; no encryption at rest (D3) |
 | 4.3 | Input hardening | 2 | 0.5 | 1.1 | GAP-015 fixed; GAP-038 open |
@@ -56,7 +56,7 @@ A score is earned by passing gates, not by adding points. The audit's gates
 | Gate | Criterion | Status | Needs |
 |---|---|---|---|
 | 80 | 80.1–80.4, 80.6, 80.8 (safety, authorisation, strict schema, suite) | Met in the repository | Independent re-verification |
-| 80 | 80.5 no open Critical/High defect | Critical: none. High: residuals of GAP-009/018 (lower risk) | R3 hardening |
+| 80 | 80.5 no open Critical/High defect | Critical: none. High: GAP-009 fixed; residual of GAP-018 (lower risk) | GAP-018 increment |
 | 80 | 80.7 licence and legal sign-off | Files and CI check in place | **Counsel** (external) |
 | 90 | 90.2 restore drill measured | Not done | R6 (OPS-1) |
 | 90 | 90.3 two real AI providers validated | Not done | **Model API keys** (D7) |

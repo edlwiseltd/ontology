@@ -25,8 +25,8 @@ are in **R2**. R6 adds the dashboards and the evidence that the enforcement hold
 |---|---|
 | GOV-1–5, MOD-1–4, ACT-1–6, ISO-1–4, LEG-1, ENG-1; entry-point and fault-injection matrices | [R1 completion report](AUTOLOGY_R1_COMPLETION_REPORT.md), 559 tests, CI runs 18–44 |
 
-Open from R1: legal sign-off (counsel); independent re-verification; residuals of GAP-009 (atomic write-back) and
-GAP-018 (reload on write), both in R3.
+Open from R1: legal sign-off (counsel); independent re-verification; GAP-018 (version check on write, MCP next to
+the server), being fixed in R2. GAP-009 (atomic write-back) fixed on 14 Nov.
 
 ## 3. R2: Studio foundation
 

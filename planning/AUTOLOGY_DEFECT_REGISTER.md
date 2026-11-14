@@ -7,11 +7,11 @@ reproduces the audit's finding passes in CI; it has not been re-verified by an i
 
 | Status | Count |
 |---|---|
-| Fixed | 17 |
+| Fixed | 18 |
 | Open | 25 |
 | Open (external evidence) | 5 |
 | Open (owner decision) | 2 |
-| Partly fixed | 8 |
+| Partly fixed | 7 |
 
 **Partly fixed High gaps (GAP-009, 018, 031): what remains and the closure criteria are in [the clarification note](AUTOLOGY_PARTIAL_GAPS_CLARIFICATION.md).** **Critical and High gaps not fully fixed:** GAP-009, GAP-018, GAP-031, GAP-032, GAP-052, GAP-053. Each is explained below: GAP-009 and
 GAP-018 keep a residual, lower-risk part (atomic write-back; reload on write); GAP-031 waits for legal sign-off;
@@ -27,7 +27,7 @@ GAP-032 (ERP connector), GAP-052 (real models) and GAP-053 (real process) need e
 | GAP-006 | Any 2xx reply is treated as confirmed success | Critical | **Fixed** | ACT-4 · `ac07e66` | `ConfirmationTests`: 202, `{}` and FAILED never done |
 | GAP-007 | No write-ahead record of in-flight external actions | High | **Fixed** | ACT-1 · `ac07e66` | `IntentLogTests`: intent committed before the call; calls listed after a crash |
 | GAP-008 | Concurrent runs on the same record both execute | High | **Fixed** | `5400ad8` | `tests/test_one_run_per_record.py` |
-| GAP-009 | Resumed runs act on stale data; write-back is partial | High | **Partly fixed** | ACT-6 · `c779566` | `tests/test_act6_revalidation.py`. Open: write-back is still field by field, not all-or-nothing per run |
+| GAP-009 | Resumed runs act on stale data; write-back is partial | High | **Fixed** | ACT-6 · `c779566`; atomic write-back · Increment A (see log) | `tests/test_act6_revalidation.py`; `tests/test_gap009_atomic_write_back.py` (10): one conflicting field blocks the whole write set, several records commit together or not at all, an injected failure between two writes rolls everything back, a record changed just before the commit refuses the set, a crash is completed at restart, duplicate commits change nothing, superseded approvals unchanged, schema 12 → 13 migration. Local records only; independent re-verification open |
 | GAP-010 | Tool outputs are not type-checked; one bad value prevents restart | High | **Fixed** | MOD-3 · `d480abe` | `tests/test_mod3_typed_outputs.py` |
 | GAP-011 | Self-review bypass through manual automation firing | High | **Fixed** | GOV-1 · `c2a6b3b` | `tests/test_gov1_manual_firing.py` |
 | GAP-012 | Hidden fields leak through scenario comparison | High | **Fixed** | GOV-2 · `467655f` | `tests/test_gov2_scenario_fields.py` |

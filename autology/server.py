@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import copy
 import json
 import logging
 import secrets
@@ -56,7 +57,7 @@ from .automation import Automation, Automator, Firing, load_automations
 from .governance import REDACTED, GovernanceLayer, Principal
 
 JUSTIFY = "***justification required***"
-from .graph import Instance, KnowledgeGraph, build_case, snapshot, write_back
+from .graph import Instance, KnowledgeGraph, build_case, snapshot
 from .ontology import Ontology, OntologyError, type_ok
 from .store import Store, StoreError, StoreJournal
 
@@ -622,6 +623,9 @@ class AutologyService:
                 return {"run_id": run_id, "case_id": result.case_id, "status": result.status, "hidden": True,
                         "detail": "this run involves records you may not see"}
             raise ApiError(404, f"no run {run_id!r}")
+        status = self.write_back_status(run_id)
+        if status is not None:  # a run is not "written back" until its write set committed
+            view = {**view, "write_back": {"state": status["state"], "conflicts": len(status["conflicts"])}}
         return view
 
     def _store_result(self, result, agent_name: str, run_id: Optional[str] = None,
@@ -679,21 +683,102 @@ class AutologyService:
         return to_otlp([(run_id, result)], "autology", self.ontology.ref)
 
     def _write_back(self, run_id: str, result, linked: Dict[str, Any]) -> List[str]:
-        """Write the fields the run changed back to the graph; flag fields that moved meanwhile as conflicts."""
+        """Write the run's results back to its records, all or nothing (audit GAP-009).
+
+        The whole write set of this save is planned first without changing anything. If any field the run
+        changed has also moved on the live record, nothing is written: the conflicts are kept on the run, in the
+        append-only write-back log and in a notification, for a person to resolve. Otherwise every changed record
+        is written in one store transaction that first checks each stored record is the one the server holds;
+        the in-memory graph changes only after that transaction commits. A failure leaves every record as it was
+        and the write-back pending: recovery completes it (it is idempotent). This covers local records only:
+        effects in other systems go through the external-effects journal and reconciliation, never this."""
+        from .graph import advance_base, plan_write_back
+        from .store import WriteSetConflict
+
         base = linked["base"] or {}
-        with self.graph_lock:
-            changed, conflicts = write_back(self.graph, result.state, linked["sources"], base)
-            for iid in changed:
-                inst = self.graph.get(iid)
-                self.store.upsert_instance(inst.type, iid, inst.attributes)
+        version = self.store.run_version(run_id)
         known = linked["conflicts"]
+        with self.graph_lock:
+            writes, conflicts = plan_write_back(self.graph, result.state, linked["sources"], base)
+            if not conflicts:
+                plan = [(iid, self.graph.get(iid).type, dict(self.graph.get(iid).attributes),
+                         {**self.graph.get(iid).attributes, **fields}) for iid, fields in writes.items()]
+                # the base advances to what the records will hold, so the run's own writes are never conflicts later
+                new_base = copy.deepcopy(base)
+                for iid, seen in new_base.items():
+                    if iid not in self.graph._instances:
+                        continue
+                    after = {**self.graph.get(iid).attributes, **writes.get(iid, {})}
+                    for attr, value in (self._run_values(result.state, linked["sources"], iid) or {}).items():
+                        if attr in after and after[attr] == value:
+                            seen[attr] = value
+                try:
+                    self.store.commit_write_set(run_id, plan, new_base, known, version)
+                except WriteSetConflict as exc:
+                    conflicts = exc.conflicts
+                except Exception:  # nothing was written; recovery completes it later
+                    self.log_error(f"writing back run {run_id} (nothing was written; it will be retried)")
+                    return []
+                else:
+                    for iid, fields in writes.items():
+                        self.graph._instances[iid].attributes.update(fields)
+                    return list(writes)
         new = [c for c in conflicts if c not in known]
-        self.store.update_write_back(run_id, base, known + new)
-        if new:  # kept the live values: a person decides which is right
+        self.store.record_write_back_conflict(run_id, conflicts, known + new, version)
+        if new:  # nothing was written: a person decides which values are right
             fields = ", ".join(f"{c['id']}.{c['attribute']}" if c["attribute"] else c["id"] for c in new)
-            self._notify("conflict", [], f"Run {run_id} could not write back {fields}: the live data changed "
-                                         f"while the run was in progress", {"run_id": run_id})
-        return changed
+            self._notify("conflict", [], f"Run {run_id} wrote nothing back: {fields} changed while the run was in "
+                                         f"progress; resolve the conflict, then retry the write-back",
+                         {"run_id": run_id})
+        return []
+
+    @staticmethod
+    def _run_values(state, sources: Dict[str, Any], iid: str) -> Optional[Dict[str, Any]]:
+        for entity, src in sources.items():
+            if isinstance(src, list) and iid in src:
+                return state.collections.get(entity, {}).get(iid)
+            if src == iid:
+                return state.entities.get(entity)
+        return None
+
+    def complete_write_backs(self) -> List[Dict[str, Any]]:
+        """Finish write-backs interrupted by a crash or a failure (they are idempotent)."""
+        done = []
+        for run_id in self.store.pending_write_backs():
+            linked = self.store.run_sources(run_id)
+            try:
+                changed = self._write_back(run_id, self.store.load_run(run_id), linked)
+            except Exception:
+                self.log_error(f"completing the write-back of run {run_id}")
+                continue
+            state = (self.store.run_sources(run_id) or {}).get("wb_state")
+            done.append({"run_id": run_id, "write_back": state, "changed": changed})
+            self._changed(changed)
+        return done
+
+    def retry_write_back(self, user: User, run_id: str) -> Dict[str, Any]:
+        """After a person resolved a write-back conflict: try the run's write set again (all or nothing)."""
+        self.require(user, "reconcile")
+        linked = self.store.run_sources(run_id)
+        if not linked or not linked["write_back"]:
+            raise ApiError(404, f"no write-back for run {run_id!r}")
+        try:
+            result = self.store.load_run(run_id)
+        except KeyError:
+            raise ApiError(404, f"no run {run_id!r}") from None
+        if not self.views.can_see_run(user, result) and "admin" not in user.permissions:
+            raise ApiError(404, f"no run {run_id!r}")
+        changed = self._write_back(run_id, result, linked)
+        self._changed(changed)
+        return self.write_back_status(run_id)
+
+    def write_back_status(self, run_id: str) -> Optional[Dict[str, Any]]:
+        linked = self.store.run_sources(run_id)
+        if not linked or not linked["write_back"]:
+            return None
+        pending = linked.get("wb_version") != self.store.run_version(run_id)
+        return {"state": "pending" if pending else linked.get("wb_state") or "pending",
+                "conflicts": linked["conflicts"]}
 
     def _changed(self, instance_ids: List[str]) -> List[Firing]:
         return self.automator.on_change(instance_ids) if instance_ids and self.automations else []
@@ -1381,6 +1466,8 @@ class AutologyService:
         recovered = []
         if self._runs_refused():  # nothing continues while the stage forbids runs; it continues once allowed
             return recovered
+        for done in self.complete_write_backs():  # write-backs interrupted by a crash or a failure (GAP-009)
+            recovered.append({"run_id": done["run_id"], "write_back": done["write_back"]})
         decided = {}
         for r in self.store.list_reviews(None):
             if r["status"] in ("approved", "declined"):
@@ -2055,6 +2142,8 @@ class ApiExchange:
                     return self._send(200, service.list_outcomes(user, parts[1]))
                 if method == "GET" and parts[2] == "trace":
                     return self._send(200, service.run_trace(user, parts[1]))
+                if method == "POST" and parts[2] == "write-back":
+                    return self._send(200, service.retry_write_back(user, parts[1]))
                 if method == "POST" and parts[2] == "resume":
                     return self._send(200, service.resume_run(user, parts[1], bool(body.get("force")),
                                                               body.get("justification")))

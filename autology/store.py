@@ -39,7 +39,7 @@ from .audit import GENESIS, AuditLog
 from .graph import KnowledgeGraph
 from .ontology import Ontology, OntologyError
 
-SCHEMA_VERSION = 12
+SCHEMA_VERSION = 13
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -119,7 +119,15 @@ CREATE TABLE IF NOT EXISTS proposals (
     body TEXT NOT NULL, run_id TEXT, decided_at TEXT);
 CREATE TABLE IF NOT EXISTS run_sources (
     run_id TEXT PRIMARY KEY, template TEXT NOT NULL, root TEXT NOT NULL, sources TEXT NOT NULL,
-    write_back INTEGER NOT NULL, base TEXT, conflicts TEXT);
+    write_back INTEGER NOT NULL, base TEXT, conflicts TEXT, wb_version TEXT, wb_state TEXT);
+CREATE TABLE IF NOT EXISTS write_back_log (
+    run_id TEXT NOT NULL, at TEXT NOT NULL, outcome TEXT NOT NULL, run_version TEXT, instances TEXT NOT NULL,
+    conflicts TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS write_back_log_run ON write_back_log(run_id);
+CREATE TRIGGER IF NOT EXISTS write_back_log_no_update BEFORE UPDATE ON write_back_log
+    BEGIN SELECT RAISE(ABORT, 'write-back log is append-only'); END;
+CREATE TRIGGER IF NOT EXISTS write_back_log_no_delete BEFORE DELETE ON write_back_log
+    BEGIN SELECT RAISE(ABORT, 'write-back log is append-only'); END;
 CREATE TABLE IF NOT EXISTS ingest_state (
     pipeline TEXT NOT NULL, source TEXT NOT NULL, watermark TEXT NOT NULL, updated_at TEXT NOT NULL,
     PRIMARY KEY (pipeline, source));
@@ -163,6 +171,22 @@ class StoreError(RuntimeError):
     pass
 
 
+def _same_record(stored: Dict[str, Any], expected: Dict[str, Any]) -> bool:
+    """Whether a stored record holds what the writer expects. A field absent from one side and ``None`` on the
+    other is the same (unknown); values are compared as stored (JSON)."""
+    def canonical(attrs):
+        return {k: v for k, v in json.loads(json.dumps(attrs, default=str)).items() if v is not None}
+    return canonical(stored) == canonical(expected)
+
+
+class WriteSetConflict(StoreError):
+    """A run's write set was refused as a whole: a stored record is not what the writer expected."""
+
+    def __init__(self, conflicts: List[Dict[str, Any]]):
+        super().__init__(f"{len(conflicts)} record(s) changed outside this write set; nothing was written")
+        self.conflicts = conflicts
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -198,6 +222,14 @@ class Store:
                     self._db.execute("ALTER TABLE automation_state ADD COLUMN failures INTEGER NOT NULL DEFAULT 0")
                 if "alg" not in {r["name"] for r in self._db.execute("PRAGMA table_info(audit)")}:  # schema 6
                     self._db.execute("ALTER TABLE audit ADD COLUMN alg TEXT NOT NULL DEFAULT 'sha256'")
+                if "wb_version" not in source_columns:  # schema 13: atomic write-back (audit GAP-009)
+                    self._db.execute("ALTER TABLE run_sources ADD COLUMN wb_version TEXT")
+                    self._db.execute("ALTER TABLE run_sources ADD COLUMN wb_state TEXT")
+                    # existing runs were written back field by field already: mark them done, never replay them
+                    self._db.execute(
+                        "UPDATE run_sources SET wb_version=(SELECT updated_at FROM runs WHERE runs.run_id="
+                        "run_sources.run_id), wb_state=CASE WHEN conflicts IS NULL OR conflicts='[]' THEN "
+                        "'committed' ELSE 'conflict' END")
                 if "run_key" not in columns:  # schema 12: the run's identity, which its journal rows carry
                     self._db.execute("ALTER TABLE runs ADD COLUMN run_key TEXT")
                 if "seal" not in columns:  # schema 11: every run record is sealed; existing ones are sealed now
@@ -670,6 +702,62 @@ class Store:
         with self._tx() as db:
             db.execute("UPDATE run_sources SET base=?, conflicts=? WHERE run_id=?",
                        (json.dumps(base, default=str), json.dumps(conflicts, default=str), run_id))
+
+    # -- atomic write-back (audit GAP-009) ------------------------------------------------------------------
+    def run_version(self, run_id: str) -> Optional[str]:
+        rows = self._query("SELECT updated_at FROM runs WHERE run_id=?", (run_id,))
+        return rows[0]["updated_at"] if rows else None
+
+    def commit_write_set(self, run_id: str, writes: List[Tuple[str, str, Dict[str, Any], Dict[str, Any]]],
+                         base: Dict[str, Any], conflicts: List[Dict[str, Any]], run_version: Optional[str]) -> None:
+        """Write a run's whole local write set in **one transaction**, or nothing.
+
+        ``writes`` holds ``(instance id, type, expected attributes, new attributes)``. Every stored record is
+        compared with what the writer expects before anything is written; any difference (a change the server
+        did not make) raises :class:`WriteSetConflict` and the transaction is rolled back, so no record changes.
+        The run's write-back state and an append-only log entry are committed in the same transaction."""
+        now = _now()
+        with self._tx() as db:
+            stale = []
+            for iid, _type, expected, _new in writes:
+                row = db.execute("SELECT attributes FROM instances WHERE id=?", (iid,)).fetchone()
+                if row is None or _same_record(json.loads(row["attributes"]), expected) is False:
+                    stale.append({"id": iid, "type": _type, "attribute": None,
+                                  "live": json.loads(row["attributes"]) if row else None,
+                                  "reason": "the stored record differs from the server's copy (changed outside "
+                                            "Autology, or by another process)"})
+            if stale:
+                raise WriteSetConflict(stale)
+            for iid, _type, _expected, new in writes:
+                db.execute("UPDATE instances SET attributes=?, updated_at=? WHERE id=?",
+                           (json.dumps(new, default=str), now, iid))
+            db.execute("UPDATE run_sources SET base=?, conflicts=?, wb_version=?, wb_state='committed' "
+                       "WHERE run_id=?", (json.dumps(base, default=str), json.dumps(conflicts, default=str),
+                                          run_version, run_id))
+            db.execute("INSERT INTO write_back_log VALUES (?, ?, 'committed', ?, ?, '[]')",
+                       (run_id, now, run_version, json.dumps({w[0]: sorted(k for k in w[3] if w[3].get(k) != w[2].get(k)) for w in writes},
+                                                       default=str)))
+
+    def record_write_back_conflict(self, run_id: str, conflicts: List[Dict[str, Any]], all_conflicts:
+                                   List[Dict[str, Any]], run_version: Optional[str]) -> None:
+        """Nothing was written: keep the conflicts on the run and in the append-only log for a person."""
+        with self._tx() as db:
+            db.execute("UPDATE run_sources SET conflicts=?, wb_version=?, wb_state='conflict' WHERE run_id=?",
+                       (json.dumps(all_conflicts, default=str), run_version, run_id))
+            db.execute("INSERT INTO write_back_log VALUES (?, ?, 'rejected', ?, '{}', ?)",
+                       (run_id, _now(), run_version, json.dumps(conflicts, default=str)))
+
+    def pending_write_backs(self) -> List[str]:
+        """Runs saved since their last write-back attempt (a crash or a failure in between): to be completed."""
+        rows = self._query("SELECT s.run_id FROM run_sources s JOIN runs r ON r.run_id=s.run_id WHERE "
+                           "s.write_back=1 AND (s.wb_version IS NULL OR s.wb_version != r.updated_at) "
+                           "ORDER BY r.updated_at")
+        return [r["run_id"] for r in rows]
+
+    def write_back_log(self, run_id: str) -> List[Dict[str, Any]]:
+        rows = self._query("SELECT * FROM write_back_log WHERE run_id=? ORDER BY at", (run_id,))
+        return [{**dict(r), "instances": json.loads(r["instances"]), "conflicts": json.loads(r["conflicts"])}
+                for r in rows]
 
     def run_sources(self, run_id: str) -> Optional[Dict[str, Any]]:
         rows = self._query("SELECT * FROM run_sources WHERE run_id=?", (run_id,))

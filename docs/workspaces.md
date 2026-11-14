@@ -55,6 +55,22 @@ These are enforced server-side and tested in `tests/test_workspaces.py` through 
   `autology backup CONFIG OUT --store <data_dir>/<ws>/<uc>/autology.db --audit-scope <ws>` so the copy is checked
   with the right key.
 
+## Company sign-in per workspace
+
+A workspace may sign its people in with its own identity provider: add `"oidc"` to the workspace in
+`platform.json`, with the same settings as a single engine (issuer, client id, audiences, mappings; see
+[integrations](integrations.md)). It applies to every use case of that workspace; a use case's own `oidc` setting
+is ignored behind the router.
+
+```jsonc
+"acme": {"name": "Acme", "oidc": {"issuer": "https://login.acme.example", "client_id": "autology", "mappings": [...]}, ...}
+```
+
+A token that is not a member token is passed only to the engine of the workspace in the path, which verifies it
+against that workspace's issuer and mappings. A token from Acme's provider is refused by Northwind (401), and a
+workspace without company sign-in refuses every such token. Company accounts whose name is a member's name are
+refused, never mapped onto the member.
+
 ## MCP clients
 
 Give an MCP client (Claude Desktop, an IDE) one member's token and one use case:
@@ -70,7 +86,7 @@ refusal.
 ## Not yet included
 
 Workspace administration through the API (members and use cases are defined in `platform.json` and loaded at
-start), company sign-in per workspace, shared
+start), shared
 resources between use cases, and a database other than SQLite per use case. See [`../planning/AUTOLOGY_IMPLEMENTATION_BACKLOG.md`](../planning/AUTOLOGY_IMPLEMENTATION_BACKLOG.md).
 
 **Agent grants per use case.** A member's grant for a use case may carry `"run_as": {"claims": ["fraud_analytics", "finance"]}`: the roles that member may use through that agent, beyond their own (see "What an agent may do for a person" in [platform.md](platform.md)). Without it, the agent acts with the member's own roles only.

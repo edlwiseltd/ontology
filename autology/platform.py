@@ -79,6 +79,7 @@ class Workspace:
     name: str
     members: Dict[str, Member] = field(default_factory=dict)
     use_cases: Dict[str, UseCase] = field(default_factory=dict)
+    oidc: Optional[Dict[str, Any]] = None  # the workspace's own company sign-in (ISO-3)
 
 
 def _token_digest(spec: Dict[str, Any], where: str) -> str:
@@ -114,7 +115,7 @@ class Platform:
     def _load_workspace(self, ws_id: str, spec: Dict[str, Any], base_dir: Path) -> None:
         if not ID.match(ws_id):
             raise PlatformError(f"workspace id {ws_id!r}: lowercase letters, digits and '-' only")
-        ws = Workspace(ws_id, str(spec.get("name") or ws_id))
+        ws = Workspace(ws_id, str(spec.get("name") or ws_id), oidc=dict(spec["oidc"]) if spec.get("oidc") else None)
         for i, m in enumerate(spec.get("members") or []):
             where = f"workspace {ws_id} member {m.get('name', i)}"
             name = str(m.get("name") or "")
@@ -151,7 +152,9 @@ class Platform:
         home.mkdir(parents=True, exist_ok=True)
         # the platform decides where the data lives and who the users are, never the use case's own config
         config["store"] = str(home / "autology.db")
-        config.pop("oidc", None)
+        config.pop("oidc", None)  # a use case's own sign-in setting never applies: the workspace's does
+        if ws.oidc:
+            config["oidc"] = dict(ws.oidc)
         config.pop("log_file", None)
         reporting = config.get("reporting")
         if isinstance(reporting, dict) and isinstance(reporting.get("target"), str):
@@ -190,17 +193,24 @@ class Platform:
         if method == "GET" and path == "/platform/health":
             return 200, "application/json", json.dumps({"status": "ok"}).encode(), {}
         member = self.member_for(headers.get("Authorization"))
-        if member is None:
-            self._log(None, method, path, 401)
-            return 401, "application/json", json.dumps({"error": "missing or invalid token"}).encode(), {}
-        if path == "/platform/me" and method == "GET":
-            return 200, "application/json", json.dumps(self.me(member)).encode(), {}
         parts = path.split("/")
         # /w/<ws>/u/<uc>/api/...  ->  ['', 'w', ws, 'u', uc, 'api', ...]
         ok = (len(parts) >= 7 and parts[1] == "w" and parts[3] == "u" and parts[5] == "api"
               and ID.match(parts[2] or "") and ID.match(parts[4] or "") and ".." not in parts)
         ws = self.workspaces.get(parts[2]) if ok else None
         uc = ws.use_cases.get(parts[4]) if ws else None
+        if member is None and uc is not None and ws.oidc:
+            # not a member token: only this workspace's own sign-in provider may vouch for it (ISO-3). The use
+            # case's engine verifies it against that issuer and its mappings; anything else is refused there.
+            inner = "/" + "/".join(parts[5:]) + (f"?{split.query}" if split.query else "")
+            ex = ApiExchange(uc.service, method, inner, headers, raw_body, body_error).run()
+            self._log(None, method, path, ex.status)
+            return ex.status, ex.content_type, ex.data, ex.response_headers
+        if member is None:
+            self._log(None, method, path, 401)
+            return 401, "application/json", json.dumps({"error": "missing or invalid token"}).encode(), {}
+        if path == "/platform/me" and method == "GET":
+            return 200, "application/json", json.dumps(self.me(member)).encode(), {}
         if uc is None or ws.id != member.workspace or not member.grant(uc.id):
             self._log(member, method, path, 404)
             return 404, "application/json", NOT_FOUND, {}

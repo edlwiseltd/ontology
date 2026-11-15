@@ -34,7 +34,7 @@
 | A — SEC-A: GAP-045, GAP-037, GAP-035 | Done, `4093749`, CI run 84 | `tests/test_seca_decision_integrity.py` (18 tests, with a model that obeys what it reads) |
 | B — D24 least-privilege `operate` | **Blocked on the owner's approval**; design, tests of present behaviour and access-review evidence done, `6f25695` (CI run 85 failed on a race in one browser check, fixed in `8c5a44c`; the commit is part of green run 86) | `tests/test_d24_operate_readiness.py` (4 tests); [IAM target §7](planning/AUTOLOGY_IAM_TARGET.md) |
 | C — MIG-1 and a first step of ARC-0 | MIG-1 done, ARC-0 partial, `846a3cc`, CI run 86 | `tests/test_mig1_migrations.py` (6), `tests/test_arc0_services.py` (4); GAP-041 fixed, GAP-026 partly |
-| D — AI-1 provider-neutral AI foundation | Foundation done **with test doubles only**; no real provider, GAP-052 open | `tests/test_ai1_provider_foundation.py` (18 tests); see the implementation log |
+| D — AI-1 provider-neutral AI foundation | Foundation done **with test doubles only**, `744deae`, CI run 88; no real provider, GAP-052 open | `tests/test_ai1_provider_foundation.py` (18 tests); see the implementation log |
 
 ## Waiting for the owner
 

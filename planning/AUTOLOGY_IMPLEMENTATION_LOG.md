@@ -431,7 +431,8 @@ independent security certification.
 Evidence (local): full suite 788 OK (770 + 18; 2 PostgreSQL tests skipped locally), 95.71 % lines (13,470
 statements, 578 missed); after that run an unused helper was removed and one rule made stricter (a `write_access`
 condition that cannot be evaluated now protects the field), re-checked with the targeted modules (47 OK); ruff
-clean; mypy 198 (= baseline). No API route or schema changed, so Studio was not rebuilt. CI: recorded below.
+clean; mypy 198 (= baseline). No API route or schema changed, so Studio was not rebuilt. CI: run 84, success (see
+the table at the end of this sprint's entries).
 
 ## 15 November 2026 — Decision integrity sprint, increment B: D24 least-privilege operations (blocked on approval)
 
@@ -508,5 +509,9 @@ Studio browser checks were run for the fix below (56/56).
 | A — SEC-A | `4093749` | [84](https://github.com/edlwiseltd/ontology/actions/runs/43764453135) | success (5 jobs) |
 | B — D24 readiness | `6f25695` | [85](https://github.com/edlwiseltd/ontology/actions/runs/43765148960) | **failure**: the `studio` job, one browser check of 56 ("a revoked grant stops working at once"); the four other jobs passed. Cause: a race in the check itself, written in the previous sprint (it waited for text that is always on the row, so the next call could overtake the revocation request). The platform applies a revocation before answering, which `test_adm1_administration` A3 asserts. Not reproduced locally (timing); fixed in `8c5a44c`. Increment B has no green run of its own: its commit is part of run 86 |
 | C — MIG-1, ARC-0 | `846a3cc` | [86](https://github.com/edlwiseltd/ontology/actions/runs/43765769862) | success (5 jobs; includes B) |
-| Browser-check fix | `8c5a44c` | [87](https://github.com/edlwiseltd/ontology/actions/runs/43766793062) | recorded in the next entry |
+| Browser-check fix | `8c5a44c` | [87](https://github.com/edlwiseltd/ontology/actions/runs/43766793062) | success (5 jobs; browser checks 56/56) |
+| D — AI-1 | `744deae` | [88](https://github.com/edlwiseltd/ontology/actions/runs/43767795604) | success (5 jobs) |
+
+The commit that records these results is documentation only; its own run is reported with the sprint report
+([sprint report](AUTOLOGY_R2_DECISION_INTEGRITY_SPRINT_REPORT.md)).
 

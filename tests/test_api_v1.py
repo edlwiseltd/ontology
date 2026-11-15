@@ -168,13 +168,47 @@ class SchemaConformanceTests(V1Base):  # V5
                    f"{rel}/{n}/activate", {"reason": "go"}, 200),
                   (("GET", "/platform/workspaces/{ws}/use-cases/{uc}/releases"), "GET", rel, None, 200),
                   (("GET", "/platform/workspaces/{ws}/use-cases/{uc}/releases/{n}"), "GET", f"{rel}/{n}", None, 200),
-                  (("GET", "/platform/workspaces/{ws}/use-cases/{uc}"), "GET", f"{base}/v1-case", None, 200)]
-        self.assertEqual({c[0] for c in calls}, set(PLATFORM_RESPONSES))
+                  (("GET", "/platform/workspaces/{ws}/use-cases/{uc}"), "GET", f"{base}/v1-case", None, 200),
+                  (("POST", "/platform/workspaces/{ws}/use-cases/{uc}/reload"), "POST", f"{base}/v1-case/reload",
+                   {"reason": "v1"}, 200),
+                  (("POST", "/platform/workspaces/{ws}/use-cases/{uc}/releases/{n}/restore"), "POST",
+                   f"{rel}/{n}/restore", {"reason": "v1"}, 200)]
+        ws = "/platform/v1/workspaces/acme"  # ADM-1: members and grants
+        calls += [(("POST", "/platform/workspaces/{ws}/members"), "POST", f"{ws}/members",
+                   {"name": "v1-zoe", "reason": "v1"}, 201),
+                  (("POST", "/platform/workspaces/{ws}/members/{name}/token"), "POST", f"{ws}/members/v1-zoe/token",
+                   {"reason": "v1"}, 200),
+                  (("POST", "/platform/workspaces/{ws}/grants"), "POST", f"{ws}/grants",
+                   {"member": "v1-zoe", "use_case": "v1-case", "permissions": ["read"], "reason": "v1"}, 201)]
         for key, method, path, body, status, *who in calls:
             with self.subTest(route=key, path=path):
                 got, _, out = self.raw(method, path, who[0] if who else "acme-ada", body)
                 self.assertEqual(got, status, out)
                 self.assertEqual(errors(out, PLATFORM_SCHEMAS[PLATFORM_RESPONSES[key]], PLATFORM_SCHEMAS), [])
+        gid = out["id"]
+        calls2 = [(("POST", "/platform/workspaces/{ws}/grants/{id}/approve"), "POST", f"{ws}/grants/{gid}/approve",
+                   {"reason": "v1"}, 200, "acme-maria"),
+                  (("POST", "/platform/workspaces/{ws}/members/{name}/revoke"), "POST", f"{ws}/members/v1-zoe/revoke",
+                   {"use_case": "v1-case", "reason": "v1"}, 200),
+                  (("GET", "/platform/workspaces/{ws}/members"), "GET", f"{ws}/members", None, 200),
+                  (("POST", "/platform/workspaces/{ws}/members/{name}/remove"), "POST", f"{ws}/members/v1-zoe/remove",
+                   {"reason": "v1"}, 200)]
+        _, _, g2 = self.raw("POST", f"{ws}/grants", "acme-ada", {"member": "maria", "use_case": "v1-case",
+                                                                 "permissions": ["read"], "reason": "v1"})
+        calls2.append((("POST", "/platform/workspaces/{ws}/grants/{id}/withdraw"), "POST",
+                       f"{ws}/grants/{g2['id']}/withdraw", {"reason": "v1"}, 200))
+        _, _, draft = self.raw("GET", "/w/acme/u/v1-case/api/v1/model/draft")
+        status, _, saved = self.raw("POST", "/w/acme/u/v1-case/api/v1/model/draft", body={
+            "document": draft["document"], "expected_revision": draft["revision"], "note": "v1"})
+        self.assertEqual(status, 200, saved)
+        calls2.append((("POST", "/platform/workspaces/{ws}/use-cases/{uc}/publish-draft"), "POST",
+                       f"{base}/v1-case/publish-draft", {"revision": saved["revision"], "reason": "v1"}, 200))
+        for key, method, path, body, status, *who in calls2:
+            with self.subTest(route=key, path=path):
+                got, _, out = self.raw(method, path, who[0] if who else "acme-ada", body)
+                self.assertEqual(got, status, out)
+                self.assertEqual(errors(out, PLATFORM_SCHEMAS[PLATFORM_RESPONSES[key]], PLATFORM_SCHEMAS), [])
+        self.assertEqual({c[0] for c in calls + calls2}, set(PLATFORM_RESPONSES))  # every typed route exercised
 
 
 class ContractTests(unittest.TestCase):

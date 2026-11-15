@@ -19,6 +19,11 @@ export type CheckResult = P["CheckResult"];
 export type MoveResult = P["MoveResult"];
 export type Template = P["Template"];
 export type ApiErrorBody = P["Error"];
+export type Release = P["Release"];
+export type ReleaseState = P["ReleaseState"];
+export type ActivationResult = P["ActivationResult"];
+export type Published = P["Published"];
+export type Restored = P["Restored"];
 
 export type OntologySummary = E["OntologySummary"];
 

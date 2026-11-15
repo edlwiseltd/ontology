@@ -58,6 +58,7 @@ def close(pf):
         svc.close()
     pf.lifecycle.close()
     pf.releases.close()
+    pf.admin.close()
     pf.log.close()
 
 

@@ -47,12 +47,14 @@ from urllib.parse import urlsplit
 
 from .audit import audit_key, workspace_key
 from .lifecycle import Check, Lifecycle, LifecycleError, STAGES
+from .administration import AdminError, AdminLog, new_grant_id, pending_grants
 from .releases import ReleaseError, ReleaseRegistry
 from .server import ApiExchange, AutologyService, PERMISSIONS, hash_token, read_body
 from .store import Store
 
 log = logging.getLogger("autology.platform")
 ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
+ONTOLOGY_OVERRIDE = "ontology.json"  # in <data_dir>/<ws>/<uc>/: this use case's own ontology (published or restored)
 NOT_FOUND = json.dumps({"error": "not found"}).encode()
 
 
@@ -83,6 +85,8 @@ class UseCase:
     service: AutologyService
     origin: str = "configuration"  # "configuration" (platform.json) or "template" (created through the API)
     template: Optional[str] = None
+    spec: Dict[str, Any] = field(default_factory=dict)  # how it was loaded (its config file), for a reload (ADM-2)
+    stop: Optional[threading.Event] = None  # its scheduler, while the platform runs in the background
 
 
 @dataclass
@@ -96,6 +100,12 @@ class Workspace:
     # members who may approve releases besides the workspace administrators, e.g. a designated external approver
     # for a workspace with one administrator (D11); never the proposer, never a service identity
     release_approvers: Tuple[str, ...] = ()
+    config_members: Dict[str, Member] = field(default_factory=dict)  # platform.json's members, before the admin log
+    admin_problem: Optional[str] = None  # the administration log does not verify: only configured admins remain
+
+
+def _copy_member(m: Member) -> Member:
+    return Member(m.name, m.workspace, m.token_sha256, m.workspace_admin, json.loads(json.dumps(m.use_cases)), m.kind)
 
 
 def _token_digest(spec: Dict[str, Any], where: str) -> str:
@@ -149,6 +159,8 @@ class Platform:
         self.lifecycle = Lifecycle(self.data_dir / "lifecycle.db", lambda ws: workspace_key(audit_key(), ws))
         # immutable releases of each use case's governing configuration (REL-1a), chained the same way
         self.releases = ReleaseRegistry(self.data_dir / "releases.db", lambda ws: workspace_key(audit_key(), ws))
+        # members and grants changed through the API (ADM-1), replayed over platform.json, chained the same way
+        self.admin = AdminLog(self.data_dir / "admin.db", lambda ws: workspace_key(audit_key(), ws))
         self.workspaces: Dict[str, Workspace] = {}
         self._tokens: Dict[str, Member] = {}
         self._base_dir = base_dir
@@ -202,18 +214,21 @@ class Platform:
             member = Member(name, ws_id, digest, bool(m.get("workspace_admin")), grants, kind)
             ws.members[name] = member
             self._tokens[digest] = member
+        for member in ws.members.values():
+            unknown = set(member.use_cases) - set(spec.get("use_cases") or {}) - {
+                r["id"] for r in self.lifecycle.created(ws_id)}
+            if unknown:
+                raise PlatformError(f"workspace {ws_id} member {member.name}: unknown use cases {sorted(unknown)}")
+        ws.config_members = {n: _copy_member(m) for n, m in ws.members.items()}
+        self._replay(ws)  # the administration log over the configuration (ADM-1), before any engine is built
         for uc_id, uc_spec in (spec.get("use_cases") or {}).items():
             if not ID.match(uc_id):
                 raise PlatformError(f"use case id {uc_id!r}: lowercase letters, digits and '-' only")
             ws.use_cases[uc_id] = self._load_use_case(ws, uc_id, uc_spec, base_dir)
-        for member in ws.members.values():
-            unknown = set(member.use_cases) - set(ws.use_cases)
-            if unknown:
-                raise PlatformError(f"workspace {ws_id} member {member.name}: unknown use cases {sorted(unknown)}")
         approvers = spec.get("release_approvers") or []
-        if not isinstance(approvers, list) or any(a not in ws.members for a in approvers):
+        if not isinstance(approvers, list) or any(a not in ws.config_members for a in approvers):
             raise PlatformError(f"workspace {ws_id}: release_approvers must name members of the workspace")
-        if any(ws.members[a].kind != "person" for a in approvers):
+        if any(ws.config_members[a].kind != "person" for a in approvers):
             raise PlatformError(f"workspace {ws_id}: a release approver must be a person, not a service identity")
         ws.release_approvers = tuple(approvers)
         for row in self.lifecycle.created(ws_id):  # use cases created through the API come back after a restart
@@ -227,8 +242,62 @@ class Platform:
             uc.origin, uc.template = "template", row["template"]
             ws.use_cases[row["id"]] = uc
         self.workspaces[ws_id] = ws
+        self._rebuild_tokens()
 
-    def _load_use_case(self, ws: Workspace, uc_id: str, spec: Dict[str, Any], base_dir: Path) -> UseCase:
+    # -- membership: platform.json plus the administration log (ADM-1, ADM-2) --------------------------------------
+    def _replay(self, ws: Workspace) -> None:
+        events, problem = self.admin.events(ws.id)
+        ws.admin_problem = problem
+        members = {n: _copy_member(m) for n, m in ws.config_members.items()}
+        if problem:  # fail closed: only the configured administrators keep access until an operator repairs it
+            ws.members = {n: m for n, m in members.items() if m.workspace_admin}
+            return
+        proposals: Dict[str, Dict[str, Any]] = {}
+        for e in events:
+            d = e["data"]
+            if e["event"] == "member_added":
+                members[d["name"]] = Member(d["name"], ws.id, d["token_sha256"], False, {}, d["kind"])
+            elif e["event"] == "member_removed":
+                members.pop(d["name"], None)
+            elif e["event"] == "token_rotated" and d["name"] in members:
+                members[d["name"]].token_sha256 = d["token_sha256"]
+            elif e["event"] == "grant_proposed":
+                proposals[d["id"]] = d
+            elif e["event"] == "grant_approved":
+                p = proposals.pop(d["id"], None)
+                if p and p["member"] in members:
+                    members[p["member"]].use_cases[p["use_case"]] = p["grant"]
+            elif e["event"] == "grant_withdrawn":
+                proposals.pop(d["id"], None)
+            elif e["event"] == "grant_revoked" and d["member"] in members:
+                members[d["member"]].use_cases.pop(d["use_case"], None)
+        ws.members = members
+
+    def _rebuild_tokens(self) -> None:
+        tokens: Dict[str, Member] = {}
+        for ws in self.workspaces.values():
+            for m in ws.members.values():
+                tokens[m.token_sha256] = m
+        self._tokens = tokens
+
+    def users_for(self, ws: Workspace, uc_id: str) -> List[Dict[str, Any]]:
+        users = []
+        for member in ws.members.values():
+            grant = member.grant(uc_id)
+            if grant:
+                users.append({"name": member.name, "token_sha256": member.token_sha256, "kind": member.kind, **grant})
+        return users
+
+    def _refresh(self, ws: Workspace) -> None:
+        """Apply the administration log now: tokens and every engine's users change before the next request."""
+        with self._lock:
+            self._replay(ws)
+            self._rebuild_tokens()
+            for uc in ws.use_cases.values():
+                uc.service.set_users(self.users_for(ws, uc.id))
+
+    def _load_use_case(self, ws: Workspace, uc_id: str, spec: Dict[str, Any], base_dir: Path,
+                       validate_only: bool = False) -> UseCase:
         config_path = (base_dir / spec["config"]).resolve()
         config = json.loads(config_path.read_text(encoding="utf-8"))
         # integration credentials are environment variables of the platform process: a use case may name only its
@@ -242,6 +311,9 @@ class Platform:
         home.mkdir(parents=True, exist_ok=True)
         # the platform decides where the data lives and who the users are, never the use case's own config
         config["store"] = str(home / "autology.db")
+        override = home / ONTOLOGY_OVERRIDE
+        if override.is_file():  # a Studio draft published to this use case, or a release's ontology restored
+            config["ontology"] = str(override)
         config.pop("oidc", None)  # a use case's own sign-in setting never applies: the workspace's does
         if ws.oidc:
             config["oidc"] = dict(ws.oidc)
@@ -251,14 +323,15 @@ class Platform:
             reporting["target"] = str(home / "reporting.db")
         config["secrets_file"] = str(self.data_dir / ws.id / "secrets.json")
         config["audit_scope"] = ws.id  # the workspace's own audit key, derived from the platform's (ISO-2)
-        users = []
-        for member in ws.members.values():
-            grant = member.grant(uc_id)
-            if grant:
-                users.append({"name": member.name, "token_sha256": member.token_sha256, "kind": member.kind, **grant})
-        config["users"] = users
+        config["users"] = self.users_for(ws, uc_id)
+        if validate_only:  # build a throwaway engine on an in-memory store: proves the files load, touches nothing
+            config.update({"store": ":memory:", "secrets_file": str(home / ".validate-secrets.json")})
+            probe = AutologyService(config, config_path.parent)
+            fingerprint = probe.configuration_fingerprint
+            probe.close()
+            return fingerprint  # type: ignore[return-value]
         service = AutologyService(config, config_path.parent)
-        uc = UseCase(uc_id, ws.id, str(spec.get("name") or uc_id), service)
+        uc = UseCase(uc_id, ws.id, str(spec.get("name") or uc_id), service, spec=dict(spec))
         service.stage_gate = lambda: self.effective_stage_and_reason(uc)  # execution gates: the stage governs every run
         return uc
 
@@ -367,8 +440,88 @@ class Platform:
             self.lifecycle.record_created(ws.id, uc_id, uc.name, template, member.name)
             ws.use_cases[uc_id] = uc
             if self.running:
-                self._stops.append(uc.service.start_background())
+                uc.stop = uc.service.start_background()
+                self._stops.append(uc.stop)
         return uc
+
+    def _write_override(self, ws: Workspace, uc: UseCase, document: Dict[str, Any], member: Member, reason: str,
+                        event: str, data: Dict[str, Any]) -> UseCase:
+        """Write this use case's own ontology and reload its engine; if the result does not load, the previous file
+        (or its absence) is put back and nothing changes."""
+        path = self.data_dir / ws.id / uc.id / ONTOLOGY_OVERRIDE
+        previous = path.read_bytes() if path.is_file() else None
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(document, indent=1, ensure_ascii=False), encoding="utf-8")
+        tmp.replace(path)
+        try:
+            fresh = self.reload_use_case(ws, uc, member, reason)
+        except LifecycleError:
+            if previous is None:
+                path.unlink()
+            else:
+                path.write_bytes(previous)
+            raise
+        self.admin.append(ws.id, event, f"{member.name}@{ws.id}", reason,
+                          {**data, "use_case": uc.id, "configuration": fresh.service.configuration_fingerprint})
+        return fresh
+
+    def publish_draft(self, ws: Workspace, uc: UseCase, member: Member, revision: Any, reason: str) -> Dict[str, Any]:
+        """Make a saved, valid Studio draft this use case's ontology (STU-6). Publishing changes the configuration:
+        with an active release, nothing runs until a release of the new configuration is approved by another
+        person and activated."""
+        from .modeling import validate
+
+        if isinstance(revision, bool) or not isinstance(revision, int) or revision < 1:
+            raise LifecycleError(400, "revision: the saved draft revision to publish")
+        row = uc.service.store.draft(revision)
+        if row is None:
+            raise LifecycleError(404, f"no draft revision {revision}")
+        verdict = validate(row["document"])
+        if not verdict["valid"]:
+            raise LifecycleError(409, "the draft is not valid: " + "; ".join(p["message"] for p in verdict["problems"]))
+        fresh = self._write_override(ws, uc, row["document"], member, reason, "draft_published", {"revision": revision})
+        return {**self.use_case_view(fresh, member, detail=True), "published_revision": revision}
+
+    def restore_release(self, ws: Workspace, uc: UseCase, member: Member, number: int, reason: str) -> Dict[str, Any]:
+        """Put a release's ontology back as this use case's ontology and reload (a rollback of the model). The
+        release can then be activated if everything else it covers is unchanged too."""
+        snapshot = self.releases.snapshot(ws.id, uc.id, number)
+        if snapshot is None:
+            raise ReleaseError(404, f"no release {number}")
+        if not isinstance(snapshot.get("ontology"), dict) or "entities" not in snapshot["ontology"]:
+            raise ReleaseError(409, f"release {number} has no ontology document to restore")
+        fresh = self._write_override(ws, uc, snapshot["ontology"], member, reason, "release_restored",
+                                     {"release": number})
+        release = self.releases.release(ws.id, uc.id, number)
+        return {**self.use_case_view(fresh, member, detail=True),
+                "matches_release": release["fingerprint"] == fresh.service.configuration_fingerprint}
+
+    def reload_use_case(self, ws: Workspace, uc: UseCase, member: Member, reason: str) -> UseCase:
+        """Reload one engine from its configuration files without restarting the platform (ADM-2). The files are
+        first loaded into a throwaway engine; only if that works is the running engine replaced. A reload is not
+        an activation: if a release is active and the files changed, the use case counts as draft until a person
+        activates an approved release of what now runs (REL-1a)."""
+        reason = (reason or "").strip()
+        if not (1 <= len(reason) <= 500):
+            raise LifecycleError(400, "give a reason (1 to 500 characters)")
+        with self._lock:
+            before = uc.service.configuration_fingerprint
+            try:
+                after = self._load_use_case(ws, uc.id, uc.spec, self._base_dir, validate_only=True)
+            except (PlatformError, ValueError, OSError) as exc:
+                raise LifecycleError(400, f"the configuration does not load, nothing was changed: {exc}") from None
+            if uc.stop is not None:
+                uc.stop.set()
+            uc.service.close()
+            fresh = self._load_use_case(ws, uc.id, uc.spec, self._base_dir)
+            fresh.origin, fresh.template = uc.origin, uc.template
+            ws.use_cases[uc.id] = fresh
+            if self.running:
+                fresh.stop = fresh.service.start_background()
+                self._stops.append(fresh.stop)
+            self.admin.append(ws.id, "engine_reloaded", f"{member.name}@{ws.id}", reason,
+                              {"use_case": uc.id, "from": before, "to": after})
+        return fresh
 
     def _json(self, raw_body: Optional[bytes], body_error: Optional[Tuple[int, str]]) -> Dict[str, Any]:
         if body_error:
@@ -388,6 +541,11 @@ class Platform:
             if not member.workspace_admin:
                 raise LifecycleError(403, "workspace administrators only")
             return 200, {"items": [{k: t[k] for k in ("id", "name", "description")} for t in self.templates.values()]}
+        if len(parts) >= 5 and parts[2] == "workspaces" and parts[4] in ("members", "grants"):
+            ws = self.workspaces.get(parts[3]) if parts[3] == member.workspace else None
+            if ws is None:
+                return 404, None  # another workspace, or none: the same answer
+            return self._administration(method, parts, ws, member, raw_body, body_error)
         releases = len(parts) >= 7 and parts[6] == "releases"
         if len(parts) < 5 or parts[2] != "workspaces" or parts[4] != "use-cases" or len(parts) > (9 if releases else 7):
             return 404, None
@@ -428,6 +586,19 @@ class Platform:
             return 200, {**moved, "use_case": self.use_case_view(uc, member, detail=True)}
         if action == "releases":
             return self._releases(method, parts, ws, uc, member, raw_body, body_error)
+        if action == "publish-draft" and method == "POST" and len(parts) == 7:
+            if not member.workspace_admin:
+                raise LifecycleError(403, "workspace administrators only")
+            self._require_person(member, "publish a draft")
+            body = self._json(raw_body, body_error)
+            return 200, self.publish_draft(ws, uc, member, body.get("revision"), str(body.get("reason") or ""))
+        if action == "reload" and method == "POST" and len(parts) == 7:
+            if not member.workspace_admin:
+                raise LifecycleError(403, "workspace administrators only")
+            self._require_person(member, "reload an engine")
+            body = self._json(raw_body, body_error)
+            fresh = self.reload_use_case(ws, uc, member, str(body.get("reason") or ""))
+            return 200, self.use_case_view(fresh, member, detail=True)
         return 404, None
 
     def _stage_checks(self, uc: UseCase):
@@ -439,7 +610,124 @@ class Platform:
             raise LifecycleError(403, f"{member.name} is a service identity: it cannot {what} (D11)")
 
     def may_approve_releases(self, ws: Workspace, member: Member) -> bool:
+        """Independent approval authority (D11), for releases and grants: a person who is a workspace administrator
+        or a named approver."""
         return member.kind == "person" and (member.workspace_admin or member.name in ws.release_approvers)
+
+    def members_view(self, ws: Workspace) -> Dict[str, Any]:
+        events, problem = self.admin.events(ws.id)
+        api_added = {e["data"]["name"] for e in events if e["event"] == "member_added"}
+        return {"members": [{"name": m.name, "kind": m.kind, "workspace_admin": m.workspace_admin,
+                             "approver": m.name in ws.release_approvers,
+                             "source": "api" if m.name in api_added and m.name not in ws.config_members else
+                             "configuration",
+                             "use_cases": {uc: m.use_cases[uc] for uc in sorted(m.use_cases)}}
+                            for m in sorted(ws.members.values(), key=lambda m: m.name)],
+                "pending_grants": sorted(pending_grants(events).values(), key=lambda g: g["proposed_at"]),
+                "history": events, "integrity_problem": problem}
+
+    def _administration(self, method: str, parts: List[str], ws: Workspace, member: Member,
+                        raw_body: Optional[bytes], body_error) -> Tuple[int, Any]:
+        """``/platform/workspaces/<ws>/members[...]`` and ``/grants[...]`` (ADM-1). Changes apply at once (ADM-2)."""
+        from .server import new_token
+
+        who = f"{member.name}@{ws.id}"
+        if not (member.workspace_admin or self.may_approve_releases(ws, member)):
+            raise LifecycleError(403, "workspace administrators and approvers only")
+        if parts[4] == "members" and len(parts) == 5 and method == "GET":
+            return 200, self.members_view(ws)
+        if method != "POST":
+            return 405, {"error": f"{method} is not supported here"}
+        body = self._json(raw_body, body_error)
+        reason = str(body.get("reason") or "")
+        admin_only = not (parts[4] == "grants" and len(parts) == 7 and parts[6] == "approve")
+        if admin_only and not member.workspace_admin:
+            raise LifecycleError(403, "workspace administrators only")
+        self._require_person(member, "administer the workspace")
+        if parts[4] == "members" and len(parts) == 5:  # add a member: the token is shown once, only its hash kept
+            name, kind = str(body.get("name") or ""), body.get("kind", "person")
+            if not re.fullmatch(r"[A-Za-z0-9_.@-]{1,64}", name):
+                raise AdminError(400, "name: 1 to 64 letters, digits and _.@-")
+            if kind not in ("person", "service"):
+                raise AdminError(400, 'kind must be "person" or "service"')
+            token, digest = new_token()
+
+            def check_new(events):
+                if name in ws.members:
+                    raise AdminError(409, f"{name} is already a member")
+            self.admin.append(ws.id, "member_added", who, reason, {"name": name, "kind": kind, "token_sha256": digest},
+                              check_new)
+            self._refresh(ws)
+            return 201, {"name": name, "kind": kind, "token": token,
+                         "note": "give this token to the member now: it is not stored and cannot be shown again"}
+        if parts[4] == "members" and len(parts) == 7:
+            name, action = parts[5], parts[6]
+            target = ws.members.get(name)
+            if target is None:
+                return 404, None
+            if target.workspace_admin:
+                raise AdminError(403, "workspace administrators are managed in the platform configuration only")
+            if action == "remove":
+                self.admin.append(ws.id, "member_removed", who, reason, {"name": name})
+                self._refresh(ws)
+                return 200, self.members_view(ws)
+            if action == "token":
+                token, digest = new_token()
+                self.admin.append(ws.id, "token_rotated", who, reason, {"name": name, "token_sha256": digest})
+                self._refresh(ws)
+                return 200, {"name": name, "token": token,
+                             "note": "the previous token stopped working; this one is shown once"}
+            if action == "revoke":
+                uc_id = str(body.get("use_case") or "")
+                if uc_id not in target.use_cases:
+                    raise AdminError(409, f"{name} has no grant on {uc_id!r}")
+                self.admin.append(ws.id, "grant_revoked", who, reason, {"member": name, "use_case": uc_id})
+                self._refresh(ws)
+                return 200, self.members_view(ws)
+            return 404, None
+        if parts[4] == "grants" and len(parts) == 5:  # propose a grant: it takes effect only once approved
+            name, uc_id = str(body.get("member") or ""), str(body.get("use_case") or "")
+            target, uc = ws.members.get(name), ws.use_cases.get(uc_id)
+            if target is None or uc is None:
+                raise AdminError(400, "member and use_case must name a member and a use case of this workspace")
+            if target.workspace_admin:
+                raise AdminError(409, f"{name} is a workspace administrator and already has every right")
+            perms = body.get("permissions") or []
+            if not isinstance(perms, list) or set(perms) - PERMISSIONS:
+                raise AdminError(400, f"permissions: a list of {sorted(PERMISSIONS)}")
+            grant = {"permissions": sorted(set(perms)), "roles": [str(r) for r in body.get("roles") or []],
+                     "reviewer_roles": [str(r) for r in body.get("reviewer_roles") or []],
+                     "run_as": {str(a): [str(r) for r in rs] for a, rs in (body.get("run_as") or {}).items()}}
+            try:  # the engine's own rules (known agents, valid identity) before anything is recorded
+                uc.service.parse_users([{"name": name, "token_sha256": target.token_sha256, "kind": target.kind,
+                                         **grant}])
+            except ValueError as exc:
+                raise AdminError(400, str(exc)) from None
+            gid = new_grant_id()
+            self.admin.append(ws.id, "grant_proposed", who, reason,
+                              {"id": gid, "member": name, "use_case": uc_id, "grant": grant})
+            return 201, {"id": gid, "member": name, "use_case": uc_id, "grant": grant, "proposed_by": who,
+                         "status": "pending"}
+        if parts[4] == "grants" and len(parts) == 7 and parts[6] in ("approve", "withdraw"):
+            gid = parts[5]
+
+            def check(events):
+                proposal = pending_grants(events).get(gid)
+                if proposal is None:
+                    raise AdminError(404, f"no pending grant {gid!r}")
+                if parts[6] == "approve":
+                    if proposal["proposed_by"] == who:
+                        raise AdminError(403, "the proposer cannot approve their own proposal: another person with "
+                                              "authority must (D11)")
+                    if proposal["member"] == member.name:
+                        raise AdminError(403, "nobody approves a grant to themselves")
+                    if proposal["member"] not in ws.members or proposal["use_case"] not in ws.use_cases:
+                        raise AdminError(409, "the member or the use case no longer exists")
+            self.admin.append(ws.id, "grant_approved" if parts[6] == "approve" else "grant_withdrawn", who, reason,
+                              {"id": gid}, check)
+            self._refresh(ws)
+            return 200, self.members_view(ws)
+        return 404, None
 
     def _releases(self, method: str, parts: List[str], ws: Workspace, uc: UseCase, member: Member,
                   raw_body: Optional[bytes], body_error) -> Tuple[int, Any]:
@@ -469,8 +757,14 @@ class Platform:
             if member.workspace_admin or self.may_approve_releases(ws, member):  # the full snapshot: reviewers only
                 item = {**item, "snapshot": self.releases.snapshot(ws.id, uc.id, number)}
             return 200, item
-        if len(parts) != 9 or method != "POST" or parts[8] not in ("approve", "revoke", "activate"):
+        if len(parts) != 9 or method != "POST" or parts[8] not in ("approve", "revoke", "activate", "restore"):
             return 404, None
+        if parts[8] == "restore":
+            if not member.workspace_admin:
+                raise LifecycleError(403, "workspace administrators only")
+            self._require_person(member, "restore a release")
+            body = self._json(raw_body, body_error)
+            return 200, self.restore_release(ws, uc, member, number, str(body.get("reason") or ""))
         body = self._json(raw_body, body_error)
         reason = str(body.get("reason") or "")
         running = uc.service.configuration_fingerprint
@@ -538,7 +832,11 @@ class Platform:
         """Start every use case's scheduler; use cases created later start when they are created."""
         with self._lock:
             self.running = True
-            self._stops = [svc.start_background() for svc in self.services()]
+            self._stops = []
+            for ws in self.workspaces.values():
+                for uc in ws.use_cases.values():
+                    uc.stop = uc.service.start_background()
+                    self._stops.append(uc.stop)
 
     def stop_background(self) -> None:
         with self._lock:
@@ -610,7 +908,7 @@ class Platform:
                 status, out = self._manage(member, method, parts, split.query, raw_body, body_error)
             except LifecycleError as exc:
                 status, out = exc.status, {"error": str(exc), **({"checks": exc.checks} if exc.checks else {})}
-            except ReleaseError as exc:
+            except (ReleaseError, AdminError) as exc:
                 status, out = exc.status, {"error": str(exc)}
             if method != "GET" or status >= 400:
                 self._log(member, method, path, status)
@@ -706,4 +1004,5 @@ def serve(path: str, host: str = "127.0.0.1", port: int = 8700) -> None:  # prag
             svc.close()
         platform.lifecycle.close()
         platform.releases.close()
+        platform.admin.close()
         platform.log.close()

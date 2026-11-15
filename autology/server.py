@@ -223,32 +223,7 @@ class AutologyService:
         for cfg_agent in self.agents.values():
             for member in [cfg_agent.agent] + cfg_agent.agent.delegates:
                 member.configuration = self.configuration_fingerprint
-        self.users: List[User] = []
-        for u in config.get("users", []):
-            perms = frozenset(u.get("permissions", ["read"]))
-            if perms - PERMISSIONS:
-                raise ValueError(f"user {u['name']}: unknown permissions {sorted(perms - PERMISSIONS)}")
-            digest = u.get("token_sha256", "")
-            if u.get("token_env"):  # token supplied through the environment at start-up, never stored in the file
-                import os
-
-                token = os.environ.get(u["token_env"])
-                if not token:
-                    raise ValueError(f"user {u['name']}: environment variable {u['token_env']} is not set")
-                digest = hash_token(token)
-            if len(digest) != 64:
-                raise ValueError(f"user {u['name']}: token_sha256 must be a SHA-256 hex digest (see `autology token`)")
-            run_as = u.get("run_as") or {}
-            for agent_name, granted in run_as.items():
-                cfg_agent = self.agents.get(agent_name)
-                if cfg_agent is None:
-                    raise ValueError(f"user {u['name']}: run_as names unknown agent {agent_name!r}")
-            kind = u.get("kind", "person")
-            if kind not in PRINCIPAL_KINDS:
-                raise ValueError(f"user {u['name']}: kind must be one of {list(PRINCIPAL_KINDS)}")
-            self.users.append(User(u["name"], digest.lower(), perms, frozenset(u.get("roles", [])),
-                                   frozenset(u.get("reviewer_roles", [])),
-                                   tuple(sorted((a, frozenset(r)) for a, r in run_as.items())), kind))
+        self.users: List[User] = self.parse_users(config.get("users", []))
         # identities automations run as (D4): explicit, least privilege, limited to named agents
         self.service_identities: Dict[str, Dict[str, Any]] = {}
         for sid, spec in (config.get("service_identities") or {}).items():
@@ -367,6 +342,40 @@ class AutologyService:
         return cls(config, p.parent)
 
     # -- auth ---------------------------------------------------------------
+    def parse_users(self, specs: List[Dict[str, Any]]) -> List[User]:
+        """API identities from configuration (or from the platform's membership, ADM-1). Raises ValueError."""
+        users: List[User] = []
+        for u in specs:
+            perms = frozenset(u.get("permissions", ["read"]))
+            if perms - PERMISSIONS:
+                raise ValueError(f"user {u['name']}: unknown permissions {sorted(perms - PERMISSIONS)}")
+            digest = u.get("token_sha256", "")
+            if u.get("token_env"):  # token supplied through the environment at start-up, never stored in the file
+                import os
+                token = os.environ.get(u["token_env"])
+                if not token:
+                    raise ValueError(f"user {u['name']}: environment variable {u['token_env']} is not set")
+                digest = hash_token(token)
+            if len(digest) != 64:
+                raise ValueError(f"user {u['name']}: token_sha256 must be a SHA-256 hex digest (see `autology token`)")
+            run_as = u.get("run_as") or {}
+            for agent_name, granted in run_as.items():
+                cfg_agent = self.agents.get(agent_name)
+                if cfg_agent is None:
+                    raise ValueError(f"user {u['name']}: run_as names unknown agent {agent_name!r}")
+            kind = u.get("kind", "person")
+            if kind not in PRINCIPAL_KINDS:
+                raise ValueError(f"user {u['name']}: kind must be one of {list(PRINCIPAL_KINDS)}")
+            users.append(User(u["name"], digest.lower(), perms, frozenset(u.get("roles", [])),
+                                   frozenset(u.get("reviewer_roles", [])),
+                                   tuple(sorted((a, frozenset(r)) for a, r in run_as.items())), kind))
+        return users
+
+    def set_users(self, specs: List[Dict[str, Any]]) -> None:
+        """Replace the API identities at once (hot reload of membership, ADM-2): the next request sees them."""
+        users = self.parse_users(specs)
+        self.users, self._token_user_names = users, frozenset(u.name for u in users)
+
     def authenticate(self, header: Optional[str]) -> User:
         if not header or not header.startswith("Bearer "):
             raise ApiError(401, "missing bearer token")

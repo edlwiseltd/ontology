@@ -134,6 +134,58 @@ try {
   check("no page errors (design)", errors.length === 0, errors.join("; "));
   await page.close();
 
+  // 1b. releases (REL-1a, STU-6): ada proposes, maria (a named release approver) approves, ada activates
+  async function signIn(token, uc) {
+    const p = await browser.newPage({ viewport: { width: 1280, height: 860 } });
+    p.on("pageerror", (e) => errors.push(String(e)));
+    await p.goto(STUDIO);
+    await p.fill("#token", token);
+    await p.click("form button[type=submit]");
+    await p.waitForSelector(".uc-list button");
+    await p.click(`.uc-list button:has-text('${uc}')`);
+    await p.waitForSelector("[data-testid=execution]");
+    await p.click("[role=tab]:has-text('Releases')");
+    await p.waitForSelector("#rel-title");
+    return p;
+  }
+  const ada = await signIn("acme-ada", "Motor claims");
+  await ada.fill("#rel-note", "e2e: the configured claims model");
+  await ada.click("text=Propose release");
+  await ada.waitForSelector(".releases tr[data-status=proposed]");
+  check("a release is proposed from Studio", true);
+  check("the proposer is offered no approval", (await ada.locator(".releases button:has-text('Approve')").count()) === 0);
+  const maria = await signIn("acme-maria", "Motor claims");
+  await maria.fill("#rel-reason", "e2e: reviewed the snapshot");
+  await maria.click(".releases button:has-text('Approve')");
+  await maria.waitForSelector(".releases tr[data-status=approved]");
+  const asApprover = await maria.evaluate(async () => {
+    const h = { Authorization: "Bearer " + sessionStorage.getItem("autology-studio-token"), "Content-Type": "application/json" };
+    return (await fetch("/platform/v1/workspaces/acme/use-cases/claims/releases/1/activate", { method: "POST", headers: h,
+      body: JSON.stringify({ reason: "bypass" }) })).status;
+  });
+  check("another person approves; an approver cannot activate (403)", asApprover === 403, String(asApprover));
+  await ada.click("[role=tab]:has-text('Overview')");
+  await ada.click("[role=tab]:has-text('Releases')");
+  await ada.waitForSelector(".releases tr[data-status=approved]");
+  await ada.fill("#rel-reason", "e2e: go");
+  await ada.click(".releases button:has-text('Activate')");
+  await ada.waitForSelector("[data-testid=active-release]");
+  check("the administrator activates the approved release",
+        (await ada.textContent("[data-testid=active-release]")).trim() === "1");
+  await ada.screenshot({ path: `${OUT}/desktop-releases.png` });
+  await maria.close();
+  // publishing a saved draft makes it the use case's model (through the platform; nothing written to shared files)
+  await ada.click(".uc-list button:has-text('Water')");  // the Releases tab stays selected
+  await ada.waitForSelector("text=Publish draft revision");
+  await ada.fill("#rel-reason", "e2e: publish the designed model");
+  await ada.click("button:has-text('Publish draft revision')");
+  await ada.waitForSelector(".ok:has-text('published')");
+  const active = await ada.evaluate(async () => Object.keys((await (await fetch("/w/acme/u/water-ops/api/v1/ontology", {
+    headers: { Authorization: "Bearer " + sessionStorage.getItem("autology-studio-token") } })).json()).entities).length);
+  check("a published draft becomes the use case's active model", active > 1, `${active} entities`);
+  check("no page errors (releases)", errors.length === 0, errors.join("; "));
+  await ada.close();
+
   // 2. denial: a member who is not an administrator, and a direct API call that bypasses the UI
   const hana = await browser.newPage({ viewport: { width: 1280, height: 860 } });
   await hana.goto(STUDIO);

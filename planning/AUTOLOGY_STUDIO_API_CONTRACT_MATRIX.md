@@ -19,8 +19,9 @@ Demo-only today: every screen uses the real platform.*
 | Architect: brief → provisional proposal | `POST …/architect/proposals` | admin | **Verified for the blueprint generator (not AI)**; a model-based generator is **Blocked** on D7/D10 | e2e (11 provisional items, labelled "blueprint · not AI"); unit `ProposalTests` |
 | Contextual discovery questions | returned by `GET …/model/draft` and `POST …/model/validate` | read | Verified (rule-based, from real gaps; not AI) | e2e "questions come from real gaps"; unit `QuestionTests` |
 | Node/edge validation feedback | `POST …/model/validate` (engine strict loader; path, node, field or edge) | read | Verified (one blocking problem at a time) | e2e "malformed attribute refused and anchored to its node"; unit `ValidationTests` |
-| Releases, independent approval, rollback | — | — | **Blocked**: release governance (REL-1/2) and D11 | — |
-| Members, grants, delegations | — | — | **Blocked**: ADM-1 | — |
+| Releases, independent approval, rollback | `GET/POST …/{uc}/releases`, `…/releases/{n}/approve|revoke|activate|restore` | propose/activate: workspace admin (person); approve: another person with release authority; never a service | **Verified** (15 Nov) | e2e releases journey; `tests/test_rel1a_releases.py` |
+| Publish a draft as the use case's model | `POST …/{uc}/publish-draft` | workspace admin (person); needs a release to run | **Verified** | e2e; `tests/test_stu6_publish.py` |
+| Members, grants, delegations | `GET/POST /platform/v1/workspaces/{ws}/members`, `…/grants` | admin (person); grants approved by another person | API **Verified** (`tests/test_adm1_administration.py`); Studio screen **Planned** | — |
 | Platform API contract (`/platform/v1/*` in OpenAPI) | `GET /platform/openapi.json` | none (no data) | **Verified** (15 Nov): every platform route, typed responses; Studio types generated from it | `tests/test_api_v1.py` (schema conformance from a real platform; drift) |
 | API version | every Studio call uses `/platform/v1/...` and `/w/{ws}/u/{uc}/api/v1/...`; errors read from the v1 envelope | unchanged (same handlers) | **Verified** (15 Nov) | e2e: direct v1 and legacy calls both refused (403/404/404/403/403); 409 conflict read from `error.details` |
 

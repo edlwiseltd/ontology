@@ -5,9 +5,10 @@ import { api, getToken, setToken } from "@/lib/api";
 import type { Me, OntologySummary, Template, UseCase } from "@/lib/types";
 import DesignView from "./DesignView";
 import OntologyView from "./OntologyView";
+import ReleasesView from "./ReleasesView";
 import StageOverview, { LABELS } from "./StageOverview";
 
-type View = "overview" | "model" | "design";
+type View = "overview" | "model" | "design" | "releases";
 type Status = "signed-out" | "loading" | "ready" | "unavailable";
 
 export default function Workbench() {
@@ -162,7 +163,7 @@ export default function Workbench() {
         <ul className="planned small muted" aria-label="Planned areas">
           <li>AI Architect with a model provider — blocked on D7/D10 (blueprints work today)</li>
           <li>Processes, organisation, agents — planned</li>
-          <li>Releases and approvals — needs release governance (planned)</li>
+          <li>Members and grants screen — the API exists (ADM-1); screen planned</li>
         </ul>
       </nav>
 
@@ -173,6 +174,7 @@ export default function Workbench() {
               <button role="tab" aria-selected={view === "overview"} onClick={() => setView("overview")}>Overview</button>
               <button role="tab" aria-selected={view === "model"} onClick={() => setView("model")}>Active model</button>
               <button role="tab" aria-selected={view === "design"} onClick={() => setView("design")}>Design (draft)</button>
+              <button role="tab" aria-selected={view === "releases"} onClick={() => setView("releases")}>Releases</button>
             </div>
             {view === "overview" && <StageOverview workspace={me.workspace.id} useCase={detail} admin={me.workspace_admin}
                                                    onChanged={refresh} />}
@@ -180,6 +182,8 @@ export default function Workbench() {
               : ontology ? <OntologyView ontology={ontology} selected={entity} onSelect={setEntity} />
               : <p className="muted" aria-busy="true">Loading the model…</p>)}
             {view === "design" && <DesignView key={detail.id} path={detail.path} admin={me.workspace_admin} />}
+            {view === "releases" && <ReleasesView key={detail.id} workspace={me.workspace.id} useCase={detail}
+                                                  member={me.member} admin={me.workspace_admin} onChanged={refresh} />}
           </>
         )}
       </main>

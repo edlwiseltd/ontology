@@ -2,8 +2,8 @@
 // them to the platform. The token stays in this browser tab (sessionStorage) and is sent as a bearer token, so
 // there is no cookie to forge. UI-side checks are advisory: every rule is enforced by the platform and the engine.
 
-import type { ApiErrorBody, CheckResult, Draft, Me, ModelDocument, MoveResult, OntologySummary, Proposal, Stage,
-  Template, UseCase, ValidationResult } from "./types";
+import type { ActivationResult, ApiErrorBody, CheckResult, Draft, Me, ModelDocument, MoveResult, OntologySummary,
+  Proposal, Published, Release, ReleaseState, Restored, Stage, Template, UseCase, ValidationResult } from "./types";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string, public data: Record<string, unknown> = {}) {
@@ -72,6 +72,18 @@ export const api = {
     request<Draft>("POST", `${path}/api/v1/model/draft`, { document, expected_revision, note }),
   validate: (path: string, document: ModelDocument) =>
     request<ValidationResult>("POST", `${path}/api/v1/model/validate`, { document }),
+  // releases (REL-1a, STU-6): the platform decides who may propose, approve and activate
+  releases: (w: string, uc: string) => request<ReleaseState>("GET", `${ws(w)}/${encodeURIComponent(uc)}/releases`),
+  proposeRelease: (w: string, uc: string, note: string) =>
+    request<Release>("POST", `${ws(w)}/${encodeURIComponent(uc)}/releases`, { note }),
+  releaseAction: (w: string, uc: string, n: number, action: "approve" | "revoke", reason: string) =>
+    request<Release>("POST", `${ws(w)}/${encodeURIComponent(uc)}/releases/${n}/${action}`, { reason }),
+  activateRelease: (w: string, uc: string, n: number, reason: string) =>
+    request<ActivationResult>("POST", `${ws(w)}/${encodeURIComponent(uc)}/releases/${n}/activate`, { reason }),
+  restoreRelease: (w: string, uc: string, n: number, reason: string) =>
+    request<Restored>("POST", `${ws(w)}/${encodeURIComponent(uc)}/releases/${n}/restore`, { reason }),
+  publishDraft: (w: string, uc: string, revision: number, reason: string) =>
+    request<Published>("POST", `${ws(w)}/${encodeURIComponent(uc)}/publish-draft`, { revision, reason }),
   propose: (path: string, brief: string, document: ModelDocument) =>
     request<Proposal>("POST", `${path}/api/v1/architect/proposals`, { brief, document }),
 };

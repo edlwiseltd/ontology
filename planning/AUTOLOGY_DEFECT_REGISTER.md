@@ -8,12 +8,12 @@ reproduces the audit's finding passes in CI; it has not been re-verified by an i
 | Status | Count |
 |---|---|
 | Fixed | 22 |
-| Open | 24 |
+| Open | 22 |
 | Open (external evidence) | 5 |
 | Open (owner decision) | 2 |
-| Partly fixed | 6 |
+| Partly fixed | 8 |
 
-*Counts updated 15 November 2026 (H-1: GAP-058, GAP-059 added and fixed; REL-1a: GAP-020 fixed).* **High gaps not
+*Counts updated 15 November 2026 (H-1: GAP-058, GAP-059 added and fixed; REL-1a: GAP-020 fixed; ADM-1/2 and STU-6: GAP-030, GAP-056 partly fixed, GAP-051 updated).* **High gaps not
 fully fixed:** GAP-031 (waits for legal sign-off, D19), GAP-032 (ERP connector), GAP-052 (real models) and GAP-053
 (real process), which need external systems, keys or a customer. GAP-009 and GAP-018 are **Fixed** (repository-
 verified; independent re-verification open): GAP-009's atomicity is local, there is no compensation towards
@@ -51,7 +51,7 @@ and closure criteria: [the clarification note](AUTOLOGY_PARTIAL_GAPS_CLARIFICATI
 | GAP-027 | JSON-LD export crashes on computed effects; IRIs differ between formats; Turtle breaks on spaces; both lossy | Med | **Open** |  | R3 |
 | GAP-028 | Semantic diff ignores impact rules, scheduling, question contents, settings, descriptions | Med | **Open** |  | R2: needed by REL-1 (release diffs) |
 | GAP-029 | Anthropic adapter lets non-API exceptions escape; chat contract vendor-shaped; one provider adapter | Med | **Partly fixed** |  | Adapter boundary unchanged; second provider adapter is R2 AI-1 (D7) |
-| GAP-030 | API tokens never expire or rotate without restart; no rate limiting or lockout | Med | **Open** |  | R3: token expiry, rotation, rate limiting |
+| GAP-030 | API tokens never expire or rotate without restart; no rate limiting or lockout | Med | **Partly fixed** | ADM-1 (see log) | Tokens can be replaced without a restart (`POST .../members/<name>/token`, old token refused at once; `test_adm1_administration` A3). Open: expiry, rate limiting, lockout (R3) |
 | GAP-031 | No licence; redistribution terms undefined | High (blocks any customer use) | **Partly fixed** (engineering done; legal open) | LEG-1 · `6a23ff5`; Increment C (see log) | `tests/test_leg1_licences.py`; CI checks the licences of what each built image contains; image pinned (`deploy/image-constraints.txt`); an image without the LGPL driver builds and passes the smoke test; base-image packages listed. **Open (legal):** decisions L1–L5 (D19). Customer distribution prohibited until recorded |
 | GAP-032 | No ERP connector (Odoo or other) | High for target market | **Open** |  | R3 INT-2/INT-3 on an Odoo 18 sandbox (D6), now possible since ACT-1–6 pass |
 | GAP-033 | Restore never exercised; no scheduled backups | Med | **Open** |  | R4 OPS-1 restore drill in CI |
@@ -72,12 +72,12 @@ and closure criteria: [the clarification note](AUTOLOGY_PARTIAL_GAPS_CLARIFICATI
 | GAP-048 | NaN and negative amounts accepted in case data and tool results | Low | **Open** |  | R2 (small): reject NaN/inf |
 | GAP-049 | Release workflow never executed | Low | **Open (external evidence)** |  | R2: cut a release candidate |
 | GAP-050 | Unsupported methods return HTML 501; internal `ValueError` becomes 400 with the message | Low | **Partly fixed** | `4509b97` | Unsupported methods answer JSON 405; ValueError → 400 mapping open |
-| GAP-051 | No administration UI: users, roles and pipelines change only by editing config and restarting | Med | **Partly fixed** | R2 slice | Use cases can be created from approved templates and moved through stages from the Studio shell (`tests/test_r2_use_case_lifecycle.py`, `tests/test_studio_shell.py`). Open: members, grants, roles and pipelines (ADM-1) |
+| GAP-051 | No administration UI: users, roles and pipelines change only by editing config and restarting | Med | **Partly fixed** | R2 slice; ADM-1/ADM-2 and STU-6 (see log) | Members (person or service), tokens and use-case grants change through the API without a restart (`tests/test_adm1_administration.py`): grants need an independent approval (D11), revocation is immediate, the log is append-only and chained. Releases are managed from Studio (Releases tab; e2e). Open: a members-and-grants screen in Studio; roles, pipelines and workspace administrators still change only in configuration |
 | GAP-052 | Never run with a real AI model | High (for AI claims) | **Open (external evidence)** |  | R2 AI-1: needs API access to two providers |
 | GAP-053 | No real end-to-end business process | High | **Open (external evidence)** |  | R3 pilot (customer) |
 | GAP-054 | No independent human security review | Med | **Open (external evidence)** |  | R4 SEC-1 (external) |
 | GAP-055 | Single-node SQLite store; no high availability | – | **Open (owner decision)** |  | D2 open: SQLite for the isolated pilots |
-| GAP-056 | No ontology or rule editor for business users | Med | **Open** |  | R2 Studio visual model editor |
+| GAP-056 | No ontology or rule editor for business users | Med | **Partly fixed** | Studio increment 2; STU-6 | Entities and relationships are edited visually in Studio drafts, validated by the engine, and a saved draft can be published as the use case's model, which then needs an independently approved release (`tests/test_stu6_publish.py`, e2e). Open: visual editors for rules, actions, processes, organisation, agents |
 | GAP-057 | Automations run synchronously inside request threads under one lock | Med | **Open** |  | R3: background worker queue |
 | GAP-058 (audit F-01, 15 Nov) | HTTP ingestion sent its secret headers to the "next page" URL chosen by the remote source, on any host; redirects were followed with credentials for pipelines, HTTP tools, the HTTP approver, webhooks, OIDC and trace export; replies unbounded; secrets could appear in error texts | Med | **Fixed** (repository-verified; CI below) | H-1 (see log) | `autology/outbound.py` (origin rules, same-origin redirects, size limit, redaction) used by `ingest.py`, `adapters.py`, `server.py` (webhooks), `oidc.py`, `tracing.py`; `next_origins` allow-list. `tests/test_h1_outbound.py` (12; 7 failed on `bc84fb2`). Limits: operator-configured destinations stay trusted (no private-address blocking, so on-premise systems keep working); not an independent security test |
 | GAP-059 (audit F-02, 15 Nov) | A machine could record a "human" approval: the HTTP approver satisfied human reviews outside simulation with a reviewer name chosen by the remote service, and API identities had no person/service distinction | Med | **Fixed** (repository-verified; CI below) | H-1 (see log) | Users and platform members declare `kind` (`person` default, `service`); `decide` and `reconcile` refuse service identities (403); the HTTP approver counts as automatic (refused on a real server; attributed to `http:<origin>`, claimed name kept as a claim). `tests/test_h1_approval_identity.py` (6, all failed on `bc84fb2`). Policy-authorised autonomy unchanged (A5). Limits: `kind` is declared by the operator; company sign-in users are treated as persons; release approvals follow in REL-1a |

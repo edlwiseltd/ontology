@@ -42,6 +42,15 @@ mode. The same `server.json` can therefore back a use case in several workspaces
 | `GET /platform/workspaces/<ws>/use-cases/<uc>/releases/<n>` | a member granted it, or a release approver | One release; administrators and release approvers also get its snapshot |
 | `POST .../releases/<n>/approve` | a person with release authority, not the proposer | `{"reason"}`: approve, bound to the release's fingerprint |
 | `POST .../releases/<n>/revoke` | the approver or a workspace administrator | `{"reason"}`: withdraw an approval before activation |
+| `POST .../<uc>/reload` | a workspace administrator (a person) | `{"reason"}`: reload the engine from its files without a restart; refused, with nothing changed, if they do not load. Not an activation |
+| `GET /platform/workspaces/<ws>/members` | a workspace administrator or approver | Members (configured or added through the API), their grants, pending grant proposals, the administration history |
+| `POST /platform/workspaces/<ws>/members` | a workspace administrator (a person) | `{"name", "kind", "reason"}`: add a person or a service identity; the token is in the answer, once |
+| `POST .../members/<name>/token` | a workspace administrator (a person) | `{"reason"}`: replace the member's token (the old one stops at once); the new one is shown once |
+| `POST .../members/<name>/revoke` | a workspace administrator (a person) | `{"use_case", "reason"}`: take the member's access to one use case away, at once |
+| `POST .../members/<name>/remove` | a workspace administrator (a person) | `{"reason"}`: remove the member |
+| `POST /platform/workspaces/<ws>/grants` | a workspace administrator (a person) | `{"member", "use_case", "permissions", "roles", "reviewer_roles", "run_as", "reason"}`: propose a grant (checked by the engine first) |
+| `POST .../grants/<id>/approve` | a person with authority who is neither the proposer nor the member | `{"reason"}`: the grant takes effect at the next request |
+| `POST .../grants/<id>/withdraw` | a workspace administrator (a person) | `{"reason"}`: drop a pending proposal |
 | `POST .../releases/<n>/activate` | a workspace administrator (a person) | `{"reason"}`: activate an approved release that is exactly what runs; an older one is a rollback. The answer lists runs waiting on another configuration |
 
 Every route above (except the contract itself) is also served under `/platform/v1/...`, and every engine route
@@ -51,6 +60,26 @@ a version header. The unversioned paths keep their shape and are deprecated, not
 
 Another workspace, a use case not granted and one that does not exist all get the same `404 not found` on these
 routes too. A member granted a use case but not administrator gets `403` on the writes.
+
+## Administration without restarts (ADM-1, ADM-2)
+
+`platform.json` stays the base. On top of it, an **administration log** per workspace (`<data_dir>/admin.db`,
+append-only, chained with the workspace's audit key) records members added or removed, tokens replaced, grants
+proposed, approved, withdrawn or revoked, and engine reloads. The members a workspace has are the configuration's
+with the log replayed over them, at start-up and after every change: a change applies at the next request.
+
+- Adding, removing, re-keying a member and revoking a grant: a workspace administrator who is a person. Taking
+  access away needs nobody else.
+- Giving access: a grant is **proposed**, and takes effect only when **another person with authority** (a workspace
+  administrator or a member listed in `release_approvers`) approves it; never the proposer, never the member who
+  receives it, never a service identity (D11). The engine checks the grant (permissions, `run_as` agents) before it
+  is recorded.
+- Workspace administrators exist only in `platform.json`: no API call creates or removes one.
+- If the log does not verify (changed outside Autology), only the configured administrators keep access until an
+  operator repairs it.
+- **Reload** rebuilds one use case's engine from its files without restarting the platform, after loading them into a
+  throwaway engine first. A reload is not an activation: with an active release, changed files count as drift and
+  the use case runs nothing until a person activates an approved release of them.
 
 ## Releases (REL-1a)
 
@@ -74,7 +103,7 @@ A release approval authorises no business action: the stage and the ontology's r
 Releases live in `<data_dir>/releases.db`, append-only, chained with the workspace's audit key; a changed history or
 snapshot is detected and the use case then counts as draft.
 
-**Limits:** activation does not reload the engine (deploy the release's files and restart first); Studio drafts
+**Limits:** activation does not reload the engine (deploy the release's files, then reload the use case or restart); Studio drafts
 cannot yet become releases; Python code imported by tools is not part of the snapshot.
 
 ## Lifecycle stages (Draft → Simulation → Pilot)

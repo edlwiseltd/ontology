@@ -104,3 +104,8 @@ button.danger { color: var(--bad); border-color: var(--bad); margin-top: 10px; }
   .design-body { grid-template-columns: 1fr; height: auto; } .design-canvas { height: 420px; }
   .design-foot { grid-template-columns: 1fr; }
 }
+
+.releases { width: 100%; border-collapse: collapse; font-size: 13px; }
+.releases th, .releases td { text-align: left; padding: 6px 8px; border-top: 1px solid var(--line); vertical-align: top; }
+.releases td.row { display: flex; gap: 6px; flex-wrap: wrap; }
+@media (max-width: 700px) { .releases th:nth-child(3), .releases td:nth-child(3) { display: none; } }

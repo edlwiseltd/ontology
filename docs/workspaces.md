@@ -37,6 +37,7 @@ mode. The same `server.json` can therefore back a use case in several workspaces
 | `POST /platform/workspaces/<ws>/use-cases` | a workspace administrator | Create a use case from a template: `{"id", "name", "template"}`; it starts in draft |
 | `GET /platform/workspaces/<ws>/use-cases/<uc>` | a member granted it | Detail: stage, stale flag, integrity problem, ontology fingerprint, stage history |
 | `GET /platform/workspaces/<ws>/use-cases/<uc>/checks?to=<stage>` | a member granted it | The checks of the target stage, evaluated now; nothing is recorded |
+| `GET /platform/workspaces/<ws>/use-cases/<uc>/readiness?target=<pilot or production>` | a member granted it | The readiness report: mandatory gates with their blockers, and the scorecard per dimension (calculation, evidence, missing evidence, corrective actions); nothing is recorded |
 | `POST /platform/workspaces/<ws>/use-cases/<uc>/stage` | a workspace administrator (a person) | `{"to", "reason"}`: move one stage, if every check passes |
 | `GET /platform/workspaces/<ws>/use-cases/<uc>/releases` | a member granted it, or a release approver | Releases, the active one, the running configuration's fingerprint, `drift`, the release history |
 | `POST /platform/workspaces/<ws>/use-cases/<uc>/releases` | a workspace administrator (a person) | `{"note"}`: propose a release of the configuration the engine runs now (201) |
@@ -370,6 +371,42 @@ every tool call):
 with no allowed tool is not sent: the run escalates and the audit records `step.blocked`. `GET /api/health`
 reports `stage`, `runs_allowed` and `tool_environments`. A standalone engine (no platform) is not governed by
 stages.
+
+## Readiness: mandatory gates and scorecard (REL-2, REL-3)
+
+`GET /platform/v1/workspaces/<ws>/use-cases/<uc>/readiness?target=pilot` (or `production`) answers two questions
+from one list of **conditions**, each measured on the running use case with its own evidence:
+
+- **May it be promoted?** A condition can be mandatory for a target stage. A mandatory condition that does not
+  hold, or that cannot be verified because its evidence is missing, is a **blocker**. `promotion.allowed` depends
+  on the blockers only. The same mandatory conditions are evaluated on the server at the promotion itself
+  (`POST .../stage`), where a blocker refuses the move (409) and is listed in `checks`.
+- **How ready is it, and what is missing?** Six dimensions, each with a score from 0 to 100 (the mean of its
+  measured conditions, `held / total` each), its `calculation` in full, the `evidence` used, the
+  `missing_evidence`, its `blocking` conditions and the corrective `actions`.
+
+| Dimension | Conditions (mandatory for: P pilot and production, X production only, – advisory) |
+|---|---|
+| Ontology validity | model loads under the strict schema (P); the linter reports no error (P); at least one goal (P); every entity is related (–) |
+| Data and knowledge quality | every stored record validates (P); every fact classified decision-critical has a writer rule (P); every fact decisions read has a writer rule (X); the last load of every pipeline succeeded (X) |
+| Permission and security integrity | audit chains are keyed (P); every reviewer role is held by a member (P); no unreviewed model discretion (P); every personal or confidential field has a read rule (X); every unrestricted grant was confirmed (X) |
+| Agent and action readiness | every action has a tool (P); no agent is suspended (P); every action has a simulated or sandbox tool (P); every action declares its side effect (X) |
+| Simulation and test evidence | the engine's simulation mode is off (P); a run completed since simulation began (P); the configuration is the one simulated (P); every action was performed in a completed run (X); every review path was decided by a person (X) |
+| Operational and audit readiness | every audit chain verifies (P); no external call awaits reconciliation (P); an approved release is active and is what runs (P); no write-back conflict is pending (P); a verified backup and a rehearsed restore are recorded (X) |
+
+**The score informs; it decides nothing.** A high score never overrides a blocker, and a low score alone blocks
+nothing. `production` is refused in this release whatever the gates say (owner decision PROD): the report then
+states `production.authorised: false`.
+
+**Weights are a proposal** awaiting the owner (decision D26): ontology 15, data 15, security 20, agents 15,
+evidence 20, operations 15. A use case's configuration may set others (`"readiness": {"weights": {...}}`, all six
+dimensions); they change the overall figure only, are reported with their status, and are not part of the
+governing configuration (a release's fingerprint does not depend on them).
+
+Honest limits: no backup verification or restore drill is recorded per use case yet, so that condition is always
+reported as missing evidence (and blocks production readiness); "every action was performed" reads the 200 most
+recent completed runs; the methodology scorecard of `autology/scoring.py` (deployment quality) is a different,
+unchanged instrument.
 
 ## Use cases created from templates
 

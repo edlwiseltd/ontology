@@ -48,6 +48,7 @@ from urllib.parse import urlsplit
 
 from . import credentials, limits
 from .audit import audit_key, workspace_key
+from . import readiness
 from .lifecycle import Check, Lifecycle, LifecycleError, STAGES
 from .administration import AdminError, AdminLog, new_grant_id, pending_grants, pending_token_requests
 from .releases import ReleaseError, ReleaseRegistry
@@ -1177,6 +1178,12 @@ class Platform:
             target = dict(p.split("=", 1) for p in query.split("&") if "=" in p).get("to", "")
             return 200, self.lifecycle.move(ws.id, uc.id, uc.service, target, member.name, "", dry_run=True,
                                             extra_checks=self._stage_checks(uc))
+        if action == "readiness" and method == "GET":
+            target = dict(p.split("=", 1) for p in query.split("&") if "=" in p).get("target", "pilot")
+            if target not in readiness.TARGETS:
+                raise LifecycleError(400, f"target: one of {', '.join(readiness.TARGETS)}")
+            out = readiness.report(uc.service, target, self._readiness_context(uc))
+            return 200, {**out, "stage": self.stage_of(uc)["stage"], "effective_stage": self.effective_stage(uc)}
         if action == "stage" and method == "POST":
             if not member.workspace_admin:
                 raise LifecycleError(403, "workspace administrators only")
@@ -1204,7 +1211,24 @@ class Platform:
         return 404, None
 
     def _stage_checks(self, uc: UseCase):
-        return lambda stage: self._release_checks(uc) if stage == "pilot" else []
+        """What the platform adds to a stage's own checks: the active release, and the mandatory readiness
+        conditions (REL-2) that neither the stage nor the release already evaluates."""
+        def checks(stage: str) -> List[Check]:
+            if stage != "pilot":
+                return []
+            release = self._release_checks(uc)
+            known = tuple(readiness.STAGE_CHECKS)  # evaluated by the stage itself and by the release check
+            return release + readiness.gate_checks(uc.service, stage, self._readiness_context(uc, release), known)
+        return checks
+
+    def _readiness_context(self, uc: UseCase, release: Optional[List[Check]] = None) -> Dict[str, Any]:
+        """What only the platform knows about a use case's readiness (autology.readiness)."""
+        ws = self.workspaces[uc.workspace]
+        waiting = sum(1 for i in self.access_review(ws)["items"] if i["use_case"] == uc.id and i["needs_review"])
+        return {"entered_simulation": self.stage_of(uc)["entered_simulation"],
+                "release_checks": release if release is not None else self._release_checks(uc),
+                "unrestricted_needing_review": waiting,
+                "recovery": None}  # no backup verification or restore drill is recorded per use case yet
 
     @staticmethod
     def _require_person(member: Member, what: str) -> None:

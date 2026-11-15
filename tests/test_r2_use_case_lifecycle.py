@@ -181,7 +181,10 @@ class StageTests(LifecycleBase):
             "configuration_valid", "audit_key", "no_quarantined_records", "engine_simulation_mode_off",
             "reviewers_assigned", "audit_chains_verify",
             "external_calls_reconciled", "simulated_run_completed", "configuration_unchanged_since_simulation",
-            "approved_release_active"})
+            "approved_release_active",
+            # the mandatory readiness conditions of a pilot (REL-2, R2 closure sprint)
+            "lint_no_errors", "goals_defined", "model_discretion_reviewed", "actions_have_a_tool",
+            "no_agent_suspended", "actions_testable_before_production", "no_write_back_conflict"})
         status, out = self.move("pilot", "supervised pilot on test data")
         self.assertEqual((status, out["from"], out["to"], out["use_case"]["stage"]), (200, "simulation", "pilot", "pilot"))
         history = out["use_case"]["history"]

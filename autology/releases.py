@@ -45,7 +45,7 @@ FORMAT = "autology-release/1"
 GENESIS = "0" * 64
 # server settings that describe the deployment, not what runs: never part of a release
 NON_GOVERNING = frozenset({"store", "users", "log_file", "secrets_file", "audit_scope", "oidc", "data", "ontology",
-                           "writer", "reporting"})
+                           "writer", "reporting", "readiness"})
 EVENTS = ("proposed", "approved", "approval_revoked", "activated", "rolled_back")
 
 SCHEMA = """

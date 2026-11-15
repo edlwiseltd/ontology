@@ -155,6 +155,8 @@ class SchemaConformanceTests(V1Base):  # V5
                  (("GET", "/platform/workspaces/{ws}/use-cases/{uc}"), "GET", f"{base}/claims", None, 200),
                  (("GET", "/platform/workspaces/{ws}/use-cases/{uc}/checks"), "GET", f"{base}/claims/checks?to=pilot",
                   None, 200),
+                 (("GET", "/platform/workspaces/{ws}/use-cases/{uc}/readiness"), "GET",
+                  f"{base}/claims/readiness?target=production", None, 200),
                  (("POST", "/platform/workspaces/{ws}/use-cases/{uc}/stage"), "POST", f"{base}/v1-case/stage",
                   {"to": "simulation", "reason": "v1 contract"}, 200)]
         rel, n = f"{base}/v1-case/releases", "1"  # REL-1a: ada proposes and activates, maria approves

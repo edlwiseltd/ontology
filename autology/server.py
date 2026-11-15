@@ -60,6 +60,7 @@ from .graph import Instance, KnowledgeGraph, build_case, snapshot
 from .integrity import record_refusal
 from .ontology import Ontology, OntologyError, type_ok
 from .openapi import page_window, versioned_response
+from .readiness import checked_weights
 from .store import Store, StoreError, StoreJournal
 
 log = logging.getLogger("autology.server")
@@ -299,7 +300,7 @@ class AutologyService:
 
         self.pipelines = load_pipelines(config.get("pipelines") or {}, self.ontology, base)
         self.ingest_lock = threading.Lock()  # one load at a time: plans are computed against the current graph
-        self.reporting = dict(config.get("reporting") or {})
+        self.reporting, self.readiness = dict(config.get("reporting") or {}), checked_weights(config.get("readiness"))
         if self.reporting:
             target = self.reporting.get("target")
             if isinstance(target, str):

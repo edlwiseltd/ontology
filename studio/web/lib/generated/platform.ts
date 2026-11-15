@@ -380,6 +380,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/platform/v1/workspaces/{ws}/use-cases/{uc}/readiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Readiness report: mandatory gates and evidence-based scorecard for a target stage */
+        get: operations["getWorkspacesWsUseCasesUcReadiness"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/platform/v1/workspaces/{ws}/use-cases/{uc}/releases": {
         parameters: {
             query?: never;
@@ -801,6 +818,95 @@ export interface components {
         } & {
             [key: string]: unknown;
         });
+        Readiness: {
+            configuration: {
+                fingerprint: string;
+                ontology: string;
+            } & {
+                [key: string]: unknown;
+            };
+            dimensions: components["schemas"]["ReadinessDimension"][];
+            /** @enum {string} */
+            effective_stage: "draft" | "simulation" | "pilot" | "production";
+            gates: {
+                blockers: ({
+                    action: string;
+                    detail: string;
+                    dimension: string;
+                    id: string;
+                    reason: string;
+                    title: string;
+                } & {
+                    [key: string]: unknown;
+                })[];
+                evaluated: number;
+                passed: boolean;
+            } & {
+                [key: string]: unknown;
+            };
+            generated_at: string;
+            production: {
+                authorised: boolean;
+                reason: string;
+            } & {
+                [key: string]: unknown;
+            };
+            promotion: {
+                allowed: boolean;
+                reason: string;
+            } & {
+                [key: string]: unknown;
+            };
+            score: {
+                calculation: string;
+                note: string;
+                overall: number | null;
+                weights: {
+                    [key: string]: number;
+                };
+                weights_status: string;
+            } & {
+                [key: string]: unknown;
+            };
+            /** @enum {string} */
+            stage: "draft" | "simulation" | "pilot" | "production";
+            /** @enum {string} */
+            target: "draft" | "simulation" | "pilot" | "production";
+        } & {
+            [key: string]: unknown;
+        };
+        ReadinessCondition: {
+            action: string;
+            applicable: boolean;
+            blocking: boolean;
+            detail: string;
+            dimension: string;
+            evidence: string[];
+            held: number | null;
+            id: string;
+            mandatory_for: ("draft" | "simulation" | "pilot" | "production")[];
+            measured: boolean;
+            missing_evidence: string | null;
+            passed: boolean | null;
+            title: string;
+            total: number;
+        } & {
+            [key: string]: unknown;
+        };
+        ReadinessDimension: {
+            actions: string[];
+            blocking: string[];
+            calculation: string;
+            conditions: components["schemas"]["ReadinessCondition"][];
+            evidence: string[];
+            id: string;
+            missing_evidence: string[];
+            score: number | null;
+            title: string;
+            weight: number;
+        } & {
+            [key: string]: unknown;
+        };
         Release: {
             activated_at?: string | null;
             approved_at?: string | null;
@@ -3050,6 +3156,96 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Published"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Permission or checkpoint refused */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found or not visible */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict: state, stage or revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getWorkspacesWsUseCasesUcReadiness: {
+        parameters: {
+            query?: {
+                target?: string;
+            };
+            header?: never;
+            path: {
+                ws: string;
+                uc: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Readiness"];
                 };
             };
             /** @description Invalid request */

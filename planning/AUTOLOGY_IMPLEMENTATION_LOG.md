@@ -577,3 +577,23 @@ Evidence (local): `tests/test_arc0_services.py` 7 OK (3 new); full suite 835 OK 
 locally), 95.82 % lines (14,415 statements, 602 missed; `runs.py` 94 %, `reviews.py` 93 %); ruff clean; mypy 198
 (= baseline). No API route, schema or behaviour changed: the 832 earlier tests pass unmodified.
 
+## 15 November 2026 — R2 closure sprint, increment D: REL-2 gates and REL-3 scorecard
+
+| Story | Change | Tests | Behaviour change |
+|---|---|---|---|
+| REL-2 mandatory gates | New `autology/readiness.py`: 26 conditions measured on the running use case, each with its evidence; a condition can be mandatory for `pilot` and `production` or for `production` only. A mandatory condition that does not hold, **or cannot be verified**, is a blocker. The platform evaluates the mandatory conditions at the promotion itself (`_stage_checks`) | Q2, Q3, Q6, Q8 | **Yes:** promotion to pilot now also requires: no linter error, at least one goal, no unreviewed model discretion, a tool for every action, no suspended agent, a simulated or sandbox tool for every action, no pending write-back conflict. The example use cases satisfy all seven |
+| REL-3 scorecard | Six dimensions; each shows its calculation, evidence, missing evidence, blockers and corrective actions; the overall figure is the weighted mean of measured dimensions. `GET /platform/v1/workspaces/{ws}/use-cases/{uc}/readiness?target=` (granted members; typed in the contract) | Q1, Q5, Q7 | New route |
+| Score never decides | `promotion.allowed` depends on blockers only; verified in the report and at the promotion (a use case scoring above 80 is refused on one failed condition) | Q3 | — |
+| Production | Refused as before whatever the gates say; the report says so | Q4 | None |
+| Weights | `PROPOSED_WEIGHTS` (15/15/20/15/20/15), configurable per use case (`readiness.weights`), reported with their status, not part of the governing configuration | Q5 | New optional configuration key |
+
+**Decision for the owner (D26):** the weights and the mandatory sets. Until approved every report says the weights
+are a proposal.
+**Limits:** no backup verification or restore drill is recorded per use case, so that condition is always missing
+evidence and blocks production readiness; "every action was performed" reads the 200 most recent completed runs;
+the conditions cover what the repository can verify (no external security review, no sector controls).
+Evidence (local): `tests/test_rel2_rel3_readiness.py` 9 OK; full suite 844 OK (2 PostgreSQL tests skipped
+locally), 95.86 % lines (14,587 statements, 604 missed; `readiness.py` 99 %); ruff clean; mypy 198 (= baseline).
+Studio (the platform contract changed, client types regenerated): typecheck clean, 23 unit tests, build, 56/56
+browser checks.
+

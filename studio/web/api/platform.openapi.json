@@ -926,6 +926,345 @@
           }
         ]
       },
+      "Readiness": {
+        "additionalProperties": true,
+        "properties": {
+          "configuration": {
+            "additionalProperties": true,
+            "properties": {
+              "fingerprint": {
+                "type": "string"
+              },
+              "ontology": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "ontology",
+              "fingerprint"
+            ],
+            "type": "object"
+          },
+          "dimensions": {
+            "items": {
+              "$ref": "#/components/schemas/ReadinessDimension"
+            },
+            "type": "array"
+          },
+          "effective_stage": {
+            "enum": [
+              "draft",
+              "simulation",
+              "pilot",
+              "production"
+            ],
+            "type": "string"
+          },
+          "gates": {
+            "additionalProperties": true,
+            "properties": {
+              "blockers": {
+                "items": {
+                  "additionalProperties": true,
+                  "properties": {
+                    "action": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "dimension": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "dimension",
+                    "title",
+                    "detail",
+                    "reason",
+                    "action"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "evaluated": {
+                "type": "integer"
+              },
+              "passed": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "passed",
+              "evaluated",
+              "blockers"
+            ],
+            "type": "object"
+          },
+          "generated_at": {
+            "type": "string"
+          },
+          "production": {
+            "additionalProperties": true,
+            "properties": {
+              "authorised": {
+                "type": "boolean"
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "authorised",
+              "reason"
+            ],
+            "type": "object"
+          },
+          "promotion": {
+            "additionalProperties": true,
+            "properties": {
+              "allowed": {
+                "type": "boolean"
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "allowed",
+              "reason"
+            ],
+            "type": "object"
+          },
+          "score": {
+            "additionalProperties": true,
+            "properties": {
+              "calculation": {
+                "type": "string"
+              },
+              "note": {
+                "type": "string"
+              },
+              "overall": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "weights": {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              "weights_status": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "overall",
+              "weights",
+              "weights_status",
+              "calculation",
+              "note"
+            ],
+            "type": "object"
+          },
+          "stage": {
+            "enum": [
+              "draft",
+              "simulation",
+              "pilot",
+              "production"
+            ],
+            "type": "string"
+          },
+          "target": {
+            "enum": [
+              "draft",
+              "simulation",
+              "pilot",
+              "production"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "generated_at",
+          "stage",
+          "effective_stage",
+          "configuration",
+          "gates",
+          "score",
+          "dimensions",
+          "promotion",
+          "production"
+        ],
+        "type": "object"
+      },
+      "ReadinessCondition": {
+        "additionalProperties": true,
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "applicable": {
+            "type": "boolean"
+          },
+          "blocking": {
+            "type": "boolean"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "dimension": {
+            "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "held": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "mandatory_for": {
+            "items": {
+              "enum": [
+                "draft",
+                "simulation",
+                "pilot",
+                "production"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "measured": {
+            "type": "boolean"
+          },
+          "missing_evidence": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "passed": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "dimension",
+          "title",
+          "applicable",
+          "measured",
+          "passed",
+          "held",
+          "total",
+          "detail",
+          "evidence",
+          "missing_evidence",
+          "mandatory_for",
+          "blocking",
+          "action"
+        ],
+        "type": "object"
+      },
+      "ReadinessDimension": {
+        "additionalProperties": true,
+        "properties": {
+          "actions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "blocking": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "calculation": {
+            "type": "string"
+          },
+          "conditions": {
+            "items": {
+              "$ref": "#/components/schemas/ReadinessCondition"
+            },
+            "type": "array"
+          },
+          "evidence": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "id": {
+            "type": "string"
+          },
+          "missing_evidence": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "score": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "weight": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "score",
+          "weight",
+          "calculation",
+          "conditions",
+          "evidence",
+          "missing_evidence",
+          "blocking",
+          "actions"
+        ],
+        "type": "object"
+      },
       "Release": {
         "additionalProperties": true,
         "properties": {
@@ -4539,6 +4878,135 @@
         },
         "summary": "Make a saved, valid draft revision this use case's ontology, then reload; needs a release to run (STU-6)",
         "x-autology-permission": "release authority (person, not the author of the revision)"
+      }
+    },
+    "/platform/v1/workspaces/{ws}/use-cases/{uc}/readiness": {
+      "get": {
+        "operationId": "getWorkspacesWsUseCasesUcReadiness",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ws",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "uc",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Readiness"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Missing or invalid token"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Permission or checkpoint refused"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not found or not visible"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Readiness report: mandatory gates and evidence-based scorecard for a target stage",
+        "x-autology-permission": "granted member"
       }
     },
     "/platform/v1/workspaces/{ws}/use-cases/{uc}/releases": {

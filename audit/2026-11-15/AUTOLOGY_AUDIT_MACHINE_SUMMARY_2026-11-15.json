@@ -1,0 +1,605 @@
+{
+  "schema": "autology-audit-summary/1",
+  "audit_timestamp": "2026-11-15T06:46:30Z",
+  "audit_mode": "read-only",
+  "auditor": {
+    "kind": "AI agent (Claude Code)",
+    "independent": false,
+    "note": "same agent wrote most of the audited code"
+  },
+  "repository": {
+    "url": "https://github.com/edlwiseltd/ontology",
+    "branch": "claude/autology-ontology-agent-4ajjer",
+    "head_sha": "a143ed378c11e5f9c71671acb360f994d52e2f06",
+    "working_tree_clean_before_audit": true,
+    "tags": [],
+    "commit_count": 102
+  },
+  "ci": {
+    "head_run": {
+      "id": 43685325889,
+      "number": 65,
+      "conclusion": "success",
+      "sha": "a143ed378c11e5f9c71671acb360f994d52e2f06"
+    },
+    "latest_code_run": {
+      "id": 43684759108,
+      "number": 64,
+      "conclusion": "success",
+      "sha": "f059f2e95227212c91ae47a5081fe1d3d2812e5e",
+      "jobs": {
+        "test (3.10)": "success",
+        "test (3.13)": "success",
+        "package": "success",
+        "studio": "success"
+      }
+    }
+  },
+  "latest_verified_commits": [
+    {
+      "sha": "f059f2e95227212c91ae47a5081fe1d3d2812e5e",
+      "date": "2026-11-15T06:17:23Z",
+      "work_package": "API v1",
+      "state": "verified"
+    },
+    {
+      "sha": "f8db2eefa9b2baf105a8aa2f5a6c5f1810298c97",
+      "date": "2026-11-14T21:24:27Z",
+      "work_package": "Studio increment 2 (modeling, non-AI blueprints)",
+      "state": "verified"
+    },
+    {
+      "sha": "5a90fa85a57f5c7a10944fa53e6e56c32050e07c",
+      "date": "2026-11-14T20:30:43Z",
+      "work_package": "GAP-018 directive 02",
+      "state": "verified"
+    },
+    {
+      "sha": "ddc8095f09a936f2a367a6e12a87b70ad572c839",
+      "date": "2026-11-14T20:13:45Z",
+      "work_package": "Studio Next.js increment 1",
+      "state": "verified"
+    },
+    {
+      "sha": "8bfec1cc91197c9ce824c45ba85de7bd0e513cd5",
+      "date": "2026-11-14T19:58:39Z",
+      "work_package": "API-1 OpenAPI contract",
+      "state": "verified"
+    },
+    {
+      "sha": "2939b00612680ecadd221e468e232b47759a8327",
+      "date": "2026-11-14T19:51:34Z",
+      "work_package": "GAP-031 engineering",
+      "state": "verified (engineering); legal open"
+    },
+    {
+      "sha": "118f8bc6e1f1733a135f8489765d691a6551f074",
+      "date": "2026-11-14T19:37:26Z",
+      "work_package": "GAP-018 increment B",
+      "state": "verified"
+    },
+    {
+      "sha": "ceb9c24219caf6e02e0088cb219ef208388003f8",
+      "date": "2026-11-14T19:16:48Z",
+      "work_package": "GAP-009 atomic write-back",
+      "state": "verified (local scope)"
+    },
+    {
+      "sha": "40f778093acc7663a44b846ee6c5b15fbeed4114",
+      "date": "2026-11-14T17:21:09Z",
+      "work_package": "Execution gates",
+      "state": "verified"
+    },
+    {
+      "sha": "77b9a59e6c0c655bd0ee819f0ad15ff32a63aee2",
+      "date": "2026-11-14T16:50:44Z",
+      "work_package": "R2 first slice: lifecycle",
+      "state": "verified"
+    }
+  ],
+  "most_recent_directive": {
+    "name": "Master development directive: R2 completion",
+    "increments_total": 6,
+    "increments_done": 1,
+    "done": [
+      "Increment 1: API v1"
+    ],
+    "not_started": [
+      "Increment 2: workspace administration",
+      "Increment 3: releases and approval",
+      "Increment 4: readiness",
+      "Increment 5: AI Solution Architect",
+      "Increment 6: Studio visual editors"
+    ]
+  },
+  "validation": [
+    {
+      "command": "python -m coverage run --source=autology -m unittest discover -s tests -t . -v",
+      "env": "ANTHROPIC_BASE_URL=http://127.0.0.1:9 (no LLM reachable)",
+      "duration_s": 259,
+      "tests": 661,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 2,
+      "skipped_reason": "PostgreSQL not configured locally (runs in CI)",
+      "result": "OK"
+    },
+    {
+      "command": "python -m coverage report",
+      "line_coverage_percent": 96.32,
+      "statements": 10981,
+      "missed": 404
+    },
+    {
+      "command": "npx tsc --noEmit (studio/web)",
+      "result": "OK"
+    },
+    {
+      "command": "npx vitest run (studio/web)",
+      "tests": 17,
+      "failures": 0,
+      "result": "OK"
+    },
+    {
+      "command": "npm run build (studio/web)",
+      "result": "OK"
+    },
+    {
+      "command": "studio/web/e2e/run.sh",
+      "checks": 25,
+      "passed": 25,
+      "result": "OK"
+    },
+    {
+      "command": "npm audit --omit=dev",
+      "vulnerabilities": 0
+    },
+    {
+      "command": "ruff check --select E,F,W,B,S autology (ruff 0.17.5)",
+      "warnings": 3558,
+      "confirmed_security_defects": 0
+    },
+    {
+      "command": "mypy --ignore-missing-imports autology (mypy 2.4.1)",
+      "errors": 201
+    },
+    {
+      "command": "pip-audit -r deploy/image-constraints.txt --no-deps",
+      "known_vulnerabilities": 0
+    }
+  ],
+  "not_run": [
+    {
+      "what": "Docker image build",
+      "why": "green in CI run 64; Docker Hub rate limits locally"
+    },
+    {
+      "what": "PostgreSQL tests",
+      "why": "no local database"
+    },
+    {
+      "what": "real LLM, IdP or ERP calls",
+      "why": "forbidden by audit constraints; none exist"
+    },
+    {
+      "what": "penetration testing",
+      "why": "out of scope (non-intrusive audit)"
+    }
+  ],
+  "capabilities": [
+    {
+      "id": 1,
+      "name": "Engine: ontology, objects, relationships, constraints, states, events, decisions, actions, execution",
+      "status": "WORKING & VERIFIED",
+      "evidence": [
+        "autology/ontology.py",
+        "autology/graph.py",
+        "autology/agent.py",
+        "autology/governance.py"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Workspace isolation, identity, roles, permissions, delegation, administration",
+      "status": "PARTIAL",
+      "evidence": [
+        "autology/platform.py",
+        "autology/governance.py"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Authentication, service accounts, secrets, encryption, audit logging, evidence",
+      "status": "PARTIAL",
+      "evidence": [
+        "autology/server.py",
+        "autology/oidc.py",
+        "autology/audit.py",
+        "autology/settings.py"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Policy evaluation, risk/criticality, configurable human involvement",
+      "status": "WORKING & VERIFIED",
+      "evidence": [
+        "autology/governance.py:229"
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Autonomous actions, approvals, simulation, safeguards, idempotency, durable execution",
+      "status": "WORKING & VERIFIED",
+      "evidence": [
+        "autology/agent.py:376",
+        "autology/effects.py:44"
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Cross-system actions: write-back, retries, partial failure, reconciliation, compensation, rollback",
+      "status": "PARTIAL",
+      "evidence": [
+        "autology/store.py:916",
+        "autology/server.py:1707"
+      ]
+    },
+    {
+      "id": 7,
+      "name": "Use case lifecycle, immutable releases, independent approval, rollback",
+      "status": "PARTIAL",
+      "evidence": [
+        "autology/lifecycle.py"
+      ]
+    },
+    {
+      "id": 8,
+      "name": "API v1, OpenAPI, clients, versioning, errors, pagination, contract tests",
+      "status": "WORKING & VERIFIED",
+      "evidence": [
+        "autology/openapi.py",
+        "autology/server.py",
+        "autology/platform.py",
+        "docs/api-versioning.md"
+      ]
+    },
+    {
+      "id": 9,
+      "name": "Autology Studio",
+      "status": "WORKING & VERIFIED",
+      "evidence": [
+        "studio/web"
+      ]
+    },
+    {
+      "id": 10,
+      "name": "AI Solution Architect",
+      "status": "MOCK OR PROTOTYPE",
+      "evidence": [
+        "autology/modeling.py",
+        "autology/blueprints/water_treatment.json"
+      ]
+    },
+    {
+      "id": 11,
+      "name": "Readiness score per use case (six dimensions)",
+      "status": "DOCUMENTED ONLY",
+      "evidence": [
+        "planning/AUTOLOGY_MATURITY_SCORECARD.md:84-90"
+      ]
+    },
+    {
+      "id": 12,
+      "name": "Process, organization, agent, data, decision, action designers",
+      "status": "PARTIAL",
+      "evidence": [
+        "studio/web/components/DesignView.tsx"
+      ]
+    },
+    {
+      "id": 13,
+      "name": "Excel Template Factory, document intake, source tracking, re-import errors",
+      "status": "PARTIAL",
+      "evidence": [
+        "autology/ingest.py"
+      ]
+    },
+    {
+      "id": 14,
+      "name": "Agent Factory, agent lifecycle, tools, skills, governed tool execution",
+      "status": "PARTIAL",
+      "evidence": [
+        "autology/tools.py",
+        "autology/adapters.py"
+      ]
+    },
+    {
+      "id": 15,
+      "name": "Knowledge infrastructure: RAG, search, knowledge graph, semantic validation, standards",
+      "status": "PARTIAL",
+      "evidence": [
+        "autology/graph.py",
+        "autology/export.py"
+      ]
+    },
+    {
+      "id": 16,
+      "name": "Integrations: Odoo sandbox, external APIs, connectors, queues, webhooks, ERP/MES/SCADA",
+      "status": "PARTIAL",
+      "evidence": [
+        "autology/adapters.py:135",
+        "autology/server.py:988-1009",
+        "autology/mcp.py"
+      ]
+    },
+    {
+      "id": 17,
+      "name": "End-user Workspace UI",
+      "status": "PARTIAL",
+      "evidence": [
+        "autology/static",
+        "autology/console.py"
+      ]
+    },
+    {
+      "id": 18,
+      "name": "Production readiness: deployment, backups/restore, monitoring, alerting, recovery, scaling",
+      "status": "PARTIAL",
+      "evidence": [
+        "Dockerfile",
+        "deploy/"
+      ]
+    },
+    {
+      "id": 19,
+      "name": "Licensing, legal distribution, third-party obligations, security review",
+      "status": "BLOCKED",
+      "evidence": [
+        "LICENSE",
+        "THIRD_PARTY_NOTICES.md",
+        "deploy/image_licences.py"
+      ]
+    },
+    {
+      "id": 20,
+      "name": "Documentation, developer experience, extensibility, maintainability",
+      "status": "PARTIAL",
+      "evidence": [
+        "docs/",
+        "planning/"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "F-01",
+      "category": "security",
+      "severity": "Medium",
+      "summary": "Ingest HTTP pagination sends configured secret headers to the next-page URL chosen by the remote source, on any host",
+      "evidence": "autology/ingest.py:362-384",
+      "new_today": true
+    },
+    {
+      "id": "F-02",
+      "category": "governance",
+      "severity": "Medium",
+      "summary": "HttpApprover can satisfy human reviews outside simulation; reviewer chosen remotely; no self-review check",
+      "evidence": "autology/adapters.py:232-257; autology/server.py:186-191",
+      "new_today": true
+    },
+    {
+      "id": "F-03",
+      "category": "separation_of_duties",
+      "severity": "Medium",
+      "summary": "Stage moves need no second person",
+      "evidence": "autology/platform.py:356-361; autology/lifecycle.py:261-293",
+      "new_today": true
+    },
+    {
+      "id": "F-04",
+      "category": "integrity",
+      "severity": "Medium",
+      "summary": "Review decisions bound to name@version, not content fingerprint (GAP-020)",
+      "evidence": "autology/server.py:1554; autology/ontology.py:615-617",
+      "new_today": true
+    },
+    {
+      "id": "F-05",
+      "category": "security",
+      "severity": "Medium",
+      "summary": "Console API key stored in plaintext (0600); SQLite not encrypted at rest",
+      "evidence": "autology/settings.py:47-57; autology/store.py:230-234",
+      "new_today": true
+    },
+    {
+      "id": "F-06",
+      "category": "supply_chain",
+      "severity": "Medium/Low",
+      "summary": "Base image not pinned by digest; CI actions not SHA-pinned; constraints without hashes",
+      "evidence": "Dockerfile:6; .github/workflows/tests.yml:30-43; pyproject.toml:16-18",
+      "new_today": true
+    },
+    {
+      "id": "F-07",
+      "category": "availability",
+      "severity": "Low/Medium",
+      "summary": "No token expiry, rate limiting, server timeouts or thread cap",
+      "evidence": "autology/server.py:2418; autology/platform.py:503",
+      "new_today": true
+    },
+    {
+      "id": "F-08",
+      "category": "ssrf",
+      "severity": "Low",
+      "summary": "Outbound redirects followed with headers; unbounded response reads",
+      "evidence": "autology/adapters.py:126; autology/ingest.py:375",
+      "new_today": true
+    },
+    {
+      "id": "F-09",
+      "category": "oidc",
+      "severity": "Low",
+      "summary": "redirect_uri localhost prefix check; http issuer accepted; no azp check",
+      "evidence": "autology/oidc.py:105,251",
+      "new_today": true
+    },
+    {
+      "id": "F-10",
+      "category": "frontend",
+      "severity": "Low",
+      "summary": "Studio relay reads whole body before size check; CSP unsafe-inline",
+      "evidence": "studio/web/lib/forward.ts:46-48; studio/web/next.config.ts:8",
+      "new_today": true
+    },
+    {
+      "id": "F-11",
+      "category": "audit",
+      "severity": "Low",
+      "summary": "Access log writes fail open and are not chained",
+      "evidence": "autology/server.py:2207; autology/platform.py:457",
+      "new_today": true
+    },
+    {
+      "id": "F-12",
+      "category": "quality",
+      "severity": "Medium",
+      "summary": "201 mypy errors; no lint/type/dependency scan in CI",
+      "evidence": "audit/2026-11-15/evidence/mypy.log",
+      "new_today": true
+    },
+    {
+      "id": "F-13",
+      "category": "documentation",
+      "severity": "Low",
+      "summary": "Stale register/roadmap entries (GAP-009/018 paragraph, GAP-041, GAP-051, GAP-056, R2 status, independence of 47/100)",
+      "evidence": "planning/AUTOLOGY_DEFECT_REGISTER.md; planning/AUTOLOGY_RELEASE_ROADMAP.md",
+      "new_today": true
+    },
+    {
+      "id": "F-14",
+      "category": "scope",
+      "severity": "Info",
+      "summary": "No compensation/saga for cross-system partial success",
+      "evidence": "autology/server.py:728-729",
+      "new_today": true
+    }
+  ],
+  "gap_status": {
+    "GAP-009": "Fixed (local scope; no external compensation)",
+    "GAP-018": "Fixed (detection, not prevention, of direct DB writes)",
+    "GAP-031": "Partly fixed (legal open, D19)",
+    "GAP-020": "Open",
+    "GAP-041": "Partly fixed in code, Open in register",
+    "GAP-056": "Partly fixed in code, Open in register"
+  },
+  "defect_register_counts": {
+    "Fixed": 19,
+    "Open": 25,
+    "Open (external evidence)": 5,
+    "Open (owner decision)": 2,
+    "Partly fixed": 6
+  },
+  "blockers": [
+    {
+      "id": "D19",
+      "type": "external/legal",
+      "blocks": "any customer distribution"
+    },
+    {
+      "id": "D11",
+      "type": "owner decision",
+      "blocks": "independent approval of grants and promotions (ADM-1, REL-2)"
+    },
+    {
+      "id": "D7/D10",
+      "type": "owner decision",
+      "blocks": "real AI Solution Architect (AI-1, ARC-1)"
+    },
+    {
+      "id": "D16",
+      "type": "external",
+      "blocks": "pilot readiness"
+    },
+    {
+      "id": "D15",
+      "type": "owner decision",
+      "blocks": "production ERP writes (kept disabled)"
+    },
+    {
+      "id": "GAP-054",
+      "type": "external",
+      "blocks": "independent security validation"
+    }
+  ],
+  "open_decisions": [
+    "D2",
+    "D3",
+    "D7",
+    "D10",
+    "D11",
+    "D13",
+    "D15",
+    "D16",
+    "D19"
+  ],
+  "applied_defaults_awaiting_confirmation": [
+    "D8",
+    "D12",
+    "D14",
+    "D17",
+    "D18",
+    "D20"
+  ],
+  "maturity": {
+    "new_score": null,
+    "existing_scores": [
+      {
+        "value": 47,
+        "source": "audit/03_AUTOLOGY_MATURITY_SCORECARD.md",
+        "date": "2026-11-13",
+        "method": "weighted subcriteria with evidence caps",
+        "independent": false,
+        "note": "performed by AI agents, one of which wrote the code"
+      },
+      {
+        "value": 65,
+        "approximate": true,
+        "source": "planning/AUTOLOGY_MATURITY_SCORECARD.md:9",
+        "date": "2026-11-14",
+        "method": "self-assessment with the audit method",
+        "independent": false
+      }
+    ],
+    "assessments": {
+      "A_r2_engineering": "no-go",
+      "B_security_governance": "no-go",
+      "C_decision_to_action": "go for synthetic/sandbox flow; no-go for release binding and compensation",
+      "D_pilot_non_production": "no-go",
+      "E_commercial_distribution": "no-go"
+    }
+  },
+  "production_deployed": false,
+  "next_increment_recommendation": {
+    "id": "REL-1a",
+    "title": "Immutable fingerprint-bound releases, run and review binding, rollback",
+    "size": "M-L",
+    "owner_decisions_required": [],
+    "owner_confirmation_suggested": [
+      "policy for in-flight runs on rollback"
+    ],
+    "alternative": {
+      "id": "H-1",
+      "title": "Targeted hardening: F-01, F-02, supply-chain pinning, register refresh",
+      "size": "S"
+    }
+  },
+  "implementation_authorized": false,
+  "report_files": [
+    "audit/2026-11-15/AUTOLOGY_EXECUTIVE_STATUS_2026-11-15.md",
+    "audit/2026-11-15/AUTOLOGY_TECHNICAL_AUDIT_2026-11-15.md",
+    "audit/2026-11-15/AUTOLOGY_GAP_DECISION_REGISTER_2026-11-15.md",
+    "audit/2026-11-15/AUTOLOGY_NEXT_INCREMENTS_2026-11-15.md",
+    "audit/2026-11-15/AUTOLOGY_AUDIT_MACHINE_SUMMARY_2026-11-15.json"
+  ],
+  "evidence_dir": "audit/2026-11-15/evidence/"
+}

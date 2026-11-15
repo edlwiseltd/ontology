@@ -1,0 +1,9 @@
+
+ RUN  v5.1.0 /home/user/ontology/studio/web
+
+
+ Test Files  5 passed (5)
+      Tests  17 passed (17)
+   Start at  06:49:16
+   Duration  375ms (transform 69%, tests 16%, import 12%, worker 4%)
+

@@ -231,9 +231,17 @@ class WorkAgent:
                  registry=None, on_ontology_update: str = "continue",
                  max_steps: Optional[int] = None, max_repeats: int = 3, max_inline_wait: float = 5.0,
                  clock: Callable[[], float] = time.time, sleep: Callable[[float], None] = time.sleep,
-                 observer: Optional[Observer] = None, journal=None, audit_key: Any = None):
+                 observer: Optional[Observer] = None, journal=None, audit_key: Any = None,
+                 model_discretion: str = "governed", model_may_choose: Sequence[str] = ()):
         if on_ontology_update not in ("continue", "pause"):
             raise ValueError("on_ontology_update must be 'continue' or 'pause'")
+        from .integrity import DISCRETION
+
+        if model_discretion not in DISCRETION:
+            raise ValueError(f"model_discretion must be one of {list(DISCRETION)}")
+        # what a model reasoner may decide beyond the deterministic plan (autology.integrity, GAP-045)
+        self.model_discretion = model_discretion
+        self.model_may_choose = frozenset(model_may_choose)
         self.principal = Principal(name, roles)
         self.ontology = ontology
         self.tools = tools
@@ -762,6 +770,9 @@ class WorkAgent:
             ctx = DecisionContext(self.ontology, goal, plan, self.planner.applicable(state, self.team),
                                   self.governance.redacted_view(state, self.principal), list(run.history))
             proposal = self.reasoner.propose(ctx)
+            if getattr(proposal, "refused", None):  # a model's answer was not used: keep the evidence
+                self._log(audit, "reasoner.refused", case=run.case_id, step=index, reason=proposal.refused,
+                          model=proposal.model, kept=proposal.action)
             run.costs["llm_usd"] += proposal.cost_usd
             if proposal.unpriced_tokens:  # a model without a price: its cost is unknown, never counted as free
                 run.costs["llm_unpriced_tokens"] = run.costs.get("llm_unpriced_tokens", 0) + proposal.unpriced_tokens
@@ -782,6 +793,24 @@ class WorkAgent:
                 if executor is None:  # pragma: no cover - planner only emits compliant steps
                     return finish("escalated", Escalation("planned step denied", action=plan[0],
                                                           details=decision.reasons))
+
+            from .integrity import MODEL_SOURCES, may_deviate
+
+            if proposal.source in MODEL_SOURCES and proposal.action != plan[0]:
+                # A model preferred another valid action than the plan's. Whatever persuaded it (possibly text in
+                # the data), that is honoured only where policy lets a model choose (see autology.integrity).
+                honoured, why = may_deviate(proposal.action, decision.verdict.value, self.model_discretion,
+                                            self.model_may_choose)
+                if not honoured:
+                    self._log(audit, "reasoner.deviation_refused", case=run.case_id, step=index,
+                              proposed=proposal.action, kept=plan[0], reason=why, model=proposal.model,
+                              rationale=proposal.rationale[:500])
+                    proposal = Proposal(plan[0], f"model choice of {proposal.action!r} not honoured: {why}",
+                                        "override", proposal.model)
+                    executor, decision = self._authorize(plan[0], state)
+                    if executor is None:  # pragma: no cover - planner only emits compliant steps
+                        return finish("escalated", Escalation("planned step denied", action=plan[0],
+                                                              details=decision.reasons))
 
             action = ground(self.ontology, proposal.action)
             run.attempts[action.name] += 1

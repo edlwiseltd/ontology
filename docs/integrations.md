@@ -165,6 +165,32 @@ an Autology `sql` source at the staging tables. Autology then does what the pipe
 ontology objects, enforce the ontology's types and states, quarantine what does not fit, and trigger governed
 work on what changed.
 
+### Who may change the facts decisions rest on (GAP-037)
+
+Loading data is a privileged act: a pipeline can change values that rules, preconditions and goals read (for
+example an amount a review threshold depends on). The boundary is set with the ontology's `write_access` rules,
+which name the roles that may modify a field, and it binds ingestion like every other writer:
+
+- **Rows a caller pushes** (`POST /api/pipelines/<name>/run` with `rows`) are written with the **caller's roles**.
+  Holding the `ingest` permission is not enough to create or change a protected field.
+- **Sources the operator configured** (files, SQL, HTTP), on the schedule, from the API or from the command line,
+  are written with the **pipeline's own roles**: `"roles": ["claims_adjuster"]` in the pipeline definition says the
+  operator made this pipeline authoritative for what those roles may write. A caller's roles lend it nothing.
+- A row that would create or change a protected field without the role is **rejected like any other bad row**
+  (it appears in the batch's rejects with the rule's id); the other rows are loaded. Fields no rule protects load
+  as before.
+- The engine's `admin` permission is unrestricted here too, as everywhere.
+
+Every load reports `decision_fields_changed`: the records whose decision-critical fields changed (names, never
+values), also written to the access log; `GET /api/objects/<id>/lineage` shows which load changed which attribute.
+`GET /api/pipelines` lists, per pipeline, the decision-critical fields it writes and those **no `write_access` rule
+protects** (`unprotected_decision_fields`): for those, whoever may run the pipeline may change what decisions rest
+on, so protect them or accept that knowingly. When a load (or a direct write) changes a decision-critical fact of a
+record with a decision pending, the reviewers are notified (`evidence_changed`) and the load lists the runs
+(`decisions_to_revalidate`). An approval given on the earlier facts is never used: the run re-reads its records
+when it resumes and asks again. Pipeline definitions are files the operator deploys; they are not part of a
+release's snapshot.
+
 ### Limits
 
 - Loads are row-by-row in Python into SQLite: fine for tens of thousands of rows per load, not for millions.

@@ -99,6 +99,10 @@ class EvalSuite:
     reasoners: Dict[str, Any] = field(default_factory=dict)
     repeats: int = 1
     base_dir: Path = Path(".")
+    # what a model may decide beyond the plan, as in an agent's configuration (autology.integrity). The default is
+    # the production default; "open" measures a model's own choices
+    model_discretion: str = "governed"
+    model_may_choose: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -176,7 +180,7 @@ def load_suite(path: Union[str, Path]) -> EvalSuite:
                  for d in doc.get("delegates", [])]
     return EvalSuite(doc.get("name", p.stem), onto, tools, goal, cases, list(doc.get("roles", [])), approver,
                      delegates, dict(doc.get("reasoners") or {"planner": "planner"}), int(doc.get("repeats", 1)),
-                     base)
+                     base, str(doc.get("model_discretion", "governed")), list(doc.get("model_may_choose") or []))
 
 
 def _make_reasoner(spec: Any, base: Path) -> Any:
@@ -285,7 +289,8 @@ def run_suite(suite: EvalSuite, reasoners: Optional[Mapping[str, Any]] = None, r
                 agent = WorkAgent(f"eval-{name}", suite.ontology, suite.tools,
                                   roles=case.roles if case.roles is not None else suite.roles,
                                   delegates=delegates, reasoner=reasoner, approver=suite.approver,
-                                  sleep=lambda s: None)
+                                  sleep=lambda s: None, model_discretion=suite.model_discretion,
+                                  model_may_choose=suite.model_may_choose)
                 started = time.perf_counter()
                 result = agent.run(case.goal or suite.goal, json.loads(json.dumps(case.case)), case.id)
                 wall = (time.perf_counter() - started) * 1000

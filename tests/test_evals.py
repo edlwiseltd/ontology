@@ -40,7 +40,13 @@ class SuiteTests(unittest.TestCase):
         self.assertEqual({n: m["pass_rate"] for n, m in summary.items()},
                          {"planner": 1.0, "contrarian": 1.0, "unreliable": 1.0})
         self.assertEqual(summary["planner"]["agreement"], 1.0)
-        self.assertLess(summary["contrarian"]["agreement"], 1.0)  # legal choices, but not the planner's
+        # a model that prefers other legal actions is not followed where no policy lets a model choose (SEC-A):
+        # what runs is the plan, and each refused choice is counted
+        self.assertEqual(summary["contrarian"]["agreement"], 1.0)
+        self.assertGreater(summary["contrarian"]["overrides"], 0)
+        open_suite = load_suite(SUITE)
+        open_suite.model_discretion = "open"  # the explicit setting that lets a model choose any valid action
+        self.assertLess(run_suite(open_suite).summary()["contrarian"]["agreement"], 1.0)
         self.assertGreater(summary["contrarian"]["cost_usd"], 0)  # suite prices apply
         self.assertGreater(summary["unreliable"]["fallbacks"], 0)  # invalid answers fall back safely
         self.assertEqual(report.failures(), {})
@@ -113,11 +119,16 @@ class SuiteTests(unittest.TestCase):
 
         suite = load_suite(SUITE)
         suite.cases = suite.cases[:1]
+        suite.model_discretion = "open"
         report = run_suite(suite, {"random": lambda: LLMReasoner(FunctionChatModel(pick), cache_size=0)}, repeats=3)
         m = report.summary()["random"]
         self.assertEqual(m["runs"], 3)
         self.assertEqual(m["pass_rate"], 1.0)  # governance keeps every random choice compliant
         self.assertLess(m["consistency"], 1.0)  # but the paths differ between attempts
+        suite.model_discretion = "governed"  # the default: a random model changes nothing that runs
+        report = run_suite(suite, {"random": lambda: LLMReasoner(FunctionChatModel(pick), cache_size=0)}, repeats=3)
+        self.assertEqual((report.summary()["random"]["pass_rate"], report.summary()["random"]["consistency"]),
+                         (1.0, 1.0))
 
     def test_make_reasoner(self):
         with self.assertRaises(TypeError):

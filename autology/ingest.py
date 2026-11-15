@@ -224,6 +224,12 @@ class Pipeline:
         self.every = spec.get("every")
         if self.every is not None and (not isinstance(self.every, (int, float)) or self.every < 1):
             raise PipelineError(f"{self.name}: every must be a number of seconds >= 1")
+        # the roles this pipeline writes with when it reads the sources the operator configured: what lets it
+        # change fields a write_access rule protects (rows a caller pushes are written with the caller's roles)
+        roles = spec.get("roles") or []
+        if not isinstance(roles, list) or not all(isinstance(r, str) and r for r in roles):
+            raise PipelineError(f"{self.name}: roles must be a list of role names")
+        self.roles = frozenset(roles)
         self.sources: Dict[str, Dict[str, Any]] = dict(spec.get("sources") or {})
         if not self.sources:
             raise PipelineError(f"{self.name}: no sources")
@@ -463,8 +469,10 @@ class Pipeline:
                                        _after(newest, plan.previous[sname])):
                 plan.watermarks[sname] = newest
 
-    def plan(self, graph: Any, read: Plan) -> Plan:
-        """Work out the changes the rows read would make, rejecting rows that fail a check."""
+    def plan(self, graph: Any, read: Plan, write_guard: Any = None) -> Plan:
+        """Work out the changes the rows read would make, rejecting rows that fail a check. ``write_guard(entity,
+        existing attributes or None, attributes created or changed, pushed)`` returns why the writer may not make
+        that change (a ``write_access`` rule), or None."""
         from .graph import KnowledgeGraph
 
         plan, rows_by_source = read, read.rows
@@ -506,6 +514,12 @@ class Pipeline:
                         KnowledgeGraph(self.ontology).add(m.entity, iid, **merged)
                     except OntologyError as exc:
                         error = str(exc)
+                if error is None and write_guard is not None:
+                    changing = values if existing is None else {
+                        a: v for a, v in values.items() if existing.attributes.get(a) != v}
+                    if changing:
+                        error = write_guard(m.entity, existing.attributes if existing is not None else None,
+                                            changing, self.sources[m.source]["type"] == "push")
                 if error:
                     reject(error)
                     continue

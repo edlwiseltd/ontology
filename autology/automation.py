@@ -80,9 +80,14 @@ class Automation:
         except (ExpressionError, TypeError):
             return False  # e.g. comparing a missing value: the condition does not hold yet
 
+    @property
+    def template(self) -> str:
+        return str((self.notify or {}).get("message") or f"{self.name}: {self.entity} {{id}}")
+
     def message(self, inst: Instance) -> str:
-        template = str((self.notify or {}).get("message") or f"{self.name}: {inst.type} {{id}}")
-        return PLACEHOLDER.sub(lambda m: str(inst.id if m.group(1) == ID else inst.get(m.group(1))), template)
+        """The message with every value filled in. Readers get it through the service, which renders it for
+        each of them (a field a reader may not see is not shown, GAP-035)."""
+        return PLACEHOLDER.sub(lambda m: str(inst.id if m.group(1) == ID else inst.get(m.group(1))), self.template)
 
     def describe(self) -> Dict[str, Any]:
         return {"name": self.name, "description": self.description, "entity": self.entity,

@@ -335,10 +335,16 @@ class CostOptimisationTests(unittest.TestCase):
         client = FakeClaude(picker=lambda names: names[0])  # keeps re-running due diligence
         onto = Ontology.load(ONTOLOGY_PATH)
         agent = WorkAgent("a", onto, build_registry(), roles=["sales", "kyc"], reasoner=ClaudeReasoner(client),
-                          approver=AutoApprover())
+                          approver=AutoApprover(), model_discretion="open")
         res = agent.run("onboard_customer", retail_case())
         self.assertEqual(res.status, "escalated")
         self.assertIn("enhanced_due_diligence attempted 3 times", res.escalation.reason)
+        # by default a model is not followed off the plan where no policy lets it choose (SEC-A): the case completes
+        governed = WorkAgent("a", onto, build_registry(), roles=["sales", "kyc"], approver=AutoApprover(),
+                             reasoner=ClaudeReasoner(FakeClaude(picker=lambda names: names[0])))
+        res = governed.run("onboard_customer", retail_case())
+        self.assertTrue(res.completed)
+        self.assertIn("reasoner.deviation_refused", [e.event for e in res.audit])
 
     def test_routing_skips_model_for_trivial_choices_and_right_sizes(self):
         client = FakeClaude(picker=lambda names: next(n for n in names if n != "enhanced_due_diligence"))

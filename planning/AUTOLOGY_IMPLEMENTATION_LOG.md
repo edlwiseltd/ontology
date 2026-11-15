@@ -405,3 +405,30 @@ studio job that failed in run 79 passes in both.
 Defects closed: GAP-030, GAP-033, GAP-062, GAP-063; GAP-021 partly. Decisions awaiting the owner: D23, D24, D25.
 None of this is an independent security certification.
 
+## 15 November 2026 — Decision integrity sprint, increment A: SEC-A (GAP-045, GAP-037, GAP-035)
+
+Baseline verified before any change: HEAD `317be70` (the completion report, documentation only, on top of
+`bf8fb15`), clean and in sync; CI run 83 success; the suite had been re-run at `bf8fb15` for that report (770 OK).
+
+All three defects were first reproduced on the previous commit with a script: an instruction in a record made the
+agent refund a customer (`refunded ['refunder']`); a caller with only `ingest` set a write-protected amount from
+48000 to 100; an operations reader's notification showed a finance-only credit limit.
+
+| Story | Change | Tests | Behaviour change |
+|---|---|---|---|
+| GAP-045 what a model may decide | New `autology/integrity.py`. Agent loop: a model's choice other than the plan's step is honoured only if the action is under human review in that state or listed in the agent's `model_may_choose`; otherwise the plan's step runs and `reasoner.deviation_refused` is recorded. `model_discretion`: `governed` (default), `plan`, `open`. Reasoner: data in a marked block that cannot be closed from inside; a reply with unexpected fields or a non-candidate is refused and recorded (`reasoner.refused`). Findings for unreviewed discretion at start and in `GET /api/agents` | I1–I7 | **Yes:** by default a model no longer moves an agent off the plan onto an unreviewed action. `"model_discretion": "open"` restores the earlier behaviour explicitly |
+| GAP-037 who may change decision facts | `write_access` rules bind ingestion: caller's roles for pushed rows, pipeline `roles` for configured sources; refused rows are rejected individually. Load report: `decision_fields_changed`, `decisions_to_revalidate`; access-log entry; `evidence_changed` notification to the reviewers of pending decisions; pipeline listing shows decision fields and those unprotected | G1–G6 | **Yes:** a pipeline or caller without the role can no longer write a field a `write_access` rule protects. Fields without such a rule load as before |
+| GAP-035 notifications per reader | Automation messages are stored as template and values and rendered for each reader; hidden and justification-gated fields show `[restricted]`; notes about a run the reader may not see are not listed; webhooks and stored text carry the audience-safe version | N1–N5 | **Yes:** readers without the right no longer see restricted values in notifications; **found on the way:** a justification-gated field was shown to every addressed reader, and no longer is |
+
+**Tests changed on purpose:** `test_evals` (a contrarian or random model no longer changes what runs by default;
+the earlier expectations are kept under `model_discretion = "open"`), `test_operations` (the repeat bound is tested
+under `open`; the default now completes the case).
+**Limits:** where policy grants a model discretion (a listed action, or `open`), the model can still be steered
+inside it; a human reviewer reads the same text the model read; a decision-critical field without a `write_access`
+rule remains writable by any ingester (listed, not blocked); pipeline definitions are operator files outside the
+release snapshot; webhook redaction is by the addressed roles, not per receiving system. None of this is an
+independent security certification.
+Evidence (local): full suite 788 OK (770 + 18; 2 PostgreSQL tests skipped locally), 95.71 % lines (13,470
+statements, 578 missed); after that run an unused helper was removed and one rule made stricter (a `write_access`
+condition that cannot be evaluated now protects the field), re-checked with the targeted modules (47 OK); ruff
+clean; mypy 198 (= baseline). No API route or schema changed, so Studio was not rebuilt. CI: recorded below.

@@ -190,6 +190,7 @@ class AutologyService:
         # the platform answers the stage, or (stage, reason) when it can say why (drift, broken history)
         self.stage_gate: Optional[Callable[[], Any]] = None
         self.agents: Dict[str, AgentConfig] = {}
+        self.model_findings: List[str] = []  # discretion a model has that no person reviews (GAP-045)
         for name, spec in (config.get("agents") or {}).items():
             delegates = [WorkAgent(d["name"], self.ontology, load_tools(rel(d["tools"])), roles=d.get("roles", []),
                                    audit_key=self.audit_key)
@@ -200,11 +201,24 @@ class AutologyService:
             if getattr(approver, "can_approve", False) and not self.simulation:
                 raise ValueError(f"agent {name}: approver {approver_spec!r} approves human reviews without a "
                                  "person; use \"inbox\", or set \"simulation\": true for a test server")
+            may_choose = spec.get("model_may_choose") or []
+            if not isinstance(may_choose, list) or not all(isinstance(a, str) for a in may_choose):
+                raise ValueError(f"agent {name}: model_may_choose must be a list of action names")
             agent = WorkAgent(name, self.ontology, load_tools(rel(spec["tools"])), roles=spec.get("roles", []),
                               delegates=delegates, approver=approver,
                               reasoner=load_reasoner(spec.get("reasoner"), (str(base),)),
                               journal=StoreJournal(self.store, name),  # external calls survive a crash
-                              audit_key=self.audit_key)
+                              audit_key=self.audit_key,
+                              # what a model reasoner may decide beyond the plan (GAP-045): governing settings,
+                              # so they are part of the configuration fingerprint and of every release
+                              model_discretion=spec.get("model_discretion", "governed"),
+                              model_may_choose=may_choose)
+            if spec.get("reasoner") not in (None, "planner"):
+                from .integrity import model_findings
+
+                for finding in model_findings(self.ontology, name, agent.model_discretion, may_choose):
+                    self.model_findings.append(finding)
+                    log.warning(finding)
             goals = list(spec.get("goals") or self.ontology.goals)
             unknown = [g for g in goals if g not in self.ontology.goals]
             if unknown:
@@ -253,6 +267,10 @@ class AutologyService:
                 raise ValueError(f"oidc.mappings: unknown permissions {sorted(unknown)}")
         self.automations = load_automations(config.get("automations") or {}, self.ontology,
                                             {n: a.goals for n, a in self.agents.items()})
+        from .integrity import decision_fields
+
+        # "Entity.attribute" -> what reads it to decide (rules, preconditions, goals, automations): GAP-037
+        self.decision_fields = decision_fields(self.ontology, self.automations)
         for auto in self.automations.values():  # a run nobody asked for acts as an authorised service identity
             if auto.run:
                 sid = auto.run.get("as")
@@ -732,7 +750,11 @@ class AutologyService:
                 self._record_conflict(exc)
                 raise ApiError(409, f"{exc}; nothing was written", {"record": iid, "tampered": exc.tampered}) \
                     from None
+            before = self.graph._instances.get(iid)
             self.graph._instances[iid] = inst
+            changed_facts = [] if before is None else sorted(
+                a for a, v in inst.attributes.items()
+                if before.attributes.get(a) != v and f"{etype}.{a}" in self.decision_fields)
             for link in body.get("links", []):
                 try:
                     self.graph.link(iid, link["kind"], link["target"])
@@ -740,6 +762,8 @@ class AutologyService:
                     raise ApiError(400, f"invalid link {link}: {exc}") from None
                 self.store.add_link(iid, link["kind"], link["target"])
         out = self.object_view(inst, user)
+        if changed_facts:
+            self._evidence_changed({iid: changed_facts}, user.name)
         fired = self._changed([iid])
         if fired:
             out["triggered"] = [f.as_dict() for f in fired]
@@ -1136,15 +1160,65 @@ class AutologyService:
         if refusal:
             raise ApiError(409, refusal, {"stage": self.execution_policy()["stage"]})
 
+    def _not_for_notifications(self, inst: Instance, attr: str, user: User) -> bool:
+        """A field this reader may not be shown in a notification: one a data_access rule hides from them, or
+        one that needs a written justification to read (a notification cannot ask for one)."""
+        return self.field_hidden(inst, attr, user) or f"{inst.type}.{attr}" in self.views.gated
+
+    def _hidden_from_roles(self, inst: Instance, attr: str, roles) -> bool:
+        """Whether some role a notification is addressed to may not be shown this field of this record."""
+        return f"{inst.type}.{attr}" in self.views.gated or any(
+            self.field_hidden(inst, attr, User("-", "", frozenset({"read"}), frozenset({role}))) for role in roles)
+
+    def _notify_record(self, kind: str, roles, template: str, inst: Instance, ref: Dict[str, Any]) -> Dict[str, Any]:
+        """A notification about one record, from a template with ``{attribute}`` placeholders (GAP-035). The text
+        that is stored and sent to webhooks is the one every addressed role may read; each reader later gets
+        the text rendered for them (:meth:`list_notifications`)."""
+        from .integrity import PRIVATE_REF, placeholders, render
+
+        values = {name: (inst.id if name == "id" else inst.get(name)) for name in placeholders(template)}
+        message = render(template, values, lambda attr: self._hidden_from_roles(inst, attr, roles))
+        return self._notify(kind, roles, message, {**ref, PRIVATE_REF: {"template": template, "values": values}})
+
+    def _evidence_changed(self, changes: Dict[str, List[str]], by: str) -> List[str]:
+        """Tell the people who have a decision pending on a record that facts it rests on were changed (GAP-037).
+        ``changes`` maps a record id to its decision-critical attributes that changed. The approval itself is
+        never used on the new facts: the run re-reads its records when it resumes and asks again (ACT-6).
+        Returns the runs concerned."""
+        if not changes:
+            return []
+        runs = []
+        for review in self.store.list_reviews("pending", limit=10 ** 6):
+            linked = self.store.run_sources(review["run_id"]) or {}
+            ids = set()
+            for src in (linked.get("sources") or {}).values():
+                ids.update(src if isinstance(src, list) else [src])
+            for iid in sorted(ids & set(changes)):
+                with self.graph_lock:
+                    inst = self.graph._instances.get(iid)
+                etype = inst.type if inst is not None else "record"
+                self._notify("evidence_changed", review["request"].get("reviewers") or [],
+                             f"Facts behind a pending decision changed: {etype} {iid} ({', '.join(changes[iid])}), "
+                             f"changed by {by}. Run {review['run_id']} will ask for approval again on the current "
+                             "facts; an approval given on the earlier ones is not used.",
+                             {"instance": iid, "run_id": review["run_id"], "review_id": review["review_id"],
+                              "attributes": list(changes[iid])})
+                if review["run_id"] not in runs:
+                    runs.append(review["run_id"])
+        return runs
+
     def _notify(self, kind: str, roles, message: str, ref: Dict[str, Any]) -> Dict[str, Any]:
+        from .integrity import public_note
+
         note = self.store.add_notification(kind, roles, message, ref)
+        outgoing = public_note(note)  # never the private rendering data: only what every addressed role may read
         for hook in self.webhooks:
             if not hook["kinds"] or kind in hook["kinds"]:
                 refused = self._environment_refused(hook["environment"], "a webhook")
                 if refused:  # the notification stays in the inbox; nothing leaves the platform
                     log.info("webhook not delivered: %s", refused)
                     continue
-                t = threading.Thread(target=self._deliver, args=(hook["url"], note), daemon=True)
+                t = threading.Thread(target=self._deliver, args=(hook["url"], outgoing), daemon=True)
                 t.start()
                 self.deliveries.append(t)
         self.deliveries = [t for t in self.deliveries if t.is_alive()]
@@ -1247,8 +1321,8 @@ class AutologyService:
             self._changed(changed)
         if auto.notify:
             ref = {"automation": auto.name, "instance": inst.id, "run_id": firing.run_id, "status": firing.status}
-            firing.notification_id = self._notify("automation", auto.notify["roles"], auto.message(inst),
-                                                  ref)["notification_id"]
+            firing.notification_id = self._notify_record("automation", auto.notify["roles"], auto.template, inst,
+                                                         ref)["notification_id"]
             if not auto.run:
                 firing.status = "notified"
         return firing
@@ -1378,9 +1452,17 @@ class AutologyService:
 
     # -- ingestion ------------------------------------------------------------------
     def ingest(self, name: str, triggered_by: str, dry_run: bool = False,
-               pushed: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """Run one pipeline: read its sources, check every row, write the accepted ones, fire automations."""
+               pushed: Optional[Dict[str, Any]] = None, roles: Optional[FrozenSet[str]] = None,
+               unrestricted: bool = False) -> Dict[str, Any]:
+        """Run one pipeline: read its sources, check every row, write the accepted ones, fire automations.
+
+        Fields protected by a ``write_access`` rule are written only with the right roles (GAP-037): ``roles``,
+        the caller's, for rows the caller pushed; the pipeline's own declared roles for the sources the operator
+        configured (and for pushed rows when no caller is known, e.g. the command line). ``unrestricted`` is a
+        caller holding the engine's ``admin`` permission. This is the one entry for every way a pipeline runs:
+        the API, the schedule, the command line."""
         from .ingest import PipelineError, apply_to_graph
+        from .integrity import write_refusal
 
         pipe = self.pipelines.get(name)
         if pipe is None:
@@ -1395,7 +1477,16 @@ class AutologyService:
             with self.graph_lock:
                 from .store import ABSENT, RecordConflict
 
-                plan = pipe.plan(self.graph, plan)
+                def guard(entity, existing, changing, was_pushed):
+                    if unrestricted and was_pushed:
+                        return None
+                    writer = roles if was_pushed and roles is not None else pipe.roles
+                    return write_refusal(self.ontology, entity, existing, changing, writer)
+
+                plan = pipe.plan(self.graph, plan, guard)
+                critical = {iid: sorted(a for a in attrs if f"{etype}.{a}" in self.decision_fields)
+                            for iid, (etype, attrs) in plan.updates.items()}
+                critical = {iid: attrs for iid, attrs in critical.items() if attrs}
                 try:  # over the revisions this process holds: a stale or tampered record refuses the load
                     batch = self.store.apply_ingest(plan, triggered_by, dry_run, expected={
                         iid: self.revisions.get(iid, ABSENT) for iid in plan.updates})
@@ -1406,8 +1497,17 @@ class AutologyService:
                 if not dry_run:
                     apply_to_graph(self.graph, plan)
                     self.revisions.update(self.store.instance_revisions(list(plan.creates) + list(plan.updates)))
-        out = {"batch_id": batch, "dry_run": dry_run, **plan.summary()}
+        out = {"batch_id": batch, "dry_run": dry_run, **plan.summary(),
+               # facts that rules, preconditions, goals or automations read, changed on existing records: names only
+               "decision_fields_changed": [{"id": iid, "attributes": attrs} for iid, attrs in sorted(critical.items())]}
         if not dry_run:
+            if critical:
+                try:
+                    self.store.log_access(triggered_by, "ingest.decision_fields",
+                                          f"{name} batch {batch}: {len(critical)} records", 200)
+                except Exception:  # the load is done; its report still says what changed
+                    self.log_error("recording decision-field changes")
+                out["decisions_to_revalidate"] = self._evidence_changed(critical, f"pipeline {name} ({triggered_by})")
             fired = self._changed(plan.changed_ids)
             if fired:
                 out["triggered"] = [f.as_dict() for f in fired]
@@ -1436,7 +1536,14 @@ class AutologyService:
         items = []
         for name, pipe in self.pipelines.items():
             last = self.store.ingest_batches(name, limit=1)
-            items.append({"name": name, "every": pipe.every,
+            written = sorted({f"{m.entity}.{a}" for m in pipe.mappings for a in m.attributes})
+            guarded = {r.params["field"] for r in self.ontology.rules_of("write_access")}
+            items.append({"name": name, "every": pipe.every, "roles": sorted(pipe.roles),
+                          # decision-critical fields this pipeline writes, and those no write_access rule protects:
+                          # for those, whoever may run the pipeline may change what decisions rest on
+                          "decision_fields": [f for f in written if f in self.decision_fields],
+                          "unprotected_decision_fields": [f for f in written if f in self.decision_fields
+                                                          and f not in guarded],
                           "sources": {s: src["type"] for s, src in pipe.sources.items()},
                           "entities": sorted({m.entity for m in pipe.mappings}),
                           "watermarks": self.store.ingest_watermarks(name),
@@ -1449,7 +1556,8 @@ class AutologyService:
         if rows is not None and (not isinstance(rows, dict) or
                                  not all(isinstance(v, list) for v in rows.values())):
             raise ApiError(400, "rows must map each push source to a list of records")
-        return self.ingest(name, user.name, bool(body.get("dry_run")), rows)
+        return self.ingest(name, user.name, bool(body.get("dry_run")), rows, roles=user.roles,
+                           unrestricted="admin" in user.permissions)
 
     def ingest_batch(self, user: User, batch_id: str) -> Dict[str, Any]:
         """A load and its quarantined rows. The rows hold raw source data, so only ingesters see them."""
@@ -1531,8 +1639,12 @@ class AutologyService:
 
     def list_notifications(self, user: User, since: Optional[str], limit: int) -> Dict[str, Any]:
         self.require(user, "read")
-        roles = None if "admin" in user.permissions else user.roles | user.reviewer_roles
+        from .integrity import PRIVATE_REF, public_note, render
+
+        unrestricted = "admin" in user.permissions
+        roles = None if unrestricted else user.roles | user.reviewer_roles
         items = []
+        runs: Dict[str, bool] = {}
         for note in self.store.list_notifications(roles, since, limit=10 ** 9):
             if len(items) >= limit:
                 break
@@ -1541,7 +1653,23 @@ class AutologyService:
                 inst = self.graph._instances.get(iid) if iid else None
             if inst is not None and not self.visible(inst, user):
                 continue  # don't leak hidden rows through notification text
-            items.append(note)
+            run_id = note["ref"].get("run_id")
+            if run_id and not unrestricted:  # a notification about a run the reader may not see (GAP-035)
+                if run_id not in runs:
+                    try:
+                        runs[run_id] = self.views.can_see_run(user, self.store.load_run(run_id))
+                    except KeyError:
+                        runs[run_id] = True  # no such run any more: nothing of it can be shown
+                if not runs[run_id]:
+                    continue
+            private = note["ref"].get(PRIVATE_REF)
+            out = public_note(note)
+            if private and inst is not None:  # the text for this reader: fields they may not read are not shown
+                def not_shown(attr: str, record: Instance = inst) -> bool:
+                    return self._not_for_notifications(record, attr, user)
+
+                out["message"] = render(private["template"], private["values"], not_shown)
+            items.append(out)
         return {"items": items}
 
     def run_roles(self, cfg: AgentConfig, user: Optional[User] = None, identity: Optional[str] = None) -> List[str]:
@@ -2142,8 +2270,10 @@ class AutologyService:
         for name, cfg in self.agents.items():
             reason = cfg.agent.governance.suspended.get(cfg.agent.principal.name)
             items[name] = {"goals": cfg.goals, "roles": sorted(cfg.agent.principal.roles),
-                           "suspended": reason is not None, "reason": reason}
-        return {"items": items}
+                           "suspended": reason is not None, "reason": reason,
+                           "model_discretion": cfg.agent.model_discretion,
+                           "model_may_choose": sorted(cfg.agent.model_may_choose)}
+        return {"items": items, "model_findings": list(self.model_findings)}
 
     def reinstate_agent(self, user: User, name: str, body: Dict[str, Any]) -> Dict[str, Any]:
         self.require(user, "admin")

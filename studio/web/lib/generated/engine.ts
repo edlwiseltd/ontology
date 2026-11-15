@@ -363,6 +363,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/model/draft/simulate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Dry run of a model document with stub tools: nothing stored, nothing called outside the engine */
+        post: operations["postModelDraftSimulate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/model/validate": {
         parameters: {
             query?: never;
@@ -1044,6 +1061,110 @@ export interface components {
             };
             expected_revision: number;
             note?: string;
+        } & {
+            [key: string]: unknown;
+        };
+        DraftSimulation: {
+            agent: {
+                roles: string[];
+                tools: string;
+            } & {
+                [key: string]: unknown;
+            };
+            audit: {
+                events: ({
+                    data: {
+                        [key: string]: unknown;
+                    };
+                    event: string;
+                    seq: number;
+                } & {
+                    [key: string]: unknown;
+                })[];
+                note: string;
+            } & {
+                [key: string]: unknown;
+            };
+            case: {
+                [key: string]: unknown;
+            };
+            escalation: null | ({
+                action?: string | null;
+                details?: string[];
+                reason: string;
+            } & {
+                [key: string]: unknown;
+            });
+            final_state: {
+                [key: string]: unknown;
+            };
+            goal: string;
+            model: {
+                fingerprint: string;
+                ref: string;
+            } & {
+                [key: string]: unknown;
+            };
+            notice: string;
+            pending_review: null | ({
+                action: string;
+                facts?: {
+                    [key: string]: unknown;
+                };
+                reasons: string[];
+                reviewers: string[];
+                rules: string[];
+            } & {
+                [key: string]: unknown;
+            });
+            persisted: boolean;
+            refused: ({
+                action: string;
+                reasons: string[];
+            } & {
+                [key: string]: unknown;
+            })[];
+            requested_by?: string;
+            reviews: ({
+                action: string;
+                approved: boolean;
+                as: string;
+                note: string;
+            } & {
+                [key: string]: unknown;
+            })[];
+            simulated: boolean;
+            status: string;
+            steps: ({
+                action: string;
+                explanation?: string;
+                index: number;
+                outcome: string | null;
+                reviewer?: string | null;
+                tool: string | null;
+                verdict: string;
+            } & {
+                [key: string]: unknown;
+            })[];
+        } & {
+            [key: string]: unknown;
+        };
+        DraftSimulationRequest: {
+            approvals?: ({
+                action: string;
+                approved: boolean;
+                as?: string;
+            } & {
+                [key: string]: unknown;
+            })[];
+            case?: {
+                [key: string]: unknown;
+            };
+            document?: {
+                [key: string]: unknown;
+            };
+            goal?: string;
+            roles?: string[];
         } & {
             [key: string]: unknown;
         };
@@ -3295,6 +3416,95 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Permission or checkpoint refused */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found or not visible */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict: state, stage or revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    postModelDraftSimulate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftSimulationRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftSimulation"];
                 };
             };
             /** @description Invalid request */

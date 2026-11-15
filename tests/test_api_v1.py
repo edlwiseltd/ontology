@@ -146,7 +146,15 @@ class SchemaConformanceTests(V1Base):  # V5
             ("GET", "/api/architect/proposals/{id}"): ("GET", f"{E}/v1/architect/proposals/{stored['id']}", None),
             ("POST", "/api/architect/proposals/{id}/decision"): (
                 "POST", f"{E}/v1/architect/proposals/{stored['id']}/decision",
-                {"accepted": [stored["items"][0]["id"]], "note": "v1"})})
+                {"accepted": [stored["items"][0]["id"]], "note": "v1"}),
+            ("POST", "/api/model/draft/simulate"): ("POST", f"{E}/v1/model/draft/simulate", {
+                "document": {"name": "v1", "version": "1.0.0", "entities": {"Task": {
+                    "description": "x", "states": ["open", "done"], "attributes": {"size": "number"}}},
+                    "actions": {"finish": {"description": "x", "capability": "tasks.finish", "side_effect": "none",
+                                           "requires": ["Task.status == 'open'"], "effects": {"Task": {"status": "done"}}}},
+                    "rules": [{"id": "R-BIG", "type": "human_review", "action": "finish", "reviewer": "lead",
+                               "when": "Task.size >= 5", "description": "A lead decides big tasks"}],
+                    "goals": {"done": {"description": "x", "target": "Task.status == 'done'"}}}})})
         self.assertEqual(set(calls), set(RESPONSES))  # every typed engine response is exercised
         for key, (method, path, body) in calls.items():
             with self.subTest(route=key):

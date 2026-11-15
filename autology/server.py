@@ -2025,6 +2025,8 @@ class ApiExchange:
                 return self._send(200, service.model_draft_history(user))
             if parts == ["model", "validate"] and method == "POST":
                 return self._send(200, service.validate_model(user, body))
+            if parts == ["model", "draft", "simulate"] and method == "POST":
+                return self._send(200, service.architect.simulate_draft(user, body))
             if parts == ["architect", "proposals"] and method in ("GET", "POST"):
                 return self._send(200, service.architect_proposals(user, body) if method == "POST"
                                   else service.architect.list_proposals(user))

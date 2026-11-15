@@ -15,3 +15,6 @@ python -m autology console --engine http://127.0.0.1:8700/w/acme/u/claims --port
 
 Each use case keeps its data in `data/<workspace>/<use case>/autology.db`; a Claude key saved from the Console is
 kept in `data/<workspace>/secrets.json`. See `docs/workspaces.md`.
+
+The template `blank-solution` starts a use case with an empty model and the sandbox architect: see
+`docs/onboarding-demo.md` for the guided onboarding demonstration (synthetic; no language model).

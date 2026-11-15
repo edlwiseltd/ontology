@@ -352,6 +352,128 @@ try {
   check("no page errors (access)", errors.length === 0, errors.join("; "));
   await zoe.close(); await approver.close(); await adm.close();
 
+  // 5. guided onboarding (sandbox): description → questions → proposal → review → validation → simulation → readiness
+  const onb = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  onb.on("pageerror", (e) => errors.push(String(e)));
+  const onb_started = Date.now();
+  await onb.goto(STUDIO);
+  await onb.fill("#token", "acme-ada");
+  await onb.click("form button[type=submit]");
+  await onb.waitForSelector(".uc-list button");
+  await onb.click("text=New");
+  await onb.waitForSelector("#c-template option", { state: "attached" });
+  await onb.selectOption("#c-template", "blank-solution");
+  await onb.fill("#c-id", "service-desk");
+  await onb.fill("#c-name", "Service desk");
+  await onb.click("text=Create in Draft");
+  await onb.waitForSelector(".uc-list button:has-text('Service desk')");
+  await onb.click(".uc-list button:has-text('Service desk')");
+  await onb.click("role=tab[name='Onboarding']");
+  await onb.waitForSelector("[data-testid=sandbox-notice]");
+  await onb.waitForFunction(() => document.querySelector("[data-testid=sandbox-notice]").textContent.includes("test double"));
+  check("onboarding: the screen says it is a sandbox and that no language model answers",
+        (await onb.textContent("[data-testid=sandbox-notice]")).includes("not a language model"));
+  await onb.fill("#ob-brief", "Employees send service requests. A manager must approve the expensive ones, then a team fulfils them.");
+  await onb.click("text=Propose a solution");
+  await onb.waitForSelector("[data-testid=generator]");
+  check("onboarding: a description becomes a stored proposal with clarification questions",
+        (await onb.textContent("[data-testid=generator]")).includes("test double") &&
+        (await onb.textContent("#ob-questions ~ p, section p.small")).includes("revision 1") &&
+        (await onb.locator(".question").count()) === 4, `${await onb.locator(".question").count()} questions`);
+  await onb.fill("#q-approval_threshold", "5000");
+  await onb.fill("#q-approver_role", "Department head");
+  await onb.fill("#q-handler_role", "clerk");
+  await onb.fill("#q-fulfilment_system", "ERP sandbox");
+  await onb.click("text=Update the proposal with my answers");
+  await onb.waitForSelector("[data-testid=onboarding-canvas] .react-flow__node");
+  await onb.waitForSelector("[data-testid=workflow] tbody tr");
+  const proposedNodes = await onb.locator("[data-testid=onboarding-canvas] .react-flow__node.proposed").count();
+  check("onboarding: the proposed entities and relationships are shown as proposed, not confirmed",
+        proposedNodes === 3 && (await onb.locator("[data-testid=onboarding-canvas] .react-flow__node.confirmed").count()) === 0 &&
+        (await onb.locator("[data-testid=onboarding-canvas] .react-flow__edge").count()) === 2, `${proposedNodes} proposed nodes`);
+  const flowText = await onb.textContent("[data-testid=workflow]");
+  const accessText = await onb.textContent("[data-testid=access-lines]");
+  check("onboarding: the answers shaped the workflow, rules and permissions",
+        flowText.includes("department_head when Request.amount >= 5000") && accessText.includes("only clerk may fulfil_request") &&
+        (await onb.textContent("[data-testid=suggestions]")).includes("ERP sandbox"));
+  check("onboarding: assumptions and unknowns are stated",
+        (await onb.textContent("[data-testid=assumptions]")).includes("Unknown:"));
+  await onb.screenshot({ path: `${OUT}/desktop-onboarding-review.png`, fullPage: true });
+  await onb.click("text=Validate my selection with the engine");
+  await onb.waitForSelector("[data-testid=engine-validation]");
+  check("onboarding: the engine validates the selection before anything is saved",
+        (await onb.textContent("[data-testid=engine-validation]")).includes("strict loader accepts"));
+  const beforeSave = await call(onb, "GET", "/w/acme/u/service-desk/api/v1/model/draft/history");
+  await onb.click("button:has-text('as a draft')");
+  await onb.waitForSelector("[data-testid=saved]");
+  const onb_active = await onb.evaluate(async () => Object.keys((await (await fetch("/w/acme/u/service-desk/api/v1/ontology", { headers: {
+    Authorization: "Bearer " + sessionStorage.getItem("autology-studio-token") } })).json()).entities).length);
+  check("onboarding: accepted items are saved as a draft; what runs is unchanged",
+        (await onb.textContent("[data-testid=saved]")).includes("not active") && onb_active === 0 && beforeSave === 200, `${onb_active} active entities`);
+  const onb_stored = await onb.evaluate(async () => {
+    const h = { Authorization: "Bearer " + sessionStorage.getItem("autology-studio-token") };
+    const list = await (await fetch("/w/acme/u/service-desk/api/v1/architect/proposals", { headers: h })).json();
+    const one = await (await fetch(`/w/acme/u/service-desk/api/v1/architect/proposals/${list.items[0].id}`, { headers: h })).json();
+    return { revisions: list.items[0].revisions, ai: one.ai, decisions: one.decisions.length, by: one.decisions[0]?.decided_by,
+             accepted: one.decisions[0]?.accepted.length };
+  });
+  check("onboarding: the proposal keeps its revisions, provenance and the person's review",
+        onb_stored.revisions === 2 && onb_stored.ai === false && onb_stored.decisions === 1 && onb_stored.by === "ada" && onb_stored.accepted === 17,
+        JSON.stringify(onb_stored));
+  await onb.click("text=Simulate the draft");
+  await onb.click("text=Run the simulation");
+  await onb.waitForSelector("[data-testid=pending-review]");
+  check("onboarding: the simulation stops where the model asks for a person",
+        (await onb.textContent("[data-testid=simulation-status]")) === "awaiting_review" &&
+        (await onb.textContent("[data-testid=pending-review]")).includes("department_head"));
+  await onb.click("text=Approve as department_head (simulated)");
+  await onb.waitForFunction(() => document.querySelector("[data-testid=simulation-status]")?.textContent === "completed");
+  const stepsText = await onb.textContent("[data-testid=simulation-steps]");
+  check("onboarding: an authorised simulated decision lets the run finish, with stub tools only",
+        (await onb.locator("[data-testid=simulation-steps] li").count()) === 5 && stepsText.includes("simulated:fulfilment.deliver") &&
+        stepsText.includes("decided by simulated:department_head") &&
+        (await onb.textContent("[data-testid=simulated-reviews]")).includes("no person reviewed anything"));
+  await onb.click("summary:has-text('Audit trace')");
+  check("onboarding: the audit trace of the simulation is shown and labelled as not a stored chain",
+        (await onb.locator("[data-testid=audit-events] li").count()) > 10 &&
+        (await onb.textContent("[data-testid=simulation]")).includes("not a stored signed audit chain"));
+  const runsAfter = await onb.evaluate(async () => (await (await fetch("/w/acme/u/service-desk/api/v1/health", { headers: {
+    Authorization: "Bearer " + sessionStorage.getItem("autology-studio-token") } })).json()));
+  await onb.screenshot({ path: `${OUT}/desktop-onboarding-simulation.png`, fullPage: true });
+  await onb.click(".steps button:has-text('Readiness')");
+  await onb.click("text=Assess readiness for a pilot");
+  await onb.waitForSelector("[data-testid=readiness]");
+  const onb_blockers = await onb.textContent("[data-testid=blockers]");
+  check("onboarding: readiness shows the score, the blockers and that the score decides nothing",
+        (await onb.textContent("[data-testid=promotion]")) === "promotion blocked" &&
+        (await onb.locator("[data-testid=dimensions] tbody tr").count()) === 6 && onb_blockers.includes("At least one goal") &&
+        (await onb.textContent("[data-testid=weights-status]")).includes("not approved by the owner"),
+        `score ${await onb.textContent("[data-testid=readiness-score]")}`);
+  check("onboarding: production is stated as not authorised",
+        (await onb.textContent("[data-testid=production]")).includes("not authorised"));
+  check("onboarding: the simulation left no run and no stage change behind",
+        typeof runsAfter === "object" && (await onb.textContent(".uc-list button:has-text('Service desk')")).includes("Draft"));
+  await onb.screenshot({ path: `${OUT}/desktop-onboarding-readiness.png`, fullPage: true });
+  console.log(`INFO onboarding journey (scripted, sandbox): ${((Date.now() - onb_started) / 1000).toFixed(1)} s`);
+  // a member who may not configure sees the screen but cannot ask, and the engine refuses her the calls
+  const hanaOnb = await browser.newPage({ viewport: { width: 1280, height: 860 } });
+  hanaOnb.on("pageerror", (e) => errors.push(String(e)));
+  await hanaOnb.goto(STUDIO);
+  await hanaOnb.fill("#token", "acme-hana");
+  await hanaOnb.click("form button[type=submit]");
+  await hanaOnb.waitForSelector(".uc-list button");
+  await hanaOnb.click(".uc-list button:has-text('Motor claims')");
+  await hanaOnb.click("role=tab[name='Onboarding']");
+  await hanaOnb.waitForSelector("[data-testid=onboarding]");
+  const refusals = [await call(hanaOnb, "POST", "/w/acme/u/claims/api/v1/architect/proposals", { generator: "model", brief: "service requests approved by a manager" }),
+                    await call(hanaOnb, "POST", "/w/acme/u/claims/api/v1/model/draft/simulate", {}),
+                    await call(hanaOnb, "GET", "/w/acme/u/service-desk/api/v1/architect/proposals")];
+  check("onboarding: without configure the button is disabled and the engine refuses the calls (403, 403, 404)",
+        (await hanaOnb.isDisabled("button:has-text('Propose a solution')")) && refusals.join() === "403,403,404", refusals.join());
+  await hanaOnb.close();
+  check("no page errors (onboarding)", errors.length === 0, errors.join("; "));
+  await onb.close();
+
   // 3. mobile
   const ctx = await browser.newContext({ ...pw.devices["iPhone 13"] });
   const mobile = await ctx.newPage();
@@ -369,6 +491,11 @@ try {
   const overflowAccess = await mobile.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
   check("mobile: the access screen has no horizontal page scroll", !overflowAccess);
   await mobile.screenshot({ path: `${OUT}/mobile-access.png`, fullPage: true });
+  await mobile.click(".uc-list button:has-text('Motor claims')");
+  await mobile.click("role=tab[name='Onboarding']");
+  await mobile.waitForSelector("[data-testid=onboarding]");
+  const overflowOnboarding = await mobile.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
+  check("mobile: the onboarding screen has no horizontal page scroll", !overflowOnboarding);
   await ctx.close();
 } finally {
   await browser.close();

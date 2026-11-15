@@ -2,9 +2,10 @@
 // them to the platform. The token stays in this browser tab (sessionStorage) and is sent as a bearer token, so
 // there is no cookie to forge. UI-side checks are advisory: every rule is enforced by the platform and the engine.
 
-import type { AccessReview, ActivationResult, ApiErrorBody, CheckResult, Draft, GrantProposal, IssuedToken, Me,
-  Members, ModelDocument, MoveResult, OntologySummary, Proposal, Published, Release, ReleaseState, Restored, Stage,
-  Template, TenantView, TokenIssuedOrRequested, UseCase, ValidationResult } from "./types";
+import type { AccessReview, ActivationResult, ApiErrorBody, CheckResult, Draft, DraftSimulation, GrantProposal,
+  IssuedToken, Me, Members, ModelDocument, MoveResult, OntologySummary, Proposal, ProposalList, Published, Readiness,
+  Release, ReleaseState, Restored, Stage, Template, TenantView, TokenIssuedOrRequested, UseCase,
+  ValidationResult } from "./types";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string, public data: Record<string, unknown> = {}) {
@@ -125,4 +126,23 @@ export const api = {
     request<Published>("POST", `${ws(w)}/${encodeURIComponent(uc)}/publish-draft`, { revision, reason }),
   propose: (path: string, brief: string, document: ModelDocument) =>
     request<Proposal>("POST", `${path}/api/v1/architect/proposals`, { brief, document }),
+  readiness: (w: string, uc: string, target: "pilot" | "production") =>
+    request<Readiness>("GET", `${ws(w)}/${encodeURIComponent(uc)}/readiness?target=${target}`),
+};
+
+export interface SimulatedDecision { action: string; approved: boolean; as?: string }
+
+// The architect through the engine's AI gateway, and the dry run of a draft. Studio only asks and shows: the
+// engine validates every proposed item, stores each revision, and decides what a simulation may do.
+export const architect = {
+  list: (path: string) => request<ProposalList>("GET", `${path}/api/v1/architect/proposals`),
+  propose: (path: string, brief: string, document: ModelDocument) =>
+    request<Proposal>("POST", `${path}/api/v1/architect/proposals`, { generator: "model", brief, document }),
+  revise: (path: string, id: string, answers: { id: string; answer: string }[], document: ModelDocument) =>
+    request<Proposal>("POST", `${path}/api/v1/architect/proposals`, { generator: "model", revises: id, answers, document }),
+  decide: (path: string, id: string, revision: number, accepted: string[], rejected: string[], note: string) =>
+    request<Proposal>("POST", `${path}/api/v1/architect/proposals/${enc(id)}/decision`,
+                      { revision, accepted, rejected, note }),
+  simulate: (path: string, document: ModelDocument, approvals: SimulatedDecision[]) =>
+    request<DraftSimulation>("POST", `${path}/api/v1/model/draft/simulate`, { document, approvals }),
 };

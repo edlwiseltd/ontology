@@ -6,6 +6,11 @@
       "description": "Motor claims settlement with fraud screening and two human reviews",
       "config": "../auto_insurance/server.json"
     },
+    "blank-solution": {
+      "name": "Blank solution (guided onboarding)",
+      "description": "An empty model with the sandbox architect: describe the business, answer its questions and review a proposed solution (synthetic; no language model)",
+      "config": "../onboarding/server.json"
+    },
     "industrial-starter": {
       "name": "Industrial operations (blank)",
       "description": "A minimal model to design in Studio: one Plant entity (synthetic)",

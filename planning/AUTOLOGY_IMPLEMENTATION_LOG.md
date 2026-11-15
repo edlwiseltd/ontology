@@ -627,3 +627,33 @@ run two unused helpers were removed from `sandbox_ai.py` and 45 related tests re
 (= baseline). Studio (engine contract changed, types regenerated): typecheck clean, 23 unit tests, build, 56/56
 browser checks. The insurance example now enables the sandbox architect (`"ai": {"provider": "sandbox"}`).
 
+## 15 November 2026 — R2 closure sprint, increment F: rapid onboarding slice in Studio (sandbox only)
+
+| Story | Change | Tests | Behaviour change |
+|---|---|---|---|
+| Draft simulation | `POST /api/v1/model/draft/simulate` (`autology/simulation.py`): the engine's planner and governance run one synthetic case of a model document with stub tools. It parks at every human review and continues only with an explicit simulated decision given as one of the rule's reviewer roles. Nothing is stored; no record, configured tool or connection is used; the answer says it is not evidence of a real run, and readiness does not count it | O1–O6 | New route (`configure`) |
+| Onboarding screen | Studio tab **Onboarding** (`OnboardingView.tsx`, `lib/onboarding.ts`): describe → questions → review (React Flow graph with proposed and confirmed entities told apart; workflow, rules and permissions in plain words; described roles, agents, integrations; assumptions, unknowns, rejected items) → engine validation → save as draft with the review recorded → simulate with a simulated approval and the audit trace → readiness with blockers. Studio talks to the versioned API only | 5 unit tests, 17 browser checks | New tab |
+| Starting point | Template `blank-solution` (`examples/onboarding/`): an empty model with the sandbox architect | browser journey | New template |
+| Defect found by the demonstration (GAP-065) | The readiness report of increment D divided by zero on an empty model; a condition with nothing to count is now not applicable | regression test | Fix |
+
+**Honest scope.** The proposals come from the sandbox test double and one industry-neutral template: a
+description outside its vocabulary gets a question, not a solution. The simulation is a dry run, not a stored run.
+A model proposed this way has no configured agent or tools, so it cannot yet be run as a stored simulation after
+publication without an administrator editing configuration files. Publishing still needs a second person in the
+Releases tab. The scripted journey takes about 2 seconds; **no timing with real users was measured**, so the
+30-minute target remains an aspiration. Demonstration instructions: [onboarding-demo](../docs/onboarding-demo.md).
+Plugin compatibility notes for what the sprint built: [architecture target B10](AUTOLOGY_ARCHITECTURE_TARGET.md).
+Evidence (local): `tests/test_onb1_draft_simulation.py` 7 OK; `tests/test_rel2_rel3_readiness.py` 10 OK; full
+suite 862 OK (2 PostgreSQL tests skipped locally), 95.88 % lines (14,938 statements, 616 missed; `simulation.py`
+95 %); ruff clean; mypy 198 (= baseline). Studio: typecheck clean, 28 unit tests, build, **73/73 browser checks**.
+
+### CI evidence for the R2 closure sprint
+
+| Increment | Commit | CI run | Result |
+|---|---|---|---|
+| A — decision-critical facts | `4323391` | [90](https://github.com/edlwiseltd/ontology/actions/runs/43772415336) | success (5 jobs). A and B were pushed together: the run is on `3a49e69`, which contains both |
+| B — D24 specification | `3a49e69` | [90](https://github.com/edlwiseltd/ontology/actions/runs/43772415336) | success |
+| C — ARC-0 runs and reviews | `791c02b` | [91](https://github.com/edlwiseltd/ontology/actions/runs/43773261995) | success |
+| D — REL-2, REL-3 | `f91d045` | [92](https://github.com/edlwiseltd/ontology/actions/runs/43774524421) | success (the empty-model defect GAP-065 was not covered by a test then) |
+| E — architect API | `ccc551d` | [93](https://github.com/edlwiseltd/ontology/actions/runs/43776035198) | success |
+

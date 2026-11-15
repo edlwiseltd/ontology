@@ -126,3 +126,31 @@ label.check input { width: auto; margin: 0; } label.check.warn { margin-bottom: 
 button.danger-inline { color: var(--bad); border-color: var(--bad); } .context select { width: auto; margin: 0; }
 @media (max-width: 900px) { .access .two { grid-template-columns: 1fr; } }
 
+/* -- onboarding (guided proposal, review, simulation, readiness) ---------------------------------------- */
+.onboarding { display: flex; flex-direction: column; gap: var(--gap); }
+.onboarding .steps { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; padding: 0; margin: 0; }
+.onboarding .steps button { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 4px 12px; }
+.onboarding .steps button[aria-current="step"] { border-color: var(--accent); font-weight: 600; }
+.onboarding .steps .num { display: inline-block; min-width: 1.4em; text-align: center; border-radius: 999px; background: var(--line); margin-right: 4px; }
+.onboarding textarea, .onboarding input:not([type=checkbox]) { width: 100%; }
+.onboarding .items { list-style: none; padding: 0; margin: 6px 0; }
+.onboarding .items li { margin-bottom: 8px; }
+.onboarding input[type=checkbox] { width: auto; margin: 0 6px 0 0; vertical-align: middle; }
+.onboarding .items .kind { text-transform: uppercase; font-size: 11px; color: var(--muted); letter-spacing: .03em; }
+.onboarding .question { margin-bottom: 10px; }
+.notice { border-left: 3px solid var(--accent); padding: 6px 10px; background: var(--panel); margin: 0; }
+.onboarding-canvas { height: 300px; }
+.review-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); }
+.review-grid table { width: 100%; border-collapse: collapse; }
+.review-grid th, .review-grid td, .onboarding table th, .onboarding table td { text-align: left; vertical-align: top; padding: 3px 6px; border-bottom: 1px solid var(--line); }
+.react-flow__node.proposed { border-style: dashed; border-color: var(--accent); }
+.react-flow__node.confirmed { border-style: solid; border-width: 2px; }
+.legend { white-space: nowrap; }
+.swatch { display: inline-block; width: 14px; height: 10px; border: 1px solid var(--ink, currentColor); vertical-align: middle; margin-left: 8px; }
+.swatch.proposed { border-style: dashed; border-color: var(--accent); }
+.swatch.confirmed { border-width: 2px; }
+.warn-text { color: var(--warn-ink); background: var(--warn-bg); display: inline-block; padding: 0 6px; border-radius: 4px; }
+.timeline { padding-left: 1.4em; }
+.onboarding details { border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
+.onboarding .audit { max-height: 220px; overflow: auto; }
+@media (max-width: 900px) { .review-grid { grid-template-columns: 1fr; } .onboarding table { display: block; overflow-x: auto; } }

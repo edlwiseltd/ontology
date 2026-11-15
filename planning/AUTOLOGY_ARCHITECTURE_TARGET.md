@@ -248,3 +248,43 @@ desirability, commercial viability and deployment readiness are assessed separat
 Five identity categories, tenant above workspaces, no default platform-admin access to customer data, distinct
 service identities for agents and plugins, RBAC + ABAC + autonomy policies enforced by the Engine. Existing
 mechanisms, gaps and increments IAM-1…IAM-6: [IAM target](AUTOLOGY_IAM_TARGET.md).
+
+## B10. Plugin compatibility of what the R2 closure sprint built (15 November 2026)
+
+No plugin runtime was built. This section records, for the interfaces added in the sprint, whether they help or
+hinder the principle of B2 ("everything extensible is pluggable; the governance kernel stays authoritative").
+
+**Small interfaces a future plugin could implement, with the engine still deciding:**
+
+| Interface | Where | What a plugin would supply | What stays with the engine |
+|---|---|---|---|
+| `Provider` (`capabilities()`, `invoke(call)`) | `autology/ai.py` | An AI model provider | Which provider a workspace uses, data classes, deadline, retries, validation of the answer, accounting, logging; the answer is untrusted data |
+| Blueprint file (items, parameters, suggestions, sample case) | `autology/blueprints/*.json`, `modeling.py` | A template or an industry knowledge pack | Matching, parameter sanitising, validation of every item by the loader |
+| `Condition` | `autology/readiness.py` | A sector control or readiness check | Evaluation, which conditions are mandatory, the promotion decision |
+| Tool with a declared `environment` | `autology/tools.py` (existing) | A connector or a skill | Stage gates, action authorisation, the action lifecycle and audit |
+| Service behind the engine (`e = self.engine`) | `runs.py`, `reviews.py`, `architecting.py` (ARC-0) | Nothing yet: it is the internal shape a capability takes | Every permission, visibility and checkpoint check |
+
+**Decisions taken in this sprint that a plugin runtime will have to revisit (none blocks it today):**
+
+1. **Providers run in-process.** `SandboxArchitect`, `AnthropicProvider` and `ChatCompletionsProvider` are Python
+   objects with the engine's privileges. Acceptable for code shipped in the package; third-party providers need
+   the out-of-process boundary of B2 before they can be loaded. The `Provider` contract was kept free of engine
+   objects (it receives a prompt, a schema and a deadline, and returns text) so that it can cross a process
+   boundary unchanged.
+2. **The list of approved providers is a constant** (`APPROVED_PROVIDERS` in `architecting.py`), deliberately:
+   adding a provider is a reviewed change tied to an owner decision. A plugin registry would replace the constant
+   with a governed installation (a release operation), not remove the approval.
+3. **Blueprints are read from the package directory.** There is no per-workspace or per-tenant pack, no
+   signature and no version negotiation. The file format is the extension point; where packs are stored and who
+   may install them is undecided.
+4. **Readiness conditions are a Python list.** A pack cannot add one without code. The `Condition` shape is the
+   extension point; a registry would need to say which conditions a workspace has adopted and keep the mandatory
+   set under the owner's control (D26).
+5. **Data classes are declared by the calling code.** A plugin that declares its own data class cannot be
+   trusted to do so; the Core will have to classify what it hands to a plugin.
+6. **Draft simulation uses stubs created by the engine.** A connector plugin cannot take part in a draft
+   simulation; that is intended (no external effect), and a plugin's own simulated mode would have to be declared
+   and verified.
+7. **UI extensions:** Studio's onboarding screen is a component of the Studio application. There is no extension
+   mechanism for third-party screens, and none is planned before the runtime.
+

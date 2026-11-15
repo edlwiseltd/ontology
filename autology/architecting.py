@@ -179,6 +179,30 @@ class ArchitectService:
         e.store.add_architect_decision(pid, row["revision"], user.name, accepted, rejected, str(body.get("note") or ""))
         return self.get_proposal(user, pid, row["revision"])
 
+    # -- trying a model before it is published ---------------------------------------------------------------
+    def simulate_draft(self, user: User, body: Dict[str, Any]) -> Dict[str, Any]:
+        """A dry run of a model document (the one given, else the draft, else the active model) with stub tools:
+        see :mod:`autology.simulation`. Nothing is stored and nothing outside the engine is called."""
+        from .simulation import SimulationError, simulate
+
+        e = self.engine
+        e.require(user, "configure")
+        document = body.get("document")
+        if not isinstance(document, dict):
+            row = e.store.draft()
+            document = row["document"] if row else e._active_document()
+        approvals = body.get("approvals") or []
+        if not isinstance(approvals, list) or len(approvals) > 20:
+            raise ApiError(400, "approvals: a list of at most 20 simulated decisions")
+        roles = body.get("roles")
+        if roles is not None and not (isinstance(roles, list) and all(isinstance(r, str) for r in roles)):
+            raise ApiError(400, "roles: a list of role names")
+        try:
+            out = simulate(document, body.get("case"), body.get("goal"), roles, approvals)
+        except SimulationError as exc:
+            raise ApiError(400, str(exc)) from None
+        return {**out, "requested_by": user.name}
+
     @staticmethod
     def _ids(value: Any, name: str) -> List[str]:
         if value is None:

@@ -68,6 +68,10 @@ class Condition:
     action: str = ""  # what to do when it does not hold
     applicable: bool = True  # False: nothing to measure here (e.g. no pipeline): neither scored nor blocking
 
+    def __post_init__(self) -> None:
+        if self.total <= 0:  # nothing to count (an empty model has no entity to relate): not a condition here
+            self.applicable = False
+
     @property
     def measured(self) -> bool:
         return self.applicable and self.held is not None

@@ -1,6 +1,6 @@
 # Work in progress — Autology
 
-*Updated 15 November 2026 (decision-integrity sprint). Branch `claude/autology-ontology-agent-4ajjer`.*
+*Updated 15 November 2026 (R2 closure sprint). Branch `claude/autology-ontology-agent-4ajjer`.*
 
 ## Done in this directive
 
@@ -36,6 +36,17 @@
 | C — MIG-1 and a first step of ARC-0 | MIG-1 done, ARC-0 partial, `846a3cc`, CI run 86 | `tests/test_mig1_migrations.py` (6), `tests/test_arc0_services.py` (4); GAP-041 fixed, GAP-026 partly |
 | D — AI-1 provider-neutral AI foundation | Foundation done **with test doubles only**, `744deae`, CI run 88; no real provider, GAP-052 open | `tests/test_ai1_provider_foundation.py` (18 tests); see the implementation log |
 
+## R2 closure, AI Architect integration and rapid onboarding proof (15 November 2026)
+
+| Increment | Status | Evidence |
+|---|---|---|
+| A — decision-critical facts fail closed on every write path (GAP-064) | Done, `4323391`, CI run 90 | `tests/test_r2c_critical_fields.py` (11) |
+| B — D24 `operate` | **Blocked on the owner's approval**; exact specification written, `3a49e69`, CI run 90 | [D24 specification](planning/AUTOLOGY_D24_OPERATE_SPECIFICATION.md) |
+| C — ARC-0: runs and reviews extracted | Done (ARC-0 still partial), `791c02b`, CI run 91 | `tests/test_arc0_services.py` (7) |
+| D — REL-2 gates and REL-3 scorecard | Done; weights proposed, not ratified (D26), `f91d045`, CI run 92 | `tests/test_rel2_rel3_readiness.py` (10) |
+| E — architect through the versioned API | Done **with a sandbox test double only**, `ccc551d`, CI run 93 | `tests/test_arc1_architect_api.py` (10); [evaluation protocol](planning/AUTOLOGY_AI_PROVIDER_EVALUATION_PROTOCOL.md) |
+| F — rapid onboarding slice in Studio | Demonstrated in the browser (sandbox, synthetic) | `tests/test_onb1_draft_simulation.py` (7), 17 browser checks; [how to run it](docs/onboarding-demo.md) |
+
 ## Waiting for the owner
 
 | Item | Needs |
@@ -43,6 +54,7 @@
 | Name the release approver per workspace (D11 operational detail) | A single-administrator workspace cannot activate a release until it has one |
 | Configure AI providers per workspace, data classes and keys (D7/D10 details), and authorise an evaluation protocol | AI-1 real-provider runs; closing GAP-052; exposing model proposals in Studio |
 | D24: approve (or decline) the narrower `operate` permission as designed | Implementation is about 1–2 days once approved; nothing changes until then |
+| D26: readiness weights and the mandatory conditions per stage | Reports say the weights are a proposal until approved |
 | Counsel's answers L1–L9 (D19) | GAP-031 closure; distribution stays blocked |
 | Review the migrated administrator grants (IAM-3) in each existing workspace | Revoke those not needed |
 | D22b–e; authorisation for IAM-2, IAM-4, IAM-5, IAM-6 | Not started, by instruction |

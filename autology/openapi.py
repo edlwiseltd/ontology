@@ -84,6 +84,8 @@ ROUTES: List[Tuple[str, str, str, str, Tuple[str, ...]]] = [
     ("POST", "/api/model/draft", "configure", "Save a draft revision over the one read (expected_revision)", ()),
     ("GET", "/api/model/draft/history", "read or configure", "Draft revisions", ()),
     ("POST", "/api/model/validate", "read or configure", "Validate a model document with the engine's strict loader", ()),
+    ("POST", "/api/model/draft/simulate", "configure",
+     "Dry run of a model document with stub tools: nothing stored, nothing called outside the engine", ()),
     ("POST", "/api/architect/proposals", "configure",
      "Provisional additions for a business brief: from approved blueprints (default), or through the AI gateway "
      "(generator model), stored as a revision", ()),
@@ -198,6 +200,32 @@ SCHEMAS: Dict[str, Any] = {
                                               "request_id": S, "matched_terms": {"type": "array", "items": S}},
                                              ("generator", "ai"))},
                          ("id", "kind", "value", "rationale", "status", "provenance")),
+    "DraftSimulation": _obj({
+        "simulated": B, "persisted": B, "notice": S, "requested_by": S,
+        "model": _obj({"ref": S, "fingerprint": S}, ("ref", "fingerprint")), "goal": S,
+        "agent": _obj({"roles": {"type": "array", "items": S}, "tools": S}, ("roles", "tools")), "case": ANY,
+        "status": S,
+        "steps": {"type": "array", "items": _obj(
+            {"index": I, "action": S, "verdict": S, "tool": NS, "outcome": NS, "reviewer": NS, "explanation": S},
+            ("index", "action", "verdict", "tool", "outcome"))},
+        "pending_review": {"oneOf": [{"type": "null"}, _obj(
+            {"action": S, "reviewers": {"type": "array", "items": S}, "reasons": {"type": "array", "items": S},
+             "rules": {"type": "array", "items": S}, "facts": ANY}, ("action", "reviewers", "reasons", "rules"))]},
+        "reviews": {"type": "array", "items": _obj({"action": S, "approved": B, "as": S, "note": S},
+                                                   ("action", "approved", "as", "note"))},
+        "escalation": {"oneOf": [{"type": "null"}, _obj({"reason": S, "action": NS,
+                                                         "details": {"type": "array", "items": S}}, ("reason",))]},
+        "refused": {"type": "array", "items": _obj({"action": S, "reasons": {"type": "array", "items": S}},
+                                                   ("action", "reasons"))},
+        "final_state": ANY,
+        "audit": _obj({"note": S, "events": {"type": "array", "items": _obj({"seq": I, "event": S, "data": ANY},
+                                                                             ("seq", "event", "data"))}},
+                      ("note", "events"))},
+        ("simulated", "persisted", "notice", "model", "goal", "agent", "case", "status", "steps", "pending_review",
+         "reviews", "escalation", "refused", "final_state", "audit")),
+    "DraftSimulationRequest": _obj({"document": ANY, "case": ANY, "goal": S, "roles": {"type": "array", "items": S},
+                                    "approvals": {"type": "array", "items": _obj(
+                                        {"action": S, "approved": B, "as": S}, ("action", "approved"))}}),
     "ProposalRevision": _obj({"revision": I, "at": S, "created_by": S, "answers": {"type": "array", "items": ANY},
                               "items": I, "rejected": I, "open_questions": I},
                              ("revision", "at", "created_by", "answers", "items", "rejected", "open_questions")),
@@ -261,10 +289,12 @@ RESPONSES = {("GET", "/api/health"): "Health", ("GET", "/api/me"): "Me", ("GET",
              ("POST", "/api/architect/proposals"): "Proposal",
              ("GET", "/api/architect/proposals"): "ProposalList",
              ("GET", "/api/architect/proposals/{id}"): "Proposal",
-             ("POST", "/api/architect/proposals/{id}/decision"): "Proposal"}
+             ("POST", "/api/architect/proposals/{id}/decision"): "Proposal",
+             ("POST", "/api/model/draft/simulate"): "DraftSimulation"}
 REQUESTS = {("POST", "/api/model/draft"): "DraftSave", ("POST", "/api/model/validate"): "ValidateRequest",
             ("POST", "/api/architect/proposals"): "ProposalRequest", ("POST", "/api/objects"): "ObjectWrite",
-            ("POST", "/api/architect/proposals/{id}/decision"): "ProposalDecisionRequest"}
+            ("POST", "/api/architect/proposals/{id}/decision"): "ProposalDecisionRequest",
+            ("POST", "/api/model/draft/simulate"): "DraftSimulationRequest"}
 
 
 def _operation_id(method: str, path: str) -> str:

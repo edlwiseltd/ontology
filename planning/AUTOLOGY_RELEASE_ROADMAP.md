@@ -95,7 +95,7 @@ finish execution gates, release governance, workspace administration and the API
 5. Studio, which can start as soon as the API contract is fixed.
 6. The exit tests.
 
-### 3.5 R2 exit requirements (updated 15 November 2026, decision-integrity sprint)
+### 3.5 R2 exit requirements (updated 15 November 2026, R2 closure sprint)
 
 | Requirement | State | What is missing |
 |---|---|---|
@@ -105,9 +105,9 @@ finish execution gates, release governance, workspace administration and the API
 | Workspace and member administration | Met (ADM-1, ADM-2, Studio Access screen) | Roles and workspace administrators in configuration only; D24 (`operate`) awaits the owner |
 | Security prerequisites (GAP-030, SEC-A) | Met at repository level | Independent security review; D23 confirmation |
 | Migrations and recovery (MIG-1, OPS-1) | Met at repository level | Platform registries outside the migration mechanism; production-sized restore drill |
-| Architecture (ARC-0) | Partial | Remaining extractions (runs and reviews, scenarios, model design, assistant, dispatcher) |
+| Architecture (ARC-0) | Partial: notifications, ingestion, runs, reviews and the architect are services behind the engine (class 2,323 → 1,721 lines) | Reconciliation, scenarios, model design, assistant, dispatcher |
 | Readiness per use case (criterion 3, REL-2, REL-3) | Met at repository level (first version) | Owner approval of weights and mandatory sets (D26); recorded recovery evidence per use case; sector controls |
-| AI Solution Architect (criteria 4, 5; ARC-1 to ARC-4) | Foundation only (AI-1): contract, gateway, proposal validation, with test doubles | A real provider under D7/D10 (GAP-052); API and Studio exposure; discovery questions worded by a model; BP-1 blueprints |
+| AI Solution Architect (criteria 4, 5; ARC-1 to ARC-4) | Path demonstrated end to end in Studio with a sandbox test double (description, questions, stored revisions, visual review, engine validation, draft simulation, readiness) | A real provider under D7/D10 (GAP-052); questions worded by a model; documents as input; BP-1 blueprints for the two named industries; agents and tools for a model proposed this way |
 
 ## 4. R3: Structured enterprise onboarding
 
@@ -209,7 +209,7 @@ The owner's order is kept where the repository's dependencies allow it:
 | 3 | REL-1a releases | Done at repository level (see log) | — |
 | 4 | Architecture Part B (plugins, knowledge hub, composable intelligence, decision/action, autonomy) | Documented | — |
 | 5 | Workspace administration (ADM-1, ADM-2) | Done 15 Nov (owner: "all approved"); members screen done 15 Nov (R2 sprint D) | REL-1a (done); D11 details per workspace; hot reload is shared with release activation |
-| 6 | Real AI Solution Architect (AI-1, ARC-1) | **AI-1 foundation and SEC-A done 15 Nov** (test doubles only); the real architect needs authorisation | D7/D10 configuration and keys for a real provider (GAP-052); an API contract revision to expose model proposals (ARC-1) |
+| 6 | Real AI Solution Architect (AI-1, ARC-1) | **AI-1, SEC-A and the ARC-1 path done 15 Nov with test doubles** (stored proposals, guided questions, review, draft simulation, Studio onboarding); the *real* architect needs authorisation | D7/D10 for a named workspace, then the [evaluation protocol](AUTOLOGY_AI_PROVIDER_EVALUATION_PROTOCOL.md) (GAP-052) |
 | 7 | Readiness assessment (REL-3) | Needs authorisation | REL-1a (a score belongs to a release); owner validation of weights |
 | 8 | Excel Template Factory and document intake (R3) | Needs authorisation | F-01 origin rules for any fetched source; provenance model (B3) |
 | 9 | Multi-provider AI and hybrid retrieval | Needs authorisation | AI-1; document intake |

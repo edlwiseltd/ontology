@@ -85,6 +85,342 @@
         ],
         "type": "object"
       },
+      "DraftSimulation": {
+        "additionalProperties": true,
+        "properties": {
+          "agent": {
+            "additionalProperties": true,
+            "properties": {
+              "roles": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "tools": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "roles",
+              "tools"
+            ],
+            "type": "object"
+          },
+          "audit": {
+            "additionalProperties": true,
+            "properties": {
+              "events": {
+                "items": {
+                  "additionalProperties": true,
+                  "properties": {
+                    "data": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "event": {
+                      "type": "string"
+                    },
+                    "seq": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "seq",
+                    "event",
+                    "data"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "note": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "note",
+              "events"
+            ],
+            "type": "object"
+          },
+          "case": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "escalation": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "additionalProperties": true,
+                "properties": {
+                  "action": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "details": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "reason"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "final_state": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "goal": {
+            "type": "string"
+          },
+          "model": {
+            "additionalProperties": true,
+            "properties": {
+              "fingerprint": {
+                "type": "string"
+              },
+              "ref": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "ref",
+              "fingerprint"
+            ],
+            "type": "object"
+          },
+          "notice": {
+            "type": "string"
+          },
+          "pending_review": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "additionalProperties": true,
+                "properties": {
+                  "action": {
+                    "type": "string"
+                  },
+                  "facts": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "reasons": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "reviewers": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "rules": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "action",
+                  "reviewers",
+                  "reasons",
+                  "rules"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "persisted": {
+            "type": "boolean"
+          },
+          "refused": {
+            "items": {
+              "additionalProperties": true,
+              "properties": {
+                "action": {
+                  "type": "string"
+                },
+                "reasons": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "action",
+                "reasons"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "requested_by": {
+            "type": "string"
+          },
+          "reviews": {
+            "items": {
+              "additionalProperties": true,
+              "properties": {
+                "action": {
+                  "type": "string"
+                },
+                "approved": {
+                  "type": "boolean"
+                },
+                "as": {
+                  "type": "string"
+                },
+                "note": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "action",
+                "approved",
+                "as",
+                "note"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "simulated": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          },
+          "steps": {
+            "items": {
+              "additionalProperties": true,
+              "properties": {
+                "action": {
+                  "type": "string"
+                },
+                "explanation": {
+                  "type": "string"
+                },
+                "index": {
+                  "type": "integer"
+                },
+                "outcome": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "reviewer": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "tool": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "verdict": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "index",
+                "action",
+                "verdict",
+                "tool",
+                "outcome"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "simulated",
+          "persisted",
+          "notice",
+          "model",
+          "goal",
+          "agent",
+          "case",
+          "status",
+          "steps",
+          "pending_review",
+          "reviews",
+          "escalation",
+          "refused",
+          "final_state",
+          "audit"
+        ],
+        "type": "object"
+      },
+      "DraftSimulationRequest": {
+        "additionalProperties": true,
+        "properties": {
+          "approvals": {
+            "items": {
+              "additionalProperties": true,
+              "properties": {
+                "action": {
+                  "type": "string"
+                },
+                "approved": {
+                  "type": "boolean"
+                },
+                "as": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "action",
+                "approved"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "case": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "document": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "goal": {
+            "type": "string"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
       "Entity": {
         "additionalProperties": true,
         "properties": {
@@ -3633,6 +3969,119 @@
         },
         "summary": "Draft revisions",
         "x-autology-permission": "read or configure"
+      }
+    },
+    "/api/v1/model/draft/simulate": {
+      "post": {
+        "operationId": "postModelDraftSimulate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DraftSimulationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DraftSimulation"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Missing or invalid token"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Permission or checkpoint refused"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not found or not visible"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Dry run of a model document with stub tools: nothing stored, nothing called outside the engine",
+        "x-autology-permission": "configure"
       }
     },
     "/api/v1/model/validate": {

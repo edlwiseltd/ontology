@@ -30,6 +30,7 @@ export function applyItems(doc: ModelDocument, items: ProposalItem[]): ModelDocu
     else if (item.kind === "action") (d.actions ??= {})[item.name!] = item.value;
     else if (item.kind === "relationship") (d.relationships ??= []).push(item.value);
     else if (item.kind === "rule") (d.rules ??= []).push(item.value);
+    else if (item.kind === "goal") (d.goals ??= {})[item.name!] = item.value;
   }
   return d;
 }

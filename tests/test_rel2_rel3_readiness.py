@@ -110,6 +110,22 @@ class ReportTests(unittest.TestCase):
         self.assertFalse({"recovery_evidence", "unrestricted_grants_reviewed"} & self.blockers("production", context=supplied))
         self.assertIn("recovery_evidence", self.blockers("production", context={"recovery": {"verified": False}}))
 
+    def test_an_empty_model_is_reported_not_crashed(self):  # Q1 (found by the onboarding demonstration)
+        path = Path(tempfile.mkdtemp()) / "ontology.json"
+        path.write_text(json.dumps({"name": "new-solution", "version": "0.1.0"}))
+        os.environ["AUTOLOGY_TOKEN_CLARA"] = "tok-clara"
+        empty = service(ontology=str(path), agents={}, data=None, pipelines={}, service_identities={},
+                        users=[{"name": "clara", "token_env": "AUTOLOGY_TOKEN_CLARA", "permissions": ["configure"]}])
+        self.addCleanup(empty.close)
+        report = readiness.report(empty, "pilot")
+        blockers = {b["id"] for b in report["gates"]["blockers"]}
+        self.assertIn("goals_defined", blockers)  # an empty model has no goal: that blocks, and is said
+        related = next(c for d in report["dimensions"] for c in d["conditions"] if c["id"] == "entities_related")
+        self.assertEqual((related["applicable"], related["measured"], related["blocking"]), (False, False, False))
+        self.assertFalse(report["promotion"]["allowed"])
+        self.assertIsInstance(report["score"]["overall"], float)
+        self.assertFalse(Condition("x", "data", "t", 0, 0, "nothing to count", BOTH).blocks("pilot"))
+
     def test_a_high_score_never_overrides_a_blocker(self):  # Q3
         fine = [held(dimension=d) for d in DIMENSIONS for _ in range(5)]
         report = readiness.report(self.svc, "pilot", found=fine)

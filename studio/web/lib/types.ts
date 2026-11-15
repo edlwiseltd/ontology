@@ -49,3 +49,9 @@ export type Question = E["Question"];
 export type Draft = E["Draft"] & { document: ModelDocument };
 export type ProposalItem = E["ProposalItem"] & { value: any };  // an entity, relationship, action or rule body
 export type Proposal = Omit<Known<E["Proposal"]>, "items"> & { items: ProposalItem[] };
+// the architect through the AI gateway: stored revisions, review decisions (R2 closure sprint)
+export type ProposalList = E["ProposalList"];
+export type ArchitectStatus = ProposalList["architect"];
+export type DraftSimulation = E["DraftSimulation"];
+export type Readiness = P["Readiness"];
+export type ReadinessDimension = P["ReadinessDimension"];

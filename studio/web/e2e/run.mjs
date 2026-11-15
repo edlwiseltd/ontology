@@ -118,8 +118,8 @@ try {
   // someone else saves meanwhile: the next save is refused, not silently overwritten
   const other = await page.evaluate(async () => {
     const h = { Authorization: "Bearer " + sessionStorage.getItem("autology-studio-token"), "Content-Type": "application/json" };
-    const d = await (await fetch("/w/acme/u/water-ops/api/model/draft", { headers: h })).json();
-    const r = await fetch("/w/acme/u/water-ops/api/model/draft", { method: "POST", headers: h,
+    const d = await (await fetch("/w/acme/u/water-ops/api/v1/model/draft", { headers: h })).json();
+    const r = await fetch("/w/acme/u/water-ops/api/v1/model/draft", { method: "POST", headers: h,
       body: JSON.stringify({ document: d.document, expected_revision: d.revision, note: "someone else" }) });
     return r.status;
   });
@@ -129,7 +129,7 @@ try {
   await page.waitForSelector(".warn:has-text('Someone saved revision 2')");
   check("a stale save is refused (409) and the user is told", other === 200);
   check("the active model is unchanged by drafts",
-        (await page.evaluate(async () => Object.keys((await (await fetch("/w/acme/u/water-ops/api/ontology", { headers: {
+        (await page.evaluate(async () => Object.keys((await (await fetch("/w/acme/u/water-ops/api/v1/ontology", { headers: {
           Authorization: "Bearer " + sessionStorage.getItem("autology-studio-token") } })).json()).entities))).join() === "Plant");
   check("no page errors (design)", errors.length === 0, errors.join("; "));
   await page.close();
@@ -145,14 +145,20 @@ try {
   check("non-admin sees no stage form", (await hana.locator("#move-to").count()) === 0);
   const direct = await hana.evaluate(async () => {
     const h = { Authorization: "Bearer " + sessionStorage.getItem("autology-studio-token"), "Content-Type": "application/json" };
-    const move = await fetch("/platform/workspaces/acme/use-cases/claims/stage", { method: "POST", headers: h, body: JSON.stringify({ to: "pilot", reason: "bypass" }) });
-    const foreign = await fetch("/platform/workspaces/northwind/use-cases", { headers: h });
-    const other = await fetch("/w/northwind/u/claims/api/objects", { headers: h });
-    const draft = await fetch("/w/acme/u/claims/api/model/draft", { method: "POST", headers: h, body: JSON.stringify({ document: {}, expected_revision: 0 }) });
-    const propose = await fetch("/w/acme/u/claims/api/architect/proposals", { method: "POST", headers: h, body: JSON.stringify({ brief: "pumps and plants" }) });
-    return [move.status, foreign.status, other.status, draft.status, propose.status];
+    const calls = (p, e) => [
+      fetch(`/platform${p}/workspaces/acme/use-cases/claims/stage`, { method: "POST", headers: h, body: JSON.stringify({ to: "pilot", reason: "bypass" }) }),
+      fetch(`/platform${p}/workspaces/northwind/use-cases`, { headers: h }),
+      fetch(`/w/northwind/u/claims/api${e}/objects`, { headers: h }),
+      fetch(`/w/acme/u/claims/api${e}/model/draft`, { method: "POST", headers: h, body: JSON.stringify({ document: {}, expected_revision: 0 }) }),
+      fetch(`/w/acme/u/claims/api${e}/architect/proposals`, { method: "POST", headers: h, body: JSON.stringify({ brief: "pumps and plants" }) })];
+    const v1 = await Promise.all(calls("/v1", "/v1"));
+    const legacy = await Promise.all(calls("", ""));
+    const body = await v1[0].json();
+    return { v1: v1.map((r) => r.status), legacy: legacy.map((r) => r.status), envelope: body.error && body.error.status };
   });
-  check("direct API calls are refused by the platform (403, 404, 404, 403, 403)", JSON.stringify(direct) === "[403,404,404,403,403]", JSON.stringify(direct));
+  check("direct API v1 calls are refused by the platform (403, 404, 404, 403, 403)", JSON.stringify(direct.v1) === "[403,404,404,403,403]", JSON.stringify(direct.v1));
+  check("the same direct calls on the legacy paths are refused too", JSON.stringify(direct.legacy) === "[403,404,404,403,403]", JSON.stringify(direct.legacy));
+  check("v1 refusals use the error envelope", direct.envelope === 403);
   await hana.close();
 
   // 3. mobile

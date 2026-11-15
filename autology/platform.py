@@ -377,11 +377,43 @@ class Platform:
 
     def handle(self, method: str, raw_path: str, headers: Any, raw_body: Optional[bytes] = None,
                body_error: Optional[Tuple[int, str]] = None) -> Tuple[int, str, bytes, Dict[str, str]]:
-        """One request through the router: (status, content type, body, extra headers)."""
+        """One request through the router: (status, content type, body, extra headers). ``/platform/v1/...`` is
+        served by the same handlers as ``/platform/...`` with the v1 envelope (docs/api-versioning.md)."""
+        from .openapi import versioned_response
+
+        split = urlsplit(raw_path)
+        version = None
+        if split.path == "/platform/v1" or split.path.startswith("/platform/v1/"):
+            version = "1"
+            raw_path = "/platform" + raw_path[len("/platform/v1"):]
+        status, ctype, data, extra = self._handle(method, raw_path, headers, raw_body, body_error)
+        path = urlsplit(raw_path).path
+        if path.startswith("/platform/"):
+            data, more = versioned_response(version, method, path, {}, status, ctype, data)
+            if not version:
+                more["Link"] = f'</platform/v1{path[len("/platform"):]}>; rel="successor-version"'
+            extra = {**extra, **more}
+        elif path.startswith("/w/") and "Link" in extra:
+            # the engine names its successor relative to its own root; behind the router that root is /w/<ws>/u/<uc>
+            prefix = "/".join(path.split("/")[:5])
+            extra = {**extra, "Link": extra["Link"].replace("</api/", f"<{prefix}/api/", 1)}
+        elif path.startswith("/w/") and "/api/v1/" in path + "/":
+            # refusals made by the router itself (unknown or foreign workspace, wrong token) use the v1 envelope
+            # too, identically for every refused case; engine answers are already in it and pass unchanged
+            data, more = versioned_response("1", method, path, {}, status, ctype, data)
+            extra = {**extra, **more}
+        return status, ctype, data, extra
+
+    def _handle(self, method: str, raw_path: str, headers: Any, raw_body: Optional[bytes] = None,
+                body_error: Optional[Tuple[int, str]] = None) -> Tuple[int, str, bytes, Dict[str, str]]:
         split = urlsplit(raw_path)
         path = split.path
         if method == "GET" and path == "/platform/health":
             return 200, "application/json", json.dumps({"status": "ok"}).encode(), {}
+        if method == "GET" and path == "/platform/openapi.json":  # the platform's contract: no data, no token
+            from .openapi import platform_spec
+
+            return 200, "application/json", json.dumps(platform_spec()).encode(), {}
         member = self.member_for(headers.get("Authorization"))
         parts = path.split("/")
         # /w/<ws>/u/<uc>/api/...  ->  ['', 'w', ws, 'u', uc, 'api', ...]

@@ -14,4 +14,12 @@ describe("the typed client", () => {
     expect(auth).toBe("Bearer tok");
     await expect(request("GET", "/platform/x", undefined, fake)).rejects.toBeInstanceOf(ApiError);
   });
+
+  it("reads the API v1 error envelope: message for people, details for the screen", async () => {
+    const body = { error: { status: 409, code: "conflict", message: "the draft changed since you read it",
+                            details: { revision: 4 } } };
+    const fake = (async () => new Response(JSON.stringify(body), { status: 409 })) as unknown as typeof fetch;
+    await expect(request("POST", "/w/a/u/b/api/v1/model/draft", {}, fake)).rejects.toMatchObject({
+      status: 409, message: "the draft changed since you read it", data: { code: "conflict", revision: 4 } });
+  });
 });

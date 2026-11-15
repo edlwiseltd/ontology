@@ -15,6 +15,7 @@ AUTOLOGY_PLATFORM_URL=http://127.0.0.1:8700 npm start                       # St
 |---|---|
 | `npm run typecheck` / `npm test` | TypeScript check; unit tests (relay confinement, model projection, client, separation) |
 | `npm run build` | Production build |
+| `npm run generate:api` | Regenerate `lib/generated/*.ts` from the API v1 contracts in `api/` (first `python -m autology openapi --write` at the repository root); CI fails if either is stale |
 | `e2e/run.sh` | Browser tests (Playwright) against a real example platform, desktop and mobile, then stops Studio and shows the engine still answers |
 
 Licences of the npm packages Studio ships: `studio/web/licences.json` (see the legal package, D19).

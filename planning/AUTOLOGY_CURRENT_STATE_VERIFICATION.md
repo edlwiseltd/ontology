@@ -65,7 +65,7 @@ Full table per commit: [R1 completion report §3](AUTOLOGY_R1_COMPLETION_REPORT.
 | Engine runs without any UI and without Hermes | Implemented and verified | `tests/test_engine_headless.py` |
 | UI separation: Console as a separate process | Implemented and verified | `tests/test_console.py` |
 | UI separation: review inbox outside the engine | Partially implemented (optional, still served by the engine) | UI-1 (R2) |
-| Versioned API contract (OpenAPI, `/api/v1`) | Not started | API-1/2 (R2) |
+| Versioned API contract (OpenAPI, `/api/v1`) | Implemented and verified 15 Nov (`tests/test_api_v1.py`); typed bodies for core and Studio routes only | API-1/2 (R2) |
 | Workspace isolation (REST, MCP, OIDC, audit keys, credentials, jobs, stores) | Implemented and verified | [isolation matrix](AUTOLOGY_SECURITY_AND_TENANCY.md) |
 | Use cases with independent configuration | Implemented and verified | `examples/platform`, `test_workspaces.py` |
 | Use cases with independent readiness status | Not started | REL-3 |

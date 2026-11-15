@@ -12,8 +12,9 @@ the contract fixes paths, methods, parameters, permissions and status codes.
 
 from __future__ import annotations
 
+import json
 import re
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from . import __version__
 
@@ -86,49 +87,241 @@ ROUTES: List[Tuple[str, str, str, str, Tuple[str, ...]]] = [
     ("POST", "/api/architect/proposals", "admin", "Provisional additions for a business brief (blueprints; not AI)", ()),
 ]
 
-ERROR = {"type": "object", "required": ["error"], "properties": {"error": {"type": "string"}},
-         "additionalProperties": True}
+# -- response envelope of API v1 (the same handlers serve /api and /api/v1) -----------------------------------
+CODES = {400: "invalid_request", 401: "unauthenticated", 403: "forbidden", 404: "not_found",
+         405: "method_not_allowed", 409: "conflict", 411: "length_required", 413: "payload_too_large",
+         500: "internal_error", 502: "unavailable", 503: "unavailable"}
+PAGINATED = {(m, p) for m, p, _perm, _s, q in ROUTES if "offset" in q}
+
+
+def page_window(query: Dict[str, str]) -> Tuple[int, int]:
+    """(limit, offset) of a list request; the engine's handlers and the v1 page metadata both use this, so the
+    metadata always describes the window that was actually served. A non-integer raises ValueError (400)."""
+    return max(1, min(int(query.get("limit", 100)), 1000)), max(0, int(query.get("offset", 0)))
+
+
+def versioned_response(version: Optional[str], method: str, path: str, query: Dict[str, str], status: int,
+                       content_type: str, data: bytes) -> Tuple[bytes, Dict[str, str]]:
+    """Apply the v1 envelope to a response produced by the shared handlers. Unversioned paths keep their exact
+    legacy shape and point to their v1 successor (compatibility policy: docs/api-versioning.md)."""
+    if not version:
+        return data, {"X-Autology-API-Version": "legacy",
+                      "Link": f'</api/v1{path[len("/api"):]}>; rel="successor-version"'}
+    headers = {"X-Autology-API-Version": version}
+    if "json" not in content_type or not data:
+        return data, headers
+    try:
+        body = json.loads(data)
+    except ValueError:
+        return data, headers
+    if status >= 400 and isinstance(body, dict) and isinstance(body.get("error"), str):
+        body = {"error": {"status": status, "code": CODES.get(status, "error"), "message": body["error"],
+                          "details": {k: v for k, v in body.items() if k != "error"}}}
+    elif status == 200 and isinstance(body, dict) and isinstance(body.get("items"), list) \
+            and (method, path) in PAGINATED:
+        limit, offset = page_window(query)  # it parsed when the list was served (status 200)
+        n = len(body["items"])
+        body = {**body, "page": {"limit": limit, "offset": offset, "returned": n,
+                                 "next_offset": offset + n if n == limit else None}}
+    return json.dumps(body, default=str).encode(), headers
+
+
+# -- schemas of the bodies Studio and generated clients rely on (JSON Schema 2020-12, as in OpenAPI 3.1) ---------
+def _obj(props: Dict[str, Any], required: Tuple[str, ...] = (), extra: bool = True) -> Dict[str, Any]:
+    out: Dict[str, Any] = {"type": "object", "properties": props, "additionalProperties": extra}
+    if required:
+        out["required"] = list(required)
+    return out
+
+
+S, I, B, N = {"type": "string"}, {"type": "integer"}, {"type": "boolean"}, {"type": "number"}
+NS = {"type": ["string", "null"]}
+REF = lambda name: {"$ref": f"#/components/schemas/{name}"}  # noqa: E731
+ANY = {"type": "object", "additionalProperties": True}  # a free-form JSON object
+STAGE = {"type": "string", "enum": ["draft", "simulation", "pilot", "production"]}
+SCHEMAS: Dict[str, Any] = {
+    "Error": _obj({"error": _obj({"status": I, "code": S, "message": S, "details": ANY},
+                                 ("status", "code", "message"))}, ("error",), extra=False),
+    "Page": _obj({"limit": I, "offset": I, "returned": I, "next_offset": {"type": ["integer", "null"]}},
+                 ("limit", "offset", "returned", "next_offset"), extra=False),
+    "Health": _obj({"status": S, "ontology": S, "audit_keyed": B, "quarantined_records": I, "tampered_records": I,
+                    "stage": STAGE, "runs_allowed": B, "tool_environments": {"type": "array", "items": S}},
+                   ("status", "ontology")),
+    "Me": _obj({"name": S, "permissions": {"type": "array", "items": S}}, ("name", "permissions")),
+    "ObjectView": _obj({"id": S, "type": S, "attributes": ANY, "revision": I},
+                       ("id", "type", "attributes", "revision")),
+    "ObjectList": _obj({"items": {"type": "array", "items": REF("ObjectView")}, "page": REF("Page")}, ("items",)),
+    "Entity": _obj({"states": {"type": "array", "items": S}, "multiple": B, "aliases": {"type": "array", "items": S},
+                    "attributes": {"type": "object", "additionalProperties": S}},
+                   ("states", "multiple", "attributes")),
+    "Relationship": _obj({"source": S, "target": S, "kind": S, "cardinality": S},
+                         ("source", "target", "kind", "cardinality"), extra=False),
+    "OntologySummary": _obj({"ref": S, "fingerprint": S, "description": S,
+                             "entities": {"type": "object", "additionalProperties": REF("Entity")},
+                             "relationships": {"type": "array", "items": REF("Relationship")},
+                             "actions": ANY,
+                             "rules": {"type": "array", "items": _obj({"id": S, "kind": S, "description": S},
+                                                                       ("id", "kind"))}},
+                            ("ref", "fingerprint", "entities", "relationships", "actions", "rules")),
+    "Problem": _obj({"path": S, "message": S, "node": S, "field": NS, "edge": I, "section": S, "name": S,
+                     "index": I}, ("path", "message")),
+    "Validation": _obj({"valid": B, "problems": {"type": "array", "items": REF("Problem")}, "note": S, "ref": S,
+                        "fingerprint": S, "summary": {"type": "object", "additionalProperties": I}},
+                       ("valid", "problems")),
+    "Question": _obj({"id": S, "kind": S, "severity": {"type": "string", "enum": ["high", "medium", "low"]},
+                      "question": S, "why": S, "evidence": S, "node": S, "action": S, "rule": I},
+                     ("id", "kind", "severity", "question", "why", "evidence")),
+    "Draft": _obj({"revision": I, "document": ANY, "author": NS, "at": NS, "note": S,
+                   "active": _obj({"ref": S, "fingerprint": S}, ("ref", "fingerprint")),
+                   "validation": REF("Validation"), "questions": {"type": "array", "items": REF("Question")},
+                   "active_model_changed": B},
+                  ("revision", "document", "active", "validation", "questions")),
+    "ValidationResult": _obj({"validation": REF("Validation"),
+                              "questions": {"type": "array", "items": REF("Question")}},
+                             ("validation", "questions")),
+    "ProposalItem": _obj({"id": S, "kind": {"type": "string", "enum": ["entity", "relationship", "action", "rule"]},
+                          "name": NS, "value": {}, "rationale": S, "status": {"type": "string", "enum": ["provisional"]},
+                          "provenance": _obj({"generator": S, "blueprint": S, "ai": B,
+                                              "matched_terms": {"type": "array", "items": S}},
+                                             ("generator", "ai"))},
+                         ("id", "kind", "value", "rationale", "status", "provenance")),
+    "Proposal": _obj({"generator": S, "ai": B, "blueprint": _obj({"id": S, "name": S}),
+                      "matched_terms": {"type": "array", "items": S},
+                      "items": {"type": "array", "items": REF("ProposalItem")}, "message": S},
+                     ("generator", "ai", "items", "message")),
+    "DraftSave": _obj({"document": ANY, "expected_revision": {"type": "integer", "minimum": 0},
+                       "note": S}, ("document", "expected_revision")),
+    "ValidateRequest": _obj({"document": {}}, ("document",)),
+    "ProposalRequest": _obj({"brief": {"type": "string", "minLength": 1, "maxLength": 4000},
+                             "document": ANY}, ("brief",)),
+    "ObjectWrite": _obj({"type": S, "id": S, "attributes": ANY,
+                         "expected_revision": {"type": "integer", "minimum": 0},
+                         "links": {"type": "array", "items": _obj({"kind": S, "target": S}, ("kind", "target"))},
+                         "justification": S}, ("type", "id", "attributes")),
+}
+RESPONSES = {("GET", "/api/health"): "Health", ("GET", "/api/me"): "Me", ("GET", "/api/objects"): "ObjectList",
+             ("GET", "/api/objects/{id}"): "ObjectView", ("POST", "/api/objects"): "ObjectView",
+             ("GET", "/api/ontology"): "OntologySummary", ("GET", "/api/model/draft"): "Draft",
+             ("POST", "/api/model/draft"): "Draft", ("POST", "/api/model/validate"): "ValidationResult",
+             ("POST", "/api/architect/proposals"): "Proposal"}
+REQUESTS = {("POST", "/api/model/draft"): "DraftSave", ("POST", "/api/model/validate"): "ValidateRequest",
+            ("POST", "/api/architect/proposals"): "ProposalRequest", ("POST", "/api/objects"): "ObjectWrite"}
 
 
 def _operation_id(method: str, path: str) -> str:
-    words = [w for w in re.split(r"[/{}\-.]+", path.replace("/api/", "")) if w]
+    words = [w for w in re.split(r"[/{}\-.]+", re.sub(r"^/(api|platform)(/v1)?/", "", path)) if w]
     return method.lower() + "".join(w[:1].upper() + w[1:] for w in words)
 
 
-def spec() -> Dict[str, Any]:
-    """The OpenAPI 3.1 document for the engine API."""
+def _paths(routes, prefix_from: str, prefix_to: str, responses, requests, statuses=None) -> Dict[str, Any]:
     paths: Dict[str, Dict[str, Any]] = {}
-    for method, path, permission, summary, query in ROUTES:
+    for method, path, permission, summary, query in routes:
         params: List[Dict[str, Any]] = [{"name": p, "in": "path", "required": True, "schema": {"type": "string"}}
                                         for p in re.findall(r"\{([a-z]+)\}", path)]
         params += [{"name": q, "in": "query", "required": False, "schema": {"type": "string"}} for q in query]
         public = permission == "none"
-        responses: Dict[str, Any] = {"200": {"description": "OK", "content": {"application/json": {
-            "schema": {"type": "object"}}}}}
+        ok = (statuses or {}).get((method, path), "200")
+        schema = REF(responses[(method, path)]) if (method, path) in responses else ANY
+        out: Dict[str, Any] = {ok: {"description": "OK", "content": {"application/json": {"schema": schema}}}}
         for code, text in (("400", "Invalid request"), ("401", "Missing or invalid token"),
                            ("403", "Permission or checkpoint refused"), ("404", "Not found or not visible"),
                            ("409", "Conflict: state, stage or revision")):
             if public and code in ("401", "403"):
                 continue
-            responses[code] = {"description": text, "content": {"application/json": {
-                "schema": {"$ref": "#/components/schemas/Error"}}}}
+            out[code] = {"description": text, "content": {"application/json": {"schema": REF("Error")}}}
         op: Dict[str, Any] = {"operationId": _operation_id(method, path), "summary": summary,
-                              "x-autology-permission": permission, "responses": responses}
+                              "x-autology-permission": permission, "responses": out}
         if params:
             op["parameters"] = params
         if public:
             op["security"] = []
         if method == "POST":
-            op["requestBody"] = {"required": False, "content": {"application/json": {"schema": {"type": "object"}}}}
-        paths.setdefault(path, {})[method.lower()] = op
+            body = REF(requests[(method, path)]) if (method, path) in requests else ANY
+            op["requestBody"] = {"required": (method, path) in requests,
+                                 "content": {"application/json": {"schema": body}}}
+        paths.setdefault(prefix_to + path[len(prefix_from):], {})[method.lower()] = op
+    return paths
+
+
+def spec() -> Dict[str, Any]:
+    """The OpenAPI 3.1 document for the engine API, version 1 (``/api/v1``)."""
     return {
         "openapi": "3.1.0",
         "info": {"title": "Autology engine API", "version": API_VERSION,
                  "description": "The governed engine of one use case. Behind the platform router every path is "
-                                "prefixed with /w/{workspace}/u/{use case}. Engine version " + __version__ + "."},
+                                "prefixed with /w/{workspace}/u/{use case}. Unversioned /api paths are the same "
+                                "handlers with the legacy envelope (docs/api-versioning.md). Engine version "
+                                + __version__ + "."},
+        "servers": [{"url": "/"}],
+        "security": [{"bearer": []}],
+        "components": {"securitySchemes": {"bearer": {"type": "http", "scheme": "bearer"}}, "schemas": SCHEMAS},
+        "paths": _paths(ROUTES, "/api", "/api/v1", RESPONSES, REQUESTS),
+    }
+
+
+# -- the platform router's own routes (workspaces, use cases, stages) ------------------------------------------
+PLATFORM_ROUTES: List[Tuple[str, str, str, str, Tuple[str, ...]]] = [
+    ("GET", "/platform/health", "none", "Liveness of the platform", ()),
+    ("GET", "/platform/openapi.json", "none", "This contract", ()),
+    ("GET", "/platform/me", "member", "The caller's workspace and the use cases they may open", ()),
+    ("GET", "/platform/templates", "workspace admin", "Approved templates", ()),
+    ("GET", "/platform/workspaces/{ws}/use-cases", "member", "Use cases of the caller's workspace", ()),
+    ("POST", "/platform/workspaces/{ws}/use-cases", "workspace admin", "Create a use case from a template", ()),
+    ("GET", "/platform/workspaces/{ws}/use-cases/{uc}", "granted member", "One use case with its stage history", ()),
+    ("GET", "/platform/workspaces/{ws}/use-cases/{uc}/checks", "granted member", "Checks of a target stage", ("to",)),
+    ("POST", "/platform/workspaces/{ws}/use-cases/{uc}/stage", "workspace admin", "Move one stage", ()),
+]
+STAGE_EVENT = _obj({"seq": I, "from_stage": STAGE, "to_stage": STAGE, "by": S, "reason": S, "fingerprint": S,
+                    "at": S, "checks": {"type": "array", "items": REF("Check")}},
+                   ("seq", "from_stage", "to_stage", "by", "reason", "at"))
+PLATFORM_SCHEMAS: Dict[str, Any] = {
+    "Error": SCHEMAS["Error"],
+    "Check": _obj({"id": S, "passed": B, "detail": S}, ("id", "passed", "detail"), extra=False),
+    "StageEvent": STAGE_EVENT,
+    "UseCase": _obj({"id": S, "name": S, "origin": {"type": "string", "enum": ["configuration", "template"]},
+                     "template": NS, "ontology": S, "fingerprint": S, "path": S,
+                     "permissions": {"type": "array", "items": S}, "stage": STAGE, "effective_stage": STAGE,
+                     "stale": B, "integrity_problem": NS, "stages": {"type": "array", "items": STAGE},
+                     "history": {"type": "array", "items": REF("StageEvent")}},
+                    ("id", "name", "origin", "ontology", "fingerprint", "path", "permissions", "stage",
+                     "effective_stage", "stale", "stages")),
+    "UseCaseList": _obj({"items": {"type": "array", "items": REF("UseCase")}}, ("items",)),
+    "Me": _obj({"workspace": _obj({"id": S, "name": S}, ("id", "name")), "member": S, "workspace_admin": B,
+                "use_cases": {"type": "array", "items": _obj({"id": S, "name": S, "ontology": S, "stage": STAGE,
+                                                              "path": S, "permissions": {"type": "array", "items": S}},
+                                                             ("id", "name", "stage", "path"))}},
+               ("workspace", "member", "workspace_admin", "use_cases")),
+    "Template": _obj({"id": S, "name": S, "description": S}, ("id", "name", "description"), extra=False),
+    "TemplateList": _obj({"items": {"type": "array", "items": REF("Template")}}, ("items",)),
+    "CheckResult": _obj({"from": STAGE, "to": STAGE, "forward": B, "checks": {"type": "array", "items": REF("Check")},
+                         "allowed": B}, ("from", "to", "forward", "checks", "allowed")),
+    "MoveResult": {"allOf": [REF("CheckResult"), _obj({"use_case": REF("UseCase")}, ("use_case",))]},
+    "UseCaseCreate": _obj({"id": S, "name": S, "template": S}, ("id", "template")),
+    "StageMove": _obj({"to": STAGE, "reason": {"type": "string", "minLength": 1, "maxLength": 500}}, ("to", "reason")),
+    "Health": _obj({"status": S}, ("status",)),
+}
+PLATFORM_RESPONSES = {("GET", "/platform/me"): "Me", ("GET", "/platform/templates"): "TemplateList",
+                      ("GET", "/platform/health"): "Health",
+                      ("GET", "/platform/workspaces/{ws}/use-cases"): "UseCaseList",
+                      ("POST", "/platform/workspaces/{ws}/use-cases"): "UseCase",
+                      ("GET", "/platform/workspaces/{ws}/use-cases/{uc}"): "UseCase",
+                      ("GET", "/platform/workspaces/{ws}/use-cases/{uc}/checks"): "CheckResult",
+                      ("POST", "/platform/workspaces/{ws}/use-cases/{uc}/stage"): "MoveResult"}
+PLATFORM_REQUESTS = {("POST", "/platform/workspaces/{ws}/use-cases"): "UseCaseCreate",
+                     ("POST", "/platform/workspaces/{ws}/use-cases/{uc}/stage"): "StageMove"}
+
+
+def platform_spec() -> Dict[str, Any]:
+    """The OpenAPI 3.1 document for the platform router's own routes, version 1 (``/platform/v1``)."""
+    return {
+        "openapi": "3.1.0",
+        "info": {"title": "Autology platform API", "version": API_VERSION,
+                 "description": "Workspaces, use cases and lifecycle stages. Each use case's engine API is served "
+                                "behind /w/{workspace}/u/{use case} (see the engine contract)."},
         "servers": [{"url": "/"}],
         "security": [{"bearer": []}],
         "components": {"securitySchemes": {"bearer": {"type": "http", "scheme": "bearer"}},
-                       "schemas": {"Error": ERROR}},
-        "paths": paths,
+                       "schemas": PLATFORM_SCHEMAS},
+        "paths": _paths(PLATFORM_ROUTES, "/platform", "/platform/v1", PLATFORM_RESPONSES, PLATFORM_REQUESTS,
+                        {("POST", "/platform/workspaces/{ws}/use-cases"): "201"}),
     }

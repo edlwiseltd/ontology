@@ -28,6 +28,7 @@ mode. The same `server.json` can therefore back a use case in several workspaces
 | Path | Who | What |
 |---|---|---|
 | `GET /platform/health` | anyone | `{"status": "ok"}`, nothing else |
+| `GET /platform/openapi.json` | anyone | The platform API contract (OpenAPI 3.1, paths under `/platform/v1`) |
 | `GET /platform/me` | a member | Their workspace, and the use cases they may open, with their permissions and API path |
 | `/w/<workspace>/u/<use case>/api/...` | a member granted that use case | The use case's REST API, exactly as for a single engine ([`platform.md`](platform.md)) |
 | `GET /platform/templates` | a workspace administrator | The operator's approved templates (id, name, description; never file paths) |
@@ -36,6 +37,11 @@ mode. The same `server.json` can therefore back a use case in several workspaces
 | `GET /platform/workspaces/<ws>/use-cases/<uc>` | a member granted it | Detail: stage, stale flag, integrity problem, ontology fingerprint, stage history |
 | `GET /platform/workspaces/<ws>/use-cases/<uc>/checks?to=<stage>` | a member granted it | The checks of the target stage, evaluated now; nothing is recorded |
 | `POST /platform/workspaces/<ws>/use-cases/<uc>/stage` | a workspace administrator | `{"to", "reason"}`: move one stage, if every check passes |
+
+Every route above (except the contract itself) is also served under `/platform/v1/...`, and every engine route
+under `/w/<ws>/u/<uc>/api/v1/...`: same handlers, same rules, with one error envelope, page metadata on lists and
+a version header. The unversioned paths keep their shape and are deprecated, not removed: see
+[`api-versioning.md`](api-versioning.md).
 
 Another workspace, a use case not granted and one that does not exist all get the same `404 not found` on these
 routes too. A member granted a use case but not administrator gets `403` on the writes.

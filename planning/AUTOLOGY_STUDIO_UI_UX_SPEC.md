@@ -18,7 +18,7 @@ person accepts it; every write is validated and authorised by the server; Produc
 | "A Draft use case can currently still run" | Fixed: execution gates (R2 increment 1) and the HTTP-approver/webhook bypass fix; CI runs 50 and 54 | Studio shows the engine's execution state; it does not need to warn about this risk any more |
 | Immutable releases and rollback not implemented | Still not implemented | Releases screen Blocked |
 | Reported 592 tests, run 48 | Now 643+ tests (GAP-009, GAP-018, gates, API-1 since) | Figures in the [implementation log](AUTOLOGY_IMPLEMENTATION_LOG.md) |
-| Versioned API with a generated client | API-1 contract for engine routes (OpenAPI 3.1, contract tests); no `/api/v1` yet (API-2); platform routes not in the contract | Hand-typed client for platform routes; generated client later |
+| Versioned API with a generated client | Done 15 Nov: `/api/v1` and `/platform/v1`, both contracts published, Studio types generated with `openapi-typescript` (CI drift check) | No hand-typed API shapes left in Studio |
 | JSON Schema baseline `docs/ontology.schema.json` | Present (MOD-1) | Kept as the single source of truth |
 | Existing minimal Studio shell | Was Python + plain JS | Migrated to Next.js and retired, all functions covered by browser tests |
 

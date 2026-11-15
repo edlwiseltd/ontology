@@ -124,6 +124,12 @@ jobs:
       - name: Install (exact versions from the lock file)
         run: npm ci --no-audit --no-fund
 
+      - name: The API client is generated from the contracts the engine publishes
+        run: |
+          (cd ../.. && python -m autology openapi --write)
+          npm run generate:api
+          git diff --exit-code -- api lib/generated
+
       - name: Type-check and unit tests
         run: |
           npm run typecheck

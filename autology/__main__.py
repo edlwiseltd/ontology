@@ -277,6 +277,10 @@ def _build_parser() -> argparse.ArgumentParser:
     pf.add_argument("--host", default="127.0.0.1")
     pf.add_argument("--port", type=int, default=8700)
     sub.add_parser("token", help="generate an API token and the hash to put in the server config")
+    oa = sub.add_parser("openapi", help="print the API v1 contracts (OpenAPI 3.1), or write the copies Studio uses")
+    oa.add_argument("which", nargs="?", choices=["engine", "platform"], default="engine")
+    oa.add_argument("--write", metavar="DIR", nargs="?", const="studio/web/api",
+                    help="write engine.openapi.json and platform.openapi.json into DIR (default studio/web/api)")
     return parser
 
 
@@ -424,6 +428,19 @@ def main(argv=None) -> int:
 
     if args.command == "roi":
         print(evaluate(TCOModel.load(args.model)).render())
+        return 0
+    if args.command == "openapi":
+        from .openapi import platform_spec, spec
+
+        docs = {"engine": spec(), "platform": platform_spec()}
+        if args.write:
+            out = Path(args.write)
+            out.mkdir(parents=True, exist_ok=True)
+            for name, doc in docs.items():
+                (out / f"{name}.openapi.json").write_text(json.dumps(doc, indent=2, sort_keys=True) + "\n")
+                print(out / f"{name}.openapi.json")
+        else:
+            print(json.dumps(docs[args.which], indent=2, sort_keys=True))
         return 0
     if args.command == "token":
         from .server import new_token

@@ -21,7 +21,8 @@ Demo-only today: every screen uses the real platform.*
 | Node/edge validation feedback | `POST …/model/validate` (engine strict loader; path, node, field or edge) | read | Verified (one blocking problem at a time) | e2e "malformed attribute refused and anchored to its node"; unit `ValidationTests` |
 | Releases, independent approval, rollback | — | — | **Blocked**: release governance (REL-1/2) and D11 | — |
 | Members, grants, delegations | — | — | **Blocked**: ADM-1 | — |
-| Platform API contract (`/platform/*` in OpenAPI) | — | — | Planned (engine routes are in API-1; platform routes are not yet) | — |
+| Platform API contract (`/platform/v1/*` in OpenAPI) | `GET /platform/openapi.json` | none (no data) | **Verified** (15 Nov): every platform route, typed responses; Studio types generated from it | `tests/test_api_v1.py` (schema conformance from a real platform; drift) |
+| API version | every Studio call uses `/platform/v1/...` and `/w/{ws}/u/{uc}/api/v1/...`; errors read from the v1 envelope | unchanged (same handlers) | **Verified** (15 Nov) | e2e: direct v1 and legacy calls both refused (403/404/404/403/403); 409 conflict read from `error.details` |
 
 ## Backend contracts Studio needs next (proposals, not implemented)
 

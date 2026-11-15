@@ -7,7 +7,7 @@
 | Component | Responsibility | Owns | Never does | Today |
 |---|---|---|---|---|
 | **Autology Engine** (headless) | Ontologies and knowledge graphs, planning, agent orchestration and delegation, rules and decision governance, identity-based authorisation, human approvals, action authorisation and the external-effects journal, audit, outcomes and replanning, automations and scheduling, readiness and deployment gates | Business decisions and every write | Render UI; trust a UI for policy | Exists; runs with no UI and no Hermes (`test_engine_headless.py`); gates not yet built |
-| **Public API** | The only way in: REST (versioned), MCP, typed SDKs, CLI | The contract | Hold business logic | REST + MCP + SDKs exist; **no versioned contract yet** (API-1/2) |
+| **Public API** | The only way in: REST (versioned), MCP, typed SDKs, CLI | The contract | Hold business logic | REST + MCP + SDKs exist; versioned contracts `/api/v1` and `/platform/v1` since 15 Nov (API-1/2) |
 | **Platform router** | Resolve a token to one member of one workspace; route `/w/<ws>/u/<uc>/api`; per-workspace sign-in, keys, credential scope; access log | Membership and routing | Business rules; data outside the target use case | Exists (ISO-1–4) |
 | **Autology Studio** | Administration and design: workspaces and use cases, versioned architecture, AI Solution Architect, visual model, discovery questions, templates, organisation and agent charts, integrations, readiness and releases | Draft configuration submitted for approval | Write engine storage; activate grants or releases itself | Not started (R2) |
 | **Autology Workspace UI** | End users: published processes, tasks, decisions, approvals, explanations | Presentation state | Decide policy; reach Studio functions | The Console (separate process, public API only); generated per use case in R5 |
@@ -104,6 +104,6 @@ if D2 chooses it, keeps the same boundary with one schema or database per use ca
 | No business rule only in a UI; governance server-side | Holds: the entry-point matrix runs against the API directly |
 | No external side effect bypassing the engine | Holds: the UIs have no tool access |
 | Independent frontend deployment and versioning | Console: separate process, same package. Studio: separate artefact (R2) |
-| API version compatibility tests | Not started (API-1/2) |
+| API version compatibility tests | Implemented 15 Nov (`tests/test_api_v1.py`: same handlers, legacy shape kept, envelope, paging, schemas, drift) |
 | Backend works when the UI is unavailable | Verified (`test_engine_headless.py`) |
 | Review inbox out of the engine process | Pending (UI-1); the inbox is optional today |

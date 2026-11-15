@@ -37,6 +37,7 @@ unrestricted external access.*
 | D17 | Which systems each stage may call (execution gates, R2 increment 1) | **Applied default**, owner confirmation pending | Simulation: simulated only; pilot: simulated and sandbox; production systems: no stage (follows D15) | Changing it widens or narrows what a pilot may reach |
 | D19 | Licensing decisions L1–L6 for GAP-031 (legal entity, licence text, LGPL driver in the default image, Debian base packages, dependency policy) | **Pending: counsel and owner** | See [GAP-031 package](AUTOLOGY_PARTIAL_GAPS_CLARIFICATION.md#gap-031--no-licence-redistribution-terms-undefined-high-blocks-customer-use); for L3, an image without the driver already builds and is checked in CI | No package or image may be distributed to a customer |
 | D18 | Whether draft and simulation may ingest real data through pipelines | **Applied default: yes (reads only)**, owner confirmation pending | Allow reads; no effect leaves through tools; revisit with D10/D16 for personal data | Restricting it would require sample data for design and simulation |
+| D20 | When the unversioned (legacy) API paths may be removed | **Applied default: deprecated, never removed without notice**, owner confirmation pending | Keep them until the Console, the MCP relay and the generated SDKs use v1; announce removal at least one minor release ahead ([policy](../docs/api-versioning.md)) | None while they stay; removing them breaks clients that have not migrated |
 
 ## 3. Evaluation: `openpyxl` (for decision XL)
 

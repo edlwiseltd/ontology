@@ -193,7 +193,7 @@ provider when `oidc` is configured: see [`integrations.md`](integrations.md)), e
 | Method and path | Permission | Purpose |
 |---|---|---|
 | `GET /api/health` | any | Liveness, stage and integrity summary (no token needed) |
-| `GET /api/openapi.json` | any | The API contract, OpenAPI 3.1 (no token needed; `autology/openapi.py`) |
+| `GET /api/openapi.json` | any | The API contract, OpenAPI 3.1, paths under `/api/v1` (no token needed; `autology/openapi.py`). Every route in this document is also served under `/api/v1/...`; see [`api-versioning.md`](api-versioning.md) |
 | `GET /api/auth/config` | any | What a sign-in page needs to offer company sign-in (no token needed) |
 | `POST /api/auth/token` | any | Exchange a company sign-in code for a token (no token needed) |
 | `GET /api/justifications` | audit | Reasons people gave at checkpoints |

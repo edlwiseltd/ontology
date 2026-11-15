@@ -45,6 +45,6 @@ export function relationsOf(o: OntologySummary, entity: string) {
   return {
     outgoing: o.relationships.filter((r) => r.source === entity),
     incoming: o.relationships.filter((r) => r.target === entity),
-    rules: o.rules.filter((r) => r.description.includes(entity)),
+    rules: o.rules.filter((r) => (r.description ?? "").includes(entity)),
   };
 }

@@ -59,6 +59,7 @@ from .governance import REDACTED, GovernanceLayer, Principal
 JUSTIFY = "***justification required***"
 from .graph import Instance, KnowledgeGraph, build_case, snapshot
 from .ontology import Ontology, OntologyError, type_ok
+from .openapi import page_window, versioned_response
 from .store import Store, StoreError, StoreJournal
 
 log = logging.getLogger("autology.server")
@@ -2188,9 +2189,13 @@ class ApiExchange:
         return data
 
     def run(self) -> "ApiExchange":
+
         method, service = self.command, self.service
         url = urlparse(self.path)
-        path = url.path.rstrip("/") or "/"
+        raw_path = url.path.rstrip("/") or "/"
+        # API v1: /api/v1/... is served by the same handlers as /api/...; only the response envelope differs
+        version = "1" if raw_path == "/api/v1" or raw_path.startswith("/api/v1/") else None
+        path = "/api" + raw_path[len("/api/v1"):] if version else raw_path
         query = {k: v[-1] for k, v in parse_qs(url.query).items()}
         self._status, self._user = 500, None
         try:
@@ -2198,9 +2203,13 @@ class ApiExchange:
         finally:
             if path.startswith("/api/") and path != "/api/health":
                 try:  # every API request, including failed sign-ins, goes to the append-only log
-                    service.log_access(self._user, "http", f"{method} {path}", self._status)
+                    service.log_access(self._user, "http", f"{method} {raw_path}", self._status)
                 except Exception:  # logging must never break a response
                     log.exception("writing the access log failed")
+        if path.startswith("/api"):
+            self.data, extra = versioned_response(version, method, path, query, self.status, self.content_type,
+                                                  self.data)
+            self.response_headers.update(extra)
         return self
 
     def _dispatch(self, method: str, path: str, query: Dict[str, str]) -> None:
@@ -2227,8 +2236,7 @@ class ApiExchange:
             user = service.authenticate(self.headers.get("Authorization"))
             self._user = user
             parts = path.split("/")[2:]
-            limit = max(1, min(int(query.get("limit", 100)), 1000))
-            offset = max(0, int(query.get("offset", 0)))
+            limit, offset = page_window(query)
             body = self._body() if method == "POST" else {}
             routes = {
                 ("GET", "me"): lambda: service.me(user),

@@ -99,7 +99,7 @@ python examples/scheduling/run.py ALERT-11   # furnace breakdown: 14 jobs on hol
 | | Cost-aware tool selection, allow-lists, multi-agent delegation, context-rich reviews, provenance | `agent.py`, `tools.py` |
 | Governance | Mandatory steps, prohibitions, read/write/action access (ABAC), human review, suspension, fail-safe pause | `governance.py` |
 | | Hash-chained audit, compliance report, outcome classes (completed / policy stop / unplanned), gap analysis | `audit.py`, `reporting.py` |
-| Agnostic integration | `ChatModel` interface (Anthropic adapter, `FunctionChatModel` for any other model); `register_price` | `reasoners.py` |
+| Agnostic integration | `ChatModel` interface (Anthropic adapter, `FunctionChatModel` for any other model); `register_price`; a provider-neutral gateway with two adapters (verified with test doubles only) | `reasoners.py`, `ai.py` |
 | | Declarative tools (`python`, `http`, `table`), approvers (`policy` with conditions, `http`), reasoners | `adapters.py` |
 | | Saved runs (JSONL) with intact hash chains, resumable in another process | `persistence.py` |
 | Cost | Model routing (none / small / large), decision cache, prompt caching, token cost; TCO/ROI from measured rates | `reasoners.py`, `economics.py` |

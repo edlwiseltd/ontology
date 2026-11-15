@@ -1,6 +1,6 @@
 # Work in progress — Autology
 
-*Updated 15 November 2026 (R2 security and reliability sprint). Branch `claude/autology-ontology-agent-4ajjer`.*
+*Updated 15 November 2026 (decision-integrity sprint). Branch `claude/autology-ontology-agent-4ajjer`.*
 
 ## Done in this directive
 
@@ -27,12 +27,22 @@
 | C — Backup, restore and release activation | Done, `8111d7f`, CI run 80 | `tests/test_ops1_recovery_and_activation.py` (14 tests); GAP-033 fixed |
 | D — Studio tenant and membership administration | Done, `0e9967a`, CI run 81 | Access screen in Studio; 23 Vitest, 56/56 browser checks |
 
+## Decision integrity, AI security boundaries and architecture foundations (15 November 2026)
+
+| Increment | Status | Evidence |
+|---|---|---|
+| A — SEC-A: GAP-045, GAP-037, GAP-035 | Done, `4093749`, CI run 84 | `tests/test_seca_decision_integrity.py` (18 tests, with a model that obeys what it reads) |
+| B — D24 least-privilege `operate` | **Blocked on the owner's approval**; design, tests of present behaviour and access-review evidence done, `6f25695` (CI run 85 failed on a race in one browser check, fixed in `8c5a44c`; the commit is part of green run 86) | `tests/test_d24_operate_readiness.py` (4 tests); [IAM target §7](planning/AUTOLOGY_IAM_TARGET.md) |
+| C — MIG-1 and a first step of ARC-0 | MIG-1 done, ARC-0 partial, `846a3cc`, CI run 86 | `tests/test_mig1_migrations.py` (6), `tests/test_arc0_services.py` (4); GAP-041 fixed, GAP-026 partly |
+| D — AI-1 provider-neutral AI foundation | Foundation done **with test doubles only**; no real provider, GAP-052 open | `tests/test_ai1_provider_foundation.py` (18 tests); see the implementation log |
+
 ## Waiting for the owner
 
 | Item | Needs |
 |---|---|
 | Name the release approver per workspace (D11 operational detail) | A single-administrator workspace cannot activate a release until it has one |
-| Configure AI providers per workspace, data classes and keys (D7/D10 details) | AI-1 real-provider runs |
+| Configure AI providers per workspace, data classes and keys (D7/D10 details), and authorise an evaluation protocol | AI-1 real-provider runs; closing GAP-052; exposing model proposals in Studio |
+| D24: approve (or decline) the narrower `operate` permission as designed | Implementation is about 1–2 days once approved; nothing changes until then |
 | Counsel's answers L1–L9 (D19) | GAP-031 closure; distribution stays blocked |
 | Review the migrated administrator grants (IAM-3) in each existing workspace | Revoke those not needed |
 | D22b–e; authorisation for IAM-2, IAM-4, IAM-5, IAM-6 | Not started, by instruction |

@@ -499,6 +499,58 @@ With Claude, the backend runs the tool loop with the official SDK. It uses promp
 | `GET /api/proposals` | read | The caller's run proposals from the assistant |
 | `POST /api/proposals/{id}/decision` | run (owner) | `{"confirm": true/false, "justification": "..."}`: start the proposed run, or decline it |
 
+## One path to a language model (AI-1)
+
+`autology/ai.py` is the single path a request to a language model takes, whatever the provider. It is a library
+of the engine: nothing in Studio or in the HTTP API depends on it yet, and nothing is configured by default.
+
+```python
+from autology.ai import AnthropicProvider, ChatCompletionsProvider, ModelGateway, ModelRequest, WorkspaceAI
+
+gateway = ModelGateway(
+    {"claude": AnthropicProvider(), "local": ChatCompletionsProvider("http://127.0.0.1:8080/v1")},
+    {"acme": WorkspaceAI("local", "some-model")})          # explicit, per workspace
+answer = gateway.invoke(ModelRequest(
+    workspace="acme", purpose="demo", system="Classify the note.", prompt="Is it urgent?",
+    data={"note": "..."},                                  # untrusted content, kept apart from the instructions
+    schema={"type": "object", "properties": {"urgent": {"type": "boolean"}}, "required": ["urgent"],
+            "additionalProperties": False},
+    data_classes=("synthetic",), deadline_seconds=20))
+answer.data, answer.usage, answer.cost_usd
+```
+
+| Concern | Where it is decided |
+|---|---|
+| Provider and model | The workspace's `WorkspaceAI`. A workspace without one gets `not_configured`; one workspace never uses another's provider, answers or accounting |
+| What may be sent | A request declares its data classes (`synthetic`, `model_design`, `business_records`, `personal_data`); the workspace lists those it allows, `synthetic` only by default (owner decisions D7, D10). The declaration is made by the calling code; it is not content inspection |
+| Form of the answer | The request's JSON Schema, checked by the gateway (`autology/schema.py`). Not JSON, not an object, a missing, mistyped or extra field: `invalid_response` |
+| Tools | None are ever offered. A reply that asks for one is refused (`tool_request`) |
+| Time | One deadline for the whole request, retries included, enforced by the gateway (an adapter that hangs cannot hold the caller); a caller can cancel. A late answer is discarded |
+| Failures | `ProviderError.kind`: `rate_limited` and `unavailable` are retried (at most `max_attempts`, never past the deadline); `auth`, `invalid_request`, `refused`, `truncated`, `timeout`, `cancelled`, `failed` are not. `uncertain` says the provider may have processed the call anyway: its usage is then unknown |
+| Repeats | A request id: repeating a request that succeeded returns the recorded answer; the same id with other content is refused; the id is sent as an idempotency key where the protocol has one |
+| Accounting | Tokens, cost (registered prices) and unpriced tokens per workspace: `gateway.usage(workspace)` |
+| Logs | One event per attempt on the `autology.ai` logger: outcome, duration, counts and the size of the prompt. Never the prompt, the data, the answer or a credential |
+
+**The answer is untrusted, whichever provider produced it.** The gateway returns data; it writes no record,
+activates no release and calls no business system. An agent's reasoner can use the gateway
+(`GatewayChatModel(gateway, workspace, data_classes)`); governance then re-evaluates the model's choice exactly as
+before ([security notes](#security-notes)), and any failure makes the agent follow its
+plan.
+
+**AI Architect proposals.** `autology.architect.propose(gateway, workspace, brief, document, sources)` asks a
+model for additions to a model document: entities with properties and states, relationships, actions with
+preconditions, rules, goals, clarification questions, assumptions, unknowns, sources and a confidence per item.
+The form of the answer has no place for permissions, grants, settings or tools. A proposal only adds: an item
+named like something the model already contains is rejected. Every item is validated by the engine's strict
+loader on the current model plus the proposed items; what the loader refuses is returned under `rejected` with its
+message. Nothing is saved or applied: a person accepts items into a draft, and a draft becomes active only
+through an approved release. Studio's architect still uses approved blueprints (`"ai": false`).
+
+**What this is not.** The adapters have been run against a double of the SDK client and a local mock endpoint.
+No request has been sent to a real provider from them, structured-output support differs between real providers
+and has not been checked against any, and no real model's proposals have been evaluated. Connecting a provider
+and sending anything but synthetic data are owner decisions (D7, D10).
+
 ## Access log (Tier 2)
 
 Every API request, except the health check and the inbox's static files, is written to an `access_log` table: time, who (or `-` when sign-in failed), method and path, and the response status. Assistant tool calls are logged the same way. Database triggers reject any UPDATE or DELETE. As with the audit log's triggers, this guards against mistakes, not against someone with direct database access.

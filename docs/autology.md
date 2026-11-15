@@ -83,6 +83,6 @@ Autology moves automation from *human-in-the-loop* to *agent-in-the-loop*. Peopl
 - Escalations and deferrals are returned to the caller. Production use would route them to ticketing, on-call and scheduler systems.
 - The knowledge graph is in memory. A Neo4j or Neptune backend would implement the same `add` / `link` / `query` interface.
 - CodingAgent and PersonalAgent roles are not implemented. They would reuse the ontology, governance and audit layers unchanged.
-- Only the Anthropic adapter ships for LLMs. Other providers plug in through `FunctionChatModel` (or your own `ChatModel`), but no other vendor SDK is bundled.
+- Model calls can go through one provider-neutral path (`autology/ai.py`, see [platform.md](platform.md#one-path-to-a-language-model-ai-1)) with two adapters: Claude through the official SDK, and the chat-completions protocol over HTTP that many model servers expose. Both have been exercised against test doubles and a local mock endpoint only; no real provider has been evaluated (GAP-052). No other vendor SDK is bundled.
 
 The engineering methodology (modules, competency questions, versioning, self-healing, ABAC, compliance reporting and cost/ROI) is covered in [`methodology.md`](methodology.md).

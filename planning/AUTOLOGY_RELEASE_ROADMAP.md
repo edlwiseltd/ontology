@@ -10,7 +10,7 @@ customer coordination. **No production deployment is authorised** in any release
 | Release | Theme | Exit criteria (master prompt §13 numbering) | Status |
 |---|---|---|---|
 | **R1** | Engineering foundation | Gate 80 repository criteria; G1 = G2 = G3 = 0; criteria 1, 2, 10 | **Done** ([report](AUTOLOGY_R1_COMPLETION_REPORT.md)); legal sign-off and independent re-verification open |
-| **R2** | Studio foundation | 1 (versioned contract), 3 (readiness per use case), 4, 5, 11 (server-side gates) | Planned |
+| **R2** | Studio foundation | 1 (versioned contract), 3 (readiness per use case), 4, 5, 11 (server-side gates) | **In progress**: done and open items per story in §3; exit requirements in §3.5 |
 | **R3** | Structured enterprise onboarding | 6, 7 | Planned |
 | **R4** | Agent Factory and integrations | 8, 9, 10 against an Odoo 18 sandbox | Planned |
 | **R5** | Operational experience | Workspace UI generated from the published use case | Planned |
@@ -49,19 +49,19 @@ finish execution gates, release governance, workspace administration and the API
 |---|---|---|---|---|
 | API-1 | OpenAPI 3.1 contract generated from one route table, with contract tests | Studio and third parties build against it | Every route in the table; a test fails if a route and the contract differ | 3 d — **partly done 14 Nov**: route table and contract tests both ways; **15 Nov**: typed schemas for the core and Studio routes (others generic) |
 | API-2 | `/api/v1` paths, deprecation policy, version header | UIs upgrade independently | Old paths answer with a deprecation header for one release | 1 d — **done 15 Nov** (`/api/v1`, `/platform/v1`, `docs/api-versioning.md`); legacy paths deprecated, no removal date (owner decision) |
-| ARC-0 | Split `AutologyService` into services behind the route table (GAP-026) | The new services (admin, releases, architect, imports) would otherwise grow the god object | No behaviour change: the full suite passes unchanged | 5–8 d |
-| MIG-1 | Ordered migrations in one transaction (GAP-041) | R2 adds several tables | An interrupted migration leaves the old schema intact | 1 d |
+| ARC-0 | Split `AutologyService` into services behind the route table (GAP-026) | The new services (admin, releases, architect, imports) would otherwise grow the god object | No behaviour change: the full suite passes unchanged | 5–8 d — **first step done 15 Nov:** notifications and ingestion extracted behind unchanged engine methods, one authorisation path, size ratchet (2,323 → 2,142 lines). Open: runs and reviews, scenarios, model design, the assistant, the dispatcher's route table, `_validate` |
+| MIG-1 | Ordered migrations in one transaction (GAP-041) | R2 adds several tables | An interrupted migration leaves the old schema intact | 1 d — **done 15 Nov:** versioned, ordered, idempotent steps; the whole upgrade is one transaction; incompatible states refused; additive only (no downgrade). Engine store only |
 | QA-1 | mypy, ruff and pip-audit in CI (GAP-025); pinned constraints (GAP-040) | Larger surface, more contributors | CI fails on new type errors or known High vulnerabilities | 2–3 d — **done 15 Nov:** CI job `quality` (ruff bug rules, mypy ratchet at 201, pip-audit), `npm audit` in the studio job, actions pinned by SHA, base image by digest |
-| AI-1 | Provider-neutral model adapter contract, validated with two adapters (D7) | The architect needs a model | The same eval suite passes with both adapters; adapter errors never escape (GAP-029). Real-provider runs need API keys from the owner | 3 d + API cost |
+| AI-1 | Provider-neutral model adapter contract, validated with two adapters (D7) | The architect needs a model | The same eval suite passes with both adapters; adapter errors never escape (GAP-029). Real-provider runs need API keys from the owner | 3 d + API cost — **foundation done 15 Nov:** contract, gateway (workspace configuration, data classes, deadline, retries, validation, accounting, logging), two adapters verified with test doubles and a local mock endpoint, bridge to the agents' reasoner, AI Architect proposal contract. Open: the eval suite with two *real* providers (GAP-052; D7/D10), building agents on the gateway from configuration, exposure through the API |
 | UI-1 | Review inbox moved out of the engine process | Completes the UI separation | The engine serves only the API | 1 d |
 
 ### 3.2 Workspace and use-case management, releases and gates (engine)
 
 | ID | Story | Acceptance | Est. |
 |---|---|---|---|
-| ADM-1 | Workspace administration API: create workspaces and use cases; add or remove members; propose grants | Changes are audited; a grant becomes active only when a second authorised administrator approves it, and never the proposer (master §6); cross-workspace attempts get 404 | 6 d — **done 15 Nov (ADM-1a):** members (person or service), token replacement and use-case grants through `/platform/v1/workspaces/{ws}/members|grants`; a grant needs an independent approval (never the proposer, never the grantee, never a service); revocation immediate; append-only chained log; fail closed if it does not verify. Open: a Studio screen; workspace administrators and roles stay in configuration |
+| ADM-1 | Workspace administration API: create workspaces and use cases; add or remove members; propose grants | Changes are audited; a grant becomes active only when a second authorised administrator approves it, and never the proposer (master §6); cross-workspace attempts get 404 | 6 d — **done 15 Nov (ADM-1a):** members (person or service), token replacement and use-case grants through `/platform/v1/workspaces/{ws}/members|grants`; a grant needs an independent approval (never the proposer, never the grantee, never a service); revocation immediate; append-only chained log; fail closed if it does not verify. **Since done (15 Nov):** the Studio Access screen (R2 sprint D). Open: workspace administrators and roles stay in configuration |
 | ADM-2 | Changes apply without restarting (hot reload of members, grants, use cases) | A new member can sign in within one request of approval; revoking access takes effect immediately | 2 d — **done 15 Nov:** membership changes reach every engine at the next request; `POST .../use-cases/{uc}/reload` rebuilds an engine from its files after a throwaway load (not an activation) |
-| REL-1 | Immutable use-case releases: Draft → Simulation → Pilot → Production, plus Suspended and Rollback; runs pinned to the release fingerprint (GAP-020) | A release is a content-addressed snapshot; rollback restores the previous one; a run started on release N continues on N | 6 d — **REL-1a done 15 Nov** (immutable content-addressed releases, independent approval bound to the fingerprint, activation of what runs only, drift stops execution, rollback recorded, runs and decisions bound to their configuration; pilot needs an approved active release). Open: activation without restart (hot reload, with ADM-2), releases created from Studio drafts, Suspended state, Studio release screen (STU-6). Policy chosen: a run started on N **stops** on another configuration (a person restarts it), it is never migrated silently |
+| REL-1 | Immutable use-case releases: Draft → Simulation → Pilot → Production, plus Suspended and Rollback; runs pinned to the release fingerprint (GAP-020) | A release is a content-addressed snapshot; rollback restores the previous one; a run started on release N continues on N | 6 d — **REL-1a done 15 Nov** (immutable content-addressed releases, independent approval bound to the fingerprint, activation of what runs only, drift stops execution, rollback recorded, runs and decisions bound to their configuration; pilot needs an approved active release). **Since done (15 Nov):** activation and rollback without restart (coordinated activation, R2 sprint C), releases created from Studio drafts and the Studio release screen (STU-6). Open: the Suspended state. Policy chosen: a run started on N **stops** on another configuration (a person restarts it), it is never migrated silently |
 | REL-2 | Server-side hard gates on promotion | The gates of the instructions §10 (approval ownership, separation of duties, cross-tenant access, untested critical connector, critical vulnerability, no authoritative confirmation, no recovery evidence, audit gaps, sector controls) block promotion whatever the score; acceptance test 8 | 3 d |
 | REL-3 | Use-case readiness scorecard: six dimensions, each metric with formula, denominator, target, evidence source, confidence, reviewer and refresh trigger; one scoring authority with `scoring.py` | Material changes invalidate the evidence they touch; acceptance test 7 | 6 d |
 | REL-4 | Semantic diff covers every section (GAP-028) | Release diffs show impact rules, scheduling, questions, settings | 2 d |
@@ -75,7 +75,7 @@ finish execution gates, release governance, workspace administration and the API
 | ARC-3 | Next questions from the model's gaps: a deterministic gap analysis (rules on fields that have no source, actions without tools, entities without data, missing approvers or reviewer roles) ranked by risk and dependency, worded by the model | Each question names the fact or rule it resolves and the evidence expected; acceptance test 4 | 4 d |
 | ARC-4 | Reconcile answers and documents: contradictions highlighted; safety-relevant ambiguity must be resolved before promotion (a REL-2 gate) | A contradiction blocks promotion until a person resolves it | 4 d |
 | BP-1 | Oil & Gas upstream (maintenance work orders) and pharma (deviation / CAPA) blueprints as optional, versioned templates with no customer data | Acceptance test 3; brought forward because the R2 exit needs it | 4 d |
-| SEC-A | Prompt-injection and data-boundary tests for briefs and documents (GAP-045) | Instructions inside a brief or document never become rules, grants or actions | 2 d |
+| SEC-A | Prompt-injection and data-boundary tests for briefs and documents (GAP-045) | Instructions inside a brief or document never become rules, grants or actions | 2 d — **done 15 Nov** for what exists (agent decisions, ingestion, notifications, model proposals): GAP-045, GAP-037, GAP-035 fixed; the tests use a model that obeys what it reads. Document intake (R3) must add its own cases |
 
 ### 3.4 Studio (a separate application)
 
@@ -94,6 +94,20 @@ finish execution gates, release governance, workspace administration and the API
 4. ARC, BP-1, SEC-A, REL-3.
 5. Studio, which can start as soon as the API contract is fixed.
 6. The exit tests.
+
+### 3.5 R2 exit requirements (updated 15 November 2026, decision-integrity sprint)
+
+| Requirement | State | What is missing |
+|---|---|---|
+| Versioned API contract (criterion 1) | Met at repository level | Typed schemas for the routes still described generically |
+| Server-side gates on stages and execution (criterion 11) | Met for Draft, Simulation and Pilot; Production is always refused | REL-2 hard gates on promotion; Production stays disabled until formally authorised |
+| Releases with independent approval, activation and rollback | Met (REL-1a, STU-6, activation without restart) | Suspended state; REL-4 full semantic diff |
+| Workspace and member administration | Met (ADM-1, ADM-2, Studio Access screen) | Roles and workspace administrators in configuration only; D24 (`operate`) awaits the owner |
+| Security prerequisites (GAP-030, SEC-A) | Met at repository level | Independent security review; D23 confirmation |
+| Migrations and recovery (MIG-1, OPS-1) | Met at repository level | Platform registries outside the migration mechanism; production-sized restore drill |
+| Architecture (ARC-0) | Partial | Remaining extractions (runs and reviews, scenarios, model design, assistant, dispatcher) |
+| Readiness per use case (criterion 3, REL-3) | Not started | Needs authorisation; owner validation of weights |
+| AI Solution Architect (criteria 4, 5; ARC-1 to ARC-4) | Foundation only (AI-1): contract, gateway, proposal validation, with test doubles | A real provider under D7/D10 (GAP-052); API and Studio exposure; discovery questions worded by a model; BP-1 blueprints |
 
 ## 4. R3: Structured enterprise onboarding
 
@@ -155,7 +169,7 @@ existing field rules apply.
 | ID | Story | Kind |
 |---|---|---|
 | RDY-1 | Maturity dashboards (platform and use case) and evidence that deployment enforcement holds | Repo |
-| OPS-1 | Restore drill in CI with measured recovery time (GAP-033) | Repo |
+| OPS-1 | Restore drill in CI with measured recovery time (GAP-033) — **brought forward, done 15 Nov** (R2 sprint C: platform backup, verification and restore, drill in the suite). Open: a drill against production-sized data | Repo |
 | OPS-2 | Load test against agreed targets (GAP-024) | Repo + environment |
 | OPS-3 | PostgreSQL store if D2 requires it | Repo |
 | SEC-1 | External penetration test and code review; fixes | **External** |
@@ -195,7 +209,7 @@ The owner's order is kept where the repository's dependencies allow it:
 | 3 | REL-1a releases | Done at repository level (see log) | — |
 | 4 | Architecture Part B (plugins, knowledge hub, composable intelligence, decision/action, autonomy) | Documented | — |
 | 5 | Workspace administration (ADM-1, ADM-2) | Done 15 Nov (owner: "all approved"); members screen done 15 Nov (R2 sprint D) | REL-1a (done); D11 details per workspace; hot reload is shared with release activation |
-| 6 | Real AI Solution Architect (AI-1, ARC-1) | Needs authorisation | D7/D10 configuration and keys; SEC-A (injection tests) before any real document |
+| 6 | Real AI Solution Architect (AI-1, ARC-1) | **AI-1 foundation and SEC-A done 15 Nov** (test doubles only); the real architect needs authorisation | D7/D10 configuration and keys for a real provider (GAP-052); an API contract revision to expose model proposals (ARC-1) |
 | 7 | Readiness assessment (REL-3) | Needs authorisation | REL-1a (a score belongs to a release); owner validation of weights |
 | 8 | Excel Template Factory and document intake (R3) | Needs authorisation | F-01 origin rules for any fetched source; provenance model (B3) |
 | 9 | Multi-provider AI and hybrid retrieval | Needs authorisation | AI-1; document intake |

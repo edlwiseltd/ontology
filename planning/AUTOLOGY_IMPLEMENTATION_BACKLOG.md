@@ -18,7 +18,7 @@ GAP-015, workspaces and router.
 | 3 | QA-1: mypy, ruff, pip-audit, pinned constraints (GAP-025, GAP-040); raise the coverage margin (95.9 % vs 95 %) | R2 | Gate 90.7; safer refactoring | — |
 | 4 | REL-1, REL-2, REL-4: releases, server-side gates, full diff | R2 | Nothing from Studio may go live without them | — |
 | 5 | ADM-1, ADM-2: workspace administration with second-approver grants | R2 | Dynamic workspaces | D11 |
-| 6 | AI-1: two model adapters | R2 | The architect needs a model | D7 keys, D10 |
+| 6 | AI-1: two model adapters — **foundation done 15 Nov with test doubles** (contract, gateway, two adapters, proposal contract); real-provider evaluation open (GAP-052) | R2 | The architect needs a model | D7 keys, D10 |
 | 7 | ARC-1–4, BP-1, SEC-A, REL-3 | R2 | Acceptance criteria 3, 4, 5 | 6 |
 | 8 | STU-1–6 (separate application) | R2 | User-facing Studio | D9, 1 |
 | 9 | XL-1–4, DOC-1, PRV-1, ORG-1/2, SYS-1, ISO-5, HARD-1 | R3 | Onboarding | 4 |

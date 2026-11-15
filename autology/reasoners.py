@@ -150,6 +150,31 @@ class FunctionChatModel:
                            None if isinstance(out, dict) else "reply is not a JSON object")
 
 
+def claude_request(model: str, max_tokens: int, effort: str, system: str, prompt: str,
+                   schema: Mapping[str, Any]) -> Dict[str, Any]:
+    """The arguments of one structured-output request to Claude (``client.beta.messages.create``): the single
+    place that knows this request's shape, shared by :class:`AnthropicChatModel` and the AI gateway's adapter."""
+    request: Dict[str, Any] = dict(
+        model=model,
+        max_tokens=max_tokens,
+        cache_control={"type": "ephemeral"},
+        output_config={"effort": effort, "format": {"type": "json_schema", "schema": dict(schema)}},
+        system=system,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    if model in SERVER_FALLBACK_MODELS:
+        request.update(betas=["server-side-fallback-2026-07-01"], fallbacks="default")
+    return request
+
+
+def claude_usage(response: Any) -> Dict[str, int]:
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return {}
+    fields = ("input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens")
+    return {f: int(getattr(usage, f, 0) or 0) for f in fields}
+
+
 class AnthropicChatModel:
     """Claude through the official ``anthropic`` SDK, with structured output.
 
@@ -177,16 +202,7 @@ class AnthropicChatModel:
             api_errors: tuple = (anthropic.RateLimitError, anthropic.APIStatusError, anthropic.APIConnectionError)
         except ImportError:  # an injected client (e.g. a test double) without the SDK installed
             api_errors = ()
-        request: Dict[str, Any] = dict(
-            model=self.model,
-            max_tokens=self.max_tokens,
-            cache_control={"type": "ephemeral"},
-            output_config={"effort": effort or self.effort, "format": {"type": "json_schema", "schema": schema}},
-            system=system,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        if self.model in SERVER_FALLBACK_MODELS:
-            request.update(betas=["server-side-fallback-2026-07-01"], fallbacks="default")
+        request = claude_request(self.model, self.max_tokens, effort or self.effort, system, prompt, schema)
         try:
             response = self.client.beta.messages.create(**request)
         except api_errors as exc:  # type: ignore[misc]
@@ -205,11 +221,7 @@ class AnthropicChatModel:
 
     @staticmethod
     def _usage(response: Any) -> Dict[str, int]:
-        usage = getattr(response, "usage", None)
-        if usage is None:
-            return {}
-        fields = ("input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens")
-        return {f: int(getattr(usage, f, 0) or 0) for f in fields}
+        return claude_usage(response)
 
 
 SYSTEM_PROMPT = """You are the reasoning module of an Autology work agent. A business \

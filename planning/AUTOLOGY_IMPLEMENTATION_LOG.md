@@ -464,3 +464,49 @@ locally), 95.82 % lines (13,636 statements, 570 missed; `migrations.py` 97 %, `n
 A mistake during this increment, recorded: `git stash` was used to compare type-check output while a suite was
 running, which reverted tracked files under the run; that run was discarded and the suite was run again from a
 quiet tree (the figures above). Comparisons now use a separate worktree.
+
+## 15 November 2026 — Decision integrity sprint, increment D: AI-1 provider-neutral AI foundation
+
+**Status: the foundation is built and verified with test doubles. It is not a provider integration.** No request
+was sent to a real provider and no customer data was used (D7/D10 not exercised). GAP-052 stays open.
+
+| Story | Change | Tests | Behaviour change |
+|---|---|---|---|
+| Contract and gateway | New `autology/ai.py`: `ModelRequest` (instructions, untrusted data kept apart, the answer's JSON Schema, declared data classes, deadline, request id), `ModelResponse`, `ProviderError` with fourteen classified kinds (retryable or not; outcome uncertain or not), `Capabilities`, and `ModelGateway`: explicit per-workspace configuration (nothing by default), data-class allow-list (`synthetic` only by default), one deadline per request enforced by the gateway, bounded retries for rate limits and outages only, schema validation of the answer, refusal of tool requests, replay of repeated request ids, token and cost accounting per workspace, one content-free log event per attempt | P1–P9 | None for existing paths: nothing uses the gateway unless code builds one |
+| Two adapters | `AnthropicProvider` (Claude through the official SDK's client object; SDK retries turned off, the gateway decides) and `ChatCompletionsProvider` (chat-completions JSON over HTTP through `outbound.urlopen`: redirects confined to the origin, deadline, reply size limit, idempotency key; a key is sent over https only, or to this machine) | P1–P6 through both: a double of the SDK client and a local mock HTTP endpoint driven by one scripted model | None |
+| Bridge to agents | `GatewayChatModel`: an agent's reasoner can call its model through the gateway; a failure of any kind makes the agent follow its plan | G1–G2: the same compromised model behind either adapter, or behind none, gives the same governed outcome and audit events | None |
+| AI Architect proposal contract | New `autology/architect.py`: `SCHEMA` (entities with properties and states, relationships, actions with preconditions and effects, rules, goals, questions, assumptions, unknowns, sources, confidence; no place for permissions, grants, settings, self-review or tools), `propose()` returning provisional items validated by the engine's strict loader on the current model plus the items, and `rejected` items with the loader's message; a proposal only adds; nothing is saved or applied | A1–A7 | None: not exposed through the API or Studio (Studio's architect still uses blueprints, `"ai": false`) |
+| Shared pieces | `autology/schema.py` (the JSON Schema checker moved from `tests/schema_check.py`, which re-exports it; it now also checks `anyOf`, `maximum`, `maxItems`); `reasoners.claude_request` / `claude_usage` extracted so the Claude request shape has one definition | Existing contract and reasoner tests | None |
+
+**Security properties verified (with a model that obeys what it reads).** An answer with any field beyond the
+form asked for is refused as a whole (`settings`, `permissions`, `grants`, `release`, `model_discretion`,
+`allow_self_review`); a tool request is refused and no tool definition is ever sent; instructions hidden in a
+retrieved source stay inside the data block and gain nothing; a proposal cannot redefine an existing entity,
+action, rule or goal; an added access rule can only restrict (pinned on the engine); a workspace cannot use
+another's provider, model outline, recorded answers or accounting; logs carry no prompt, data, answer or key;
+the AI modules import no store, server, platform, release or tool module (A7).
+
+**Limits, stated plainly.** (1) Both adapters were run against doubles only; structured-output support and
+schema keywords differ between real providers and were not checked against any. (2) Data classes are declared by
+the calling code, not detected from content. (3) A cancelled or timed-out call may still complete and be billed
+at the provider; it is counted as uncertain, not as zero. (4) An adapter that hangs leaves a daemon thread until
+it returns; there is no cap on concurrent requests per workspace and no spending limit yet. (5) Recorded answers
+for repeated ids are kept in memory (256 per gateway) and lost at restart. (6) The engine's configuration does
+not build agents on the gateway, and the older direct path (`AnthropicChatModel` without the gateway) is
+unchanged (GAP-029 remains partly fixed). (7) Proposal quality is untested: no real model has produced one.
+
+Evidence (local): full suite 820 OK (2 PostgreSQL tests skipped locally), 95.78 % lines (14,264
+statements, 602 missed; `ai.py` 96 %, `architect.py` 94 %, `schema.py` 88 %); ruff clean; mypy
+198 (= baseline). After that run one line changed (a repeated request now gets a copy of the recorded answer, not the
+same object), re-checked with the AI-1 module and seven related ones (137 OK). No API route or schema changed;
+Studio browser checks were run for the fix below (56/56).
+
+### CI evidence for the decision-integrity sprint
+
+| Increment | Commit | CI run | Result |
+|---|---|---|---|
+| A — SEC-A | `4093749` | [84](https://github.com/edlwiseltd/ontology/actions/runs/43764453135) | success (5 jobs) |
+| B — D24 readiness | `6f25695` | [85](https://github.com/edlwiseltd/ontology/actions/runs/43765148960) | **failure**: the `studio` job, one browser check of 56 ("a revoked grant stops working at once"); the four other jobs passed. Cause: a race in the check itself, written in the previous sprint (it waited for text that is always on the row, so the next call could overtake the revocation request). The platform applies a revocation before answering, which `test_adm1_administration` A3 asserts. Not reproduced locally (timing); fixed in `8c5a44c`. Increment B has no green run of its own: its commit is part of run 86 |
+| C — MIG-1, ARC-0 | `846a3cc` | [86](https://github.com/edlwiseltd/ontology/actions/runs/43765769862) | success (5 jobs; includes B) |
+| Browser-check fix | `8c5a44c` | [87](https://github.com/edlwiseltd/ontology/actions/runs/43766793062) | recorded in the next entry |
+

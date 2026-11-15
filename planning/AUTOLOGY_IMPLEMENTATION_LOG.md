@@ -177,4 +177,4 @@ follows it.
 **Limits:** typed 200 schemas only for the routes listed; other engine routes are in the contract with
 parameters, permissions and errors but a generic object body. Only lists that already took `limit`/`offset` are
 paginated. The Console, the MCP relay and the generated SDKs still use the legacy paths (deprecated, working).
-Increment 1 evidence (local, 15 Nov): Python suite 661 OK (2 PostgreSQL tests skipped locally), 96.32 % lines (10,981 statements, 404 missed); Studio typecheck, Vitest 17, build, browser checks 25/25 + engine-without-Studio. CI: see below.
+Increment 1 evidence (local, 15 Nov): Python suite 661 OK (2 PostgreSQL tests skipped locally), 96.32 % lines (10,981 statements, 404 missed); Studio typecheck, Vitest 17, build, browser checks 25/25 + engine-without-Studio. CI: `f059f2e` → [run 64](https://github.com/edlwiseltd/ontology/actions/runs/43684759108) success on all four jobs (Python 3.10 and 3.13 with PostgreSQL, package, studio incl. the contract/type drift check and 25 browser checks).

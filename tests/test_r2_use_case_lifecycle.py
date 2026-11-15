@@ -59,6 +59,7 @@ def close(pf):
     pf.lifecycle.close()
     pf.releases.close()
     pf.admin.close()
+    pf.tenancy.close()
     pf.log.close()
 
 

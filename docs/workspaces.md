@@ -29,7 +29,8 @@ mode. The same `server.json` can therefore back a use case in several workspaces
 |---|---|---|
 | `GET /platform/health` | anyone | `{"status": "ok"}`, nothing else |
 | `GET /platform/openapi.json` | anyone | The platform API contract (OpenAPI 3.1, paths under `/platform/v1`) |
-| `GET /platform/me` | a member | Their workspace, and the use cases they may open, with their permissions and API path |
+| `GET /platform/me` | a member | Their workspace, and the use cases they may open, with their permissions and API path; their tenant and every workspace they belong to (`?workspace=<id>` selects one) |
+| `GET /platform/tenants/<tenant>` | a member of that tenant | The tenant and its workspaces (their own; all, with the tenant-level members, for a tenant administrator). Another tenant: `404` |
 | `/w/<workspace>/u/<use case>/api/...` | a member granted that use case | The use case's REST API, exactly as for a single engine ([`platform.md`](platform.md)) |
 | `GET /platform/templates` | a workspace administrator | The operator's approved templates (id, name, description; never file paths) |
 | `GET /platform/workspaces/<ws>/use-cases` | a member | The use cases of their workspace they may open, each with its stage |
@@ -60,6 +61,58 @@ a version header. The unversioned paths keep their shape and are deprecated, not
 
 Another workspace, a use case not granted and one that does not exist all get the same `404 not found` on these
 routes too. A member granted a use case but not administrator gets `403` on the writes.
+
+## Tenants (IAM-1)
+
+A **tenant** is one customer organisation. It owns one or more workspaces; a workspace belongs to exactly one
+tenant; identities belong to one tenant and get the same `404` for another tenant's workspaces, use cases and
+tenant as for ones that do not exist.
+
+```json
+"tenants": {
+  "acme-group": {
+    "name": "Acme Group",
+    "workspaces": ["acme", "acme-eu"],
+    "members": [
+      {"name": "tara", "token_env": "ACME_GROUP_TOKEN_TARA", "tenant_admin": true},
+      {"name": "sam", "token_env": "ACME_GROUP_TOKEN_SAM", "workspaces": {
+        "acme":    {"use_cases": {"claims": {"permissions": ["read", "run"], "roles": ["claims_handler"]}}},
+        "acme-eu": {"workspace_admin": true}}}
+    ]
+  }
+}
+```
+
+- A workspace that no tenant lists is the single workspace of a **dedicated tenant** with the workspace's own id:
+  a configuration without `tenants` behaves exactly as before.
+- **Membership is explicit at both levels.** Belonging to a tenant gives no workspace access: a tenant-level member
+  reaches only the workspaces listed under `workspaces` (one identity and one token for all of them). A
+  **tenant administrator** (`tenant_admin`, a person) administers every workspace of the tenant. A member defined
+  inside a workspace stays an identity of that workspace only (`name@workspace`): two workspaces of one tenant may
+  each have their own "hana", two different people. A tenant-level name is unique in the tenant.
+- `GET /platform/me` adds `tenant`, `tenant_admin` and `workspaces` (every workspace the identity belongs to);
+  `GET /platform/me?workspace=<id>` selects one. `GET /platform/tenants/<tenant>` shows the caller's tenant: their
+  own workspaces, or all of them and the tenant-level members for a tenant administrator.
+- **Which tenant owns a workspace is a record** (`<data_dir>/tenancy.db`, versioned, append-only, chained), not only
+  configuration. A workspace that already has data when the registry first sees it is recorded in its own dedicated
+  tenant (the migration); afterwards a configuration that places a workspace in another tenant than the recorded
+  one is refused at start-up. Tenants are merged or split only by an explicit, reasoned operator action:
+
+  ```bash
+  python -m autology tenancy show   platform.json
+  python -m autology tenancy assign platform.json <workspace> <tenant> --reason "who asked and why"
+  ```
+- Unchanged: per-workspace stores, audit keys, credential prefixes, sign-in providers, stages, releases and
+  administration logs. The registry adds one file and rewrites none, so the previous software version still starts
+  on the same data (with a configuration it understands). Back up `tenancy.db` with the rest of the data directory:
+  without it, every workspace with data is recorded again in its own dedicated tenant.
+- With MCP over a platform file, a token that belongs to several workspaces must say which:
+  `python -m autology mcp platform.json --use-case claims --workspace acme-eu`.
+
+**Limits.** Tenant-level members and tenant administrators are defined in `platform.json` (no API yet). Platform
+operators have no Autology identity yet (IAM-2): `tenancy assign` records the operating-system user as a claim.
+These are application controls; whoever can write the data directory, the configuration or the audit key is outside
+them (file permissions, backups, encryption and key custody are infrastructure controls).
 
 ## Administration without restarts (ADM-1, ADM-2)
 

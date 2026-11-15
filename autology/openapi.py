@@ -263,7 +263,10 @@ def spec() -> Dict[str, Any]:
 PLATFORM_ROUTES: List[Tuple[str, str, str, str, Tuple[str, ...]]] = [
     ("GET", "/platform/health", "none", "Liveness of the platform", ()),
     ("GET", "/platform/openapi.json", "none", "This contract", ()),
-    ("GET", "/platform/me", "member", "The caller's workspace and the use cases they may open", ()),
+    ("GET", "/platform/me", "member", "The caller's workspace and the use cases they may open; their tenant and "
+     "every workspace they belong to (choose one with ?workspace=)", ("workspace",)),
+    ("GET", "/platform/tenants/{tenant}", "member of the tenant",
+     "The caller's tenant: its workspaces (their own, or all for a tenant administrator) (IAM-1)", ()),
     ("GET", "/platform/templates", "workspace admin", "Approved templates", ()),
     ("GET", "/platform/workspaces/{ws}/use-cases", "member", "Use cases of the caller's workspace", ()),
     ("POST", "/platform/workspaces/{ws}/use-cases", "workspace admin", "Create a use case from a template", ()),
@@ -324,8 +327,19 @@ PLATFORM_SCHEMAS: Dict[str, Any] = {
     "Me": _obj({"workspace": _obj({"id": S, "name": S}, ("id", "name")), "member": S, "workspace_admin": B,
                 "use_cases": {"type": "array", "items": _obj({"id": S, "name": S, "ontology": S, "stage": STAGE,
                                                               "path": S, "permissions": {"type": "array", "items": S}},
-                                                             ("id", "name", "stage", "path"))}},
+                                                             ("id", "name", "stage", "path"))},
+                "tenant": _obj({"id": S, "name": S}, ("id", "name")), "tenant_admin": B,
+                "workspaces": {"type": "array", "items": _obj({"id": S, "name": S, "workspace_admin": B},
+                                                              ("id", "name", "workspace_admin"))}},
                ("workspace", "member", "workspace_admin", "use_cases")),
+    "TenantView": _obj({"id": S, "name": S, "dedicated": B, "tenant_admin": B,
+                        "workspaces": {"type": "array", "items": _obj(
+                            {"id": S, "name": S, "member": B, "workspace_admin": B},
+                            ("id", "name", "member", "workspace_admin"))},
+                        "members": {"type": "array", "items": _obj(
+                            {"name": S, "kind": S, "tenant_admin": B, "workspaces": {"type": "array", "items": S}},
+                            ("name", "kind", "tenant_admin", "workspaces"))}},
+                       ("id", "name", "dedicated", "tenant_admin", "workspaces")),
     "Template": _obj({"id": S, "name": S, "description": S}, ("id", "name", "description"), extra=False),
     "TemplateList": _obj({"items": {"type": "array", "items": REF("Template")}}, ("items",)),
     "CheckResult": _obj({"from": STAGE, "to": STAGE, "forward": B, "checks": {"type": "array", "items": REF("Check")},
@@ -381,7 +395,7 @@ PLATFORM_SCHEMAS: Dict[str, Any] = {
                        ("use_case", "reason")),
     "ReleaseDecision": _obj({"reason": {"type": "string", "minLength": 1, "maxLength": 500}}, ("reason",)),
 }
-PLATFORM_RESPONSES = {("GET", "/platform/me"): "Me", ("GET", "/platform/templates"): "TemplateList",
+PLATFORM_RESPONSES = {("GET", "/platform/me"): "Me", ("GET", "/platform/tenants/{tenant}"): "TenantView", ("GET", "/platform/templates"): "TemplateList",
                       ("GET", "/platform/health"): "Health",
                       ("GET", "/platform/workspaces/{ws}/use-cases"): "UseCaseList",
                       ("POST", "/platform/workspaces/{ws}/use-cases"): "UseCase",

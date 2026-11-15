@@ -28,7 +28,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The caller's workspace and the use cases they may open */
+        /** The caller's workspace and the use cases they may open; their tenant and every workspace they belong to (choose one with ?workspace=) */
         get: operations["getMe"];
         put?: never;
         post?: never;
@@ -64,6 +64,23 @@ export interface paths {
         };
         /** Approved templates */
         get: operations["getTemplates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/v1/tenants/{tenant}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The caller's tenant: its workspaces (their own, or all for a tenant administrator) (IAM-1) */
+        get: operations["getTenantsTenant"];
         put?: never;
         post?: never;
         delete?: never;
@@ -499,6 +516,13 @@ export interface components {
         };
         Me: {
             member: string;
+            tenant?: {
+                id: string;
+                name: string;
+            } & {
+                [key: string]: unknown;
+            };
+            tenant_admin?: boolean;
             use_cases: ({
                 id: string;
                 name: string;
@@ -517,6 +541,13 @@ export interface components {
                 [key: string]: unknown;
             };
             workspace_admin: boolean;
+            workspaces?: ({
+                id: string;
+                name: string;
+                workspace_admin: boolean;
+            } & {
+                [key: string]: unknown;
+            })[];
         } & {
             [key: string]: unknown;
         };
@@ -648,6 +679,30 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        TenantView: {
+            dedicated: boolean;
+            id: string;
+            members?: ({
+                kind: string;
+                name: string;
+                tenant_admin: boolean;
+                workspaces: string[];
+            } & {
+                [key: string]: unknown;
+            })[];
+            name: string;
+            tenant_admin: boolean;
+            workspaces: ({
+                id: string;
+                member: boolean;
+                name: string;
+                workspace_admin: boolean;
+            } & {
+                [key: string]: unknown;
+            })[];
+        } & {
+            [key: string]: unknown;
+        };
         UseCase: {
             configuration?: string;
             /** @enum {string} */
@@ -761,7 +816,9 @@ export interface operations {
     };
     getMe: {
         parameters: {
-            query?: never;
+            query?: {
+                workspace?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -889,6 +946,73 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TemplateList"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Permission or checkpoint refused */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found or not visible */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict: state, stage or revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getTenantsTenant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantView"];
                 };
             };
             /** @description Invalid request */

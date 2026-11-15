@@ -176,7 +176,7 @@ def relay(url: str, token: str, reader: IO[str], writer: IO[str], timeout: float
 
 
 def run(config_path: str, token_env: str = "AUTOLOGY_TOKEN", reader: IO[str] = sys.stdin,
-        writer: IO[str] = sys.stdout, use_case: Optional[str] = None) -> int:
+        writer: IO[str] = sys.stdout, use_case: Optional[str] = None, workspace: Optional[str] = None) -> int:
     """Serve one engine over stdio. With a platform file (``platform.json``) the token must be a member's, and
     ``use_case`` names one of that member's use cases in their own workspace (ISO-1): nothing else is reachable."""
     import json
@@ -205,12 +205,18 @@ def run(config_path: str, token_env: str = "AUTOLOGY_TOKEN", reader: IO[str] = s
             print(f"{exc}\nWhile the platform server runs, serve MCP through it: "
                   "python -m autology mcp --url <platform>/w/<workspace>/u/<use case>", file=sys.stderr)
             return 2
-        member = platform.member_for(f"Bearer {token}")
-        ws = platform.workspaces.get(member.workspace) if member else None
-        uc = ws.use_cases.get(use_case) if ws else None
-        if uc is None or not member.grant(use_case):  # the same answer for a bad token and a foreign use case
+        # the token's own memberships only (IAM-1): another tenant's or an ungranted use case is never a candidate
+        found = [(platform.workspaces[w], m) for w, m in platform.members_for(f"Bearer {token}").items()
+                 if (workspace is None or w == workspace) and use_case in platform.workspaces[w].use_cases
+                 and m.grant(use_case)]
+        if len(found) > 1:
+            print(f"this token reaches use case {use_case} in several workspaces "
+                  f"({', '.join(ws.id for ws, _ in found)}): give --workspace", file=sys.stderr)
+            return 2
+        if not found:  # the same answer for a bad token and a foreign use case
             print("sign-in failed: no such use case for this token", file=sys.stderr)
             return 2
+        uc = found[0][0].use_cases[use_case]
         service = uc.service
     else:
         service = AutologyService.from_file(config_path)

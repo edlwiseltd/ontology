@@ -51,6 +51,7 @@ from .administration import AdminError, AdminLog, new_grant_id, pending_grants
 from .releases import ReleaseError, ReleaseRegistry
 from .server import ApiExchange, AutologyService, PERMISSIONS, hash_token, read_body
 from .store import Store
+from .tenancy import Tenancy, TenancyError
 
 log = logging.getLogger("autology.platform")
 ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
@@ -70,6 +71,9 @@ class Member:
     workspace_admin: bool = False
     use_cases: Dict[str, Dict[str, Any]] = field(default_factory=dict)  # use case -> permissions/roles/reviewer roles
     kind: str = "person"  # or "service": a machine identity never records a human approval (D11, F-02)
+    tenant: str = ""  # the tenant the identity belongs to (IAM-1): it reaches no other tenant's workspaces
+    tenant_admin: bool = False  # administers every workspace of the tenant (an administrative role, IAM-1)
+    scope: str = "workspace"  # where the identity is defined: "workspace" (one workspace) or "tenant"
 
     def grant(self, use_case: str) -> Optional[Dict[str, Any]]:
         if self.workspace_admin:
@@ -90,9 +94,33 @@ class UseCase:
 
 
 @dataclass
+class TenantMember:
+    """An identity defined for the whole tenant: a tenant administrator, or a person or service with explicit
+    memberships in some of the tenant's workspaces. Belonging to a tenant gives no workspace access by itself."""
+
+    name: str
+    token_sha256: str
+    kind: str = "person"
+    tenant_admin: bool = False
+    workspaces: Dict[str, Dict[str, Any]] = field(default_factory=dict)  # workspace -> {workspace_admin, use_cases}
+
+
+@dataclass
+class Tenant:
+    """One customer organisation: it owns workspaces; identities and data never cross to another tenant (IAM-1)."""
+
+    id: str
+    name: str
+    workspaces: List[str] = field(default_factory=list)
+    members: Dict[str, TenantMember] = field(default_factory=dict)
+    dedicated: bool = False  # the tenant of a single workspace that was not grouped with others
+
+
+@dataclass
 class Workspace:
     id: str
     name: str
+    tenant: str = ""
     members: Dict[str, Member] = field(default_factory=dict)
     use_cases: Dict[str, UseCase] = field(default_factory=dict)
     oidc: Optional[Dict[str, Any]] = None  # the workspace's own company sign-in (ISO-3)
@@ -105,7 +133,20 @@ class Workspace:
 
 
 def _copy_member(m: Member) -> Member:
-    return Member(m.name, m.workspace, m.token_sha256, m.workspace_admin, json.loads(json.dumps(m.use_cases)), m.kind)
+    return Member(m.name, m.workspace, m.token_sha256, m.workspace_admin, json.loads(json.dumps(m.use_cases)), m.kind,
+                  m.tenant, m.tenant_admin, m.scope)
+
+
+def _grants(spec: Any, where: str) -> Dict[str, Dict[str, Any]]:
+    grants: Dict[str, Dict[str, Any]] = {}
+    for uc, g in (spec or {}).items():
+        perms = set(g.get("permissions") or [])
+        if perms - PERMISSIONS:
+            raise PlatformError(f"{where}: unknown permissions {sorted(perms - PERMISSIONS)}")
+        grants[uc] = {"permissions": sorted(perms), "roles": list(g.get("roles") or []),
+                      "reviewer_roles": list(g.get("reviewer_roles") or []),
+                      "run_as": {a: list(r) for a, r in (g.get("run_as") or {}).items()}}
+    return grants
 
 
 def _token_digest(spec: Dict[str, Any], where: str) -> str:
@@ -162,7 +203,10 @@ class Platform:
         # members and grants changed through the API (ADM-1), replayed over platform.json, chained the same way
         self.admin = AdminLog(self.data_dir / "admin.db", lambda ws: workspace_key(audit_key(), ws))
         self.workspaces: Dict[str, Workspace] = {}
-        self._tokens: Dict[str, Member] = {}
+        self.tenants: Dict[str, Tenant] = {}
+        # token digest -> {workspace: Member}: one identity, with one Member per workspace it explicitly belongs to
+        self._tokens: Dict[str, Dict[str, Member]] = {}
+        self._identities: Dict[str, Tuple[str, str]] = {}  # token digest -> (tenant, name): one identity, one tenant
         self._base_dir = base_dir
         self._lock = threading.RLock()
         self._stops: List[threading.Event] = []
@@ -177,10 +221,83 @@ class Platform:
                 raise PlatformError(f"template {t_id}: configuration file {t['config']} not found")
             self.templates[t_id] = {"id": t_id, "name": str(t.get("name") or t_id),
                                     "description": str(t.get("description") or ""), "config": t["config"]}
-        for ws_id, ws_spec in (spec.get("workspaces") or {}).items():
-            self._load_workspace(ws_id, ws_spec, base_dir)
-        if not self.workspaces:
+        workspace_specs = spec.get("workspaces") or {}
+        if not workspace_specs:
             raise PlatformError("the platform has no workspaces")
+        for ws_id in workspace_specs:
+            if not ID.match(ws_id):
+                raise PlatformError(f"workspace id {ws_id!r}: lowercase letters, digits and '-' only")
+        self._load_tenants(spec.get("tenants") or {}, workspace_specs)
+        # which tenant owns each workspace is a record, not only configuration (IAM-1): existing workspaces go to
+        # their own dedicated tenant, and the configuration can never merge or split tenants by itself
+        existing = {ws_id for ws_id in workspace_specs if (self.data_dir / ws_id).is_dir()
+                    and any((self.data_dir / ws_id).iterdir())}
+        try:
+            self.tenancy = Tenancy(self.data_dir / "tenancy.db", workspace_key(audit_key(), "platform:tenancy"))
+            self.tenancy.reconcile({ws_id: self._tenant_of[ws_id] for ws_id in workspace_specs}, existing)
+        except TenancyError as exc:
+            raise PlatformError(str(exc)) from None
+        for ws_id, ws_spec in workspace_specs.items():
+            self._load_workspace(ws_id, ws_spec, base_dir)
+
+    def _load_tenants(self, specs: Dict[str, Any], workspace_specs: Dict[str, Any]) -> None:
+        """``tenants`` in the configuration: each names its workspaces and its tenant-level members. A workspace no
+        tenant lists is the single workspace of a dedicated tenant with its own id (how every workspace was before
+        tenants existed)."""
+        self._tenant_of: Dict[str, str] = {}
+        for t_id, t in specs.items():
+            if not ID.match(t_id) or not isinstance(t, dict):
+                raise PlatformError(f"tenant id {t_id!r}: lowercase letters, digits and '-' only")
+            listed = t.get("workspaces") or []
+            if not isinstance(listed, list) or not listed:
+                raise PlatformError(f"tenant {t_id}: workspaces must list at least one workspace")
+            for ws_id in listed:
+                if ws_id not in workspace_specs:
+                    raise PlatformError(f"tenant {t_id}: unknown workspace {ws_id!r}")
+                if ws_id in self._tenant_of:
+                    raise PlatformError(f"workspace {ws_id} is listed by tenants {self._tenant_of[ws_id]} and {t_id}: "
+                                        "a workspace belongs to exactly one tenant")
+                self._tenant_of[ws_id] = t_id
+            self.tenants[t_id] = Tenant(t_id, str(t.get("name") or t_id), list(listed))
+        for ws_id, ws_spec in workspace_specs.items():
+            if ws_id in self._tenant_of:
+                continue
+            if ws_id in self.tenants:  # a tenant with this id exists and does not list this workspace
+                raise PlatformError(f"workspace {ws_id} is not listed by any tenant, and tenant {ws_id!r} does not "
+                                    "list it: its dedicated tenant would have the same id. List it, or rename one")
+            self._tenant_of[ws_id] = ws_id
+            self.tenants[ws_id] = Tenant(ws_id, str(ws_spec.get("name") or ws_id), [ws_id], dedicated=True)
+        for t_id, t in specs.items():
+            tenant = self.tenants[t_id]
+            for i, m in enumerate(t.get("members") or []):
+                where = f"tenant {t_id} member {m.get('name', i)}"
+                name = str(m.get("name") or "")
+                if not re.fullmatch(r"[A-Za-z0-9_.@-]{1,64}", name) or name in tenant.members:
+                    raise PlatformError(f"{where}: a unique name of letters, digits and _.@- is required")
+                kind = m.get("kind", "person")
+                if kind not in ("person", "service"):
+                    raise PlatformError(f"{where}: kind must be \"person\" or \"service\"")
+                tenant_admin = bool(m.get("tenant_admin"))
+                if tenant_admin and kind != "person":
+                    raise PlatformError(f"{where}: a tenant administrator must be a person, not a service identity")
+                memberships: Dict[str, Dict[str, Any]] = {}
+                for ws_id, ms in (m.get("workspaces") or {}).items():
+                    if ws_id not in tenant.workspaces:  # membership is explicit and never leaves the tenant
+                        raise PlatformError(f"{where}: {ws_id!r} is not a workspace of tenant {t_id}")
+                    memberships[ws_id] = {"workspace_admin": bool((ms or {}).get("workspace_admin")),
+                                          "use_cases": _grants((ms or {}).get("use_cases"), where)}
+                if not tenant_admin and not memberships:
+                    raise PlatformError(f"{where}: give tenant_admin, or at least one workspace membership "
+                                        "(belonging to a tenant gives no access by itself)")
+                digest = _token_digest(m, where)
+                self._claim_token(digest, t_id, name, where)
+                tenant.members[name] = TenantMember(name, digest, kind, tenant_admin, memberships)
+
+    def _claim_token(self, digest: str, tenant: str, name: str, where: str) -> None:
+        """A token identifies exactly one identity of exactly one tenant: no identity is shared across tenants."""
+        owner = self._identities.setdefault(digest, (tenant, name))
+        if owner != (tenant, name):
+            raise PlatformError(f"{where}: this token is already used by another member")
 
     @classmethod
     def from_file(cls, path: str) -> "Platform":
@@ -188,32 +305,38 @@ class Platform:
         return cls(json.loads(p.read_text(encoding="utf-8")), p.parent)
 
     def _load_workspace(self, ws_id: str, spec: Dict[str, Any], base_dir: Path) -> None:
-        if not ID.match(ws_id):
-            raise PlatformError(f"workspace id {ws_id!r}: lowercase letters, digits and '-' only")
-        ws = Workspace(ws_id, str(spec.get("name") or ws_id), oidc=dict(spec["oidc"]) if spec.get("oidc") else None,
+        tenant = self.tenants[self._tenant_of[ws_id]]
+        ws = Workspace(ws_id, str(spec.get("name") or ws_id), tenant=tenant.id,
+                       oidc=dict(spec["oidc"]) if spec.get("oidc") else None,
                        env_prefix=str(spec.get("env_prefix") or ws_id.upper().replace("-", "_") + "_"))
+        # A workspace-level member is an identity of that workspace only (``name@workspace``), exactly as before
+        # tenants existed: two workspaces of one tenant may each have their own "hana", two different people who
+        # are never merged. A tenant-level name is unique in the tenant, so it can never be confused with them.
+        taken = set(tenant.members)
         for i, m in enumerate(spec.get("members") or []):
             where = f"workspace {ws_id} member {m.get('name', i)}"
             name = str(m.get("name") or "")
             if not re.fullmatch(r"[A-Za-z0-9_.@-]{1,64}", name) or name in ws.members:
                 raise PlatformError(f"{where}: a unique name of letters, digits and _.@- is required")
+            if name in taken:
+                raise PlatformError(f"{where}: {name} is also a tenant-level member of tenant {tenant.id}; one name "
+                                    "is one person: keep the tenant-level definition, with explicit memberships")
             digest = _token_digest(m, where)
-            if digest in self._tokens:  # a token must identify exactly one person in exactly one workspace
+            if digest in self._identities:  # a token must identify exactly one person in exactly one workspace
                 raise PlatformError(f"{where}: this token is already used by another member")
-            grants = {}
-            for uc, g in (m.get("use_cases") or {}).items():
-                perms = set(g.get("permissions") or [])
-                if perms - PERMISSIONS:
-                    raise PlatformError(f"{where}: unknown permissions {sorted(perms - PERMISSIONS)}")
-                grants[uc] = {"permissions": sorted(perms), "roles": list(g.get("roles") or []),
-                              "reviewer_roles": list(g.get("reviewer_roles") or []),
-                              "run_as": {a: list(r) for a, r in (g.get("run_as") or {}).items()}}
+            self._claim_token(digest, tenant.id, f"{name}@{ws_id}", where)
+            grants = _grants(m.get("use_cases"), where)
             kind = m.get("kind", "person")
             if kind not in ("person", "service"):
                 raise PlatformError(f"{where}: kind must be \"person\" or \"service\"")
-            member = Member(name, ws_id, digest, bool(m.get("workspace_admin")), grants, kind)
-            ws.members[name] = member
-            self._tokens[digest] = member
+            ws.members[name] = Member(name, ws_id, digest, bool(m.get("workspace_admin")), grants, kind, tenant.id)
+        for tm in tenant.members.values():  # tenant-level identities: only where they explicitly belong
+            membership = tm.workspaces.get(ws_id)
+            if tm.tenant_admin or membership is not None:
+                membership = membership or {"workspace_admin": False, "use_cases": {}}
+                ws.members[tm.name] = Member(
+                    tm.name, ws_id, tm.token_sha256, tm.tenant_admin or membership["workspace_admin"],
+                    json.loads(json.dumps(membership["use_cases"])), tm.kind, tenant.id, tm.tenant_admin, "tenant")
         for member in ws.members.values():
             unknown = set(member.use_cases) - set(spec.get("use_cases") or {}) - {
                 r["id"] for r in self.lifecycle.created(ws_id)}
@@ -256,7 +379,7 @@ class Platform:
         for e in events:
             d = e["data"]
             if e["event"] == "member_added":
-                members[d["name"]] = Member(d["name"], ws.id, d["token_sha256"], False, {}, d["kind"])
+                members[d["name"]] = Member(d["name"], ws.id, d["token_sha256"], False, {}, d["kind"], ws.tenant)
             elif e["event"] == "member_removed":
                 members.pop(d["name"], None)
             elif e["event"] == "token_rotated" and d["name"] in members:
@@ -274,10 +397,10 @@ class Platform:
         ws.members = members
 
     def _rebuild_tokens(self) -> None:
-        tokens: Dict[str, Member] = {}
+        tokens: Dict[str, Dict[str, Member]] = {}
         for ws in self.workspaces.values():
             for m in ws.members.values():
-                tokens[m.token_sha256] = m
+                tokens.setdefault(m.token_sha256, {})[ws.id] = m
         self._tokens = tokens
 
     def users_for(self, ws: Workspace, uc_id: str) -> List[Dict[str, Any]]:
@@ -336,20 +459,48 @@ class Platform:
         return uc
 
     # -- requests --------------------------------------------------------------------------------------------
-    def member_for(self, authorization: Optional[str]) -> Optional[Member]:
+    def members_for(self, authorization: Optional[str]) -> Dict[str, Member]:
+        """The token's identity as one Member per workspace it explicitly belongs to (all in one tenant)."""
         if not authorization or not authorization.startswith("Bearer "):
-            return None
-        return self._tokens.get(hash_token(authorization[7:].strip()))
+            return {}
+        return self._tokens.get(hash_token(authorization[7:].strip()), {})
 
-    def me(self, member: Member) -> Dict[str, Any]:
+    def member_for(self, authorization: Optional[str], workspace: Optional[str] = None) -> Optional[Member]:
+        """The token's Member in ``workspace`` (None if it has no membership there), or its first membership."""
+        members = self.members_for(authorization)
+        if workspace is not None:
+            return members.get(workspace)
+        return next(iter(members.values()), None)
+
+    def me(self, member: Member, members: Optional[Dict[str, Member]] = None) -> Dict[str, Any]:
         ws = self.workspaces[member.workspace]
+        tenant = self.tenants[ws.tenant]
+        memberships = members or {ws.id: member}
         return {"workspace": {"id": ws.id, "name": ws.name}, "member": member.name,
                 "workspace_admin": member.workspace_admin,
+                "tenant": {"id": tenant.id, "name": tenant.name}, "tenant_admin": member.tenant_admin,
+                # every workspace the identity explicitly belongs to; choose one with /platform/me?workspace=<id>
+                "workspaces": [{"id": w, "name": self.workspaces[w].name, "workspace_admin": m.workspace_admin}
+                               for w, m in memberships.items()],
                 "use_cases": [{"id": uc.id, "name": uc.name, "ontology": uc.service.ontology.ref,
                                "permissions": member.grant(uc.id)["permissions"],
                                "stage": self.stage_of(uc)["stage"],
                                "path": f"/w/{ws.id}/u/{uc.id}"}
                               for uc in ws.use_cases.values() if member.grant(uc.id)]}
+
+    def tenant_view(self, tenant: Tenant, members: Dict[str, Member]) -> Dict[str, Any]:
+        """A tenant as one of its identities sees it: its own workspaces, or all of them for a tenant
+        administrator, who also sees the tenant-level members. Never anything of another tenant."""
+        admin = any(m.tenant_admin for m in members.values())
+        visible = tenant.workspaces if admin else [w for w in tenant.workspaces if w in members]
+        view: Dict[str, Any] = {
+            "id": tenant.id, "name": tenant.name, "dedicated": tenant.dedicated, "tenant_admin": admin,
+            "workspaces": [{"id": w, "name": self.workspaces[w].name, "member": w in members,
+                            "workspace_admin": bool(members.get(w) and members[w].workspace_admin)} for w in visible]}
+        if admin:
+            view["members"] = [{"name": tm.name, "kind": tm.kind, "tenant_admin": tm.tenant_admin,
+                                "workspaces": sorted(tm.workspaces)} for tm in tenant.members.values()]
+        return view
 
     # -- use-case management and stages (R2 slice) -------------------------------------------------------------
     def stage_of(self, uc: UseCase) -> Dict[str, Any]:
@@ -534,13 +685,24 @@ class Platform:
             raise LifecycleError(400, "the body must be a JSON object")
         return body
 
-    def _manage(self, member: Member, method: str, parts: List[str], query: str, raw_body: Optional[bytes],
-                body_error: Optional[Tuple[int, str]]) -> Tuple[int, Any]:
-        """``/platform/templates`` and ``/platform/workspaces/<ws>/use-cases[/<uc>[/checks|/stage]]``."""
+    def _manage(self, member: Optional[Member], method: str, parts: List[str], query: str,
+                raw_body: Optional[bytes], body_error: Optional[Tuple[int, str]],
+                members: Optional[Dict[str, Member]] = None) -> Tuple[int, Any]:
+        """``/platform/templates``, ``/platform/tenants/<tenant>`` and
+        ``/platform/workspaces/<ws>/use-cases[/<uc>[/checks|/stage]]``. ``member`` is the caller's membership in
+        the workspace the path names (None: no membership there, whatever tenant it is in)."""
+        members = members if members is not None else ({member.workspace: member} if member else {})
         if parts[2:] == ["templates"] and method == "GET":
-            if not member.workspace_admin:
+            if not any(m.workspace_admin for m in members.values()):
                 raise LifecycleError(403, "workspace administrators only")
             return 200, {"items": [{k: t[k] for k in ("id", "name", "description")} for t in self.templates.values()]}
+        if len(parts) == 4 and parts[2] == "tenants" and method == "GET":
+            tenant = self.tenants.get(parts[3])
+            if tenant is None or not any(m.tenant == tenant.id for m in members.values()):
+                return 404, None  # another tenant, or none: the same answer
+            return 200, self.tenant_view(tenant, members)
+        if member is None:
+            return 404, None  # a workspace the caller does not belong to, another tenant's, or none: the same answer
         if len(parts) >= 5 and parts[2] == "workspaces" and parts[4] in ("members", "grants"):
             ws = self.workspaces.get(parts[3]) if parts[3] == member.workspace else None
             if ws is None:
@@ -655,6 +817,10 @@ class Platform:
             def check_new(events):
                 if name in ws.members:
                     raise AdminError(409, f"{name} is already a member")
+                tenant = self.tenants[ws.tenant]  # a tenant-level name is one person in the whole tenant (IAM-1)
+                if name in tenant.members:
+                    raise AdminError(409, f"{name} is already an identity of tenant {tenant.id}: give that person a "
+                                          "membership of this workspace in the platform configuration")
             self.admin.append(ws.id, "member_added", who, reason, {"name": name, "kind": kind, "token_sha256": digest},
                               check_new)
             self._refresh(ws)
@@ -667,6 +833,9 @@ class Platform:
                 return 404, None
             if target.workspace_admin:
                 raise AdminError(403, "workspace administrators are managed in the platform configuration only")
+            if target.scope == "tenant" and action in ("remove", "token"):
+                raise AdminError(403, f"{name} is an identity of the tenant, with memberships in the platform "
+                                      "configuration: it is not removed or re-keyed from one workspace")
             if action == "remove":
                 self.admin.append(ws.id, "member_removed", who, reason, {"name": name})
                 self._refresh(ws)
@@ -884,39 +1053,47 @@ class Platform:
             from .openapi import platform_spec
 
             return 200, "application/json", json.dumps(platform_spec()).encode(), {}
-        member = self.member_for(headers.get("Authorization"))
+        members = self.members_for(headers.get("Authorization"))  # the identity, per workspace it belongs to
         parts = path.split("/")
         # /w/<ws>/u/<uc>/api/...  ->  ['', 'w', ws, 'u', uc, 'api', ...]
         ok = (len(parts) >= 7 and parts[1] == "w" and parts[3] == "u" and parts[5] == "api"
               and ID.match(parts[2] or "") and ID.match(parts[4] or "") and ".." not in parts)
         ws = self.workspaces.get(parts[2]) if ok else None
         uc = ws.use_cases.get(parts[4]) if ws else None
-        if member is None and uc is not None and ws.oidc:
+        member = members.get(ws.id) if ws else next(iter(members.values()), None)
+        if not members and uc is not None and ws.oidc:
             # not a member token: only this workspace's own sign-in provider may vouch for it (ISO-3). The use
             # case's engine verifies it against that issuer and its mappings; anything else is refused there.
             inner = "/" + "/".join(parts[5:]) + (f"?{split.query}" if split.query else "")
             ex = ApiExchange(uc.service, method, inner, headers, raw_body, body_error).run()
             self._log(None, method, path, ex.status)
             return ex.status, ex.content_type, ex.data, ex.response_headers
-        if member is None:
+        if not members:
             self._log(None, method, path, 401)
             return 401, "application/json", json.dumps({"error": "missing or invalid token"}).encode(), {}
+        anyone = next(iter(members.values()))  # for the access log when the request names no workspace of theirs
         if path == "/platform/me" and method == "GET":
-            return 200, "application/json", json.dumps(self.me(member)).encode(), {}
+            wanted = dict(p.split("=", 1) for p in split.query.split("&") if "=" in p).get("workspace")
+            chosen = members.get(wanted) if wanted else anyone
+            if chosen is None:  # not a workspace of theirs: the same answer as for any unknown one
+                self._log(anyone, method, path, 404)
+                return 404, "application/json", NOT_FOUND, {}
+            return 200, "application/json", json.dumps(self.me(chosen, members)).encode(), {}
         if len(parts) >= 3 and parts[1] == "platform" and ".." not in parts:
+            member = members.get(parts[3]) if len(parts) >= 4 and parts[2] == "workspaces" else None
             try:
-                status, out = self._manage(member, method, parts, split.query, raw_body, body_error)
+                status, out = self._manage(member, method, parts, split.query, raw_body, body_error, members)
             except LifecycleError as exc:
                 status, out = exc.status, {"error": str(exc), **({"checks": exc.checks} if exc.checks else {})}
             except (ReleaseError, AdminError) as exc:
                 status, out = exc.status, {"error": str(exc)}
             if method != "GET" or status >= 400:
-                self._log(member, method, path, status)
+                self._log(member or anyone, method, path, status)
             if out is None:
                 return 404, "application/json", NOT_FOUND, {}
             return status, "application/json", json.dumps(out).encode(), {}
-        if uc is None or ws.id != member.workspace or not member.grant(uc.id):
-            self._log(member, method, path, 404)
+        if uc is None or member is None or not member.grant(uc.id):
+            self._log(member or anyone, method, path, 404)
             return 404, "application/json", NOT_FOUND, {}
         inner = "/" + "/".join(parts[5:]) + (f"?{split.query}" if split.query else "")
         ex = ApiExchange(uc.service, method, inner, headers, raw_body, body_error).run()
@@ -1005,4 +1182,5 @@ def serve(path: str, host: str = "127.0.0.1", port: int = 8700) -> None:  # prag
         platform.lifecycle.close()
         platform.releases.close()
         platform.admin.close()
+        platform.tenancy.close()
         platform.log.close()

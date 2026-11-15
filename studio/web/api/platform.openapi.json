@@ -312,6 +312,25 @@
           "member": {
             "type": "string"
           },
+          "tenant": {
+            "additionalProperties": true,
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ],
+            "type": "object"
+          },
+          "tenant_admin": {
+            "type": "boolean"
+          },
           "use_cases": {
             "items": {
               "additionalProperties": true,
@@ -372,6 +391,29 @@
           },
           "workspace_admin": {
             "type": "boolean"
+          },
+          "workspaces": {
+            "items": {
+              "additionalProperties": true,
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "workspace_admin": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "workspace_admin"
+              ],
+              "type": "object"
+            },
+            "type": "array"
           }
         },
         "required": [
@@ -841,6 +883,88 @@
         ],
         "type": "object"
       },
+      "TenantView": {
+        "additionalProperties": true,
+        "properties": {
+          "dedicated": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "members": {
+            "items": {
+              "additionalProperties": true,
+              "properties": {
+                "kind": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "tenant_admin": {
+                  "type": "boolean"
+                },
+                "workspaces": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "name",
+                "kind",
+                "tenant_admin",
+                "workspaces"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "name": {
+            "type": "string"
+          },
+          "tenant_admin": {
+            "type": "boolean"
+          },
+          "workspaces": {
+            "items": {
+              "additionalProperties": true,
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "member": {
+                  "type": "boolean"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "workspace_admin": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "member",
+                "workspace_admin"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "dedicated",
+          "tenant_admin",
+          "workspaces"
+        ],
+        "type": "object"
+      },
       "UseCase": {
         "additionalProperties": true,
         "properties": {
@@ -1115,6 +1239,16 @@
     "/platform/v1/me": {
       "get": {
         "operationId": "getMe",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "workspace",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -1177,7 +1311,7 @@
             "description": "Conflict: state, stage or revision"
           }
         },
-        "summary": "The caller's workspace and the use cases they may open",
+        "summary": "The caller's workspace and the use cases they may open; their tenant and every workspace they belong to (choose one with ?workspace=)",
         "x-autology-permission": "member"
       }
     },
@@ -1299,6 +1433,85 @@
         },
         "summary": "Approved templates",
         "x-autology-permission": "workspace admin"
+      }
+    },
+    "/platform/v1/tenants/{tenant}": {
+      "get": {
+        "operationId": "getTenantsTenant",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Missing or invalid token"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Permission or checkpoint refused"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not found or not visible"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict: state, stage or revision"
+          }
+        },
+        "summary": "The caller's tenant: its workspaces (their own, or all for a tenant administrator) (IAM-1)",
+        "x-autology-permission": "member of the tenant"
       }
     },
     "/platform/v1/workspaces/{ws}/grants": {

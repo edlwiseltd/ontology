@@ -146,7 +146,8 @@ class SchemaConformanceTests(V1Base):  # V5
     def test_platform_responses_match_the_published_schemas(self):
         base = "/platform/v1/workspaces/acme/use-cases"
         calls = [(("GET", "/platform/health"), "GET", "/platform/v1/health", None, 200),
-                 (("GET", "/platform/me"), "GET", "/platform/v1/me", None, 200),
+                 (("GET", "/platform/me"), "GET", "/platform/v1/me?workspace=acme", None, 200),
+                 (("GET", "/platform/tenants/{tenant}"), "GET", "/platform/v1/tenants/acme", None, 200),
                  (("GET", "/platform/templates"), "GET", "/platform/v1/templates", None, 200),
                  (("GET", "/platform/workspaces/{ws}/use-cases"), "GET", base, None, 200),
                  (("POST", "/platform/workspaces/{ws}/use-cases"), "POST", base,

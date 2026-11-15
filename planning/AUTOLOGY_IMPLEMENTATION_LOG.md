@@ -230,3 +230,25 @@ ADM/STU-6 evidence (local): full suite 699 OK (2 PostgreSQL tests skipped locall
 | Supply-chain pinning | Base image `python:3.13-slim` pinned by digest; `actions/checkout`, `setup-python`, `setup-node` pinned by commit SHA (newest release of the major already used: v4.4.0, v5.6.0, v4.4.0); pip pinned (26.2.2); the QA tools pinned and inventoried (`deploy/third_party_licences.json`, `THIRD_PARTY_NOTICES.md`; CI only, not shipped) | `tests/test_leg1_licences.py` | Updating a pin is a deliberate change (`docs/deployment.md`) |
 QA-1 evidence (local): ruff passes; mypy 201 (= baseline); pip-audit and npm audit: no known vulnerabilities; full suite 699 OK (2 PostgreSQL tests skipped locally), 96.07 % lines (11,718 statements, 460 missed). CI: see below.
 **QA-1 CI:** `cb91221` → [run 71](https://github.com/edlwiseltd/ontology/actions/runs/43696230537) success on all five jobs (new `quality` job: ruff, mypy ratchet, pip-audit; studio job: npm audit; the image built from the digest-pinned base).
+
+## 15 November 2026 — IAM development directive: IAM-1 tenant foundation (D22)
+
+Evidence in `planning/AUTOLOGY_IAM_TARGET.md` re-checked against the code first (one identity system: tokens, OIDC
+per workspace, members and grants, `kind`, engine permissions and ontology roles; engine `admin` bypasses row and
+field rules, `server.py` `visible`): confirmed. IAM-1 extends it; no second identity system.
+
+| Story | Change | Tests | Behaviour change |
+|---|---|---|---|
+| Tenant entity | `platform.py`: `Tenant` (id, name, workspaces, tenant-level members) and `TenantMember`; `Workspace.tenant`; `Member.tenant`, `tenant_admin`, `scope`. Configuration key `tenants` (workspaces listed by exactly one tenant; an unlisted workspace is a dedicated tenant with its own id) | `tests/test_iam1_tenants.py` (9) | None for configurations without `tenants` (T1; the 78 isolation, administration and release tests unchanged) |
+| Versioned registry and migration | New `autology/tenancy.py`: `<data_dir>/tenancy.db`, schema version 1 in `meta` (a newer registry is refused), `assignments` append-only (triggers) and HMAC-chained (key derived from the platform audit key). Migration: a workspace that already has data is recorded in its own dedicated tenant whatever the configuration says; a new one per the configuration; all records in one transaction. A configuration that disagrees with the record is refused at start-up. Explicit action: `python -m autology tenancy show|assign` (reason required; reversible the same way) | T2 (existing workspaces → dedicated tenants; merging configuration refused; data and governance histories byte-identical), T3 (explicit assign, reverse, append-only, tamper → start refused), T4 (interrupted migration records nothing; newer schema refused), T5 (registry removed → rebuilt identically) | A new file in the data directory; start-up refused when configuration and record disagree |
+| Membership boundaries | A token is one identity of one tenant, resolved per workspace (`members_for`, `member_for(…, workspace)`); tenant-level members reach only workspaces they explicitly belong to; a tenant administrator (a person) administers every workspace of the tenant; workspace-level members stay identities of their workspace (`name@workspace`), never merged even when their tenants are merged on purpose; tenant-level identities are not removed or re-keyed from one workspace | T6, T7 (11 cross-tenant requests get one identical 404; data written in one tenant or workspace is invisible in the others) | `GET /platform/me` gains `tenant`, `tenant_admin`, `workspaces` and `?workspace=`; new `GET /platform/tenants/{tenant}` (contract, Studio types regenerated) |
+| MCP and background | `mcp --workspace` when a token has several memberships; never another tenant | T8 (MCP), T9 (every scheduler ticks: only the workspace whose data changed fires; three stores, three audit keys) | — |
+
+**Design choices to confirm:** the migration treats a workspace as existing when its data folder is non-empty;
+tenant-level members and tenant administrators are configuration-only (no API); per-workspace audit keys,
+credential prefixes and sign-in stay as they were (changing the keys would invalidate existing chains).
+**Extension points kept, nothing built:** `Member.kind`/`scope` (portal, public, plugin identities), the registry's
+`by` field (operator identities, IAM-2), `TenantMember.workspaces` (per-workspace roles).
+**Limits:** application-level control only (data directory, configuration and key custody are infrastructure);
+`tenancy assign` records the OS user as a claim; no tenant-level OIDC yet.
+IAM-1 evidence (local): full suite 708 OK (2 PostgreSQL tests skipped locally), 95.95 % lines (12,003 statements, 486 missed); ruff clean; mypy 199 (baseline 201); Studio typecheck, build, 31/31 browser checks. CI: see below.

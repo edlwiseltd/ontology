@@ -243,6 +243,7 @@ def _build_parser() -> argparse.ArgumentParser:
     mc.add_argument("--url", help="relay to a running platform: <platform>/w/<workspace>/u/<use case> (opens no store)")
     mc.add_argument("--token-env", default="AUTOLOGY_TOKEN", help="environment variable holding the API token")
     mc.add_argument("--use-case", help="with a platform file: the use case to serve (in the token's workspace)")
+    mc.add_argument("--workspace", help="with a platform file: the workspace, when the token belongs to several")
     ig = sub.add_parser("ingest", help="run a data pipeline: load checked records into the knowledge graph")
     ig.add_argument("config")
     ig.add_argument("pipeline")
@@ -277,6 +278,12 @@ def _build_parser() -> argparse.ArgumentParser:
     pf.add_argument("--host", default="127.0.0.1")
     pf.add_argument("--port", type=int, default=8700)
     sub.add_parser("token", help="generate an API token and the hash to put in the server config")
+    tn = sub.add_parser("tenancy", help="show, or explicitly change, which tenant owns each workspace (IAM-1)")
+    tn.add_argument("action", choices=["show", "assign"])
+    tn.add_argument("config", help="the platform file")
+    tn.add_argument("workspace", nargs="?")
+    tn.add_argument("tenant", nargs="?")
+    tn.add_argument("--reason", help="for assign: who asked for the change and why (10 to 500 characters)")
     oa = sub.add_parser("openapi", help="print the API v1 contracts (OpenAPI 3.1), or write the copies Studio uses")
     oa.add_argument("which", nargs="?", choices=["engine", "platform"], default="engine")
     oa.add_argument("--write", metavar="DIR", nargs="?", const="studio/web/api",
@@ -423,12 +430,67 @@ def _cmd_ingest(args) -> int:
     return 2 if out["rejected"] else 0
 
 
+def _cmd_tenancy(args) -> int:
+    """The tenancy registry of a platform's data directory. ``assign`` is the only way to move a workspace to
+    another tenant: an explicit, reasoned record. It reads the registry only: the platform need not be stopped,
+    and it takes the change into account at its next start."""
+    import getpass
+
+    from .audit import audit_key, workspace_key
+    from .tenancy import Tenancy, TenancyError
+
+    path = Path(args.config).resolve()
+    try:
+        spec = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        print(f"cannot read {args.config}: {exc}", file=sys.stderr)
+        return 2
+    data_dir = (path.parent / spec.get("data_dir", "data")).resolve()
+    if not data_dir.is_dir():
+        print(f"no data directory at {data_dir}: start the platform once first", file=sys.stderr)
+        return 2
+    try:
+        registry = Tenancy(data_dir / "tenancy.db", workspace_key(audit_key(), "platform:tenancy"))
+    except TenancyError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    try:
+        if args.action == "assign":
+            if not args.workspace or not args.tenant:
+                print("usage: autology tenancy assign PLATFORM.json WORKSPACE TENANT --reason \"...\"", file=sys.stderr)
+                return 2
+            if args.workspace not in (spec.get("workspaces") or {}):
+                print(f"unknown workspace {args.workspace!r} in {args.config}", file=sys.stderr)
+                return 2
+            # the operating-system user is recorded as a claim: operators have no Autology identity yet (IAM-2)
+            registry.assign(args.workspace, args.tenant, f"operator:{getpass.getuser()}", args.reason or "")
+        events, problem = registry.history()
+        if problem:
+            print(problem, file=sys.stderr)
+            return 3
+        current = {e["workspace"]: e["tenant"] for e in events}
+        for ws in sorted(current):
+            print(f"{ws}\t{current[ws]}")
+        if args.action == "show":
+            for e in events:
+                print(f"  #{e['seq']} {e['at'][:19]} {e['event']} {e['workspace']} -> {e['tenant']} by {e['by']}: "
+                      f"{e['reason']}")
+        return 0
+    except TenancyError as exc:
+        print(str(exc), file=sys.stderr)
+        return 3
+    finally:
+        registry.close()
+
+
 def main(argv=None) -> int:
     args = _build_parser().parse_args(argv)
 
     if args.command == "roi":
         print(evaluate(TCOModel.load(args.model)).render())
         return 0
+    if args.command == "tenancy":
+        return _cmd_tenancy(args)
     if args.command == "openapi":
         from .openapi import platform_spec, spec
 
@@ -493,7 +555,7 @@ def main(argv=None) -> int:
         if not args.config:
             print("give a configuration file, or --url to relay to a running platform", file=sys.stderr)
             return 2
-        return run(args.config, args.token_env, use_case=args.use_case)
+        return run(args.config, args.token_env, use_case=args.use_case, workspace=args.workspace)
     if args.command == "trace":
         return _cmd_trace(args)
     if args.command == "ingest":

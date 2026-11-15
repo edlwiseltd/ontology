@@ -557,3 +557,23 @@ that. The test now asserts 403 on the three operations that do need `admin` and 
 (5 tests, part of the 832-test run above). A sub-decision is put to the owner: whether reinstating a suspended
 agent belongs to `operate` (recommended: no, it lifts a safety control).
 
+## 15 November 2026 — R2 closure sprint, increment C: ARC-0, runs and reviews
+
+| Responsibility | Where it lives now | Methods |
+|---|---|---|
+| Run lifecycle: start, store result and audit chain, list, read, audit, trace, resume, recover after a crash, write back all or nothing, retry a write-back, recorded outcomes | `autology/runs.py`, `RunService` | 22 |
+| Human review workflow: list, read, decide, check that the facts did not move, continue the run | `autology/reviews.py`, `ReviewService` | 5 |
+
+The engine keeps a method of the same name and signature for each, which delegates (at most four lines, checked).
+The services reach everything through the engine (`e = self.engine`): `require`, `require_any`, `checkpoint`,
+visibility, the stage gate, the agents' governance. `require_person` (a service identity never records what only a
+person may) was moved back into the engine during the increment, because reconciliation uses it too: no service
+defines an authority check (S5). Services import the engine module and never each other; the engine imports them
+where it is built, so there is no import cycle at load (S7).
+**Still in `AutologyService` (1,730 lines, 138 methods):** reconciliation of external effects, scenarios, model
+design and drafts, the assistant, automation wiring, objects and questions, settings, the dispatcher's route
+table, `_validate`.
+Evidence (local): `tests/test_arc0_services.py` 7 OK (3 new); full suite 835 OK (2 PostgreSQL tests skipped
+locally), 95.82 % lines (14,415 statements, 602 missed; `runs.py` 94 %, `reviews.py` 93 %); ruff clean; mypy 198
+(= baseline). No API route, schema or behaviour changed: the 832 earlier tests pass unmodified.
+

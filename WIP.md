@@ -24,8 +24,8 @@
 |---|---|---|
 | A — GAP-030: token lifetimes, revocation, rotation, rate limits, timeouts | Done, `940c04f`, CI run 78 | `tests/test_gap030_security.py` (27 tests); see the implementation log |
 | B — IAM administrative security | Done, `01228d3` (CI run 79: Python jobs green, one Studio browser check failed on a UI race fixed in C) | `tests/test_iamb_admin_hardening.py` (12 tests); GAP-062, GAP-063 found and fixed |
-| C — Backup, restore and release activation | Done, `8111d7f` | `tests/test_ops1_recovery_and_activation.py` (14 tests); GAP-033 fixed |
-| D — Studio tenant and membership administration | Done | Access screen in Studio; 23 Vitest, 56/56 browser checks |
+| C — Backup, restore and release activation | Done, `8111d7f`, CI run 80 | `tests/test_ops1_recovery_and_activation.py` (14 tests); GAP-033 fixed |
+| D — Studio tenant and membership administration | Done, `0e9967a`, CI run 81 | Access screen in Studio; 23 Vitest, 56/56 browser checks |
 
 ## Waiting for the owner
 

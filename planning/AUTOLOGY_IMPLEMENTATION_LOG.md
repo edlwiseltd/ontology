@@ -335,7 +335,9 @@ and a new member's first token is issued by one administrator (D25, OIDC for peo
 any four-eyes rule; grants written in the configuration are the operator's (reported, flagged when unrestricted);
 application controls only. Not an independent security certification.
 Evidence (local): full suite 756 OK (744 + 12; 2 PostgreSQL tests skipped locally); ruff clean; mypy 198 (= baseline,
-no new error); contract regenerated, Studio types follow. Coverage is taken from CI for this increment.
+no new error); contract regenerated, Studio types follow. Coverage was not measured separately for this increment (a
+source file was edited while the measuring run was in progress, which invalidates its line figures); the measurement
+of increment C covers this code.
 **CI for increment B:** `01228d3` → [run 79](https://github.com/edlwiseltd/ontology/actions/runs/43756581206): tests
 (3.10, 3.13), package and quality succeeded; the **studio job failed** at one browser check (waiting for the
 publication warning after switching use case). Cause, found by reading the component: a late answer of a refresh
@@ -392,4 +394,14 @@ confirm action is in the screen but its browser check is indirect (the route is 
 `test_iamb_admin_hardening.py`).
 Evidence (local): Studio typecheck, 23 Vitest (17 + 6), build, 56/56 browser checks against a real platform (33 +
 23); Python suite unchanged since increment C (770 OK).
+
+**CI for increments C and D:** `8111d7f` → [run 80](https://github.com/edlwiseltd/ontology/actions/runs/43758498960)
+success; `0e9967a` → [run 81](https://github.com/edlwiseltd/ontology/actions/runs/43758659079) success (five jobs
+each: tests on Python 3.10 and 3.13 with PostgreSQL, package, studio with the 56 browser checks, quality). The
+studio job that failed in run 79 passes in both.
+
+**Sprint summary.** Four increments, four commits (`940c04f`, `01228d3`, `8111d7f`, `0e9967a`); tests 717 → 770
+(Python), 17 → 23 (Studio unit), 33 → 56 (browser); line coverage 95.93 % → 95.76 %; mypy 198 → 198; ruff clean.
+Defects closed: GAP-030, GAP-033, GAP-062, GAP-063; GAP-021 partly. Decisions awaiting the owner: D23, D24, D25.
+None of this is an independent security certification.
 

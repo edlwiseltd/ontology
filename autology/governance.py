@@ -28,6 +28,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, FrozenSet, List, Optional, Tuple
 
+from .integrity import critical_refusal
 from .ontology import ID, Ontology, Rule
 from .state import GroundAction, WorldState, ground, ground_name
 
@@ -219,6 +220,12 @@ class GovernanceLayer:
                             "action_access": f"execute {act.name}"}[rule.kind]
                     problems.append((rule.id, f"{principal.name} may not {verb}: {rule.description}"
                                               f"{rule.unknown_note(resolve)}"))
+        if not only_steps and self.ontology.critical_fields:  # decision-critical facts: fail closed, in every state
+            written = set(act.writes) | {f"{e}.{a}" for o in act.outcomes for e, ch in o.effects.items() for a in ch}
+            for ref in sorted(written & self.ontology.critical_fields):
+                refused = critical_refusal(self.ontology, ref, principal.roles)
+                if refused:
+                    problems.append((None, f"{principal.name} may not modify {ref}: {refused}"))
         return problems, satisfied, refs
 
     def permits_in_plan(self, action, state: WorldState, principal: Principal, only_steps: bool = False) -> bool:
@@ -251,6 +258,8 @@ class GovernanceLayer:
     def can_write(self, ref: str, state: WorldState, principal: Principal,
                   binding: Optional[Dict[str, str]] = None) -> bool:
         resolve = state.resolver(binding)
+        if critical_refusal(self.ontology, ref, principal.roles):
+            return False
         for rule in self.ontology.rules_of("write_access"):
             if rule.params["field"] == ref and rule.applies(resolve) and not principal.roles & set(rule.params["roles"]):
                 return False

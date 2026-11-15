@@ -119,20 +119,51 @@ def decision_fields(ontology: Any, automations: Optional[Mapping[str, Any]] = No
     return {ref: sorted(set(users)) for ref, users in sorted(found.items())}
 
 
+def critical_refusal(ontology: Any, ref: str, roles: Iterable[str]) -> Optional[str]:
+    """Why a writer holding ``roles`` may not change the decision-critical field ``ref``, or None (always None for
+    a field that is not classified). Fail closed: the writer must hold the roles of a ``write_access`` rule on the
+    field, whatever that rule's condition; while no rule names a writer, nobody changes it."""
+    if ref not in ontology.critical_fields:
+        return None
+    named = [r for r in ontology.rules_of("write_access") if r.params["field"] == ref]
+    if not named:
+        return (f"{ref} is decision-critical and no write_access rule names who may change it: it cannot be "
+                "changed until one does")
+    if not any(set(roles) & set(r.params["roles"]) for r in named):
+        allowed = sorted({role for r in named for role in r.params["roles"]})
+        return f"{ref} is decision-critical ({', '.join(r.id for r in named)}): changing it needs one of the roles {allowed}"
+    return None
+
+
+def changed_attributes(existing: Optional[Mapping[str, Any]], attributes: Mapping[str, Any]) -> Dict[str, Any]:
+    """The attributes a write would create or change on a record (all of them for a new record)."""
+    if existing is None:
+        return {a: v for a, v in attributes.items() if v is not None}
+    return {a: v for a, v in attributes.items() if existing.get(a) != v}
+
+
 def write_refusal(ontology: Any, entity: str, existing: Optional[Mapping[str, Any]], changing: Mapping[str, Any],
-                  roles: Iterable[str]) -> Optional[str]:
+                  roles: Iterable[str], unrestricted: bool = False) -> Optional[str]:
     """Why a writer holding ``roles`` may not create or change ``changing`` on a record of ``entity``, or None.
     A ``write_access`` rule's condition is evaluated on the record as it is now (as it would be created, for a
-    new one); a condition that cannot be evaluated protects the field."""
+    new one); a condition that cannot be evaluated protects the field. ``unrestricted`` is a writer holding the
+    engine's ``admin`` permission: ordinary write rules do not bind it (as that permission is defined), the
+    rules on decision-critical fields do."""
     held = set(roles)
     record = dict(existing) if existing is not None else dict(changing)
 
     def resolve(e: str, a: str) -> Any:
         return record.get(a) if e == entity else None
 
+    for attr in sorted(changing):
+        refused = critical_refusal(ontology, f"{entity}.{attr}", held)
+        if refused:
+            return refused
     for rule in ontology.rules_of("write_access"):
         owner, _, attr = rule.params["field"].partition(".")
         if owner != entity or attr not in changing or held & set(rule.params["roles"]):
+            continue
+        if unrestricted and rule.params["field"] not in ontology.critical_fields:
             continue
         try:  # a condition that cannot be evaluated (a fact is missing) protects the field
             known = True if rule.when is None else rule.when.evaluate_known(resolve)
@@ -142,6 +173,17 @@ def write_refusal(ontology: Any, entity: str, existing: Optional[Mapping[str, An
             return (f"{rule.params['field']} is write-protected ({rule.id}): changing it needs one of the roles "
                     f"{sorted(rule.params['roles'])}")
     return None
+
+
+def record_refusal(ontology: Any, graph: Any, entity: str, iid: str, attributes: Mapping[str, Any],
+                   roles: Iterable[str]) -> Optional[str]:
+    """Why a holder of the engine's unrestricted permission, with ``roles``, may not write this record directly
+    (the record API, a scenario commit), or None. Ordinary write rules do not bind that permission; the rules on
+    decision-critical fields do, for the attributes the write would create or change."""
+    current = graph._instances.get(iid)
+    existing = dict(current.attributes) if current is not None else None
+    return write_refusal(ontology, entity, existing, changed_attributes(existing, attributes), roles,
+                         unrestricted=True)
 
 
 # -- notifications ----------------------------------------------------------------------------------------

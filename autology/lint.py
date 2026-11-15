@@ -41,6 +41,9 @@ def lint(ontology: Ontology, tools=None) -> List[Finding]:
                 if writers:
                     out.append(Finding("warning", "SEC002", f"{ref} is restricted but writable by {writers} "
                                                             "without a write_access rule"))
+            if a.decision_critical and ref not in write_guarded:
+                out.append(Finding("warning", "SEC003", f"{ref} is decision-critical but no write_access rule names "
+                                                        "who may change it: nothing can change it"))
 
     # bias -----------------------------------------------------------------
     protected = {f"{e.name}.{a.name}" for e in o.entities.values() for a in e.attributes.values()

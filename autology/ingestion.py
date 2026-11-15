@@ -47,10 +47,9 @@ class IngestionService:
                 from .store import ABSENT, RecordConflict
 
                 def guard(entity, existing, changing, was_pushed):
-                    if unrestricted and was_pushed:
-                        return None
                     writer = roles if was_pushed and roles is not None else pipe.roles
-                    return write_refusal(e.ontology, entity, existing, changing, writer)
+                    return write_refusal(e.ontology, entity, existing, changing, writer,
+                                         unrestricted=unrestricted and was_pushed)
 
                 plan = pipe.plan(e.graph, plan, guard)
                 critical = {iid: sorted(a for a in attrs if f"{etype}.{a}" in e.decision_fields)

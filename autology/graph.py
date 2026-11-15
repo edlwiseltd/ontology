@@ -206,6 +206,16 @@ def build_case(graph: "KnowledgeGraph", template: str, root_id: str) -> Tuple[Di
     return case, sources
 
 
+def run_values(state: Any, sources: Mapping[str, Any], iid: str) -> Optional[Dict[str, Any]]:
+    """The values a run's state holds for the record ``iid`` it was started from, or None."""
+    for entity, src in sources.items():
+        if isinstance(src, list) and iid in src:
+            return state.collections.get(entity, {}).get(iid)
+        if src == iid:
+            return state.entities.get(entity)
+    return None
+
+
 def plan_write_back(graph: "KnowledgeGraph", state: Any, sources: Mapping[str, Any],
                     base: Dict[str, Dict[str, Any]]) -> Tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
     """What a run would write back, without changing anything (audit GAP-009).

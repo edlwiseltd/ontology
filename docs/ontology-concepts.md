@@ -10,7 +10,7 @@ is motor insurance claims: [`examples/auto_insurance`](../examples/auto_insuranc
 | Element | Question it answers | In Autology | Example |
 |---|---|---|---|
 | Object type | What exists? | `entities` with lifecycle `states` (`ontology.py`) | `Claim`, `Policy`, `RepairShop` |
-| Property | What is it like? | Typed `attributes`, with `sensitivity` tags | `Claim.amount`, `Policy.holder` (PII) |
+| Property | What is it like? | Typed `attributes`, with `sensitivity` tags and an optional `decision_critical` mark (the fact changes only with the roles of a `write_access` rule, on every write path) | `Claim.amount`, `Policy.holder` (PII) |
 | Link type | How are things related? | `relationships` with cardinality; traversed by queries, case templates and impact rules | `Claim -repairedAt-> RepairShop` |
 | Action type | What can be done? | `actions` with preconditions, outcomes, effects and declared reads and writes; executed by tools | `approve_claim`, `pay_claim` |
 | Function | How is it calculated? | `functions`: named, typed expressions over an object and its linked objects, usable in every rule, goal, precondition, question and effect (`{"compute": ...}`) | `Claim.payout` |

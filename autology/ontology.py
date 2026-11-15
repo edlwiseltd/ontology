@@ -94,7 +94,7 @@ SCHEMA_KEYS = {
     "entity": ("description", "attributes", "states", "initial", "external_states", "multiple", "implements",
                "aliases", "when_absent"),
     "interface": ("description", "attributes"),
-    "attribute": ("type", "sensitivity", "description"),
+    "attribute": ("type", "sensitivity", "description", "decision_critical"),
     "relationship": ("from", "to", "type", "cardinality", "description"),
     "action": ("description", "capability", "requires", "outcomes", "effects", "reads", "writes", "cost", "tools",
                "for_each", "on_failure", "side_effect", "confirmation"),
@@ -155,6 +155,10 @@ def check_document(doc: Mapping[str, Any], top_only: bool = False) -> None:
                 if atype not in ATTRIBUTE_TYPES:
                     raise OntologyError(f"{where}: unknown attribute type {atype!r}{_closest(str(atype), ATTRIBUTE_TYPES)}"
                                         f" (allowed: {', '.join(ATTRIBUTE_TYPES)})")
+                if isinstance(aspec, Mapping) and not isinstance(aspec.get("decision_critical", False), bool):
+                    raise OntologyError(f"{where}: decision_critical must be true or false")
+                if kind == "interface" and isinstance(aspec, Mapping) and aspec.get("decision_critical"):
+                    raise OntologyError(f"{where}: decision_critical is declared on the entity's own attribute")
     for name, spec in (doc.get("actions") or {}).items():
         where = f"actions.{name}"
         _check_keys(spec, "action", where)
@@ -204,7 +208,8 @@ def json_schema() -> Dict[str, Any]:
         return {"type": "array", "items": {"$ref": f"#/$defs/{ref}"}}
 
     attribute = {"oneOf": [{"enum": list(ATTRIBUTE_TYPES)},
-                           obj("attribute", SCHEMA_KEYS["attribute"], {"type": {"enum": list(ATTRIBUTE_TYPES)}})]}
+                           obj("attribute", SCHEMA_KEYS["attribute"], {"type": {"enum": list(ATTRIBUTE_TYPES)},
+                                                                       "decision_critical": {"type": "boolean"}})]}
     attrs = {"attributes": {"type": "object", "additionalProperties": {"$ref": "#/$defs/attribute"}}}
     defs = {
         "attribute": attribute,
@@ -303,6 +308,9 @@ class Attribute:
     type: str = "string"
     sensitivity: Optional[str] = None  # "pii", "restricted", "protected" (bias-relevant), ...
     description: str = ""
+    # decisions rest on this fact: it changes only with the roles of a write_access rule, on every write path,
+    # and not at all while no such rule names a writer (see autology.integrity)
+    decision_critical: bool = False
 
 
 @dataclass(frozen=True)
@@ -597,6 +605,8 @@ class Ontology:
         self.case_templates = MappingProxyType(dict(case_templates or {}))
         self.interfaces = MappingProxyType(dict(interfaces or {}))
         self.functions = MappingProxyType(dict(functions or {}))  # "Entity.name" -> Function
+        self.critical_fields = frozenset(f"{e.name}.{a.name}" for e in self.entities.values()
+                                         for a in e.attributes.values() if a.decision_critical)
         self.source = _freeze(copy.deepcopy(dict(source)) if source is not None else {"name": name})
         canonical = json.dumps(source if source is not None else {"name": name, "version": version},
                                sort_keys=True, separators=(",", ":"), default=str)
@@ -1057,7 +1067,7 @@ class Ontology:
                 if isinstance(aspec, str):
                     aspec = {"type": aspec}
                 attrs[aname] = Attribute(aname, aspec.get("type", "string"), aspec.get("sensitivity"),
-                                         aspec.get("description", ""))
+                                         aspec.get("description", ""), bool(aspec.get("decision_critical", False)))
             states = tuple(spec.get("states", ()))
             entities[name] = EntityType(name, MappingProxyType(attrs), states,
                                         spec.get("initial", states[0] if states else ""),

@@ -315,7 +315,7 @@ class Scenario:
         return records, links
 
     def commit(self, live: Optional[KnowledgeGraph] = None, store: Any = None,
-               expected: Optional[Dict[str, Any]] = None) -> List[str]:
+               expected: Optional[Dict[str, Any]] = None, guard: Any = None) -> List[str]:
         """Apply the scenario's net changes to ``live`` (default: the graph it was forked from) and ``store``.
 
         Everything is validated first; the store is written in one transaction (with ``expected`` revisions, a
@@ -325,6 +325,10 @@ class Scenario:
         """
         live = live or self.base
         records, links = self.plan_commit(live)
+        for iid, inst in records.items():
+            refused = guard(inst.type, iid, inst.attributes) if guard is not None else None
+            if refused:  # ``guard`` says why the committer may not write this record: nothing is written
+                raise PermissionError(refused)
         if store is not None:
             from .store import ANY_REVISION
 

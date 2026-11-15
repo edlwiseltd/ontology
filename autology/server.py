@@ -58,6 +58,7 @@ from .governance import REDACTED, GovernanceLayer, Principal
 
 JUSTIFY = "***justification required***"
 from .graph import Instance, KnowledgeGraph, build_case, snapshot
+from .integrity import record_refusal
 from .ontology import Ontology, OntologyError, type_ok
 from .openapi import page_window, versioned_response
 from .store import Store, StoreError, StoreJournal
@@ -750,6 +751,9 @@ class AutologyService:
                 inst = candidate.add(etype, iid, **attrs)  # validates type, attributes and state
             except OntologyError as exc:
                 raise ApiError(400, str(exc)) from None
+            refused = record_refusal(self.ontology, self.graph, etype, iid, inst.attributes, user.roles)
+            if refused:  # decision-critical facts bind every writer, the unrestricted permission included
+                raise ApiError(403, f"{refused}; nothing was written")
             try:  # only over the revision this process holds: a stale or tampered row is never overwritten
                 self.revisions[iid] = self.store.upsert_instance(etype, iid, inst.attributes,
                                                                  self.revisions.get(iid, ABSENT))
@@ -903,7 +907,7 @@ class AutologyService:
         the in-memory graph changes only after that transaction commits. A failure leaves every record as it was
         and the write-back pending: recovery completes it (it is idempotent). This covers local records only:
         effects in other systems go through the external-effects journal and reconciliation, never this."""
-        from .graph import plan_write_back
+        from .graph import plan_write_back, run_values
         from .store import WriteSetConflict
 
         base = linked["base"] or {}
@@ -921,7 +925,7 @@ class AutologyService:
                     if iid not in self.graph._instances:
                         continue
                     after = {**self.graph.get(iid).attributes, **writes.get(iid, {})}
-                    for attr, value in (self._run_values(result.state, linked["sources"], iid) or {}).items():
+                    for attr, value in (run_values(result.state, linked["sources"], iid) or {}).items():
                         if attr in after and after[attr] == value:
                             seen[attr] = value
                 try:
@@ -944,15 +948,6 @@ class AutologyService:
                                          f"progress; resolve the conflict, then retry the write-back",
                          {"run_id": run_id})
         return []
-
-    @staticmethod
-    def _run_values(state, sources: Dict[str, Any], iid: str) -> Optional[Dict[str, Any]]:
-        for entity, src in sources.items():
-            if isinstance(src, list) and iid in src:
-                return state.collections.get(entity, {}).get(iid)
-            if src == iid:
-                return state.entities.get(entity)
-        return None
 
     def complete_write_backs(self) -> List[Dict[str, Any]]:
         """Finish write-backs interrupted by a crash or a failure (they are idempotent)."""
@@ -2228,7 +2223,10 @@ class AutologyService:
             try:  # one transaction over the revisions this process holds (GAP-018); live changes only after it
                 written = scenario.commit(self.graph, self.store, expected={
                     iid: self.revisions.get(iid, ABSENT) for iid in list(scenario.diff()["added"])
-                    + list(scenario.diff()["changed"])})
+                    + list(scenario.diff()["changed"])}, guard=lambda etype, iid, attrs: record_refusal(
+                        self.ontology, self.graph, etype, iid, attrs, user.roles))
+            except PermissionError as exc:
+                raise ApiError(403, f"{exc}; nothing was committed") from None
             except ConflictError as exc:
                 raise ApiError(409, str(exc)) from None
             except OntologyError as exc:

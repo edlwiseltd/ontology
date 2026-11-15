@@ -179,7 +179,24 @@ which name the roles that may modify a field, and it binds ingestion like every 
 - A row that would create or change a protected field without the role is **rejected like any other bad row**
   (it appears in the batch's rejects with the rule's id); the other rows are loaded. Fields no rule protects load
   as before.
-- The engine's `admin` permission is unrestricted here too, as everywhere.
+- The engine's `admin` permission is unrestricted here too, as everywhere, **except for facts classified
+  decision-critical** (below).
+
+**Facts classified decision-critical fail closed.** A model can mark an attribute explicitly:
+
+```json
+"Claim": {"attributes": {"amount": {"type": "number", "decision_critical": true}}}
+```
+
+Such a field is created or changed only by a writer who holds the roles of a `write_access` rule on it, whatever
+that rule's condition and whatever the path: pushed rows, configured sources, the schedule, the command line,
+`POST /api/objects` (REST and MCP), a scenario commit, and an agent's action (a declared effect or a value its
+tool returns). The `admin` permission does not exempt its holder, and **while no rule names a writer, nobody
+changes the field**. A write that leaves the value as it is passes. Refusals name the field and the rule, never
+the value. The classification is opt-in: a model that classifies nothing behaves as before, and its fingerprint
+does not change. To adopt it for a field: add the key, add a `write_access` rule naming the roles, give those
+roles to the people and service identities who maintain the value, and declare them on the pipelines that load
+it (`"roles": [...]`); `autology lint` reports a classified field that no rule protects (SEC003).
 
 Every load reports `decision_fields_changed`: the records whose decision-critical fields changed (names, never
 values), also written to the access log; `GET /api/objects/<id>/lineage` shows which load changed which attribute.

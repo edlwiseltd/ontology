@@ -67,7 +67,8 @@ UNRESTRICTED_MEANS = (
     "reads every run, review, notification and reconciliation item, whatever the roles involved",
     "starts and resumes runs with all of the agent's roles, and free-form cases outside simulation",
     "decides reviews whatever reviewer role they ask for (still never its own run's, never as a service identity)",
-    "writes records directly, edits and commits any scenario, reinstates agents, runs the scheduler and reporting",
+    "writes records directly, edits and commits any scenario, reinstates agents, runs the scheduler and reporting "
+    "(a fact the model classifies decision-critical still changes only with the roles of its write rule)",
     "never reaches another use case, another workspace or another tenant; never changes members, grants, "
     "stages or releases (those are administrative roles, which in turn read no data)",
 )

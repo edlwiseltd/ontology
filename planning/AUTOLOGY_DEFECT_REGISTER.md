@@ -1,21 +1,24 @@
 # Autology — defect register (after R1)
 
-*Updated 14 November 2026 at the R1 close-out (`f0a385a`); GAP-051 updated with the first R2 slice. Source: the audit's register
+*Updated 14 November 2026 at the R1 close-out (`f0a385a`); GAP-051 updated with the first R2 slice; 15 November: H-1 and REL-1a. Source: the audit's register
 ([`../audit/04_AUTOLOGY_GAP_REGISTER.md`](../audit/04_AUTOLOGY_GAP_REGISTER.md)), whose descriptions, severities and
 evidence are unchanged; this file adds the current status. "Fixed" means the remedy is implemented and a test that
 reproduces the audit's finding passes in CI; it has not been re-verified by an independent auditor.*
 
 | Status | Count |
 |---|---|
-| Fixed | 19 |
-| Open | 25 |
+| Fixed | 22 |
+| Open | 24 |
 | Open (external evidence) | 5 |
 | Open (owner decision) | 2 |
 | Partly fixed | 6 |
 
-**Partly fixed High gaps (GAP-009, 018, 031): what remains and the closure criteria are in [the clarification note](AUTOLOGY_PARTIAL_GAPS_CLARIFICATION.md).** **Critical and High gaps not fully fixed:** GAP-009, GAP-018, GAP-031, GAP-032, GAP-052, GAP-053. Each is explained below: GAP-009 and
-GAP-018 keep a residual, lower-risk part (atomic write-back; reload on write); GAP-031 waits for legal sign-off;
-GAP-032 (ERP connector), GAP-052 (real models) and GAP-053 (real process) need external systems, keys or a customer.
+*Counts updated 15 November 2026 (H-1: GAP-058, GAP-059 added and fixed; REL-1a: GAP-020 fixed).* **High gaps not
+fully fixed:** GAP-031 (waits for legal sign-off, D19), GAP-032 (ERP connector), GAP-052 (real models) and GAP-053
+(real process), which need external systems, keys or a customer. GAP-009 and GAP-018 are **Fixed** (repository-
+verified; independent re-verification open): GAP-009's atomicity is local, there is no compensation towards
+external systems (audit F-14); GAP-018 detects, but cannot prevent, direct writes to the database file. Background
+and closure criteria: [the clarification note](AUTOLOGY_PARTIAL_GAPS_CLARIFICATION.md).
 
 | Gap | Title | Severity (audit) | Status | Fixed in | Evidence / next step |
 |---|---|---|---|---|---|
@@ -38,7 +41,7 @@ GAP-032 (ERP connector), GAP-052 (real models) and GAP-053 (real process) need e
 | GAP-017 | A missing linked entity is treated as existing in its initial state | High | **Fixed** | MOD-2 · `b3a2deb` | `tests/test_mod2_missing_records.py` |
 | GAP-018 | The server's graph is never refreshed from the store | High | **Fixed** (repository-verified; C1–C3 met, see the clarification note; independent re-verification open) | MOD-4 · `fd7ab77`, `f0a385a`; Increment B `118f8bc`; directive 02 (see log) | `tests/test_mod4_single_writer.py`; `tests/test_gap018_record_consistency.py` (15); `tests/test_gap018_directive02.py` (7, all failing on the code before directive 02): scenario commits now revision- and seal-checked in one transaction, schema upgrades transactional and restart-safe, API clients can send `expected_revision`, and a concurrency test (6 parallel writers, MCP readers and a run through the HTTP platform) loses no update and corrupts no record. **The Increment B "Fixed" was premature** for the scenario-commit path, found by this re-verification. Limits: detection, not prevention, of direct database writes; demo mode (no audit key) seals detect accidents only |
 | GAP-019 | IdP-removed signing keys stay trusted until restart; `aud` object → 500 | Low–Med | **Open** |  | R3 hardening |
-| GAP-020 | Ontology change while runs paused: silent rule change (same version), fingerprint not recorded; version bump strands runs | Med | **Open** |  | R2: pin runs to the ontology fingerprint (fits REL-1 releases) |
+| GAP-020 | Ontology change while runs paused: silent rule change (same version), fingerprint not recorded; version bump strands runs | Med | **Fixed** (repository-verified, REL-1a; CI below) | REL-1a (see log) | Runs record the configuration fingerprint (ontology, governing settings, tool declarations) they started on and never continue on another (`WorkAgent.resume`); a review decision on another configuration is refused (409) before it is recorded; releases bind approvals to the fingerprint. `tests/test_rel1a_releases.py` (R7). Limits: Python code imported by tools is not in the fingerprint |
 | GAP-021 | HTTP timeout is per read, not a deadline; agent lock held for whole runs, inline backoff under the lock | Med | **Open** |  | R3 hardening (deadline-based HTTP timeout; agent lock) |
 | GAP-022 | One failing deferred run aborts the scheduler tick | Med | **Open** |  | R2 (small): isolate each deferred run in a tick |
 | GAP-023 | Full-table scans and N+1 deserialisation on common endpoints | Med | **Open** |  | R3 (indexed queries, pagination) |

@@ -70,6 +70,38 @@ acceptance tests; numbers in brackets refer to the master instructions' §13 acc
   [readiness doc](AUTOLOGY_READINESS_AND_RELEASE_GATES.md)).
 - **R-RG-2** Draft → Simulation → Pilot → Production with immutable releases, approvals and rollback; promotion
   refused server-side when a hard gate fails, whatever the score, including by direct API call [7, 8].
+- **R-RG-3** (V2, D11) A configuration release is an immutable, content-addressed snapshot; it is approved by a
+  separately authenticated person with release authority who is not the proposer and not a service identity; the
+  approval is bound to the fingerprint; activation only of exactly what runs; drift stops execution; rollback is a
+  recorded re-activation; runs and review decisions are bound to the configuration they started on.
+- **R-RG-4** (V2) Release approval, business-action authorisation and runtime approval stay three distinct
+  approvals; a release approval never authorises a business action.
+
+## Governance, identity and autonomy (R-GV, V2)
+
+- **R-GV-1** Governance is evaluated for every step of every run; human involvement is set by policy (rules, risk,
+  obligations), not imposed on every action; fully autonomous governed execution stays possible.
+- **R-GV-2** Human principals and machine identities are distinguished; a machine never records a human approval
+  or settles an external call meant for a person (D11, audit F-02).
+- **R-GV-3** Outbound credentials go only to the destinations the operator configured; destinations chosen by the
+  other side (redirects, next-page links) stay within the configured origin unless explicitly allowed; secrets never
+  appear in errors, logs or audit (audit F-01).
+- **R-GV-4** (direction) Criticality-aware autonomy: each action is classified by impact, risk, obligations and
+  required evidence, giving ALLOW / REQUIRE APPROVAL / DENY (and possibly simulation-only or deferred); Autology never
+  replaces certified safety functions ([architecture B6](AUTOLOGY_ARCHITECTURE_TARGET.md)).
+
+## Extensibility and knowledge (R-EX, R-KN; directions and candidates, V2)
+
+- **R-EX-1** (approved direction) Core + Plugin Runtime: everything extensible except the Core governance and
+  security kernel; untrusted plugins run isolated; plugins request, the Core authorises ([B2](AUTOLOGY_ARCHITECTURE_TARGET.md)).
+- **R-EX-2** (approved in principle, D7/D10) Multi-provider AI behind provider-neutral interfaces; no confidential
+  data to an external provider without approved configuration.
+- **R-KN-1** (candidate) Industry Standards & Compliance Hub with versioned, scoped knowledge packs and full source
+  governance; only verified, approved requirements become enforceable rules ([B3](AUTOLOGY_ARCHITECTURE_TARGET.md)).
+- **R-KN-2** (approved direction) Composable intelligence: no single LLM as sole source of knowledge or authority
+  ([B4](AUTOLOGY_ARCHITECTURE_TARGET.md)).
+- **R-KN-3** (approved direction) Decision & Action modelling as first-class ontology concepts, with compensation
+  for multi-system operations ([B5](AUTOLOGY_ARCHITECTURE_TARGET.md)).
 
 ## User interfaces (R-UI)
 

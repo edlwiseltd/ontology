@@ -13,6 +13,10 @@ def errors(value: Any, schema: Dict[str, Any], components: Dict[str, Any], path:
     out: List[str] = []
     for sub in schema.get("allOf", []):
         out += errors(value, sub, components, path)
+    if "oneOf" in schema:
+        matching = [s for s in schema["oneOf"] if not errors(value, s, components, path)]
+        if len(matching) != 1:
+            out.append(f"{path}: matches {len(matching)} of the oneOf schemas, expected exactly 1")
     if "type" in schema:
         kinds = schema["type"] if isinstance(schema["type"], list) else [schema["type"]]
         ok = any(isinstance(value, TYPES[k]) and not (k in ("integer", "number") and isinstance(value, bool))

@@ -181,6 +181,7 @@ class RunState:
     roles: Optional[List[str]] = None
     root: Optional[str] = None  # the record the case was built from (for the journal and reconciliation)
     pending_external: Optional[Dict[str, Any]] = None  # the external call a person must reconcile
+    configuration: str = ""  # fingerprint of the governing configuration the run started on (REL-1a)
 
 
 @dataclass
@@ -241,6 +242,7 @@ class WorkAgent:
         self.reasoner = reasoner or PlanFollowingReasoner()
         self.approver = approver or AutoApprover(default=False)  # fail closed
         self.delegates = list(delegates)
+        self.configuration: Optional[str] = None  # set by a service: its governing configuration (REL-1a)
         self.registry = registry
         self.on_ontology_update = on_ontology_update
         self.max_steps = max_steps
@@ -523,13 +525,15 @@ class WorkAgent:
             raise OntologyError(f"unknown goal {goal_name!r}")
         run = RunState(goal_name, case_id, WorldState.initial(self.ontology, case), ontology_ref=self.ontology.ref,
                        run_key=run_key or uuid.uuid4().hex, root=root,
-                       roles=sorted(roles) if roles is not None else None)
+                       roles=sorted(roles) if roles is not None else None,
+                       configuration=self.configuration or "")
         audit = AuditLog(self.audit_key)
         effective = self.principal.roles & frozenset(roles) if roles is not None else self.principal.roles
         self._log(audit, "run.start", case=case_id, agent=self.name, roles=sorted(effective),
                   agent_roles=sorted(self.principal.roles), acting_as=acting_as,
                   delegates=[d.name for d in self.delegates], goal=goal_name, ontology=self.ontology.ref,
-                  fingerprint=self.ontology.fingerprint, started_by=started_by, run_key=run.run_key)
+                  fingerprint=self.ontology.fingerprint, started_by=started_by, run_key=run.run_key,
+                  **({"configuration": run.configuration} if run.configuration else {}))
         return self._loop(run, audit)
 
     def resume(self, previous: RunResult, force: bool = False,
@@ -596,6 +600,11 @@ class WorkAgent:
             run.pending_review = None
         if run.ontology_ref != self.ontology.ref:
             raise OntologyError(f"run was started on {run.ontology_ref}; this agent uses {self.ontology.ref}")
+        if run.configuration and self.configuration and run.configuration != self.configuration:
+            # a run never continues on a configuration other than the one it started on (REL-1a): every entry
+            # point that resumes runs (decisions, deferred retries, recovery) goes through here
+            raise OntologyError(f"run was started on configuration {run.configuration[:12]}; the use case now runs "
+                                f"{self.configuration[:12]}")
         run.resume_at = None
         audit = previous.audit
         if previous.status in ("uncertain", "pending_confirmation"):

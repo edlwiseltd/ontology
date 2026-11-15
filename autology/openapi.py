@@ -270,6 +270,18 @@ PLATFORM_ROUTES: List[Tuple[str, str, str, str, Tuple[str, ...]]] = [
     ("GET", "/platform/workspaces/{ws}/use-cases/{uc}", "granted member", "One use case with its stage history", ()),
     ("GET", "/platform/workspaces/{ws}/use-cases/{uc}/checks", "granted member", "Checks of a target stage", ("to",)),
     ("POST", "/platform/workspaces/{ws}/use-cases/{uc}/stage", "workspace admin", "Move one stage", ()),
+    ("GET", "/platform/workspaces/{ws}/use-cases/{uc}/releases", "granted member or release approver",
+     "Releases, the active one, and whether the running configuration drifted (REL-1a)", ()),
+    ("POST", "/platform/workspaces/{ws}/use-cases/{uc}/releases", "workspace admin (person)",
+     "Propose a release of the configuration the engine runs now", ()),
+    ("GET", "/platform/workspaces/{ws}/use-cases/{uc}/releases/{n}", "granted member or release approver",
+     "One release (with its snapshot for administrators and release approvers)", ()),
+    ("POST", "/platform/workspaces/{ws}/use-cases/{uc}/releases/{n}/approve", "release approver (person, not the "
+     "proposer)", "Approve a release, bound to its fingerprint (D11)", ()),
+    ("POST", "/platform/workspaces/{ws}/use-cases/{uc}/releases/{n}/revoke", "the approver or a workspace admin",
+     "Revoke an approval before activation", ()),
+    ("POST", "/platform/workspaces/{ws}/use-cases/{uc}/releases/{n}/activate", "workspace admin (person)",
+     "Activate an approved release that is exactly what runs (a rollback when it is older)", ()),
 ]
 STAGE_EVENT = _obj({"seq": I, "from_stage": STAGE, "to_stage": STAGE, "by": S, "reason": S, "fingerprint": S,
                     "at": S, "checks": {"type": "array", "items": REF("Check")}},
@@ -282,7 +294,9 @@ PLATFORM_SCHEMAS: Dict[str, Any] = {
                      "template": NS, "ontology": S, "fingerprint": S, "path": S,
                      "permissions": {"type": "array", "items": S}, "stage": STAGE, "effective_stage": STAGE,
                      "stale": B, "integrity_problem": NS, "stages": {"type": "array", "items": STAGE},
-                     "history": {"type": "array", "items": REF("StageEvent")}},
+                     "history": {"type": "array", "items": REF("StageEvent")}, "configuration": S,
+                     "release": _obj({"active": {"oneOf": [REF("Release"), {"type": "null"}]}, "drift": B,
+                                      "integrity_problem": NS}, ("active", "drift"))},
                     ("id", "name", "origin", "ontology", "fingerprint", "path", "permissions", "stage",
                      "effective_stage", "stale", "stages")),
     "UseCaseList": _obj({"items": {"type": "array", "items": REF("UseCase")}}, ("items",)),
@@ -299,6 +313,24 @@ PLATFORM_SCHEMAS: Dict[str, Any] = {
     "UseCaseCreate": _obj({"id": S, "name": S, "template": S}, ("id", "template")),
     "StageMove": _obj({"to": STAGE, "reason": {"type": "string", "minLength": 1, "maxLength": 500}}, ("to", "reason")),
     "Health": _obj({"status": S}, ("status",)),
+    "Release": _obj({"number": I, "id": S, "fingerprint": S, "ontology_ref": S, "proposed_by": S, "note": S, "at": S,
+                     "status": {"type": "string", "enum": ["proposed", "approved", "active", "superseded"]},
+                     "approved_by": NS, "approved_at": NS, "activated_at": NS, "snapshot": ANY},
+                    ("number", "id", "fingerprint", "proposed_by", "note", "at", "status")),
+    "ReleaseEvent": _obj({"seq": I, "release": I, "event": {"type": "string", "enum": [
+        "proposed", "approved", "approval_revoked", "activated", "rolled_back"]}, "by": S, "by_kind": S, "reason": S,
+        "fingerprint": S, "at": S}, ("seq", "release", "event", "by", "by_kind", "fingerprint", "at")),
+    "ReleaseState": _obj({"items": {"type": "array", "items": REF("Release")},
+                          "active": {"oneOf": [REF("Release"), {"type": "null"}]}, "running_fingerprint": S,
+                          "drift": B, "integrity_problem": NS,
+                          "history": {"type": "array", "items": REF("ReleaseEvent")},
+                          "may_propose": B, "may_approve": B},
+                         ("items", "running_fingerprint", "drift", "history")),
+    "ActivationResult": {"allOf": [REF("Release"), _obj({
+        "event": {"type": "string", "enum": ["activated", "rolled_back"]},
+        "runs_on_other_configurations": {"type": "array", "items": S}}, ("event", "runs_on_other_configurations"))]},
+    "ReleaseProposal": _obj({"note": {"type": "string", "minLength": 1, "maxLength": 500}}, ("note",)),
+    "ReleaseDecision": _obj({"reason": {"type": "string", "minLength": 1, "maxLength": 500}}, ("reason",)),
 }
 PLATFORM_RESPONSES = {("GET", "/platform/me"): "Me", ("GET", "/platform/templates"): "TemplateList",
                       ("GET", "/platform/health"): "Health",
@@ -306,9 +338,19 @@ PLATFORM_RESPONSES = {("GET", "/platform/me"): "Me", ("GET", "/platform/template
                       ("POST", "/platform/workspaces/{ws}/use-cases"): "UseCase",
                       ("GET", "/platform/workspaces/{ws}/use-cases/{uc}"): "UseCase",
                       ("GET", "/platform/workspaces/{ws}/use-cases/{uc}/checks"): "CheckResult",
-                      ("POST", "/platform/workspaces/{ws}/use-cases/{uc}/stage"): "MoveResult"}
+                      ("POST", "/platform/workspaces/{ws}/use-cases/{uc}/stage"): "MoveResult",
+                      ("GET", "/platform/workspaces/{ws}/use-cases/{uc}/releases"): "ReleaseState",
+                      ("POST", "/platform/workspaces/{ws}/use-cases/{uc}/releases"): "Release",
+                      ("GET", "/platform/workspaces/{ws}/use-cases/{uc}/releases/{n}"): "Release",
+                      ("POST", "/platform/workspaces/{ws}/use-cases/{uc}/releases/{n}/approve"): "Release",
+                      ("POST", "/platform/workspaces/{ws}/use-cases/{uc}/releases/{n}/revoke"): "Release",
+                      ("POST", "/platform/workspaces/{ws}/use-cases/{uc}/releases/{n}/activate"): "ActivationResult"}
 PLATFORM_REQUESTS = {("POST", "/platform/workspaces/{ws}/use-cases"): "UseCaseCreate",
-                     ("POST", "/platform/workspaces/{ws}/use-cases/{uc}/stage"): "StageMove"}
+                     ("POST", "/platform/workspaces/{ws}/use-cases/{uc}/stage"): "StageMove",
+                     ("POST", "/platform/workspaces/{ws}/use-cases/{uc}/releases"): "ReleaseProposal",
+                     ("POST", "/platform/workspaces/{ws}/use-cases/{uc}/releases/{n}/approve"): "ReleaseDecision",
+                     ("POST", "/platform/workspaces/{ws}/use-cases/{uc}/releases/{n}/revoke"): "ReleaseDecision",
+                     ("POST", "/platform/workspaces/{ws}/use-cases/{uc}/releases/{n}/activate"): "ReleaseDecision"}
 
 
 def platform_spec() -> Dict[str, Any]:
@@ -323,5 +365,6 @@ def platform_spec() -> Dict[str, Any]:
         "components": {"securitySchemes": {"bearer": {"type": "http", "scheme": "bearer"}},
                        "schemas": PLATFORM_SCHEMAS},
         "paths": _paths(PLATFORM_ROUTES, "/platform", "/platform/v1", PLATFORM_RESPONSES, PLATFORM_REQUESTS,
-                        {("POST", "/platform/workspaces/{ws}/use-cases"): "201"}),
+                        {("POST", "/platform/workspaces/{ws}/use-cases"): "201",
+                         ("POST", "/platform/workspaces/{ws}/use-cases/{uc}/releases"): "201"}),
     }

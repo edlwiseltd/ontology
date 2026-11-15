@@ -259,7 +259,7 @@ class Lifecycle:
 
     # the move itself
     def move(self, workspace: str, use_case: str, service: Any, to_stage: str, by: str, reason: str,
-             dry_run: bool = False) -> Dict[str, Any]:
+             dry_run: bool = False, extra_checks=None) -> Dict[str, Any]:
         """Check and (unless ``dry_run``) record one stage move. Raises :class:`LifecycleError` when refused."""
         if to_stage not in STAGES:
             raise LifecycleError(400, f"unknown stage {to_stage!r}: one of {', '.join(STAGES)}")
@@ -282,6 +282,8 @@ class Lifecycle:
             forward = order[to_stage] > order[here]
             checks = [c.to_dict() for c in evaluate(to_stage, service, current["entered_simulation"])] if forward \
                 else []
+            if forward and extra_checks is not None:  # checks the platform owns (e.g. the active release, REL-1a)
+                checks += [c.to_dict() for c in extra_checks(to_stage)]
             passed = all(c["passed"] for c in checks)
             result = {"from": here, "to": to_stage, "forward": forward, "checks": checks, "allowed": passed}
             if dry_run:

@@ -46,7 +46,8 @@ from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlsplit
 
 from .audit import audit_key, workspace_key
-from .lifecycle import Lifecycle, LifecycleError, STAGES
+from .lifecycle import Check, Lifecycle, LifecycleError, STAGES
+from .releases import ReleaseError, ReleaseRegistry
 from .server import ApiExchange, AutologyService, PERMISSIONS, hash_token, read_body
 from .store import Store
 
@@ -92,6 +93,9 @@ class Workspace:
     use_cases: Dict[str, UseCase] = field(default_factory=dict)
     oidc: Optional[Dict[str, Any]] = None  # the workspace's own company sign-in (ISO-3)
     env_prefix: str = ""  # the only environment variables (credentials) its configuration may name (ISO-4)
+    # members who may approve releases besides the workspace administrators, e.g. a designated external approver
+    # for a workspace with one administrator (D11); never the proposer, never a service identity
+    release_approvers: Tuple[str, ...] = ()
 
 
 def _token_digest(spec: Dict[str, Any], where: str) -> str:
@@ -143,6 +147,8 @@ class Platform:
         self.log = Store(self.data_dir / "platform.db")  # the platform's own append-only access log
         # stages and created use cases, chained with each workspace's derived audit key
         self.lifecycle = Lifecycle(self.data_dir / "lifecycle.db", lambda ws: workspace_key(audit_key(), ws))
+        # immutable releases of each use case's governing configuration (REL-1a), chained the same way
+        self.releases = ReleaseRegistry(self.data_dir / "releases.db", lambda ws: workspace_key(audit_key(), ws))
         self.workspaces: Dict[str, Workspace] = {}
         self._tokens: Dict[str, Member] = {}
         self._base_dir = base_dir
@@ -204,6 +210,12 @@ class Platform:
             unknown = set(member.use_cases) - set(ws.use_cases)
             if unknown:
                 raise PlatformError(f"workspace {ws_id} member {member.name}: unknown use cases {sorted(unknown)}")
+        approvers = spec.get("release_approvers") or []
+        if not isinstance(approvers, list) or any(a not in ws.members for a in approvers):
+            raise PlatformError(f"workspace {ws_id}: release_approvers must name members of the workspace")
+        if any(ws.members[a].kind != "person" for a in approvers):
+            raise PlatformError(f"workspace {ws_id}: a release approver must be a person, not a service identity")
+        ws.release_approvers = tuple(approvers)
         for row in self.lifecycle.created(ws_id):  # use cases created through the API come back after a restart
             if row["id"] in ws.use_cases:
                 raise PlatformError(f"workspace {ws_id}: use case {row['id']} is both configured and created")
@@ -247,7 +259,7 @@ class Platform:
         config["users"] = users
         service = AutologyService(config, config_path.parent)
         uc = UseCase(uc_id, ws.id, str(spec.get("name") or uc_id), service)
-        service.stage_gate = lambda: self.effective_stage(uc)  # execution gates: the stage governs every run
+        service.stage_gate = lambda: self.effective_stage_and_reason(uc)  # execution gates: the stage governs every run
         return uc
 
     # -- requests --------------------------------------------------------------------------------------------
@@ -270,10 +282,51 @@ class Platform:
     def stage_of(self, uc: UseCase) -> Dict[str, Any]:
         return self.lifecycle.status(uc.workspace, uc.id, uc.service.ontology.fingerprint)
 
+    def release_of(self, uc: UseCase) -> Dict[str, Any]:
+        """The use case's releases, the active one, and whether the running configuration drifted from it."""
+        st = self.releases.state(uc.workspace, uc.id)
+        running = uc.service.configuration_fingerprint
+        active = st["active"]
+        return {"active": active, "running_fingerprint": running,
+                "drift": bool(active) and active["fingerprint"] != running,
+                "integrity_problem": st["integrity_problem"], "items": st["items"], "history": st["history"]}
+
     def effective_stage(self, uc: UseCase) -> str:
-        """The stage the engine obeys: a stale stage or a history that does not verify counts as draft."""
+        """The stage the engine obeys: a stale stage, a history that does not verify, a release history that does
+        not verify, or a configuration that drifted from the active release all count as draft (nothing runs)."""
+        return self.effective_stage_and_reason(uc)[0]
+
+    def effective_stage_and_reason(self, uc: UseCase) -> Tuple[str, Optional[str]]:
         st = self.stage_of(uc)
-        return "draft" if st["stale"] or st["integrity_problem"] else st["stage"]
+        if st["integrity_problem"]:
+            return "draft", st["integrity_problem"]
+        if st["stale"]:
+            return "draft", "the configuration changed since the stage was granted"
+        rel = self.release_of(uc)
+        if rel["integrity_problem"]:
+            return "draft", rel["integrity_problem"]
+        if rel["drift"]:
+            return "draft", (f"the running configuration ({rel['running_fingerprint'][:12]}) is not the active release "
+                             f"{rel['active']['number']}: a person must activate an approved release of it")
+        return st["stage"], None
+
+    def _release_checks(self, uc: UseCase) -> List[Check]:
+        """Pilot needs an independently approved release that is active and is exactly what runs (REL-1a, D11)."""
+        rel = self.release_of(uc)
+        active = rel["active"]
+        if rel["integrity_problem"]:
+            return [Check("approved_release_active", False, rel["integrity_problem"])]
+        if not active:
+            return [Check("approved_release_active", False,
+                          "no release is active: propose a release, have it approved by another person with release "
+                          "authority, then activate it")]
+        if rel["drift"]:
+            return [Check("approved_release_active", False,
+                          f"the running configuration ({rel['running_fingerprint'][:12]}) is not the active release "
+                          f"{active['number']} ({active['fingerprint'][:12]})")]
+        return [Check("approved_release_active", True,
+                      f"release {active['number']} ({active['fingerprint'][:12]}) approved by {active['approved_by']} "
+                      "is active and is what runs")]
 
     def use_case_view(self, uc: UseCase, member: Member, detail: bool = False) -> Dict[str, Any]:
         st = self.stage_of(uc)
@@ -282,6 +335,10 @@ class Platform:
                 "path": f"/w/{uc.workspace}/u/{uc.id}", "permissions": member.grant(uc.id)["permissions"],
                 "stage": st["stage"], "stale": st["stale"], "integrity_problem": st["integrity_problem"],
                 "effective_stage": self.effective_stage(uc), "stages": list(STAGES)}
+        rel = self.release_of(uc)
+        view["configuration"] = rel["running_fingerprint"]
+        view["release"] = {"active": rel["active"], "drift": rel["drift"],
+                           "integrity_problem": rel["integrity_problem"]}
         if detail:
             view["history"] = st["history"]
         return view
@@ -331,7 +388,8 @@ class Platform:
             if not member.workspace_admin:
                 raise LifecycleError(403, "workspace administrators only")
             return 200, {"items": [{k: t[k] for k in ("id", "name", "description")} for t in self.templates.values()]}
-        if len(parts) < 5 or parts[2] != "workspaces" or parts[4] != "use-cases" or len(parts) > 7:
+        releases = len(parts) >= 7 and parts[6] == "releases"
+        if len(parts) < 5 or parts[2] != "workspaces" or parts[4] != "use-cases" or len(parts) > (9 if releases else 7):
             return 404, None
         ws = self.workspaces.get(parts[3]) if parts[3] == member.workspace else None
         if ws is None:
@@ -349,22 +407,132 @@ class Platform:
                 return 201, self.use_case_view(uc, member, detail=True)
             return 405, {"error": f"{method} is not supported here"}
         uc = ws.use_cases.get(parts[5])
-        if uc is None or not member.grant(uc.id):
+        # a named release approver (e.g. an external one, D11) sees a use case's releases without other grants
+        if uc is None or not (member.grant(uc.id) or (releases and member.name in ws.release_approvers)):
             return 404, None
-        action = parts[6] if len(parts) == 7 else None
+        action = parts[6] if len(parts) >= 7 else None
         if action is None and method == "GET":
             return 200, self.use_case_view(uc, member, detail=True)
         if action == "checks" and method == "GET":
             target = dict(p.split("=", 1) for p in query.split("&") if "=" in p).get("to", "")
-            return 200, self.lifecycle.move(ws.id, uc.id, uc.service, target, member.name, "", dry_run=True)
+            return 200, self.lifecycle.move(ws.id, uc.id, uc.service, target, member.name, "", dry_run=True,
+                                            extra_checks=self._stage_checks(uc))
         if action == "stage" and method == "POST":
             if not member.workspace_admin:
                 raise LifecycleError(403, "workspace administrators only")
+            self._require_person(member, "move a use case between stages")
             body = self._json(raw_body, body_error)
             moved = self.lifecycle.move(ws.id, uc.id, uc.service, str(body.get("to") or ""),
-                                        f"{member.name}@{ws.id}", str(body.get("reason") or ""))
+                                        f"{member.name}@{ws.id}", str(body.get("reason") or ""),
+                                        extra_checks=self._stage_checks(uc))
             return 200, {**moved, "use_case": self.use_case_view(uc, member, detail=True)}
+        if action == "releases":
+            return self._releases(method, parts, ws, uc, member, raw_body, body_error)
         return 404, None
+
+    def _stage_checks(self, uc: UseCase):
+        return lambda stage: self._release_checks(uc) if stage == "pilot" else []
+
+    @staticmethod
+    def _require_person(member: Member, what: str) -> None:
+        if member.kind != "person":
+            raise LifecycleError(403, f"{member.name} is a service identity: it cannot {what} (D11)")
+
+    def may_approve_releases(self, ws: Workspace, member: Member) -> bool:
+        return member.kind == "person" and (member.workspace_admin or member.name in ws.release_approvers)
+
+    def _releases(self, method: str, parts: List[str], ws: Workspace, uc: UseCase, member: Member,
+                  raw_body: Optional[bytes], body_error) -> Tuple[int, Any]:
+        """``.../<uc>/releases[/<n>[/approve|/revoke|/activate]]`` (REL-1a, D11)."""
+        who = f"{member.name}@{ws.id}"
+        if len(parts) == 7:
+            if method == "GET":
+                rel = self.release_of(uc)
+                return 200, {**rel, "may_propose": member.workspace_admin and member.kind == "person",
+                             "may_approve": self.may_approve_releases(ws, member)}
+            if method == "POST":
+                if not member.workspace_admin:
+                    raise LifecycleError(403, "workspace administrators only")
+                self._require_person(member, "propose a release")
+                body = self._json(raw_body, body_error)
+                note = str(body.get("note") or "").strip()
+                if not (1 <= len(note) <= 500):
+                    raise ReleaseError(400, "give a note (1 to 500 characters): what this release changes")
+                return 201, self.releases.propose(ws.id, uc.id, uc.service.configuration_snapshot, who, note)
+            return 405, {"error": f"{method} is not supported here"}
+        try:
+            number = int(parts[7])
+        except ValueError:
+            return 404, None
+        if len(parts) == 8 and method == "GET":
+            item = self.releases.release(ws.id, uc.id, number)
+            if member.workspace_admin or self.may_approve_releases(ws, member):  # the full snapshot: reviewers only
+                item = {**item, "snapshot": self.releases.snapshot(ws.id, uc.id, number)}
+            return 200, item
+        if len(parts) != 9 or method != "POST" or parts[8] not in ("approve", "revoke", "activate"):
+            return 404, None
+        body = self._json(raw_body, body_error)
+        reason = str(body.get("reason") or "")
+        running = uc.service.configuration_fingerprint
+        if parts[8] == "approve":
+            if not self.may_approve_releases(ws, member):
+                raise LifecycleError(403, "only a person with release authority (a workspace administrator or a "
+                                          "named release approver) may approve a release")
+
+            def check_approve(item, st):
+                if item["proposed_by"] == who:
+                    raise ReleaseError(403, "the proposer cannot approve their own release: another person with "
+                                            "release authority must (D11)")
+                if item["status"] in ("approved", "active", "superseded") and item["approved_by"]:
+                    raise ReleaseError(409, f"release {item['number']} is already approved by {item['approved_by']}")
+            return 200, self.releases.record(ws.id, uc.id, number, "approved", who, reason, check_approve)
+        if parts[8] == "revoke":
+            def check_revoke(item, st):
+                if not item["approved_by"]:
+                    raise ReleaseError(409, f"release {item['number']} is not approved")
+                if item["status"] in ("active", "superseded"):
+                    raise ReleaseError(409, f"release {item['number']} was activated: roll back to another release "
+                                            "instead of revoking its approval")
+                if item["approved_by"] != who and not member.workspace_admin:
+                    raise ReleaseError(403, "only the approver or a workspace administrator may revoke an approval")
+            self._require_person(member, "revoke a release approval")
+            return 200, self.releases.record(ws.id, uc.id, number, "approval_revoked", who, reason, check_revoke)
+        if not member.workspace_admin:
+            raise LifecycleError(403, "workspace administrators only")
+        self._require_person(member, "activate a release")
+        event = {"kind": "activated"}
+
+        def check_activate(item, st):
+            if not item["approved_by"]:
+                raise ReleaseError(409, f"release {item['number']} is not approved: another person with release "
+                                        "authority must approve it first")
+            if item["status"] == "active":
+                raise ReleaseError(409, f"release {item['number']} is already active")
+            if item["fingerprint"] != running:
+                raise ReleaseError(409, f"the engine runs configuration {running[:12]}, not release {item['number']} "
+                                        f"({item['fingerprint'][:12]}): deploy that release's configuration and "
+                                        "restart, then activate it")
+            active = st["active"]
+            if active and active["number"] > item["number"]:
+                event["kind"] = "rolled_back"
+
+        st = self.releases.state(ws.id, uc.id)
+        previous = st["active"]
+        target = next((i for i in st["items"] if i["number"] == number), None)
+        if target and previous and previous["number"] > number:
+            event["kind"] = "rolled_back"
+        out = self.releases.record(ws.id, uc.id, number, event["kind"], who, reason, check_activate)
+        # runs started on another configuration never continue on this one (WorkAgent.resume, AutologyService.decide)
+        waiting = [r["run_id"] for r in uc.service.store.list_runs(limit=10 ** 6)
+                   if r["status"] in ("awaiting_review", "deferred", "paused", "pending_confirmation")]
+        stopped = [rid for rid in waiting if self._run_configuration(uc, rid) not in ("", running)]
+        return 200, {**out, "event": event["kind"], "runs_on_other_configurations": stopped}
+
+    @staticmethod
+    def _run_configuration(uc: UseCase, run_id: str) -> str:
+        stored = uc.service.store.load_run(run_id)
+        run = getattr(stored, "run", None)
+        return getattr(run, "configuration", "") if run is not None else ""
 
     def start_background(self) -> None:
         """Start every use case's scheduler; use cases created later start when they are created."""
@@ -442,6 +610,8 @@ class Platform:
                 status, out = self._manage(member, method, parts, split.query, raw_body, body_error)
             except LifecycleError as exc:
                 status, out = exc.status, {"error": str(exc), **({"checks": exc.checks} if exc.checks else {})}
+            except ReleaseError as exc:
+                status, out = exc.status, {"error": str(exc)}
             if method != "GET" or status >= 400:
                 self._log(member, method, path, status)
             if out is None:
@@ -535,4 +705,5 @@ def serve(path: str, host: str = "127.0.0.1", port: int = 8700) -> None:  # prag
         for svc in platform.services():
             svc.close()
         platform.lifecycle.close()
+        platform.releases.close()
         platform.log.close()

@@ -59,9 +59,9 @@ finish execution gates, release governance, workspace administration and the API
 
 | ID | Story | Acceptance | Est. |
 |---|---|---|---|
-| ADM-1 | Workspace administration API: create workspaces and use cases; add or remove members; propose grants | Changes are audited; a grant becomes active only when a second authorised administrator approves it, and never the proposer (master §6); cross-workspace attempts get 404 | 6 d |
+| ADM-1 | Workspace administration API: create workspaces and use cases; add or remove members; propose grants | Changes are audited; a grant becomes active only when a second authorised administrator approves it, and never the proposer (master §6); cross-workspace attempts get 404 | 6 d — **prerequisite in place 15 Nov:** members are typed person/service (H-1) and `release_approvers` names who approves (D11); the API itself is not started |
 | ADM-2 | Changes apply without restarting (hot reload of members, grants, use cases) | A new member can sign in within one request of approval; revoking access takes effect immediately | 2 d |
-| REL-1 | Immutable use-case releases: Draft → Simulation → Pilot → Production, plus Suspended and Rollback; runs pinned to the release fingerprint (GAP-020) | A release is a content-addressed snapshot; rollback restores the previous one; a run started on release N continues on N | 6 d |
+| REL-1 | Immutable use-case releases: Draft → Simulation → Pilot → Production, plus Suspended and Rollback; runs pinned to the release fingerprint (GAP-020) | A release is a content-addressed snapshot; rollback restores the previous one; a run started on release N continues on N | 6 d — **REL-1a done 15 Nov** (immutable content-addressed releases, independent approval bound to the fingerprint, activation of what runs only, drift stops execution, rollback recorded, runs and decisions bound to their configuration; pilot needs an approved active release). Open: activation without restart (hot reload, with ADM-2), releases created from Studio drafts, Suspended state, Studio release screen (STU-6). Policy chosen: a run started on N **stops** on another configuration (a person restarts it), it is never migrated silently |
 | REL-2 | Server-side hard gates on promotion | The gates of the instructions §10 (approval ownership, separation of duties, cross-tenant access, untested critical connector, critical vulnerability, no authoritative confirmation, no recovery evidence, audit gaps, sector controls) block promotion whatever the score; acceptance test 8 | 3 d |
 | REL-3 | Use-case readiness scorecard: six dimensions, each metric with formula, denominator, target, evidence source, confidence, reviewer and refresh trigger; one scoring authority with `scoring.py` | Material changes invalidate the evidence they touch; acceptance test 7 | 6 d |
 | REL-4 | Semantic diff covers every section (GAP-028) | Release diffs show impact rules, scheduling, questions, settings | 2 d |
@@ -182,3 +182,24 @@ existing field rules apply.
 | Studio drifting into business logic | Contract tests; the engine's suite runs with Studio stopped; review rule: no policy in the UI |
 | Scope: Studio views grow faster than engine features | Studio stories start only when their API exists and is tested |
 | Personal data in employee templates | Data minimisation, `pii` fields under field rules, no personal data in sample rows |
+
+
+## 10. Sequence after the master directive V2 (15 November 2026)
+
+The owner's order is kept where the repository's dependencies allow it:
+
+| # | Item | Status | Hard dependency found in the repository |
+|---|---|---|---|
+| 1 | Owner decisions D11, D7/D10, D19 recorded | Done | — |
+| 2 | H-1 (F-01, F-02) | Done, CI run 67 | — |
+| 3 | REL-1a releases | Done at repository level (see log) | — |
+| 4 | Architecture Part B (plugins, knowledge hub, composable intelligence, decision/action, autonomy) | Documented | — |
+| 5 | Workspace administration (ADM-1, ADM-2) | Needs authorisation | REL-1a (done); D11 details per workspace; hot reload is shared with release activation |
+| 6 | Real AI Solution Architect (AI-1, ARC-1) | Needs authorisation | D7/D10 configuration and keys; SEC-A (injection tests) before any real document |
+| 7 | Readiness assessment (REL-3) | Needs authorisation | REL-1a (a score belongs to a release); owner validation of weights |
+| 8 | Excel Template Factory and document intake (R3) | Needs authorisation | F-01 origin rules for any fetched source; provenance model (B3) |
+| 9 | Multi-provider AI and hybrid retrieval | Needs authorisation | AI-1; document intake |
+| 10 | Plugin Runtime and first validated plugins | Needs authorisation | Isolation choice; REL-1a (plugins in the release); ADM-1; D13 |
+| 11 | Decision & Action Designer | Needs authorisation | B5 model design; criticality model (B6) |
+| 12 | Advanced autonomous agents, Integration Hub | Needs authorisation | Plugin runtime or connector contract; D6/D13/D15 |
+| 13 | Independent Workspace UI and production operations | Needs authorisation | PROD, D2, D3, restore drills (GAP-033), independent security review |

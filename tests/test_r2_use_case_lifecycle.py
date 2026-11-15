@@ -57,6 +57,7 @@ def close(pf):
     for svc in pf.services():
         svc.close()
     pf.lifecycle.close()
+    pf.releases.close()
     pf.log.close()
 
 
@@ -78,6 +79,18 @@ class LifecycleBase(unittest.TestCase):
                                   {"case_template": "claim_case", "root": "CL-1"})
         self.assertEqual((status, run["status"]), (200, "completed"))
         return run
+
+    def release(self, uc="claims"):
+        """Four eyes on what goes to pilot (REL-1a, D11): ada proposes and activates, maria (a named release
+        approver) approves the configuration the engine runs."""
+        base = f"/platform/v1/workspaces/acme/use-cases/{uc}/releases"
+        status, rel = self.c.call("POST", base, "acme-ada", {"note": "configuration for the pilot"})
+        self.assertEqual(status, 201, rel)
+        n = rel["number"]
+        self.assertEqual(self.c.call("POST", f"{base}/{n}/approve", "acme-maria", {"reason": "reviewed"})[0], 200)
+        status, out = self.c.call("POST", f"{base}/{n}/activate", "acme-ada", {"reason": "go"})
+        self.assertEqual(status, 200, out)
+        return out
 
 
 class StageTests(LifecycleBase):
@@ -108,6 +121,7 @@ class StageTests(LifecycleBase):
         self.assertEqual(self.move("simulation")[0], 409)  # already there
         self.assertEqual(self.move("unknown-stage")[0], 400)
         self.complete_a_run()
+        self.release()
         self.assertEqual(self.move("pilot")[0], 200)
         for token in ("acme-ada", "acme-hana"):
             status, out = self.move("production", token=token)
@@ -160,6 +174,7 @@ class StageTests(LifecycleBase):
         self.complete_a_run()
         self.assertEqual(self.move("draft", "rework")[0], 200)  # leaving simulation resets the evidence
         self.assertEqual(self.move("simulation", "exercise with test claims")[0], 200)
+        self.release()
         status, out = self.move("pilot")
         self.assertEqual(status, 409)
         self.assertEqual([c["id"] for c in out["checks"] if not c["passed"]], ["simulated_run_completed"])
@@ -169,7 +184,8 @@ class StageTests(LifecycleBase):
         self.assertEqual({c["id"] for c in dry["checks"]}, {
             "configuration_valid", "audit_key", "no_quarantined_records", "engine_simulation_mode_off",
             "reviewers_assigned", "audit_chains_verify",
-            "external_calls_reconciled", "simulated_run_completed", "configuration_unchanged_since_simulation"})
+            "external_calls_reconciled", "simulated_run_completed", "configuration_unchanged_since_simulation",
+            "approved_release_active"})
         status, out = self.move("pilot", "supervised pilot on test data")
         self.assertEqual((status, out["from"], out["to"], out["use_case"]["stage"]), (200, "simulation", "pilot", "pilot"))
         history = out["use_case"]["history"]
@@ -182,6 +198,7 @@ class StageTests(LifecycleBase):
     def test_pilot_is_refused_while_an_external_call_waits_for_reconciliation(self):  # L3
         self.move("simulation")
         self.complete_a_run()
+        self.release()
         store = self.pf.workspaces["acme"].use_cases["claims"].service.store
         store.record_intent("k-1", run_key="rk", case_id="c", root="CL-9", agent="claims", action="pay_claim",
                             tool="payments", inputs_digest="d")

@@ -209,6 +209,20 @@ class AutologyService:
             held = self.store.active_suspension(name)
             if held:  # a suspension outlives restarts: only an admin reinstates the agent
                 agent.governance.suspended[agent.principal.name] = held["reason"]
+        # the governing configuration this engine runs (REL-1a): content-addressed; every run records it and never
+        # continues on another one, and a platform release can only be activated when it is exactly this
+        from .releases import configuration_snapshot, fingerprint_of
+
+        try:
+            document = json.loads(self.ontology_path.read_text(encoding="utf-8"))
+        except ValueError:  # YAML ontologies: the loaded model stands for the document
+            document = {"ref": self.ontology.ref}
+        self.configuration_snapshot = configuration_snapshot(config, base, document, self.ontology.fingerprint,
+                                                             self.ontology.ref)
+        self.configuration_fingerprint = fingerprint_of(self.configuration_snapshot)
+        for cfg_agent in self.agents.values():
+            for member in [cfg_agent.agent] + cfg_agent.agent.delegates:
+                member.configuration = self.configuration_fingerprint
         self.users: List[User] = []
         for u in config.get("users", []):
             perms = frozenset(u.get("permissions", ["read"]))
@@ -845,6 +859,7 @@ class AutologyService:
 
         tampered = self.tampered_records()
         out = {"status": "degraded" if self.quarantined or tampered else "ok", "ontology": self.ontology.ref,
+               "configuration": self.configuration_fingerprint,
                "simulation": self.simulation, "audit_keyed": self.audit_key is not None,
                "scheduler": self.scheduler_status, "quarantined_records": len(self.quarantined),
                "tampered_records": tampered}
@@ -964,7 +979,11 @@ class AutologyService:
         from .lifecycle import policy_for
 
         try:
-            return policy_for(self.stage_gate())
+            stage = self.stage_gate()
+            policy = policy_for(stage[0] if isinstance(stage, tuple) else stage)
+            if isinstance(stage, tuple) and stage[1] and policy["refusal"]:  # the platform says why (e.g. drift)
+                policy = {**policy, "refusal": f"{policy['refusal']}. Reason: {stage[1]}"}
+            return policy
         except Exception:  # the stage cannot be read: fail closed
             self.log_error("reading the use case's lifecycle stage")
             return policy_for(None)
@@ -1568,6 +1587,11 @@ class AutologyService:
             if not getattr(stored, "integrity_problem", None) and stored.run.ontology_ref != cfg.agent.ontology.ref:
                 raise ApiError(409, f"the run cannot continue: it was started on {stored.run.ontology_ref}; the "
                                     f"agent now uses {cfg.agent.ontology.ref}")
+            started_on = getattr(stored.run, "configuration", "")
+            if started_on and started_on != self.configuration_fingerprint:  # approvals bind the configuration (F-04)
+                raise ApiError(409, f"the run cannot continue: it was started on configuration {started_on[:12]}; the "
+                                    f"use case now runs {self.configuration_fingerprint[:12]}. The decision is not "
+                                    "recorded; start a new run on the current configuration")
             # Order matters (audit GAP-004): the decision is recorded before the run can act, and never undone.
             # If the run then fails or cannot be saved, it is recovered from the journal: calls already made are
             # replayed, never repeated, and the review is not opened again.

@@ -124,6 +124,92 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/platform/v1/workspaces/{ws}/use-cases/{uc}/releases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Releases, the active one, and whether the running configuration drifted (REL-1a) */
+        get: operations["getWorkspacesWsUseCasesUcReleases"];
+        put?: never;
+        /** Propose a release of the configuration the engine runs now */
+        post: operations["postWorkspacesWsUseCasesUcReleases"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/v1/workspaces/{ws}/use-cases/{uc}/releases/{n}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One release (with its snapshot for administrators and release approvers) */
+        get: operations["getWorkspacesWsUseCasesUcReleasesN"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/v1/workspaces/{ws}/use-cases/{uc}/releases/{n}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Activate an approved release that is exactly what runs (a rollback when it is older) */
+        post: operations["postWorkspacesWsUseCasesUcReleasesNActivate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/v1/workspaces/{ws}/use-cases/{uc}/releases/{n}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve a release, bound to its fingerprint (D11) */
+        post: operations["postWorkspacesWsUseCasesUcReleasesNApprove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/v1/workspaces/{ws}/use-cases/{uc}/releases/{n}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revoke an approval before activation */
+        post: operations["postWorkspacesWsUseCasesUcReleasesNRevoke"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/platform/v1/workspaces/{ws}/use-cases/{uc}/stage": {
         parameters: {
             query?: never;
@@ -145,6 +231,13 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        ActivationResult: components["schemas"]["Release"] & ({
+            /** @enum {string} */
+            event: "activated" | "rolled_back";
+            runs_on_other_configurations: string[];
+        } & {
+            [key: string]: unknown;
+        });
         Check: {
             detail: string;
             id: string;
@@ -206,6 +299,60 @@ export interface components {
         } & {
             [key: string]: unknown;
         });
+        Release: {
+            activated_at?: string | null;
+            approved_at?: string | null;
+            approved_by?: string | null;
+            at: string;
+            fingerprint: string;
+            id: string;
+            note: string;
+            number: number;
+            ontology_ref?: string;
+            proposed_by: string;
+            snapshot?: {
+                [key: string]: unknown;
+            };
+            /** @enum {string} */
+            status: "proposed" | "approved" | "active" | "superseded";
+        } & {
+            [key: string]: unknown;
+        };
+        ReleaseDecision: {
+            reason: string;
+        } & {
+            [key: string]: unknown;
+        };
+        ReleaseEvent: {
+            at: string;
+            by: string;
+            by_kind: string;
+            /** @enum {string} */
+            event: "proposed" | "approved" | "approval_revoked" | "activated" | "rolled_back";
+            fingerprint: string;
+            reason?: string;
+            release: number;
+            seq: number;
+        } & {
+            [key: string]: unknown;
+        };
+        ReleaseProposal: {
+            note: string;
+        } & {
+            [key: string]: unknown;
+        };
+        ReleaseState: {
+            active?: components["schemas"]["Release"] | null;
+            drift: boolean;
+            history: components["schemas"]["ReleaseEvent"][];
+            integrity_problem?: string | null;
+            items: components["schemas"]["Release"][];
+            may_approve?: boolean;
+            may_propose?: boolean;
+            running_fingerprint: string;
+        } & {
+            [key: string]: unknown;
+        };
         StageEvent: {
             at: string;
             by: string;
@@ -238,6 +385,7 @@ export interface components {
             [key: string]: unknown;
         };
         UseCase: {
+            configuration?: string;
             /** @enum {string} */
             effective_stage: "draft" | "simulation" | "pilot" | "production";
             fingerprint: string;
@@ -250,6 +398,13 @@ export interface components {
             origin: "configuration" | "template";
             path: string;
             permissions: string[];
+            release?: {
+                active: components["schemas"]["Release"] | null;
+                drift: boolean;
+                integrity_problem?: string | null;
+            } & {
+                [key: string]: unknown;
+            };
             /** @enum {string} */
             stage: "draft" | "simulation" | "pilot" | "production";
             stages: ("draft" | "simulation" | "pilot" | "production")[];
@@ -732,6 +887,434 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CheckResult"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Permission or checkpoint refused */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found or not visible */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict: state, stage or revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getWorkspacesWsUseCasesUcReleases: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws: string;
+                uc: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseState"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Permission or checkpoint refused */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found or not visible */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict: state, stage or revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    postWorkspacesWsUseCasesUcReleases: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws: string;
+                uc: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReleaseProposal"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Release"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Permission or checkpoint refused */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found or not visible */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict: state, stage or revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getWorkspacesWsUseCasesUcReleasesN: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws: string;
+                uc: string;
+                n: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Release"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Permission or checkpoint refused */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found or not visible */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict: state, stage or revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    postWorkspacesWsUseCasesUcReleasesNActivate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws: string;
+                uc: string;
+                n: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReleaseDecision"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivationResult"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Permission or checkpoint refused */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found or not visible */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict: state, stage or revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    postWorkspacesWsUseCasesUcReleasesNApprove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws: string;
+                uc: string;
+                n: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReleaseDecision"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Release"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Permission or checkpoint refused */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found or not visible */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict: state, stage or revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    postWorkspacesWsUseCasesUcReleasesNRevoke: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws: string;
+                uc: string;
+                n: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReleaseDecision"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Release"];
                 };
             };
             /** @description Invalid request */

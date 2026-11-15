@@ -156,10 +156,23 @@ class SchemaConformanceTests(V1Base):  # V5
                   None, 200),
                  (("POST", "/platform/workspaces/{ws}/use-cases/{uc}/stage"), "POST", f"{base}/v1-case/stage",
                   {"to": "simulation", "reason": "v1 contract"}, 200)]
+        rel, n = f"{base}/v1-case/releases", "1"  # REL-1a: ada proposes and activates, maria approves
+        calls += [(("POST", "/platform/workspaces/{ws}/use-cases/{uc}/releases"), "POST", rel, {"note": "v1"}, 201),
+                  (("POST", "/platform/workspaces/{ws}/use-cases/{uc}/releases/{n}/approve"), "POST",
+                   f"{rel}/{n}/approve", {"reason": "ok"}, 200, "acme-maria"),
+                  (("POST", "/platform/workspaces/{ws}/use-cases/{uc}/releases/{n}/revoke"), "POST",
+                   f"{rel}/{n}/revoke", {"reason": "recheck"}, 200, "acme-maria"),
+                  (("POST", "/platform/workspaces/{ws}/use-cases/{uc}/releases/{n}/approve"), "POST",
+                   f"{rel}/{n}/approve", {"reason": "ok now"}, 200, "acme-maria"),
+                  (("POST", "/platform/workspaces/{ws}/use-cases/{uc}/releases/{n}/activate"), "POST",
+                   f"{rel}/{n}/activate", {"reason": "go"}, 200),
+                  (("GET", "/platform/workspaces/{ws}/use-cases/{uc}/releases"), "GET", rel, None, 200),
+                  (("GET", "/platform/workspaces/{ws}/use-cases/{uc}/releases/{n}"), "GET", f"{rel}/{n}", None, 200),
+                  (("GET", "/platform/workspaces/{ws}/use-cases/{uc}"), "GET", f"{base}/v1-case", None, 200)]
         self.assertEqual({c[0] for c in calls}, set(PLATFORM_RESPONSES))
-        for key, method, path, body, status in calls:
-            with self.subTest(route=key):
-                got, _, out = self.raw(method, path, body=body)
+        for key, method, path, body, status, *who in calls:
+            with self.subTest(route=key, path=path):
+                got, _, out = self.raw(method, path, who[0] if who else "acme-ada", body)
                 self.assertEqual(got, status, out)
                 self.assertEqual(errors(out, PLATFORM_SCHEMAS[PLATFORM_RESPONSES[key]], PLATFORM_SCHEMAS), [])
 

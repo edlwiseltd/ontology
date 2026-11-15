@@ -36,7 +36,13 @@ mode. The same `server.json` can therefore back a use case in several workspaces
 | `POST /platform/workspaces/<ws>/use-cases` | a workspace administrator | Create a use case from a template: `{"id", "name", "template"}`; it starts in draft |
 | `GET /platform/workspaces/<ws>/use-cases/<uc>` | a member granted it | Detail: stage, stale flag, integrity problem, ontology fingerprint, stage history |
 | `GET /platform/workspaces/<ws>/use-cases/<uc>/checks?to=<stage>` | a member granted it | The checks of the target stage, evaluated now; nothing is recorded |
-| `POST /platform/workspaces/<ws>/use-cases/<uc>/stage` | a workspace administrator | `{"to", "reason"}`: move one stage, if every check passes |
+| `POST /platform/workspaces/<ws>/use-cases/<uc>/stage` | a workspace administrator (a person) | `{"to", "reason"}`: move one stage, if every check passes |
+| `GET /platform/workspaces/<ws>/use-cases/<uc>/releases` | a member granted it, or a release approver | Releases, the active one, the running configuration's fingerprint, `drift`, the release history |
+| `POST /platform/workspaces/<ws>/use-cases/<uc>/releases` | a workspace administrator (a person) | `{"note"}`: propose a release of the configuration the engine runs now (201) |
+| `GET /platform/workspaces/<ws>/use-cases/<uc>/releases/<n>` | a member granted it, or a release approver | One release; administrators and release approvers also get its snapshot |
+| `POST .../releases/<n>/approve` | a person with release authority, not the proposer | `{"reason"}`: approve, bound to the release's fingerprint |
+| `POST .../releases/<n>/revoke` | the approver or a workspace administrator | `{"reason"}`: withdraw an approval before activation |
+| `POST .../releases/<n>/activate` | a workspace administrator (a person) | `{"reason"}`: activate an approved release that is exactly what runs; an older one is a rollback. The answer lists runs waiting on another configuration |
 
 Every route above (except the contract itself) is also served under `/platform/v1/...`, and every engine route
 under `/w/<ws>/u/<uc>/api/v1/...`: same handlers, same rules, with one error envelope, page metadata on lists and
@@ -45,6 +51,31 @@ a version header. The unversioned paths keep their shape and are deprecated, not
 
 Another workspace, a use case not granted and one that does not exist all get the same `404 not found` on these
 routes too. A member granted a use case but not administrator gets `403` on the writes.
+
+## Releases (REL-1a)
+
+A **release** is an immutable, content-addressed snapshot of what governs a use case: its ontology, the engine
+settings that decide what runs and who may do what (agents, approvers, automations, service identities, webhooks,
+checkpoints) and each agent's tool declarations. Its fingerprint (SHA-256) is shown as `configuration` in the
+use case and in the engine's `/api/health`. Store paths, members, sign-in and secrets files are not part of it.
+
+1. A workspace administrator **proposes** the configuration the engine runs now.
+2. Another **person** with release authority **approves** it: a workspace administrator or a member named in the
+   workspace's `"release_approvers"` (for example an external approver with no other access, which a workspace with a
+   single administrator needs). The proposer never approves their own release; a service identity never approves.
+3. A workspace administrator **activates** it. Activation is refused unless the engine runs exactly that
+   configuration. Activating an older approved release is recorded as a **rollback**.
+
+While a release is active, an engine running another configuration (a file changed and the use case restarted)
+counts as **draft**: nothing runs and nothing is sent until a person activates an approved release of what now runs.
+**Pilot** requires an approved active release (check `approved_release_active`). A run started on one configuration
+never continues on another: its review decision is refused (409) and the activation lists it; start a new run.
+A release approval authorises no business action: the stage and the ontology's rules still decide what runs.
+Releases live in `<data_dir>/releases.db`, append-only, chained with the workspace's audit key; a changed history or
+snapshot is detected and the use case then counts as draft.
+
+**Limits:** activation does not reload the engine (deploy the release's files and restart first); Studio drafts
+cannot yet become releases; Python code imported by tools is not part of the snapshot.
 
 ## Lifecycle stages (Draft → Simulation → Pilot)
 

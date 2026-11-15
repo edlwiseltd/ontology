@@ -324,7 +324,12 @@ try {
   await adm.click("[data-testid=open-access]");
   await adm.fill("#acc-reason", "e2e: wrong team");
   await adm.click("tr[data-member=e2e-zoe] button:has-text('Revoke access')");
-  await adm.waitForFunction(() => document.querySelector("tr[data-member=e2e-zoe]")?.textContent.includes("no access"));
+  // wait for the refreshed row: the button is there only while the grant is (the row's other use cases always
+  // read "no access", so that text says nothing about this one)
+  await adm.waitForFunction(() => {
+    const row = document.querySelector("tr[data-member=e2e-zoe]");
+    return row !== null && !row.textContent.includes("Revoke access");
+  });
   const afterRevoke = await call(zoe, "GET", "/w/acme/u/claims/api/v1/me");
   check("access: a revoked grant stops working at once", afterRevoke === 404, String(afterRevoke));
   await adm.fill("#acc-reason", "e2e: left the company");

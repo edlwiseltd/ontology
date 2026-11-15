@@ -207,3 +207,4 @@ back instead). **Limits:** no hot reload (activation attests what a restarted en
 become releases; Python code imported by tools is outside the snapshot; the stage fingerprint is still the ontology's
 (the release fingerprint covers the rest).
 REL-1a evidence (local): full suite 688 OK (2 PostgreSQL tests skipped locally), 96.12 % lines (11,400 statements, 442 missed); Studio typecheck, 17 Vitest, build, 25/25 browser checks. CI: see below.
+**REL-1a CI:** `c2ea711` → [run 68](https://github.com/edlwiseltd/ontology/actions/runs/43691161947) success on all four jobs (Python 3.10 and 3.13 with PostgreSQL, package with image licence checks, studio with contract drift check and 25 browser checks).

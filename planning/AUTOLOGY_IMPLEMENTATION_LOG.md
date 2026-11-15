@@ -581,7 +581,7 @@ locally), 95.82 % lines (14,415 statements, 602 missed; `runs.py` 94 %, `reviews
 
 | Story | Change | Tests | Behaviour change |
 |---|---|---|---|
-| REL-2 mandatory gates | New `autology/readiness.py`: 26 conditions measured on the running use case, each with its evidence; a condition can be mandatory for `pilot` and `production` or for `production` only. A mandatory condition that does not hold, **or cannot be verified**, is a blocker. The platform evaluates the mandatory conditions at the promotion itself (`_stage_checks`) | Q2, Q3, Q6, Q8 | **Yes:** promotion to pilot now also requires: no linter error, at least one goal, no unreviewed model discretion, a tool for every action, no suspended agent, a simulated or sandbox tool for every action, no pending write-back conflict. The example use cases satisfy all seven |
+| REL-2 mandatory gates | New `autology/readiness.py`: 27 conditions (the commit message says 26: it left out the release check the platform supplies) measured on the running use case, each with its evidence; a condition can be mandatory for `pilot` and `production` or for `production` only. A mandatory condition that does not hold, **or cannot be verified**, is a blocker. The platform evaluates the mandatory conditions at the promotion itself (`_stage_checks`) | Q2, Q3, Q6, Q8 | **Yes:** promotion to pilot now also requires: no linter error, at least one goal, no unreviewed model discretion, a tool for every action, no suspended agent, a simulated or sandbox tool for every action, no pending write-back conflict. The example use cases satisfy all seven |
 | REL-3 scorecard | Six dimensions; each shows its calculation, evidence, missing evidence, blockers and corrective actions; the overall figure is the weighted mean of measured dimensions. `GET /platform/v1/workspaces/{ws}/use-cases/{uc}/readiness?target=` (granted members; typed in the contract) | Q1, Q5, Q7 | New route |
 | Score never decides | `promotion.allowed` depends on blockers only; verified in the report and at the promotion (a use case scoring above 80 is refused on one failed condition) | Q3 | — |
 | Production | Refused as before whatever the gates say; the report says so | Q4 | None |
@@ -596,4 +596,34 @@ Evidence (local): `tests/test_rel2_rel3_readiness.py` 9 OK; full suite 844 OK (2
 locally), 95.86 % lines (14,587 statements, 604 missed; `readiness.py` 99 %); ruff clean; mypy 198 (= baseline).
 Studio (the platform contract changed, client types regenerated): typecheck clean, 23 unit tests, build, 56/56
 browser checks.
+
+## 15 November 2026 — R2 closure sprint, increment E: the AI Architect through the versioned API (test doubles only)
+
+**No language model was used and none can be configured.** D7/D10 are not approved: the engine accepts one
+architect provider, `sandbox`, a deterministic test double built on approved templates that contacts nothing;
+any other value is refused at start. Its proposals are labelled `"ai": false`. GAP-052 stays open.
+
+| Story | Change | Tests | Behaviour change |
+|---|---|---|---|
+| Path | `POST /api/v1/architect/proposals` with `"generator": "model"`: gateway (configuration, data classes, deadline, schema check, accounting, logging) → proposal contract → engine validation → **stored revision** with who asked, brief, answers, provider, model, assumptions, rejected items and validation. Default generator `blueprint` unchanged | E1, E9 | New optional request fields; three new routes (list, read, decision) |
+| Guided questions and revisions | Questions carry an id; `{"revises", "answers"}` stores the next revision of the same proposal; history is append-only (database triggers) | E2 | — |
+| Review | `POST .../proposals/{id}/decision` records what a person accepted or rejected; it changes no model | E3 | — |
+| Contract additions | Descriptions of roles, agents and integrations (text for an administrator: never a grant); goals as items | E1, test_ai1 A3 | — |
+| Sandbox provider and template | `autology/sandbox_ai.py`; `blueprints/service_request.json`, an industry-neutral request → review → approval → fulfilment → closure process with four parameters (threshold, approver role, handler role, fulfilment system); answers are sanitised template parameters, never expressions | E1, E7 | The blueprint generator now also knows this template |
+| Service | `autology/architecting.py` (`ArchitectService`, ARC-0 style: the engine's method delegates; engine class 1,721 lines) | S1–S7 | — |
+| Store | Schema 16: `architect_proposals`, `architect_decisions` (MIG-1 step; additive) | test_mig1 | Stores upgrade on open |
+
+**Boundaries verified:** an answer outside the contract stores nothing (502); engine-refused items are stored as
+rejected, never provisional; provider failures are reported with their kind; a brief or an answer containing
+instructions changes no rule, permission, setting or release; `configure` proposes and reviews, `read` reads, a
+service identity cannot review, MCP offers none of it; another workspace gets 404; the sandbox works with the
+network made unusable.
+**Prepared, not executed:** [evaluation protocol for a first real provider](AUTOLOGY_AI_PROVIDER_EVALUATION_PROTOCOL.md)
+(what the owner approves, isolation and data rules, budget limits to implement first, failure handling, acceptance
+criteria).
+Evidence (local): `tests/test_arc1_architect_api.py` 10 OK; full suite 854 OK (2 PostgreSQL tests skipped
+locally), 95.86 % lines (14,843 statements, 615 missed; `architecting.py` 98 %, `sandbox_ai.py` 88 %); after that
+run two unused helpers were removed from `sandbox_ai.py` and 45 related tests re-run; ruff clean; mypy 198
+(= baseline). Studio (engine contract changed, types regenerated): typecheck clean, 23 unit tests, build, 56/56
+browser checks. The insurance example now enables the sandbox architect (`"ai": {"provider": "sandbox"}`).
 

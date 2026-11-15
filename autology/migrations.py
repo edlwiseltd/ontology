@@ -131,6 +131,10 @@ def _v15(store: Any, db: Any) -> None:
     """New tables only (created with the rest of the schema inside the same transaction)."""
 
 
+def _v16(store: Any, db: Any) -> None:
+    """New tables only: architect proposals and their review decisions."""
+
+
 MIGRATIONS: List[Tuple[int, str, Callable[[Any, Any], None]]] = [
     (4, "who started each run", _v4),
     (5, "write-back snapshots and conflicts; automation failure counts", _v5),
@@ -140,6 +144,7 @@ MIGRATIONS: List[Tuple[int, str, Callable[[Any, Any], None]]] = [
     (13, "atomic write-back state", _v13),
     (14, "record revisions and seals", _v14),
     (15, "model drafts and later tables", _v15),
+    (16, "architect proposals and review decisions", _v16),
 ]
 
 

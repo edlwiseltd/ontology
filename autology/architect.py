@@ -76,9 +76,13 @@ SCHEMA: Dict[str, Any] = _obj({
                         "action": S, "reviewer": S, "field": S, "entity": S, "roles": _arr(S), "step": S,
                         "before": S, **EVIDENCE}, optional=RULE_PARAMS)),
     "goals": _arr(_obj({"name": S, "description": S, "target": S, **EVIDENCE})),
-    "questions": _arr(_obj({"question": S, "why": S})),
+    "questions": _arr(_obj({"id": S, "question": S, "why": S})),
     "assumptions": _arr(_obj({"statement": S, "sources": _arr(S), "confidence": {"type": "number"}})),
     "unknowns": _arr(S),
+    # who and what the solution would involve: descriptions for a person to act on, never configuration
+    "roles": _arr(_obj({"name": S, "description": S})),
+    "agents": _arr(_obj({"name": S, "description": S, "actions": _arr(S)})),
+    "integrations": _arr(_obj({"capability": S, "system": S, "description": S})),
 })
 
 SYSTEM = """You are the AI Architect of Autology, a platform where a business model (an ontology) governs what \
@@ -88,8 +92,10 @@ states, relationships, actions with their preconditions and effects, business ru
 You propose; people decide. Nothing you answer is applied. Each item is checked by the engine and reviewed by a \
 person. Propose only what the brief or the sources support, say which source supports each item, and give a \
 confidence between 0 and 1. Put what you had to assume under assumptions, what you could not find under unknowns, \
-and ask clarification questions rather than guess. Do not repeat what the current model already contains. \
-Conditions are expressions such as: Order.status == 'open' and Order.amount > 1000."""
+and ask clarification questions rather than guess (give each question a short id; answers come back under \
+that id). Describe the roles, agents and integrations the solution would involve: they are descriptions for an \
+administrator, who alone grants roles and connects systems. Do not repeat what the current model already \
+contains. Conditions are expressions such as: Order.status == 'open' and Order.amount > 1000."""
 
 PROMPT = ("Propose additions to the business model for the brief given as data. Use the outline of the current "
           "model to avoid duplicates, and cite sources by their id (the brief's id is \"brief\").")
@@ -245,12 +251,14 @@ def _strings(value: Any) -> List[str]:
 
 def propose(gateway: ModelGateway, workspace: str, brief: str, document: Optional[Mapping[str, Any]] = None,
             sources: Sequence[Mapping[str, str]] = (), data_classes: Sequence[str] = ("model_design",),
-            deadline_seconds: float = 60.0, request_id: Optional[str] = None) -> Dict[str, Any]:
+            deadline_seconds: float = 60.0, request_id: Optional[str] = None,
+            answers: Sequence[Mapping[str, Any]] = ()) -> Dict[str, Any]:
     """Provisional, engine-validated additions to ``document`` for ``brief``. Nothing is applied or saved.
 
     ``sources`` are passages the caller retrieved (``{"id": ..., "text": ...}``); they are data for the model, and
-    the only ids an item may cite besides ``"brief"``. Raises :class:`ArchitectError` when the request cannot be
-    made and :class:`autology.ai.ProviderError` when the model gives no usable answer."""
+    the only ids an item may cite besides ``"brief"``. ``answers`` are a person's answers to earlier clarification
+    questions (``{"id": ..., "answer": ...}``): data too. Raises :class:`ArchitectError` when the request cannot
+    be made and :class:`autology.ai.ProviderError` when the model gives no usable answer."""
     if not isinstance(brief, str) or not 1 <= len(brief.strip()) <= 4000:
         raise ArchitectError("brief: 1 to 4000 characters describing the business")
     base = dict(document) if isinstance(document, Mapping) and document else {"name": "draft", "version": "0.1.0"}
@@ -260,12 +268,17 @@ def propose(gateway: ModelGateway, workspace: str, brief: str, document: Optiona
     passages = [{"id": str(s["id"]), "text": str(s["text"])[:8000]} for s in sources][:20]
     if any(p["id"] == "brief" for p in passages) or len({p["id"] for p in passages}) != len(passages):
         raise ArchitectError("source ids must be unique, and 'brief' is reserved")
+    given = [{"id": str(a["id"])[:64], "answer": _clip(a["answer"])} for a in answers
+             if isinstance(a, Mapping) and "id" in a and "answer" in a][:MAX_ITEMS]
     kw = {"request_id": request_id} if request_id else {}
     request = ModelRequest(workspace, "architect.propose", SYSTEM, PROMPT, SCHEMA,
-                           {"brief": brief, "current_model": outline(base), "sources": passages},
+                           {"brief": brief, "current_model": outline(base), "sources": passages, "answers": given},
                            tuple(data_classes), deadline_seconds, 8192, **kw)
     response = gateway.invoke(request)
-    provenance = {"generator": "model", "ai": True, "provider": response.provider, "model": response.model,
+    capabilities = gateway.describe(workspace).get("capabilities") or {}
+    genuine = bool(capabilities.get("language_model", True))  # a test double is never presented as AI
+    generator = "model" if genuine else "sandbox"
+    provenance = {"generator": generator, "ai": genuine, "provider": response.provider, "model": response.model,
                   "request_id": response.request_id}
     items, rejected = _items(response.data, base, ["brief"] + [p["id"] for p in passages], provenance)
     result = validate(apply(base, items))
@@ -279,10 +292,20 @@ def propose(gateway: ModelGateway, workspace: str, brief: str, document: Optiona
                              f"the proposal does not validate as a whole: {result['problems'][0]['message']}"})
         result = validate(apply(base, items))
     known = {"brief"} | {p["id"] for p in passages}
-    return {"generator": "model", "ai": True, "provider": response.provider, "model": response.model,
-            "request_id": response.request_id, "items": items, "rejected": rejected,
-            "questions": [{"question": _clip(q["question"]), "why": _clip(q["why"])}
+    described = response.data
+    return {"generator": generator, "ai": genuine, "provider": response.provider, "model": response.model,
+            "request_id": response.request_id, "items": items, "rejected": rejected, "answers": given,
+            "questions": [{"id": str(q["id"])[:64], "question": _clip(q["question"]), "why": _clip(q["why"])}
                           for q in response.data["questions"][:MAX_ITEMS]],
+            "suggestions": {
+                "roles": [{"name": _clip(r["name"])[:64], "description": _clip(r["description"])}
+                          for r in described["roles"][:MAX_ITEMS]],
+                "agents": [{"name": _clip(a["name"])[:64], "description": _clip(a["description"]),
+                            "actions": [_clip(x)[:64] for x in a["actions"][:MAX_ITEMS]]}
+                           for a in described["agents"][:MAX_ITEMS]],
+                "integrations": [{"capability": _clip(i["capability"])[:64], "system": _clip(i["system"])[:120],
+                                  "description": _clip(i["description"])} for i in described["integrations"][:MAX_ITEMS]],
+                "note": "descriptions only: roles are granted and systems are connected by an administrator"},
             "assumptions": [{"statement": _clip(a["statement"]), "sources": [s for s in a["sources"] if s in known],
                              "confidence": a["confidence"]} for a in response.data["assumptions"][:MAX_ITEMS]
                             if not isinstance(a["confidence"], bool) and 0 <= a["confidence"] <= 1],
@@ -291,5 +314,8 @@ def propose(gateway: ModelGateway, workspace: str, brief: str, document: Optiona
                            "by": "the engine's strict loader, on the current model plus the provisional items"},
             "usage": dict(response.usage), "cost_usd": response.cost_usd,
             "unpriced_tokens": response.unpriced_tokens,
-            "message": "proposals from a language model: untrusted until a person accepts them; every provisional "
-                       "item has passed the engine's validation; nothing is applied or saved"}
+            "message": ("proposals from a language model" if genuine else
+                        "proposals from the sandbox architect (a deterministic test double built on approved "
+                        "templates, not a language model)")
+                       + ": untrusted until a person accepts them; every provisional item has passed the engine's "
+                         "validation; nothing is applied or saved"}

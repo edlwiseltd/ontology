@@ -540,9 +540,12 @@ def proposal(**changes):
                    "action": "block_customer", "reviewer": "desk_lead", **evidence(("brief", "policy-1"))}],
         "goals": [{"name": "customer_blocked", "description": "The customer is no longer served",
                    "target": "Customer.status == 'blocked'", **evidence()}],
-        "questions": [{"question": "Who may unblock a customer?", "why": "the brief does not say"}],
+        "questions": [{"id": "unblock", "question": "Who may unblock a customer?", "why": "the brief does not say"}],
         "assumptions": [{"statement": "One customer raises many tickets", "sources": ["brief"], "confidence": 0.6}],
-        "unknowns": ["How long a block lasts"]}
+        "unknowns": ["How long a block lasts"],
+        "roles": [{"name": "desk_lead", "description": "Decides who is blocked"}],
+        "agents": [{"name": "desk", "description": "Handles tickets", "actions": ["block_customer"]}],
+        "integrations": [{"capability": "crm.block", "system": "the CRM", "description": "Blocks the customer"}]}
     return {**base, **changes}
 
 
@@ -575,8 +578,10 @@ class ArchitectTests(Wires):
             self.assertIn("acts outside Autology: decide who reviews it", action["attention"])
             self.assertEqual((rule["sources"], rule["confidence"], rule["attention"]), (["brief", "policy-1"], 0.8, []))
             self.assertEqual(goal["value"]["target"], "Customer.status == 'blocked'")
-            self.assertEqual(result["questions"], [{"question": "Who may unblock a customer?",
+            self.assertEqual(result["questions"], [{"id": "unblock", "question": "Who may unblock a customer?",
                                                     "why": "the brief does not say"}])
+            self.assertEqual(result["suggestions"]["roles"], [{"name": "desk_lead", "description": "Decides who is blocked"}])
+            self.assertIn("granted and systems are connected by an administrator", result["suggestions"]["note"])
             self.assertEqual((result["assumptions"][0]["confidence"], result["unknowns"]),
                              (0.6, ["How long a block lasts"]))
             # what a person would get by accepting every item loads in the engine
@@ -678,6 +683,11 @@ class ArchitectTests(Wires):
             self.assertEqual(caught.exception.kind, "tool_request")
         for name in ("settings", "permissions", "tools", "allow_self_review", "grants"):
             self.assertNotIn(f'"{name}"', json.dumps(architect.SCHEMA))
+        # the roles a proposal describes are text for an administrator: a "grant" hidden there is refused too
+        described = proposal(roles=[{"name": "architect", "description": "x", "permissions": ["admin"]}])
+        gateway, _, _ = self.wire("sdk", scripted({"answer": described}))
+        with self.assertRaises(ProviderError):
+            architect.propose(gateway, "acme", BRIEF, DESK)
         # adding an access rule can only restrict: a second rule on a protected field does not open it to its roles
         widening = proposal(entities=[], relationships=[], actions=[], goals=[], rules=[
             {"id": "R-MEMO-2", "type": "data_access", "description": "Agents read memos too",

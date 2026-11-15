@@ -446,6 +446,54 @@
           "ai": {
             "type": "boolean"
           },
+          "answers": {
+            "items": {
+              "additionalProperties": true,
+              "properties": {
+                "answer": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "answer"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "assumptions": {
+            "items": {
+              "additionalProperties": true,
+              "properties": {
+                "confidence": {
+                  "type": "number"
+                },
+                "sources": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "statement": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "statement",
+                "sources",
+                "confidence"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "at": {
+            "type": "string"
+          },
           "blueprint": {
             "additionalProperties": true,
             "properties": {
@@ -458,7 +506,31 @@
             },
             "type": "object"
           },
+          "brief": {
+            "type": "string"
+          },
+          "cost_usd": {
+            "type": "number"
+          },
+          "created_by": {
+            "type": "string"
+          },
+          "decisions": {
+            "items": {
+              "$ref": "#/components/schemas/ProposalDecision"
+            },
+            "type": "array"
+          },
           "generator": {
+            "type": "string"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/ProposalRevision"
+            },
+            "type": "array"
+          },
+          "id": {
             "type": "string"
           },
           "items": {
@@ -466,6 +538,9 @@
               "$ref": "#/components/schemas/ProposalItem"
             },
             "type": "array"
+          },
+          "latest_revision": {
+            "type": "integer"
           },
           "matched_terms": {
             "items": {
@@ -475,6 +550,135 @@
           },
           "message": {
             "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "questions": {
+            "items": {
+              "additionalProperties": true,
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "question": {
+                  "type": "string"
+                },
+                "why": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "question",
+                "why"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "rejected": {
+            "items": {
+              "additionalProperties": true,
+              "properties": {
+                "kind": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "problem": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "name",
+                "problem"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer"
+          },
+          "suggestions": {
+            "additionalProperties": true,
+            "properties": {
+              "agents": {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "integrations": {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "note": {
+                "type": "string"
+              },
+              "roles": {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "roles",
+              "agents",
+              "integrations",
+              "note"
+            ],
+            "type": "object"
+          },
+          "unknowns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "unpriced_tokens": {
+            "type": "integer"
+          },
+          "usage": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "validation": {
+            "additionalProperties": true,
+            "properties": {
+              "by": {
+                "type": "string"
+              },
+              "items_validated": {
+                "type": "integer"
+              },
+              "valid": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "valid",
+              "items_validated",
+              "by"
+            ],
+            "type": "object"
           }
         },
         "required": [
@@ -485,9 +689,80 @@
         ],
         "type": "object"
       },
+      "ProposalDecision": {
+        "additionalProperties": true,
+        "properties": {
+          "accepted": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "at": {
+            "type": "string"
+          },
+          "decided_by": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "rejected": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "revision": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "revision",
+          "decided_by",
+          "at",
+          "accepted",
+          "rejected",
+          "note"
+        ],
+        "type": "object"
+      },
+      "ProposalDecisionRequest": {
+        "additionalProperties": true,
+        "properties": {
+          "accepted": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "note": {
+            "type": "string"
+          },
+          "rejected": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "revision": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
       "ProposalItem": {
         "additionalProperties": true,
         "properties": {
+          "attention": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "confidence": {
+            "type": "number"
+          },
           "id": {
             "type": "string"
           },
@@ -496,7 +771,8 @@
               "entity",
               "relationship",
               "action",
-              "rule"
+              "rule",
+              "goal"
             ],
             "type": "string"
           },
@@ -523,6 +799,15 @@
                   "type": "string"
                 },
                 "type": "array"
+              },
+              "model": {
+                "type": "string"
+              },
+              "provider": {
+                "type": "string"
+              },
+              "request_id": {
+                "type": "string"
               }
             },
             "required": [
@@ -533,6 +818,12 @@
           },
           "rationale": {
             "type": "string"
+          },
+          "sources": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "status": {
             "enum": [
@@ -552,9 +843,135 @@
         ],
         "type": "object"
       },
+      "ProposalList": {
+        "additionalProperties": true,
+        "properties": {
+          "architect": {
+            "additionalProperties": true,
+            "properties": {
+              "configured": {
+                "type": "boolean"
+              },
+              "generators": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "language_model": {
+                "type": "boolean"
+              },
+              "provider": {
+                "type": "string"
+              },
+              "verified_against": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "configured",
+              "generators"
+            ],
+            "type": "object"
+          },
+          "items": {
+            "items": {
+              "additionalProperties": true,
+              "properties": {
+                "ai": {
+                  "type": "boolean"
+                },
+                "answers": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "at": {
+                  "type": "string"
+                },
+                "brief": {
+                  "type": "string"
+                },
+                "created_by": {
+                  "type": "string"
+                },
+                "decisions": {
+                  "type": "integer"
+                },
+                "generator": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "items": {
+                  "type": "integer"
+                },
+                "open_questions": {
+                  "type": "integer"
+                },
+                "provider": {
+                  "type": "string"
+                },
+                "rejected": {
+                  "type": "integer"
+                },
+                "revision": {
+                  "type": "integer"
+                },
+                "revisions": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "id",
+                "brief",
+                "revisions",
+                "generator",
+                "ai",
+                "provider",
+                "decisions",
+                "revision",
+                "at"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items",
+          "architect"
+        ],
+        "type": "object"
+      },
       "ProposalRequest": {
         "additionalProperties": true,
         "properties": {
+          "answers": {
+            "items": {
+              "additionalProperties": true,
+              "properties": {
+                "answer": {
+                  "type": [
+                    "string",
+                    "number"
+                  ]
+                },
+                "id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "answer"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
           "brief": {
             "maxLength": 4000,
             "minLength": 1,
@@ -563,10 +980,57 @@
           "document": {
             "additionalProperties": true,
             "type": "object"
+          },
+          "generator": {
+            "enum": [
+              "blueprint",
+              "model"
+            ],
+            "type": "string"
+          },
+          "revises": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ProposalRevision": {
+        "additionalProperties": true,
+        "properties": {
+          "answers": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "at": {
+            "type": "string"
+          },
+          "created_by": {
+            "type": "string"
+          },
+          "items": {
+            "type": "integer"
+          },
+          "open_questions": {
+            "type": "integer"
+          },
+          "rejected": {
+            "type": "integer"
+          },
+          "revision": {
+            "type": "integer"
           }
         },
         "required": [
-          "brief"
+          "revision",
+          "at",
+          "created_by",
+          "answers",
+          "items",
+          "rejected",
+          "open_questions"
         ],
         "type": "object"
       },
@@ -1070,6 +1534,107 @@
       }
     },
     "/api/v1/architect/proposals": {
+      "get": {
+        "operationId": "getArchitectProposals",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposalList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Missing or invalid token"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Permission or checkpoint refused"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not found or not visible"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Stored proposals and the architect's provider",
+        "x-autology-permission": "read or configure"
+      },
       "post": {
         "operationId": "postArchitectProposals",
         "requestBody": {
@@ -1178,7 +1743,251 @@
             }
           }
         },
-        "summary": "Provisional additions for a business brief (blueprints; not AI)",
+        "summary": "Provisional additions for a business brief: from approved blueprints (default), or through the AI gateway (generator model), stored as a revision",
+        "x-autology-permission": "configure"
+      }
+    },
+    "/api/v1/architect/proposals/{id}": {
+      "get": {
+        "operationId": "getArchitectProposalsId",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "revision",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Proposal"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Missing or invalid token"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Permission or checkpoint refused"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not found or not visible"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        },
+        "summary": "One proposal: a revision with its provenance, validation, history and review decisions",
+        "x-autology-permission": "read or configure"
+      }
+    },
+    "/api/v1/architect/proposals/{id}/decision": {
+      "post": {
+        "operationId": "postArchitectProposalsIdDecision",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProposalDecisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Proposal"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Missing or invalid token"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Permission or checkpoint refused"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not found or not visible"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Record which provisional items a person accepted or rejected (changes no model)",
         "x-autology-permission": "configure"
       }
     },

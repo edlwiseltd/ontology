@@ -248,13 +248,14 @@ class AutologyService:
                 member.configuration = self.configuration_fingerprint
         # ARC-0: responsibilities taken out of this class, one at a time. Each service works through the engine it
         # belongs to (its store, its rules, its permission checks): there is still one authority, this one.
+        from .architecting import ArchitectService
         from .ingestion import IngestionService
         from .notifications import NotificationService
         from .reviews import ReviewService
         from .runs import RunService
 
         self.notifications, self.ingestion = NotificationService(self), IngestionService(self)
-        self.runs, self.reviews = RunService(self), ReviewService(self)
+        self.runs, self.reviews, self.architect = RunService(self), ReviewService(self), ArchitectService(self, config)
         self._init_security(config, base)
         self.users: List[User] = self.parse_users(config.get("users", []))
         # identities automations run as (D4): explicit, least privilege, limited to named agents
@@ -938,17 +939,7 @@ class AutologyService:
         return {"validation": validate(doc), "questions": questions(doc, self)}
 
     def architect_proposals(self, user: User, body: Dict[str, Any]) -> Dict[str, Any]:
-        from .modeling import propose
-
-        self.require(user, "configure")
-        brief = body.get("brief")
-        if not isinstance(brief, str) or not 1 <= len(brief.strip()) <= 4000:
-            raise ApiError(400, "brief: 1 to 4000 characters describing the business")
-        base = body.get("document")
-        if not isinstance(base, dict):
-            row = self.store.draft()
-            base = row["document"] if row else self._active_document()
-        return propose(brief, base)
+        return self.architect.architect_proposals(user, body)
 
     def mcp_message(self, user: User, message: Any) -> Optional[Dict[str, Any]]:
         """One MCP JSON-RPC message over HTTP (``POST /api/mcp``), answered by the same server as over stdio, as
@@ -2034,8 +2025,18 @@ class ApiExchange:
                 return self._send(200, service.model_draft_history(user))
             if parts == ["model", "validate"] and method == "POST":
                 return self._send(200, service.validate_model(user, body))
-            if parts == ["architect", "proposals"] and method == "POST":
-                return self._send(200, service.architect_proposals(user, body))
+            if parts == ["architect", "proposals"] and method in ("GET", "POST"):
+                return self._send(200, service.architect_proposals(user, body) if method == "POST"
+                                  else service.architect.list_proposals(user))
+            if len(parts) == 3 and parts[:2] == ["architect", "proposals"] and method == "GET":
+                revision = query.get("revision")
+                if revision is not None and not str(revision).isdigit():
+                    raise ApiError(400, "revision: a positive integer")
+                return self._send(200, service.architect.get_proposal(user, parts[2],
+                                                                      int(revision) if revision else None))
+            if len(parts) == 4 and parts[:2] == ["architect", "proposals"] and parts[3] == "decision" \
+                    and method == "POST":
+                return self._send(200, service.architect.decide_proposal(user, parts[2], body))
             if key == ("POST", "mcp"):  # MCP over HTTP: the same tools, in this (the only writing) process
                 answer = service.mcp_message(user, body)
                 return self._send(202, b"") if answer is None else self._send(200, answer)

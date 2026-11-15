@@ -62,10 +62,45 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Stored proposals and the architect's provider */
+        get: operations["getArchitectProposals"];
+        put?: never;
+        /** Provisional additions for a business brief: from approved blueprints (default), or through the AI gateway (generator model), stored as a revision */
+        post: operations["postArchitectProposals"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/architect/proposals/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One proposal: a revision with its provenance, validation, history and review decisions */
+        get: operations["getArchitectProposalsId"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/architect/proposals/{id}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         get?: never;
         put?: never;
-        /** Provisional additions for a business brief (blueprints; not AI) */
-        post: operations["postArchitectProposals"];
+        /** Record which provisional items a person accepted or rejected (changes no model) */
+        post: operations["postArchitectProposalsIdDecision"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1130,44 +1165,188 @@ export interface components {
         };
         Proposal: {
             ai: boolean;
+            answers?: ({
+                answer: string;
+                id: string;
+            } & {
+                [key: string]: unknown;
+            })[];
+            assumptions?: ({
+                confidence: number;
+                sources: string[];
+                statement: string;
+            } & {
+                [key: string]: unknown;
+            })[];
+            at?: string;
             blueprint?: {
                 id?: string;
                 name?: string;
             } & {
                 [key: string]: unknown;
             };
+            brief?: string;
+            cost_usd?: number;
+            created_by?: string;
+            decisions?: components["schemas"]["ProposalDecision"][];
             generator: string;
+            history?: components["schemas"]["ProposalRevision"][];
+            id?: string;
             items: components["schemas"]["ProposalItem"][];
+            latest_revision?: number;
             matched_terms?: string[];
             message: string;
+            model?: string;
+            provider?: string;
+            questions?: ({
+                id: string;
+                question: string;
+                why: string;
+            } & {
+                [key: string]: unknown;
+            })[];
+            rejected?: ({
+                kind: string;
+                name: string;
+                problem: string;
+            } & {
+                [key: string]: unknown;
+            })[];
+            request_id?: string;
+            revision?: number;
+            suggestions?: {
+                agents: {
+                    [key: string]: unknown;
+                }[];
+                integrations: {
+                    [key: string]: unknown;
+                }[];
+                note: string;
+                roles: {
+                    [key: string]: unknown;
+                }[];
+            } & {
+                [key: string]: unknown;
+            };
+            unknowns?: string[];
+            unpriced_tokens?: number;
+            usage?: {
+                [key: string]: number;
+            };
+            validation?: {
+                by: string;
+                items_validated: number;
+                valid: boolean;
+            } & {
+                [key: string]: unknown;
+            };
+        } & {
+            [key: string]: unknown;
+        };
+        ProposalDecision: {
+            accepted: string[];
+            at: string;
+            decided_by: string;
+            note: string;
+            rejected: string[];
+            revision: number;
+        } & {
+            [key: string]: unknown;
+        };
+        ProposalDecisionRequest: {
+            accepted?: string[];
+            note?: string;
+            rejected?: string[];
+            revision?: number;
         } & {
             [key: string]: unknown;
         };
         ProposalItem: {
+            attention?: string[];
+            confidence?: number;
             id: string;
             /** @enum {string} */
-            kind: "entity" | "relationship" | "action" | "rule";
+            kind: "entity" | "relationship" | "action" | "rule" | "goal";
             name?: string | null;
             provenance: {
                 ai: boolean;
                 blueprint?: string;
                 generator: string;
                 matched_terms?: string[];
+                model?: string;
+                provider?: string;
+                request_id?: string;
             } & {
                 [key: string]: unknown;
             };
             rationale: string;
+            sources?: string[];
             /** @enum {string} */
             status: "provisional";
             value: unknown;
         } & {
             [key: string]: unknown;
         };
+        ProposalList: {
+            architect: {
+                configured: boolean;
+                generators: string[];
+                language_model?: boolean;
+                provider?: string;
+                verified_against?: string;
+            } & {
+                [key: string]: unknown;
+            };
+            items: ({
+                ai: boolean;
+                answers?: {
+                    [key: string]: unknown;
+                }[];
+                at: string;
+                brief: string;
+                created_by?: string;
+                decisions: number;
+                generator: string;
+                id: string;
+                items?: number;
+                open_questions?: number;
+                provider: string;
+                rejected?: number;
+                revision: number;
+                revisions: number;
+            } & {
+                [key: string]: unknown;
+            })[];
+        } & {
+            [key: string]: unknown;
+        };
         ProposalRequest: {
-            brief: string;
+            answers?: ({
+                answer: string | number;
+                id: string;
+            } & {
+                [key: string]: unknown;
+            })[];
+            brief?: string;
             document?: {
                 [key: string]: unknown;
             };
+            /** @enum {string} */
+            generator?: "blueprint" | "model";
+            revises?: string;
+        } & {
+            [key: string]: unknown;
+        };
+        ProposalRevision: {
+            answers: {
+                [key: string]: unknown;
+            }[];
+            at: string;
+            created_by: string;
+            items: number;
+            open_questions: number;
+            rejected: number;
+            revision: number;
         } & {
             [key: string]: unknown;
         };
@@ -1495,6 +1674,91 @@ export interface operations {
             };
         };
     };
+    getArchitectProposals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalList"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Permission or checkpoint refused */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found or not visible */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict: state, stage or revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     postArchitectProposals: {
         parameters: {
             query?: never;
@@ -1505,6 +1769,186 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ProposalRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Proposal"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Permission or checkpoint refused */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found or not visible */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict: state, stage or revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getArchitectProposalsId: {
+        parameters: {
+            query?: {
+                revision?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Proposal"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Permission or checkpoint refused */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found or not visible */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict: state, stage or revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    postArchitectProposalsIdDecision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProposalDecisionRequest"];
             };
         };
         responses: {

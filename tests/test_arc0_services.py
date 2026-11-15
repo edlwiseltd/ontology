@@ -20,6 +20,7 @@ import unittest
 from pathlib import Path
 
 import autology
+from autology.architecting import ArchitectService
 from autology.ingestion import IngestionService
 from autology.mcp import McpServer
 from autology.notifications import NotificationService
@@ -36,11 +37,14 @@ MOVED = {"notifications": ["_not_for_notifications", "_hidden_from_roles", "_not
                   "retry_write_back", "write_back_status", "run_roles", "_case_hides_records", "start_run",
                   "list_runs", "_visible_runs", "get_run", "run_audit", "_agent_for", "resume_run", "recover",
                   "_visible_run", "record_outcome", "list_outcomes", "outcomes_summary"],
-         "reviews": ["list_reviews", "get_review", "decide", "_live_changes", "_continue_after_review"]}
+         "reviews": ["list_reviews", "get_review", "decide", "_live_changes", "_continue_after_review"],
+         "architect": ["architect_proposals"]}
 SERVICES = {"notifications": NotificationService, "ingestion": IngestionService, "runs": RunService,
-            "reviews": ReviewService}
+            "reviews": ReviewService, "architect": ArchitectService}
+SERVICE_MODULES = {"notifications": "notifications", "ingestion": "ingestion", "runs": "runs", "reviews": "reviews",
+                   "architect": "architecting"}
 AUTHORITY = ("require", "require_any", "require_person", "checkpoint", "visible", "field_hidden", "authenticate")
-MAX_LINES, MAX_METHODS = 1730, 138  # lower these when more is extracted; never raise them
+MAX_LINES, MAX_METHODS = 1721, 138  # lower these when more is extracted; never raise them
 
 
 class ServiceExtractionTests(unittest.TestCase):
@@ -153,14 +157,15 @@ class ServiceExtractionTests(unittest.TestCase):
 
     def test_services_depend_on_the_engine_module_only(self):  # S7
         root = Path(autology.__file__).parent
-        modules = {name: ast.parse((root / f"{name}.py").read_text()) for name in SERVICES}
+        files = set(SERVICE_MODULES.values())
+        modules = {name: ast.parse((root / f"{name}.py").read_text()) for name in files}
         for name, tree in modules.items():
             local = {n.module for n in ast.walk(tree) if isinstance(n, ast.ImportFrom) and n.level and n.module}
-            self.assertFalse(local & set(SERVICES), f"{name} imports another service: {local & set(SERVICES)}")
+            self.assertFalse(local & files, f"{name} imports another service: {local & files}")
             self.assertIn("server", local, name)
         engine = ast.parse((root / "server.py").read_text())
         top = {n.module for n in engine.body if isinstance(n, ast.ImportFrom) and n.level}
-        self.assertFalse(top & set(SERVICES))  # imported where the engine is built: no import cycle at load
+        self.assertFalse(top & files)  # imported where the engine is built: no import cycle at load
 
 
 if __name__ == "__main__":

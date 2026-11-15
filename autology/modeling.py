@@ -19,7 +19,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 from .ontology import Ontology, OntologyError
 
@@ -117,32 +117,85 @@ def blueprints() -> List[Dict[str, Any]]:
     return [json.loads(p.read_text(encoding="utf-8")) for p in sorted(BLUEPRINTS.glob("*.json"))]
 
 
+def match(brief: str) -> Tuple[Optional[Dict[str, Any]], List[str]]:
+    """The approved blueprint whose vocabulary ``brief`` uses most (at least two terms), and the terms found."""
+    words = set(re.findall(r"[a-z]+(?: order)?", brief.lower()))
+    best: Optional[Dict[str, Any]] = None
+    matched: List[str] = []
+    for bp in blueprints():
+        hits = sorted(k for k in bp["keywords"] if k in words or k in brief.lower())
+        if len(hits) >= 2 and len(hits) > len(matched):
+            best, matched = bp, hits
+    return best, matched
+
+
+_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
+
+
+def parameters(blueprint: Mapping[str, Any], answers: Optional[Mapping[str, Any]] = None
+               ) -> Tuple[Dict[str, Any], List[str]]:
+    """The values of a blueprint's parameters: an answer where one was given and fits the parameter's type, its
+    default otherwise. Also returns the ids still on their default (the questions that remain open)."""
+    values: Dict[str, Any] = {}
+    open_ids: List[str] = []
+    for spec in blueprint.get("parameters") or []:
+        raw = (answers or {}).get(spec["id"])
+        value: Any = None
+        if isinstance(raw, (str, int, float)) and not isinstance(raw, bool) and str(raw).strip():
+            text = str(raw).strip()
+            if spec["type"] == "number":
+                try:
+                    number = float(text)
+                    value = int(number) if number == int(number) else number
+                except (ValueError, OverflowError):
+                    value = None
+            elif spec["type"] == "name":
+                candidate = re.sub(r"[^A-Za-z0-9_]+", "_", text).strip("_").lower()
+                value = candidate if _NAME.match(candidate) else None
+            else:
+                value = re.sub(r"[{}<>\x00-\x1f]", " ", text)[:120]
+        if value is None:
+            value = spec["default"]
+            open_ids.append(spec["id"])
+        values[spec["id"]] = value
+    return values, open_ids
+
+
+def fill(value: Any, values: Mapping[str, Any]) -> Any:
+    """``value`` with every ``{parameter}`` in its strings replaced."""
+    if isinstance(value, str):
+        return re.sub(r"\{([a-z_]+)\}", lambda m: str(values.get(m.group(1), m.group(0))), value)
+    if isinstance(value, list):
+        return [fill(v, values) for v in value]
+    if isinstance(value, dict):
+        return {k: fill(v, values) for k, v in value.items()}
+    return value
+
+
 def propose(brief: str, document: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Provisional additions for ``brief``. Today: approved blueprints only (no AI). Nothing is applied."""
-    words = set(re.findall(r"[a-z]+(?: order)?", brief.lower()))
     document = document if isinstance(document, dict) else {}
     have_entities = set(document.get("entities") or {})
     have_actions = set(document.get("actions") or {})
     have_rels = {(r.get("from"), r.get("to"), r.get("type")) for r in document.get("relationships") or []
                  if isinstance(r, dict)}
     have_rules = {r.get("id") for r in document.get("rules") or [] if isinstance(r, dict)}
-    best, matched = None, []
-    for bp in blueprints():
-        hits = sorted(k for k in bp["keywords"] if k in words or k in brief.lower())
-        if len(hits) >= 2 and len(hits) > len(matched):
-            best, matched = bp, hits
+    have_goals = set(document.get("goals") or {})
+    best, matched = match(brief)
     if best is None:
         return {"generator": "blueprint", "ai": False, "items": [],
                 "message": "no approved blueprint matches this brief; a model-based architect is not configured "
                            "(AI providers are an open decision, D7 and D10)"}
     items = []
+    defaults, _ = parameters(best)
     for item in best["items"]:
-        v = item["value"]
+        v = fill(item["value"], defaults)
         key = (item["kind"], item.get("name") or v.get("id") or f"{v.get('from')}-{v.get('type')}-{v.get('to')}")
         already = ((item["kind"] == "entity" and item["name"] in have_entities)
                    or (item["kind"] == "action" and item["name"] in have_actions)
                    or (item["kind"] == "relationship" and (v["from"], v["to"], v["type"]) in have_rels)
-                   or (item["kind"] == "rule" and v.get("id") in have_rules))
+                   or (item["kind"] == "rule" and v.get("id") in have_rules)
+                   or (item["kind"] == "goal" and item["name"] in have_goals))
         if already:
             continue
         items.append({"id": f"{best['id']}:{key[0]}:{key[1]}", "kind": item["kind"], "name": item.get("name"),

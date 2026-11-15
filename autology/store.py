@@ -41,7 +41,7 @@ from .audit import GENESIS, AuditLog
 from .graph import KnowledgeGraph
 from .ontology import Ontology, OntologyError
 
-SCHEMA_VERSION = 15
+SCHEMA_VERSION = 16
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -129,6 +129,20 @@ CREATE TRIGGER IF NOT EXISTS model_drafts_no_update BEFORE UPDATE ON model_draft
     BEGIN SELECT RAISE(ABORT, 'model drafts are append-only'); END;
 CREATE TRIGGER IF NOT EXISTS model_drafts_no_delete BEFORE DELETE ON model_drafts
     BEGIN SELECT RAISE(ABORT, 'model drafts are append-only'); END;
+CREATE TABLE IF NOT EXISTS architect_proposals (
+    id TEXT NOT NULL, revision INTEGER NOT NULL, created_by TEXT NOT NULL, at TEXT NOT NULL, brief TEXT NOT NULL,
+    answers TEXT NOT NULL, result TEXT NOT NULL, PRIMARY KEY (id, revision));
+CREATE TRIGGER IF NOT EXISTS architect_proposals_no_update BEFORE UPDATE ON architect_proposals
+    BEGIN SELECT RAISE(ABORT, 'architect proposals are append-only'); END;
+CREATE TRIGGER IF NOT EXISTS architect_proposals_no_delete BEFORE DELETE ON architect_proposals
+    BEGIN SELECT RAISE(ABORT, 'architect proposals are append-only'); END;
+CREATE TABLE IF NOT EXISTS architect_decisions (
+    seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL, revision INTEGER NOT NULL, decided_by TEXT NOT NULL,
+    at TEXT NOT NULL, accepted TEXT NOT NULL, rejected TEXT NOT NULL, note TEXT NOT NULL);
+CREATE TRIGGER IF NOT EXISTS architect_decisions_no_update BEFORE UPDATE ON architect_decisions
+    BEGIN SELECT RAISE(ABORT, 'architect decisions are append-only'); END;
+CREATE TRIGGER IF NOT EXISTS architect_decisions_no_delete BEFORE DELETE ON architect_decisions
+    BEGIN SELECT RAISE(ABORT, 'architect decisions are append-only'); END;
 CREATE TABLE IF NOT EXISTS write_back_log (
     run_id TEXT NOT NULL, at TEXT NOT NULL, outcome TEXT NOT NULL, run_version TEXT, instances TEXT NOT NULL,
     conflicts TEXT NOT NULL);
@@ -333,6 +347,41 @@ class Store:
 
     def draft_history(self) -> List[Dict[str, Any]]:
         return [dict(r) for r in self._query("SELECT revision, author, note, at FROM model_drafts ORDER BY revision")]
+
+    # -- architect proposals: every revision and every review decision is kept (append-only) -----------------
+    def add_architect_revision(self, pid: str, created_by: str, brief: str, answers: List[Dict[str, Any]],
+                     result: Dict[str, Any], expected_revision: int) -> int:
+        """Append a revision of proposal ``pid`` over the one the caller revised (0: a new proposal)."""
+        with self._tx() as db:
+            row = db.execute("SELECT MAX(revision) AS r FROM architect_proposals WHERE id=?", (pid,)).fetchone()
+            current = row["r"] or 0
+            if current != expected_revision:
+                raise RecordConflict("proposal", f"proposal {pid} is at revision {current}, not {expected_revision}",
+                                     revision=current)
+            db.execute("INSERT INTO architect_proposals VALUES (?, ?, ?, ?, ?, ?, ?)",
+                       (pid, current + 1, created_by, _now(), brief, json.dumps(answers, default=str),
+                        json.dumps(result, default=str)))
+            return current + 1
+
+    def architect_revisions(self, pid: Optional[str] = None) -> List[Dict[str, Any]]:
+        sql, args = "SELECT * FROM architect_proposals", ()
+        if pid is not None:
+            sql, args = sql + " WHERE id=?", (pid,)
+        return [{"id": r["id"], "revision": r["revision"], "created_by": r["created_by"], "at": r["at"],
+                 "brief": r["brief"], "answers": json.loads(r["answers"]), "result": json.loads(r["result"])}
+                for r in self._query(sql + " ORDER BY at, id, revision", args)]
+
+    def add_architect_decision(self, pid: str, revision: int, decided_by: str, accepted: List[str],
+                              rejected: List[str], note: str) -> None:
+        with self._tx() as db:
+            db.execute("INSERT INTO architect_decisions (id, revision, decided_by, at, accepted, rejected, note) "
+                       "VALUES (?, ?, ?, ?, ?, ?, ?)", (pid, revision, decided_by, _now(), json.dumps(accepted),
+                                                        json.dumps(rejected), note[:500]))
+
+    def architect_decisions(self, pid: str) -> List[Dict[str, Any]]:
+        return [{"revision": r["revision"], "decided_by": r["decided_by"], "at": r["at"],
+                 "accepted": json.loads(r["accepted"]), "rejected": json.loads(r["rejected"]), "note": r["note"]}
+                for r in self._query("SELECT * FROM architect_decisions WHERE id=? ORDER BY seq", (pid,))]
 
     def write_records(self, writes: List[Tuple[str, str, Dict[str, Any], Any]],
                       links: Iterable[Tuple[str, str, str]] = ()) -> Dict[str, int]:

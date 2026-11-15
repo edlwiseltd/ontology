@@ -70,7 +70,7 @@ finish execution gates, release governance, workspace administration and the API
 
 | ID | Story | Acceptance | Est. |
 |---|---|---|---|
-| ARC-1 | Business brief → draft ontology in a draft release, validated by the strict schema (MOD-1) | Invalid model output is repaired or refused, never stored; every element is provisional; nothing reaches live data | 6 d |
+| ARC-1 | Business brief → draft ontology in a draft release, validated by the strict schema (MOD-1) | Invalid model output is repaired or refused, never stored; every element is provisional; nothing reaches live data | 6 d — **path done 15 Nov with a sandbox test double:** description → stored proposal revision → questions and answers → engine-validated provisional items → recorded review; nothing applied. Open: a real provider (D7/D10, GAP-052), repair of invalid output, documents |
 | ARC-2 | Provenance label on every element (`AI proposed`, `user supplied`, `document extracted`, `system synchronized`, `human verified`) and change lineage | A label changes only through an audited action; `human verified` needs a person | 3 d |
 | ARC-3 | Next questions from the model's gaps: a deterministic gap analysis (rules on fields that have no source, actions without tools, entities without data, missing approvers or reviewer roles) ranked by risk and dependency, worded by the model | Each question names the fact or rule it resolves and the evidence expected; acceptance test 4 | 4 d |
 | ARC-4 | Reconcile answers and documents: contradictions highlighted; safety-relevant ambiguity must be resolved before promotion (a REL-2 gate) | A contradiction blocks promotion until a person resolves it | 4 d |

@@ -208,7 +208,10 @@ provider when `oidc` is configured: see [`integrations.md`](integrations.md)), e
 | `POST /api/model/draft` | configure | `{"document", "expected_revision", "note"}`: save a new draft revision over the one you read; 409 if someone saved meanwhile |
 | `GET /api/model/draft/history` | read or configure | Draft revisions (append-only) |
 | `POST /api/model/validate` | read or configure | `{"document"}`: strict validation with the problem's location (`entities.X…`, `relationships.N`), plus discovery questions; nothing is saved |
-| `POST /api/architect/proposals` | configure | `{"brief"}`: provisional additions from an approved industry blueprint, labelled `"ai": false`; nothing is applied |
+| `POST /api/architect/proposals` | configure | `{"brief"}`: provisional additions from an approved industry blueprint, labelled `"ai": false`; nothing is applied. With `"generator": "model"`: through the AI gateway and the proposal contract, validated by the engine and **stored as a revision** (`id`, `revision`); `{"revises": id, "answers": [{"id", "answer"}]}` answers its clarification questions and stores the next revision. 409 when the use case has no architect provider |
+| `GET /api/architect/proposals` | read or configure | Stored proposals (latest revision of each) and `architect`: whether a provider is configured and whether it is a language model or the sandbox test double |
+| `GET /api/architect/proposals/{id}` | read or configure | One revision (`?revision=`; the latest by default) with its provenance, items, rejected items, questions, assumptions, validation, the revision `history` and the review `decisions` |
+| `POST /api/architect/proposals/{id}/decision` | configure (a person) | `{"revision", "accepted": [item ids], "rejected": [item ids], "note"}`: record a review. It changes no model |
 | `GET /api/me` | any | Who am I, with permissions and roles |
 | `GET /api/ontology` | read or configure | Entities, actions, goals, rules, questions, agents |
 | `GET /api/objects?type=&limit=&offset=` | read | Objects, row- and field-filtered for the caller |
@@ -502,8 +505,8 @@ With Claude, the backend runs the tool loop with the official SDK. It uses promp
 
 ## One path to a language model (AI-1)
 
-`autology/ai.py` is the single path a request to a language model takes, whatever the provider. It is a library
-of the engine: nothing in Studio or in the HTTP API depends on it yet, and nothing is configured by default.
+`autology/ai.py` is the single path a request to a language model takes, whatever the provider. Nothing is
+configured by default. The AI Architect route uses it when a use case's configuration enables a provider (below).
 
 ```python
 from autology.ai import AnthropicProvider, ChatCompletionsProvider, ModelGateway, ModelRequest, WorkspaceAI
@@ -538,14 +541,29 @@ activates no release and calls no business system. An agent's reasoner can use t
 before ([security notes](#security-notes)), and any failure makes the agent follow its
 plan.
 
-**AI Architect proposals.** `autology.architect.propose(gateway, workspace, brief, document, sources)` asks a
-model for additions to a model document: entities with properties and states, relationships, actions with
-preconditions, rules, goals, clarification questions, assumptions, unknowns, sources and a confidence per item.
-The form of the answer has no place for permissions, grants, settings or tools. A proposal only adds: an item
-named like something the model already contains is rejected. Every item is validated by the engine's strict
-loader on the current model plus the proposed items; what the loader refuses is returned under `rejected` with its
-message. Nothing is saved or applied: a person accepts items into a draft, and a draft becomes active only
-through an approved release. Studio's architect still uses approved blueprints (`"ai": false`).
+**AI Architect proposals.** `autology.architect.propose(gateway, workspace, brief, document, sources, answers)`
+asks a provider for additions to a model document: entities with properties and states, relationships, actions
+with preconditions, rules, goals, clarification questions (each with an id, so that answers can come back),
+assumptions, unknowns, sources, a confidence per item, and descriptions of the roles, agents and integrations the
+solution would involve. The form of the answer has no place for permissions, grants, settings or tools. A proposal
+only adds: an item named like something the model already contains is rejected. Every item is validated by the
+engine's strict loader on the current model plus the proposed items; what the loader refuses is returned under
+`rejected` with its message.
+
+**Through the versioned API.** `POST /api/v1/architect/proposals` with `"generator": "model"` runs that path and
+**stores the result as a revision** (who asked, the brief, the answers, provider and model, assumptions, rejected
+items, validation). `{"revises": id, "answers": [...]}` stores the next revision; nothing is overwritten.
+`POST .../proposals/{id}/decision` records which items a person accepted or rejected. None of this changes a
+model: accepted items reach a draft only when a person with `configure` saves one, and a draft becomes active only
+through an approved release.
+
+**Which provider.** An engine has an architect provider only if its configuration says so:
+`"ai": {"provider": "sandbox"}`. `sandbox` is a deterministic test double built on approved templates
+(`autology/sandbox_ai.py`): it contacts nothing, holds no credential, and its proposals are labelled
+`"ai": false`, generator `sandbox`. **It is the only value accepted** until the owner approves a provider and the
+data it may receive (decisions D7, D10): any other is refused when the engine starts. The steps and acceptance
+criteria for a first real provider are in the
+[evaluation protocol](../planning/AUTOLOGY_AI_PROVIDER_EVALUATION_PROTOCOL.md).
 
 **What this is not.** The adapters have been run against a double of the SDK client and a local mock endpoint.
 No request has been sent to a real provider from them, structured-output support differs between real providers

@@ -29,5 +29,6 @@
     "claims-settler": {"description": "Settles newly reported claims", "agents": ["claims"],
                        "roles": ["fraud_analytics", "finance", "claims_handler"]}
   },
+  "ai": {"provider": "sandbox"},
   "automation_interval": 60
 }

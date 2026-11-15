@@ -136,6 +136,17 @@ class SchemaConformanceTests(V1Base):  # V5
             ("POST", "/api/architect/proposals"): ("POST", f"{E}/v1/architect/proposals", {
                 "brief": "pumps and treatment plants with maintenance"}),
         }
+        # the architect through the AI gateway (the sandbox test double): a stored revision, its review
+        status, _, stored = self.raw("POST", f"{E}/v1/architect/proposals", body={
+            "generator": "model", "brief": "Service requests that a manager approves and a team fulfils"})
+        self.assertEqual(status, 200, stored)
+        self.assertEqual(errors(stored, SCHEMAS["Proposal"], SCHEMAS), [])
+        calls.update({
+            ("GET", "/api/architect/proposals"): ("GET", f"{E}/v1/architect/proposals", None),
+            ("GET", "/api/architect/proposals/{id}"): ("GET", f"{E}/v1/architect/proposals/{stored['id']}", None),
+            ("POST", "/api/architect/proposals/{id}/decision"): (
+                "POST", f"{E}/v1/architect/proposals/{stored['id']}/decision",
+                {"accepted": [stored["items"][0]["id"]], "note": "v1"})})
         self.assertEqual(set(calls), set(RESPONSES))  # every typed engine response is exercised
         for key, (method, path, body) in calls.items():
             with self.subTest(route=key):

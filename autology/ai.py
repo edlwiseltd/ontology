@@ -161,6 +161,7 @@ class Capabilities:
     idempotency_key: bool  # the request id is sent as an idempotency key
     tools_offered: bool  # always False: Autology offers a model no tools
     verified_against: str  # how far the adapter has been exercised; never more than was actually done
+    language_model: bool = True  # False: a deterministic test double, never to be presented as AI
 
     def as_dict(self) -> Dict[str, Any]:
         return asdict(self)

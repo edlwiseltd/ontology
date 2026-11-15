@@ -246,6 +246,9 @@ class WorkAgent:
         self.registry = registry
         self.on_ontology_update = on_ontology_update
         self.max_steps = max_steps
+        # wall-clock budget of one pass of the loop (GAP-030); checked between steps only, so an action that has
+        # started always finishes and is recorded. None: no time budget
+        self.max_seconds: Optional[float] = None
         self.max_repeats = max_repeats
         self.max_inline_wait = max_inline_wait
         self.clock = clock
@@ -724,8 +727,17 @@ class WorkAgent:
 
         # default budget: 50 steps, plus 10 per instance of multi-instance entities
         budget = self.max_steps or 50 + 10 * sum(len(b) for b in state.collections.values())
+        import time as _time
+
+        started = _time.monotonic()
         for _ in range(budget):
             index = len(run.steps) + 1
+            if self.max_seconds is not None and _time.monotonic() - started > self.max_seconds:
+                # between two steps: nothing is in flight, the run is stored and a person can resume it
+                self._log(audit, "time_budget_exhausted", seconds=self.max_seconds, steps=len(run.steps))
+                return finish("paused", Escalation(
+                    f"time budget of {self.max_seconds:g} s exhausted after {len(run.steps)} steps: nothing was "
+                    "interrupted; resume the run to continue", "operations"))
             problem = self._check_ontology(run, audit)
             if problem:
                 return finish("paused", problem)  # fail safe: never act on an unverified ontology

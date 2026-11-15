@@ -101,14 +101,17 @@ def import_target(target: str, search: tuple = ()) -> Any:
 
 
 def _post_json(url: str, payload: Any, headers: Mapping[str, str], timeout: float,
-               label: Optional[str] = None) -> Tuple[int, Any]:
+               label: Optional[str] = None, deadline: Optional[float] = None) -> Tuple[int, Any]:
     """POST JSON; returns ``(status, body)``. Raises :class:`NotSent` when the request cannot have reached the
     service, :class:`OutcomeUnknown` when it was sent but no usable reply came back, :class:`Rejected` for 4xx.
 
     A redirect is followed only within the URL's origin (audit F-01): a service that answers with a redirect to
     another host has received the request and may have acted, so that is an unknown outcome, and nothing is sent
     to the other host. Messages name ``label`` (the configured URL template), never the expanded URL or headers,
-    so no secret reaches run records or the audit."""
+    so no secret reaches run records or the audit.
+
+    ``timeout`` is the longest silence accepted; ``deadline`` the total time of the call (default: three times
+    the timeout). A call cut at its deadline is an unknown outcome: the service may have acted (GAP-021)."""
     import http.client
 
     from . import outbound
@@ -123,7 +126,9 @@ def _post_json(url: str, payload: Any, headers: Mapping[str, str], timeout: floa
         return outbound.redact(message, secrets)
 
     try:
-        resp = outbound.urlopen(req, timeout)
+        resp = outbound.urlopen(req, timeout, deadline=deadline)
+    except outbound.DeadlineExceeded as exc:
+        raise OutcomeUnknown(f"{where}: {exc}; the service may have acted") from None
     except urllib.error.HTTPError as exc:
         code = exc.code
         if code in (408, 425, 429):  # timed out waiting for the request, too early, rate limited: not processed
@@ -157,7 +162,8 @@ def _where(url: str) -> str:
     return safe_url(url)
 
 
-def http_tool(url: str, headers: Optional[Mapping[str, str]] = None, timeout: float = 10.0) -> Callable:
+def http_tool(url: str, headers: Optional[Mapping[str, str]] = None, timeout: float = 10.0,
+              deadline: Optional[float] = None) -> Callable:
     """A tool handler that delegates to a JSON-over-HTTP service.
 
     The step's idempotency key is sent as the ``Idempotency-Key`` header and as ``idempotency_key`` in the
@@ -172,7 +178,7 @@ def http_tool(url: str, headers: Optional[Mapping[str, str]] = None, timeout: fl
         resolved = {k: _expand(v) for k, v in (headers or {}).items()}
         if call.idempotency_key:
             resolved.setdefault("Idempotency-Key", call.idempotency_key)
-        status, data = _post_json(target, payload, resolved, timeout, label=url)
+        status, data = _post_json(target, payload, resolved, timeout, label=url, deadline=deadline)
         if not isinstance(data, dict):
             raise OutcomeUnknown(f"{_where(url)} returned {type(data).__name__}, expected an object; it may have acted")
         return ToolResult(data.get("outcome"), data.get("updates") or {}, str(data.get("message", "")),
@@ -237,7 +243,8 @@ def load_tools(config: Union[str, Path, Mapping[str, Any]], base_dir: Optional[P
         if kind == "python":
             handler = import_target(spec["target"], search)
         elif kind == "http":
-            handler = http_tool(spec["url"], spec.get("headers"), float(spec.get("timeout", 10)))
+            handler = http_tool(spec["url"], spec.get("headers"), float(spec.get("timeout", 10)),
+                                float(spec["deadline"]) if spec.get("deadline") else None)
         elif kind == "table":
             handler = table_tool(spec.get("rows") or [{}])
         else:
@@ -258,12 +265,13 @@ class HttpApprover:
     """Send review requests to a workflow service (ticketing, chat ops...). Fails closed."""
 
     def __init__(self, url: str, headers: Optional[Mapping[str, str]] = None, timeout: float = 30.0,
-                 environment: str = "production"):
+                 environment: str = "production", deadline: Optional[float] = None):
         from .tools import ENVIRONMENTS
 
         if environment not in ENVIRONMENTS:
             raise AdapterError(f"approver {url!r}: environment must be one of {', '.join(ENVIRONMENTS)}")
         self.url, self.headers, self.timeout, self.environment = url, dict(headers or {}), timeout, environment
+        self.deadline = deadline
         self.gate = None  # set by the service: the use case's stage decides whether this system may be reached
 
     # An outside system answering over HTTP is a machine, whatever name it puts in its reply. It can approve, so
@@ -278,7 +286,8 @@ class HttpApprover:
         target = _expand(self.url)
         resolved = {k: _expand(v) for k, v in self.headers.items()}
         try:
-            _, data = _post_json(target, request.__dict__, resolved, self.timeout, label=self.url)
+            _, data = _post_json(target, request.__dict__, resolved, self.timeout, label=self.url,
+                                 deadline=self.deadline)
             claimed = str(data.get("reviewer") or "")[:200]
             comment = str(data.get("comment", ""))
             if claimed:  # kept for the record as a claim; it is not an authenticated person
@@ -331,7 +340,8 @@ def load_approver(spec: Union[str, Mapping[str, Any], None]):
         return AutoApprover(decisions, bool(spec.get("default", False)), spec.get("reviewer", "policy"))
     if kind == "http":
         return HttpApprover(spec["url"], spec.get("headers"), float(spec.get("timeout", 30)),
-                            spec.get("environment", "production"))
+                            spec.get("environment", "production"),
+                            float(spec["deadline"]) if spec.get("deadline") else None)
     raise AdapterError(f"unknown approver type {kind!r} (policy | http)")
 
 

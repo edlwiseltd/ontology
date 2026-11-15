@@ -196,6 +196,13 @@
       "Me": {
         "additionalProperties": true,
         "properties": {
+          "kind": {
+            "enum": [
+              "person",
+              "service"
+            ],
+            "type": "string"
+          },
           "name": {
             "type": "string"
           },
@@ -204,6 +211,12 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "token_expires_at": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -787,6 +800,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "The access log",
@@ -857,6 +887,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Agents and their state",
@@ -948,6 +995,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Reinstate a suspended agent",
@@ -1027,6 +1091,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Provisional additions for a business brief (blueprints; not AI)",
@@ -1097,6 +1178,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "The head of every run's audit chain",
@@ -1147,6 +1245,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "security": [],
@@ -1209,6 +1324,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "security": [],
@@ -1280,6 +1412,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Automations",
@@ -1371,6 +1520,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Fire an automation by hand",
@@ -1452,6 +1618,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Talk to the governed assistant",
@@ -1532,6 +1715,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "A conversation (owner)",
@@ -1581,6 +1781,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "security": [],
@@ -1662,6 +1879,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "One load and its quarantined rows",
@@ -1742,6 +1976,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Reasons people gave at checkpoints",
@@ -1823,6 +2074,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "One MCP JSON-RPC message",
@@ -1892,6 +2160,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "The caller and their permissions",
@@ -1962,6 +2247,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Prometheus metrics",
@@ -2031,6 +2333,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "The model draft (never active), its validation and discovery questions",
@@ -2108,6 +2427,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Save a draft revision over the one read (expected_revision)",
@@ -2178,6 +2514,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Draft revisions",
@@ -2257,6 +2610,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Validate a model document with the engine's strict loader",
@@ -2345,6 +2715,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Notifications",
@@ -2448,6 +2835,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Records the caller may see",
@@ -2525,6 +2929,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Create or update a record (revision-checked)",
@@ -2612,6 +3033,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "One record",
@@ -2692,6 +3130,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Where a record's values came from",
@@ -2761,6 +3216,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "The ontology the use case runs",
@@ -2811,6 +3283,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "security": [],
@@ -2882,6 +3371,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Outcomes summary",
@@ -2952,6 +3458,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Data pipelines",
@@ -3043,6 +3566,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Run a data pipeline",
@@ -3113,6 +3653,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Runs the assistant proposed",
@@ -3204,6 +3761,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Confirm or decline a proposal (owner)",
@@ -3295,6 +3869,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Answer a competency question",
@@ -3365,6 +3956,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "External calls a person must settle",
@@ -3456,6 +4064,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Settle an external call",
@@ -3526,6 +4151,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Readiness report",
@@ -3607,6 +4249,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Refresh the reporting database",
@@ -3687,6 +4346,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Human reviews",
@@ -3767,6 +4443,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "One review",
@@ -3858,6 +4551,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Decide a human review",
@@ -3954,6 +4664,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Runs the caller may see",
@@ -4033,6 +4760,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Start a governed run",
@@ -4113,6 +4857,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "One run",
@@ -4193,6 +4954,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "A run's audit chain and whether it verifies",
@@ -4273,6 +5051,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Recorded outcomes of a run",
@@ -4362,6 +5157,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Record a decision's outcome",
@@ -4453,6 +5265,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Resume a deferred or escalated run",
@@ -4533,6 +5362,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "A run as an OpenTelemetry trace",
@@ -4624,6 +5470,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Retry a run's write-back after a conflict",
@@ -4704,6 +5567,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "What-if scenarios",
@@ -4783,6 +5663,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Create a scenario",
@@ -4863,6 +5760,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "One scenario",
@@ -4954,6 +5868,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Apply a scenario to the live data",
@@ -5045,6 +5976,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Compare a scenario with the live data",
@@ -5136,6 +6084,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Discard a scenario (owner or admin)",
@@ -5227,6 +6192,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Add edits to a scenario (owner or admin)",
@@ -5297,6 +6279,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Readiness score",
@@ -5377,6 +6376,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "A typed client for this ontology",
@@ -5447,6 +6463,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Assistant settings",
@@ -5526,6 +6559,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Change the assistant settings",
@@ -5607,6 +6657,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Test the assistant's model connection",
@@ -5688,6 +6755,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Run one scheduler pass",

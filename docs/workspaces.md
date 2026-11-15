@@ -161,12 +161,76 @@ with the log replayed over them, at start-up and after every change: a change ap
   administrator or a member listed in `release_approvers`) approves it; never the proposer, never the member who
   receives it, never a service identity (D11). The engine checks the grant (permissions, `run_as` agents) before it
   is recorded.
-- Workspace administrators exist only in `platform.json`: no API call creates or removes one.
+- Workspace administrators exist only in `platform.json`: no API call creates or removes one. An administrator
+  who is a person may replace her own token (`my-token`); the configured token then stops working.
 - If the log does not verify (changed outside Autology), only the configured administrators keep access until an
   operator repairs it.
 - **Reload** rebuilds one use case's engine from its files without restarting the platform, after loading them into a
   throwaway engine first. A reload is not an activation: with an active release, changed files count as drift and
   the use case runs nothing until a person activates an approved release of them.
+
+## Token lifetimes, rate limits and timeouts (GAP-030)
+
+Everything here is enforced by the server, for every entry point (REST, MCP over HTTP and stdio, Studio through its
+relay). The `security` section of `platform.json` (all keys optional):
+
+```json
+"security": {
+  "tokens": {"person_days": 90, "service_days": 365},
+  "rate_limits": {"window_seconds": 60, "auth_failures": 30, "anonymous": 600, "api": 1200, "mcp": 300,
+                  "admin": 120, "expensive": 120, "tenant": 12000},
+  "trusted_proxies": ["10.0.0.0/8"],
+  "server": {"max_connections": 64, "request_timeout_seconds": 30},
+  "run_seconds": 900
+}
+```
+
+**API tokens expire.** A token lives for the policy's number of days for its kind (people and service identities are
+separate), counted from the first time the platform saw it; that date is recorded once in
+`<data_dir>/credentials.db` (append-only, chained; only the token's SHA-256 is stored; a changed registry stops
+the start). A member's configuration may give an earlier `"token_expires": "2027-01-31"`. A lifetime is always
+finite (at most 3650 days). An expired token gets `401` with `reason: token_expired`; the access log names whose
+it was. `GET /platform/me`, `GET /api/me` and the members view show `token_expires_at`.
+
+- **Existing tokens (migration).** A token that existed before this version is registered the first time the new
+  version starts: it keeps working for one full lifetime from the upgrade, then expires like any other. Nothing is
+  cut off at the upgrade, and nothing is valid for ever. A restart or a reload never extends a lifetime.
+- **Rotation.** `POST /platform/workspaces/<ws>/members/<name>/token` (a workspace administrator) or
+  `POST /platform/workspaces/<ws>/my-token` (a person, for their own workspace-level token, while it is still
+  valid) returns a new token once; the previous one is refused from then on, for good. The identity and its grants
+  do not change, and the new token gets one lifetime, never more. A service identity cannot renew itself (an
+  administrator re-keys it); an expired or revoked token renews nothing. Tenant-level identities are re-keyed in
+  the configuration.
+- **Revocation.** `POST /platform/workspaces/<ws>/members/<name>/revoke-token`: the token stops working at once
+  (`reason: token_revoked`), the member and their grants stay, and an administrator issues a new token when
+  appropriate. A replaced or revoked token, or the token of a removed member, never works again, even if a
+  configuration file still names it. Administrators' own tokens are replaced by their owner (`my-token`) or in the
+  configuration, not revoked by a colleague.
+- Issuing, replacing and revoking are in the administration history (who, when, why) and in the registry's.
+- Company sign-in (OIDC) is unchanged: an ID token carries its own expiry, verified on every request.
+
+**Rate limits.** Counted per fixed window; a refused request gets `429`, a `Retry-After` header (seconds) and
+`retry_after_seconds` in the body (`code: rate_limited` in API v1), is written to the access log, and does nothing
+else. `auth_failures` and `anonymous` are per client address; `api`, `mcp`, `admin` (administrative changes) and
+`expensive` (requests that start work: runs, resumes, decisions, chat, comparisons, pipelines, automations, model
+proposals) are per identity in a workspace, whichever use case, API version or entry point is used; `tenant` is the
+total of a tenant's authenticated requests, so one tenant at its limit takes nothing from another. After too many
+failed sign-ins an address is refused *before* its credential is looked at: the answer says nothing about a guessed
+token. A class set to `0` is not limited.
+
+- **Client address.** The TCP peer's. `X-Forwarded-For` is believed only from a peer listed in `trusted_proxies`.
+  Behind a reverse proxy, list it, or every client shares the proxy's address for the sign-in limit. Studio's relay
+  does not forward client addresses: Studio users share the relay's address for that limit (identity limits are
+  unaffected).
+- **Single node.** Counters live in the memory of one platform process: they restart with it and are not shared
+  between processes. With several instances, put a shared limit at the load balancer.
+
+**Timeouts.** A connection that sends or reads nothing for `request_timeout_seconds` is closed, and at most
+`max_connections` requests are served at once (others get `503` with `Retry-After` at once). These are about
+connections only: work that has started is never cancelled by them. A run that exceeds `run_seconds` pauses
+*between two steps* (`paused`, with the reason, in the audit as `time_budget_exhausted`) and can be resumed; an
+action in flight is never cut. Calls to other systems have a deadline for the whole call (see
+[integrations.md](integrations.md)): past it, the outcome is recorded as *unknown* and listed for reconciliation.
 
 ## Releases (REL-1a)
 

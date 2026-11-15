@@ -90,6 +90,7 @@ ROUTES: List[Tuple[str, str, str, str, Tuple[str, ...]]] = [
 # -- response envelope of API v1 (the same handlers serve /api and /api/v1) -----------------------------------
 CODES = {400: "invalid_request", 401: "unauthenticated", 403: "forbidden", 404: "not_found",
          405: "method_not_allowed", 409: "conflict", 411: "length_required", 413: "payload_too_large",
+         429: "rate_limited",
          500: "internal_error", 502: "unavailable", 503: "unavailable"}
 PAGINATED = {(m, p) for m, p, _perm, _s, q in ROUTES if "offset" in q}
 
@@ -147,7 +148,9 @@ SCHEMAS: Dict[str, Any] = {
     "Health": _obj({"status": S, "ontology": S, "audit_keyed": B, "quarantined_records": I, "tampered_records": I,
                     "stage": STAGE, "runs_allowed": B, "tool_environments": {"type": "array", "items": S}},
                    ("status", "ontology")),
-    "Me": _obj({"name": S, "permissions": {"type": "array", "items": S}}, ("name", "permissions")),
+    "Me": _obj({"name": S, "permissions": {"type": "array", "items": S},
+                "kind": {"type": "string", "enum": ["person", "service"]}, "token_expires_at": NS},
+               ("name", "permissions")),
     "ObjectView": _obj({"id": S, "type": S, "attributes": ANY, "revision": I},
                        ("id", "type", "attributes", "revision")),
     "ObjectList": _obj({"items": {"type": "array", "items": REF("ObjectView")}, "page": REF("Page")}, ("items",)),
@@ -229,6 +232,9 @@ def _paths(routes, prefix_from: str, prefix_to: str, responses, requests, status
             if public and code in ("401", "403"):
                 continue
             out[code] = {"description": text, "content": {"application/json": {"schema": REF("Error")}}}
+        out["429"] = {"description": "Too many requests: retry after the Retry-After header (seconds)",
+                      "headers": {"Retry-After": {"schema": {"type": "integer"}}},
+                      "content": {"application/json": {"schema": REF("Error")}}}
         op: Dict[str, Any] = {"operationId": _operation_id(method, path), "summary": summary,
                               "x-autology-permission": permission, "responses": out}
         if params:
@@ -301,6 +307,10 @@ PLATFORM_ROUTES: List[Tuple[str, str, str, str, Tuple[str, ...]]] = [
      "Replace a member's token; the new one is returned once", ()),
     ("POST", "/platform/workspaces/{ws}/members/{name}/revoke", "workspace admin (person)",
      "Revoke a member's grant on one use case, at once", ()),
+    ("POST", "/platform/workspaces/{ws}/members/{name}/revoke-token", "workspace admin (person)",
+     "Revoke a member's token at once; the member and its grants stay (GAP-030)", ()),
+    ("POST", "/platform/workspaces/{ws}/my-token", "member (person, workspace-level)",
+     "Replace your own token before it expires; the new one is returned once (GAP-030)", ()),
     ("POST", "/platform/workspaces/{ws}/grants", "workspace admin (person)",
      "Propose a grant; it takes effect once another person with authority approves it", ()),
     ("POST", "/platform/workspaces/{ws}/grants/{id}/approve", "approver (person, not the proposer, not the grantee)",
@@ -326,6 +336,7 @@ PLATFORM_SCHEMAS: Dict[str, Any] = {
                      "effective_stage", "stale", "stages")),
     "UseCaseList": _obj({"items": {"type": "array", "items": REF("UseCase")}}, ("items",)),
     "Me": _obj({"workspace": _obj({"id": S, "name": S}, ("id", "name")), "member": S, "workspace_admin": B,
+                "kind": {"type": "string", "enum": ["person", "service"]}, "token_expires_at": NS,
                 "use_cases": {"type": "array", "items": _obj({"id": S, "name": S, "ontology": S, "stage": STAGE,
                                                               "path": S, "permissions": {"type": "array", "items": S}},
                                                              ("id", "name", "stage", "path"))},
@@ -371,6 +382,9 @@ PLATFORM_SCHEMAS: Dict[str, Any] = {
                    "reviewer_roles": {"type": "array", "items": S}, "run_as": ANY}, ("permissions",)),
     "WorkspaceMember": _obj({"name": S, "kind": {"type": "string", "enum": ["person", "service"]},
                              "workspace_admin": B, "approver": B,
+                             "scope": {"type": "string", "enum": ["workspace", "tenant"]},
+                             "token": {"type": "string", "enum": ["active", "expired", "revoked", "none"]},
+                             "token_expires_at": NS,
                              "source": {"type": "string", "enum": ["configuration", "api"]},
                              "use_cases": {"type": "object", "additionalProperties": REF("Grant")}},
                             ("name", "kind", "workspace_admin", "source", "use_cases")),
@@ -380,9 +394,11 @@ PLATFORM_SCHEMAS: Dict[str, Any] = {
                            "status": S, "proposed_at": S, "reason": S}, ("id", "member", "use_case", "grant")),
     "Members": _obj({"members": {"type": "array", "items": REF("WorkspaceMember")},
                      "pending_grants": {"type": "array", "items": REF("GrantProposal")},
-                     "history": {"type": "array", "items": REF("AdminEvent")}, "integrity_problem": NS},
+                     "history": {"type": "array", "items": REF("AdminEvent")}, "integrity_problem": NS,
+                     "token_policy": _obj({"person_days": {"type": "number"}, "service_days": {"type": "number"}})},
                     ("members", "pending_grants", "history")),
-    "IssuedToken": _obj({"name": S, "kind": S, "token": S, "note": S}, ("name", "token")),
+    "IssuedToken": _obj({"name": S, "kind": S, "token": S, "note": S, "token_expires_at": NS}, ("name", "token")),
+    "OptionalReason": _obj({"reason": {"type": "string", "maxLength": 500}}),
     "MemberCreate": _obj({"name": S, "kind": {"type": "string", "enum": ["person", "service"]},
                           "reason": {"type": "string", "minLength": 1, "maxLength": 500}}, ("name", "reason")),
     "GrantCreate": _obj({"member": S, "use_case": S, "permissions": {"type": "array", "items": S},
@@ -418,6 +434,8 @@ PLATFORM_RESPONSES = {("GET", "/platform/me"): "Me", ("GET", "/platform/tenants/
                       ("POST", "/platform/workspaces/{ws}/members/{name}/remove"): "Members",
                       ("POST", "/platform/workspaces/{ws}/members/{name}/token"): "IssuedToken",
                       ("POST", "/platform/workspaces/{ws}/members/{name}/revoke"): "Members",
+                      ("POST", "/platform/workspaces/{ws}/members/{name}/revoke-token"): "Members",
+                      ("POST", "/platform/workspaces/{ws}/my-token"): "IssuedToken",
                       ("POST", "/platform/workspaces/{ws}/grants"): "GrantProposal",
                       ("POST", "/platform/workspaces/{ws}/grants/{id}/approve"): "Members",
                       ("POST", "/platform/workspaces/{ws}/grants/{id}/withdraw"): "Members"}
@@ -434,6 +452,8 @@ PLATFORM_REQUESTS = {("POST", "/platform/workspaces/{ws}/use-cases"): "UseCaseCr
                      ("POST", "/platform/workspaces/{ws}/members/{name}/remove"): "ReleaseDecision",
                      ("POST", "/platform/workspaces/{ws}/members/{name}/token"): "ReleaseDecision",
                      ("POST", "/platform/workspaces/{ws}/members/{name}/revoke"): "Revocation",
+                     ("POST", "/platform/workspaces/{ws}/members/{name}/revoke-token"): "ReleaseDecision",
+                     ("POST", "/platform/workspaces/{ws}/my-token"): "OptionalReason",
                      ("POST", "/platform/workspaces/{ws}/grants"): "GrantCreate",
                      ("POST", "/platform/workspaces/{ws}/grants/{id}/approve"): "ReleaseDecision",
                      ("POST", "/platform/workspaces/{ws}/grants/{id}/withdraw"): "ReleaseDecision"}

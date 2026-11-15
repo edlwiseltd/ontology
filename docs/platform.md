@@ -269,6 +269,8 @@ agent's roles. Users signed in through OpenID Connect use their mapped roles onl
 ### Security notes
 
 - **Tokens.** Generate them with `python -m autology token`. Only SHA-256 hashes go in the config, or tokens come from environment variables (`token_env`). Comparison is constant-time.
+- **Token lifetimes (GAP-030).** Every API token expires: `security.tokens` gives the lifetime per kind (`person_days`, default 90; `service_days`, default 365; at most 3650), counted from the first time the engine saw the token. That date is kept beside a SQLite store (`<store>.credentials`, or `credentials_file`); with a memory or PostgreSQL store and no `credentials_file`, lifetimes count from each start and the engine says so in its log. A user may carry an earlier `"token_expires"`. A token that existed before this version gets one full lifetime from the upgrade. An expired or revoked token gets `401` (`reason: token_expired` / `token_revoked`); `GET /api/me` shows `token_expires_at`. To replace a token, put the new hash in the configuration. Behind the platform router, members' tokens are replaced and revoked through the API ([workspaces.md](workspaces.md)).
+- **Rate limits and timeouts (GAP-030).** `security.rate_limits`, `security.trusted_proxies`, `security.server` and `security.run_seconds` work as described in [workspaces.md](workspaces.md) (the `tenant` class applies behind the platform only). Counters are in the memory of one process.
 - **Network.** The server binds to `127.0.0.1` by default. Put it behind a reverse proxy with TLS before exposing it.
 - **Requests.** Bodies are limited to 1 MB. Errors never include tracebacks.
 - **The inbox** is served with a strict Content-Security-Policy (`script-src 'self'`, no inline scripts). It inserts data as text only, and keeps the token in the browser tab's session storage.
@@ -277,8 +279,7 @@ agent's roles. Users signed in through OpenID Connect use their mapped roles onl
 ### Not yet included
 
 - SAML sign-in (OpenID Connect is supported, Tier 3);
-- token rotation and expiry;
-- rate limiting;
+- rate limits shared between several server processes (counters are per process);
 - multi-tenant separation within one engine server (several organisations behind one router is the platform's job:
   [workspaces.md](workspaces.md));
 - a PostgreSQL store.

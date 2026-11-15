@@ -93,6 +93,9 @@ class User:
     run_as: Tuple[Tuple[str, FrozenSet[str]], ...] = ()
     # "person" or "service" (a script, pipeline or integration): only a person records human approvals (D11, F-02)
     kind: str = "person"
+    # when the API token stops working (seconds since the epoch; GAP-030); None for a company sign-in, whose ID
+    # token carries its own expiry
+    expires_at: Optional[float] = None
 
     def grants(self, agent: str) -> FrozenSet[str]:
         return next((roles for name, roles in self.run_as if name == agent), frozenset())
@@ -228,6 +231,7 @@ class AutologyService:
         for cfg_agent in self.agents.values():
             for member in [cfg_agent.agent] + cfg_agent.agent.delegates:
                 member.configuration = self.configuration_fingerprint
+        self._init_security(config, base)
         self.users: List[User] = self.parse_users(config.get("users", []))
         # identities automations run as (D4): explicit, least privilege, limited to named agents
         self.service_identities: Dict[str, Dict[str, Any]] = {}
@@ -347,6 +351,57 @@ class AutologyService:
         return cls(config, p.parent)
 
     # -- auth ---------------------------------------------------------------
+    def _init_security(self, config: Dict[str, Any], base: Path) -> None:
+        """``security`` in the configuration (GAP-030): token lifetimes, rate limits, trusted proxies, server
+        limits. Behind the platform router, the platform supplies the limiter and each token's expiry."""
+        from . import credentials, limits
+
+        security = config.get("security") or {}
+        if not isinstance(security, dict) or set(security) - {"tokens", "rate_limits", "trusted_proxies", "server",
+                                                               "run_seconds"}:
+            raise ValueError("security: tokens, rate_limits, trusted_proxies, server and run_seconds only")
+        try:
+            self.token_policy = credentials.TokenPolicy.parse(security.get("tokens"))
+            self.limiter = limits.RateLimiter.parse(security.get("rate_limits"))
+            self.trusted_proxies = limits.parse_proxies(security.get("trusted_proxies"))
+            self.server_limits = limits.parse_server(security.get("server"))
+        except (credentials.CredentialError, limits.LimitError) as exc:
+            raise ValueError(str(exc)) from None
+        run_seconds = security.get("run_seconds", 900)
+        if isinstance(run_seconds, bool) or not isinstance(run_seconds, (int, float)) or not (1 <= run_seconds <= 86400):
+            raise ValueError("security.run_seconds: between 1 and 86400")
+        self.run_seconds = float(run_seconds)
+        for cfg_agent in self.agents.values():  # checked between steps: a started action is never cut short
+            for member in [cfg_agent.agent] + cfg_agent.agent.delegates:
+                member.max_seconds = self.run_seconds
+        self.limit_scope = ""  # behind the platform: "<workspace>:", so an identity is counted once per workspace
+        self.tenant_key: Optional[str] = None  # behind the platform: the tenant all requests are counted under
+        # Where token first-sight dates are kept: beside a SQLite store by default. "" means the caller (the
+        # platform) supplies each token's expiry itself. Without a file (a memory or PostgreSQL store and no
+        # credentials_file), lifetimes count from this start, and say so.
+        self.credentials: Optional[credentials.CredentialRegistry] = None
+        self._owns_credentials = False  # the platform's registry is shared: only its owner closes it
+        self.credentials_persistent = False
+        where = config.get("credentials_file")
+        if where == "":
+            return
+        store_path = str(config.get("store") or "")
+        if where:
+            path = str((base / where).resolve())
+        elif store_path and store_path != ":memory:" and "://" not in store_path:
+            path = str((base / store_path).resolve()) + ".credentials"
+        else:
+            path = ":memory:"
+        try:
+            self.credentials = credentials.CredentialRegistry(path, self.audit_key)
+        except credentials.CredentialError as exc:
+            raise ValueError(str(exc)) from None
+        self._owns_credentials = True
+        self.credentials_persistent = path != ":memory:"
+        if not self.credentials_persistent and config.get("users"):
+            log.warning("no file to remember when API tokens were first seen (set credentials_file): their "
+                        "lifetimes count from this start")
+
     def parse_users(self, specs: List[Dict[str, Any]]) -> List[User]:
         """API identities from configuration (or from the platform's membership, ADM-1). Raises ValueError."""
         users: List[User] = []
@@ -373,8 +428,26 @@ class AutologyService:
                 raise ValueError(f"user {u['name']}: kind must be one of {list(PRINCIPAL_KINDS)}")
             users.append(User(u["name"], digest.lower(), perms, frozenset(u.get("roles", [])),
                                    frozenset(u.get("reviewer_roles", [])),
-                                   tuple(sorted((a, frozenset(r)) for a, r in run_as.items())), kind))
+                                   tuple(sorted((a, frozenset(r)) for a, r in run_as.items())), kind,
+                                   self._token_expiry(u, digest.lower(), kind)))
         return users
+
+    def _token_expiry(self, spec: Dict[str, Any], digest: str, kind: str) -> Optional[float]:
+        """When this user's token stops working: what the platform computed (``token_expires_at``), or the
+        policy's lifetime from the day the token was first seen, or an earlier explicit ``token_expires``."""
+        from . import credentials
+
+        if spec.get("token_expires_at") is not None:
+            return float(spec["token_expires_at"])
+        try:
+            explicit = None if spec.get("token_expires") is None else credentials.parse_time(
+                spec["token_expires"], f"user {spec['name']}")
+        except credentials.CredentialError as exc:
+            raise ValueError(str(exc)) from None
+        if self.credentials is None:
+            return explicit
+        seen = self.credentials.register(digest, spec["name"], kind)
+        return credentials.expires_at(seen, kind, self.token_policy, explicit)
 
     def set_users(self, specs: List[Dict[str, Any]]) -> None:
         """Replace the API identities at once (hot reload of membership, ADM-2): the next request sees them."""
@@ -394,7 +467,36 @@ class AutologyService:
                 found = user
         if found is None:
             raise ApiError(401, "invalid token")
+        problem = self.token_problem(found)
+        if problem:
+            raise ApiError(401, problem, {"reason": "token_expired" if "expired" in problem else "token_revoked"})
         return found
+
+    def token_problem(self, user: User) -> Optional[str]:
+        """Why this user's API token no longer works (expired, revoked), or None. Checked on every request, and
+        again for each message of a long session (MCP over stdio)."""
+        from . import credentials
+
+        if not user.token_sha256:
+            return None  # a company sign-in: the identity provider's token was verified, with its own expiry
+        if self.credentials is not None and self.credentials.revoked(user.token_sha256):
+            return "this token was revoked"
+        if user.expires_at is not None and credentials.now() >= user.expires_at:
+            return (f"this token expired on {credentials.iso(user.expires_at)}: ask an administrator for a new one"
+                    if user.kind == "person" else
+                    f"this service token expired on {credentials.iso(user.expires_at)}: an administrator must "
+                    "issue a new one")
+        return None
+
+    def current(self, user: User) -> Optional[str]:
+        """For a session that outlives one request: why ``user`` may not continue (token replaced, removed,
+        expired or revoked since the session began), or None."""
+        if not user.token_sha256:
+            return None
+        if not any(u.name == user.name and hmac.compare_digest(u.token_sha256, user.token_sha256)
+                   for u in self.users):
+            return "this token was replaced or its member removed"
+        return self.token_problem(user)
 
     def _sso_user(self, token: str) -> User:
         from .oidc import OidcError
@@ -526,8 +628,11 @@ class AutologyService:
 
     # -- endpoints --------------------------------------------------------------
     def me(self, user: User) -> Dict[str, Any]:
+        from . import credentials
+
         return {"name": user.name, "permissions": sorted(user.permissions), "roles": sorted(user.roles),
-                "reviewer_roles": sorted(user.reviewer_roles)}
+                "reviewer_roles": sorted(user.reviewer_roles), "kind": user.kind,
+                "token_expires_at": credentials.iso(user.expires_at)}
 
     def ontology_summary(self, user: User) -> Dict[str, Any]:
         self.require_any(user, "read", "configure")
@@ -872,6 +977,8 @@ class AutologyService:
             except Exception:  # never block a shutdown
                 log.warning("could not release the store's writer lease", exc_info=True)
         self.store.close()
+        if self.credentials is not None and self._owns_credentials:
+            self.credentials.close()
 
     def health(self) -> Dict[str, Any]:
 
@@ -958,7 +1065,7 @@ class AutologyService:
             raise ApiError(403, f"{user.name} has no permission in this use case")
         if not isinstance(message, dict):
             return {"jsonrpc": "2.0", "id": None, "error": {"code": -32600, "message": "invalid request"}}
-        return McpServer(self, user).handle(message)
+        return McpServer(self, user, limited=False).handle(message)  # counted by the HTTP layer
 
     # -- record consistency (audit GAP-018) ---------------------------------------------------------------------
     def tampered_records(self) -> int:
@@ -2207,6 +2314,19 @@ class AutologyService:
 
 
 # -- HTTP layer ------------------------------------------------------------------------
+def _too_many(wait: int, what: str) -> Dict[str, Any]:
+    from .limits import too_many
+
+    body = too_many(wait, what)
+    return {"message": body["error"], "extra": {"retry_after_seconds": wait}}
+
+
+def _engine_class(method: str, parts: List[str]) -> Optional[str]:
+    from .limits import engine_class
+
+    return engine_class(method, parts)
+
+
 class ApiExchange:
     """One API request and its response, independent of how it arrived (HTTP server, workspace router, tests).
 
@@ -2215,8 +2335,11 @@ class ApiExchange:
     """
 
     def __init__(self, service: "AutologyService", method: str, path: str, headers: Any,
-                 raw_body: Optional[bytes] = None, body_error: Optional[Tuple[int, str]] = None):
+                 raw_body: Optional[bytes] = None, body_error: Optional[Tuple[int, str]] = None,
+                 client: Optional[str] = None, counted: bool = False):
         self.service, self.command, self.path, self.headers = service, method, path, headers
+        self.client = client or "-"  # the address the request is counted under (see autology.limits)
+        self.counted = counted  # the router in front already counted this request for its identity and tenant
         self.raw_body, self.body_error = raw_body, body_error
         self.status, self.content_type, self.data = 500, "application/json", b""
         self.response_headers: Dict[str, str] = {}
@@ -2232,6 +2355,11 @@ class ApiExchange:
         if content_type == "text/html":
             self.response_headers["Content-Security-Policy"] = (
                 "default-src 'self'; style-src 'self'; script-src 'self'; frame-ancestors 'none'")
+
+    def _limit(self, name: str, key: str, what: str) -> None:
+        wait = self.service.limiter.hit(name, key)
+        if wait:
+            raise ApiError(429, **_too_many(wait, what))
 
     def _body(self) -> Dict[str, Any]:
         if self.body_error:
@@ -2279,21 +2407,46 @@ class ApiExchange:
                 if not (STATIC / name).is_file():  # a headless engine: the inbox is optional, the API is the product
                     raise ApiError(404, "the review inbox is not installed with this engine; use the API or the Console")
                 return self._send(200, (STATIC / name).read_bytes(), ctype)
+            limiter = service.limiter
             if path == "/api/health":
+                self._limit("anonymous", self.client, "requests without a credential from this address")
                 return self._send(200, service.health())
             if path == "/api/openapi.json" and method == "GET":  # the API contract (API-1): no data, no token
                 from .openapi import spec
 
+                self._limit("anonymous", self.client, "requests without a credential from this address")
                 return self._send(200, spec())
             if not path.startswith("/api/"):
                 raise ApiError(404, "not found")
+            # an address that failed to authenticate too often is refused before its credential is looked at
+            wait = limiter.blocked("auth_failures", self.client)
+            if wait:
+                raise ApiError(429, **_too_many(wait, "failed sign-ins from this address"))
             if path == "/api/auth/config" and method == "GET":  # what the inbox needs to offer SSO sign-in
+                self._limit("anonymous", self.client, "requests without a credential from this address")
                 return self._send(200, service.sso_config())
-            if path == "/api/auth/token" and method == "POST":
-                return self._send(200, service.sso_token(self._body()))
-            user = service.authenticate(self.headers.get("Authorization"))
+            try:
+                if path == "/api/auth/token" and method == "POST":
+                    self._limit("anonymous", self.client, "requests without a credential from this address")
+                    return self._send(200, service.sso_token(self._body()))
+                user = service.authenticate(self.headers.get("Authorization"))
+            except ApiError as exc:
+                if exc.status in (401, 403) and path != "/api/auth/config":
+                    limiter.hit("auth_failures", self.client)
+                raise
             self._user = user
             parts = path.split("/")[2:]
+            # counted per identity whichever use case, version or entry point is used; then per tenant
+            who = service.limit_scope + user.name
+            if not self.counted:
+                self._limit("api", who, f"requests by {user.name}")
+                if service.tenant_key is not None:
+                    self._limit("tenant", service.tenant_key, "requests of this tenant")
+            extra_class = _engine_class(method, parts)
+            if extra_class:
+                self._limit(extra_class, who, {"mcp": "MCP messages", "admin": "administrative changes",
+                                               "expensive": "requests that start work"}[extra_class]
+                            + f" by {user.name}")
             limit, offset = page_window(query)
             body = self._body() if method == "POST" else {}
             routes = {
@@ -2412,6 +2565,8 @@ class ApiExchange:
             raise ApiError(404 if method == "GET" else 405, f"no route for {method} {path}")
         except ApiError as exc:
             self._send(exc.status, {"error": exc.message, **exc.extra})
+            if exc.status == 429:
+                self.response_headers["Retry-After"] = str(exc.extra.get("retry_after_seconds", 1))
         except ValueError as exc:
             self._send(400, {"error": str(exc)})
         except Exception as exc:  # never leak a traceback to clients; keep it in the server log
@@ -2443,8 +2598,12 @@ def _handler(service: AutologyService):
             pass
 
         def _respond(self, method: str) -> None:
+            from .limits import client_address
+
             raw, error = read_body(self.headers, self.rfile, method)
-            ex = ApiExchange(service, method, self.path, self.headers, raw, error).run()
+            client = client_address(self.client_address[0], self.headers.get("X-Forwarded-For"),
+                                    service.trusted_proxies)
+            ex = ApiExchange(service, method, self.path, self.headers, raw, error, client).run()
             self.send_response(ex.status)
             self.send_header("Content-Type", ex.content_type)
             self.send_header("Content-Length", str(len(ex.data)))
@@ -2474,9 +2633,12 @@ def _handler(service: AutologyService):
 
 
 def make_server(service: AutologyService, host: str = "127.0.0.1", port: int = 8800) -> ThreadingHTTPServer:
-    server = ThreadingHTTPServer((host, port), _handler(service))
-    server.daemon_threads = True
-    return server
+    """The engine's HTTP server: at most ``security.server.max_connections`` requests at once, and a connection
+    that sends or reads nothing for ``request_timeout_seconds`` is closed (GAP-030)."""
+    from .limits import BoundedHTTPServer
+
+    return BoundedHTTPServer((host, port), _handler(service), service.server_limits["max_connections"],
+                             service.server_limits["request_timeout"])
 
 
 def serve(config_path: str, host: str = "127.0.0.1", port: int = 8800,

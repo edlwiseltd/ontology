@@ -45,6 +45,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlsplit
 
+from . import credentials, limits
 from .audit import audit_key, workspace_key
 from .lifecycle import Check, Lifecycle, LifecycleError, STAGES
 from .administration import AdminError, AdminLog, new_grant_id, pending_grants
@@ -75,6 +76,8 @@ class Member:
     tenant: str = ""  # the tenant the identity belongs to (IAM-1): it reaches no other tenant's workspaces
     tenant_admin: bool = False  # administers every workspace of the tenant (an administrative role, IAM-1)
     scope: str = "workspace"  # where the identity is defined: "workspace" (one workspace) or "tenant"
+    token_expires: Optional[float] = None  # an explicit, earlier expiry given in the configuration (GAP-030)
+    expires_at: Optional[float] = None  # when the token stops working: lifetime from first sight, or token_expires
 
     def grant(self, use_case: str) -> Optional[Dict[str, Any]]:
         """What the member may do in one use case's engine. An administrator (of the workspace or of the tenant)
@@ -114,6 +117,7 @@ class TenantMember:
     kind: str = "person"
     tenant_admin: bool = False
     workspaces: Dict[str, Dict[str, Any]] = field(default_factory=dict)  # workspace -> {workspace_admin, use_cases}
+    token_expires: Optional[float] = None
 
 
 @dataclass
@@ -145,7 +149,16 @@ class Workspace:
 
 def _copy_member(m: Member) -> Member:
     return Member(m.name, m.workspace, m.token_sha256, m.workspace_admin, json.loads(json.dumps(m.use_cases)), m.kind,
-                  m.tenant, m.tenant_admin, m.scope)
+                  m.tenant, m.tenant_admin, m.scope, m.token_expires, m.expires_at)
+
+
+def _explicit_expiry(spec: Dict[str, Any], where: str) -> Optional[float]:
+    if spec.get("token_expires") is None:
+        return None
+    try:
+        return credentials.parse_time(spec["token_expires"], where)
+    except credentials.CredentialError as exc:
+        raise PlatformError(str(exc)) from None
 
 
 def _grants(spec: Any, where: str) -> Dict[str, Dict[str, Any]]:
@@ -213,6 +226,21 @@ class Platform:
         self.releases = ReleaseRegistry(self.data_dir / "releases.db", lambda ws: workspace_key(audit_key(), ws))
         # members and grants changed through the API (ADM-1), replayed over platform.json, chained the same way
         self.admin = AdminLog(self.data_dir / "admin.db", lambda ws: workspace_key(audit_key(), ws))
+        # GAP-030: token lifetimes (first sight of every token, revocations), rate limits, server limits
+        security = spec.get("security") or {}
+        if not isinstance(security, dict) or set(security) - {"tokens", "rate_limits", "trusted_proxies", "server",
+                                                               "run_seconds"}:
+            raise PlatformError("security: tokens, rate_limits, trusted_proxies, server and run_seconds only")
+        try:
+            self.token_policy = credentials.TokenPolicy.parse(security.get("tokens"))
+            self.limiter = limits.RateLimiter.parse(security.get("rate_limits"))
+            self.trusted_proxies = limits.parse_proxies(security.get("trusted_proxies"))
+            self.server_limits = limits.parse_server(security.get("server"))
+            self.credentials = credentials.CredentialRegistry(
+                self.data_dir / "credentials.db", workspace_key(audit_key(), "platform:credentials"))
+        except (credentials.CredentialError, limits.LimitError) as exc:
+            raise PlatformError(str(exc)) from None
+        self._security = {k: security[k] for k in ("run_seconds",) if k in security}
         self.workspaces: Dict[str, Workspace] = {}
         self.tenants: Dict[str, Tenant] = {}
         # token digest -> {workspace: Member}: one identity, with one Member per workspace it explicitly belongs to
@@ -303,7 +331,8 @@ class Platform:
                                         "(belonging to a tenant gives no access by itself)")
                 digest = _token_digest(m, where)
                 self._claim_token(digest, t_id, name, where)
-                tenant.members[name] = TenantMember(name, digest, kind, tenant_admin, memberships)
+                tenant.members[name] = TenantMember(name, digest, kind, tenant_admin, memberships,
+                                                    _explicit_expiry(m, where))
 
     def _claim_token(self, digest: str, tenant: str, name: str, where: str) -> None:
         """A token identifies exactly one identity of exactly one tenant: no identity is shared across tenants."""
@@ -341,14 +370,16 @@ class Platform:
             kind = m.get("kind", "person")
             if kind not in ("person", "service"):
                 raise PlatformError(f"{where}: kind must be \"person\" or \"service\"")
-            ws.members[name] = Member(name, ws_id, digest, bool(m.get("workspace_admin")), grants, kind, tenant.id)
+            ws.members[name] = Member(name, ws_id, digest, bool(m.get("workspace_admin")), grants, kind, tenant.id,
+                                      token_expires=_explicit_expiry(m, where))
         for tm in tenant.members.values():  # tenant-level identities: only where they explicitly belong
             membership = tm.workspaces.get(ws_id)
             if tm.tenant_admin or membership is not None:
                 membership = membership or {"workspace_admin": False, "use_cases": {}}
                 ws.members[tm.name] = Member(
                     tm.name, ws_id, tm.token_sha256, tm.tenant_admin or membership["workspace_admin"],
-                    json.loads(json.dumps(membership["use_cases"])), tm.kind, tenant.id, tm.tenant_admin, "tenant")
+                    json.loads(json.dumps(membership["use_cases"])), tm.kind, tenant.id, tm.tenant_admin, "tenant",
+                    tm.token_expires)
         for member in ws.members.values():
             unknown = set(member.use_cases) - set(spec.get("use_cases") or {}) - {
                 r["id"] for r in self.lifecycle.created(ws_id)}
@@ -412,6 +443,7 @@ class Platform:
         members = {n: _copy_member(m) for n, m in ws.config_members.items()}
         if problem:  # fail closed: only the configured administrators keep access until an operator repairs it
             ws.members = {n: m for n, m in members.items() if m.workspace_admin}
+            self._stamp(ws.members.values())
             return
         proposals: Dict[str, Dict[str, Any]] = {}
         for e in events:
@@ -422,6 +454,9 @@ class Platform:
                 members.pop(d["name"], None)
             elif e["event"] == "token_rotated" and d["name"] in members:
                 members[d["name"]].token_sha256 = d["token_sha256"]
+                members[d["name"]].token_expires = None  # an explicit date was about the configured token
+            elif e["event"] == "token_revoked" and d["name"] in members:
+                members[d["name"]].token_sha256 = ""  # no credential until an administrator issues a new one
             elif e["event"] == "grant_proposed":
                 proposals[d["id"]] = d
             elif e["event"] == "grant_approved":
@@ -436,21 +471,36 @@ class Platform:
                     **have, "permissions": sorted(set(have["permissions"]) | set(d["grant"]["permissions"]))}
             elif e["event"] == "grant_revoked" and d["member"] in members:
                 members[d["member"]].use_cases.pop(d["use_case"], None)
+        self._stamp(members.values())
         ws.members = members
+
+    def _stamp(self, members: Any) -> None:
+        """Give each member's token its expiry: the policy's lifetime for its kind, counted from the first time
+        the token was seen (recorded once in the credential registry), or an earlier explicit date. A token that
+        existed before lifetimes were enforced is first seen at the upgrade: one full lifetime, not for ever."""
+        for m in members:
+            if not m.token_sha256:
+                m.expires_at = None
+                continue
+            identity = f"{m.name}@{m.workspace}" if m.scope == "workspace" else f"{m.name}@tenant:{m.tenant}"
+            seen = self.credentials.register(m.token_sha256, identity, m.kind)
+            m.expires_at = credentials.expires_at(seen, m.kind, self.token_policy, m.token_expires)
 
     def _rebuild_tokens(self) -> None:
         tokens: Dict[str, Dict[str, Member]] = {}
         for ws in self.workspaces.values():
             for m in ws.members.values():
-                tokens.setdefault(m.token_sha256, {})[ws.id] = m
+                if m.token_sha256:  # a member whose token was revoked has no credential
+                    tokens.setdefault(m.token_sha256, {})[ws.id] = m
         self._tokens = tokens
 
     def users_for(self, ws: Workspace, uc_id: str) -> List[Dict[str, Any]]:
         users = []
         for member in ws.members.values():
             grant = member.grant(uc_id)
-            if grant:
-                users.append({"name": member.name, "token_sha256": member.token_sha256, "kind": member.kind, **grant})
+            if grant and member.token_sha256:
+                users.append({"name": member.name, "token_sha256": member.token_sha256, "kind": member.kind,
+                              "token_expires_at": member.expires_at, **grant})
         return users
 
     def _refresh(self, ws: Workspace) -> None:
@@ -489,6 +539,8 @@ class Platform:
         config["secrets_file"] = str(self.data_dir / ws.id / "secrets.json")
         config["audit_scope"] = ws.id  # the workspace's own audit key, derived from the platform's (ISO-2)
         config["users"] = self.users_for(ws, uc_id)
+        config["credentials_file"] = ""  # the platform supplies each token's expiry (one registry for all engines)
+        config["security"] = dict(self._security)
         if validate_only:  # build a throwaway engine on an in-memory store: proves the files load, touches nothing
             config.update({"store": ":memory:", "secrets_file": str(home / ".validate-secrets.json")})
             probe = AutologyService(config, config_path.parent)
@@ -496,6 +548,10 @@ class Platform:
             probe.close()
             return fingerprint  # type: ignore[return-value]
         service = AutologyService(config, config_path.parent)
+        # one limiter for the whole platform: an identity is counted once per workspace, whatever the use case,
+        # and every request of the tenant under the tenant (GAP-030)
+        service.limiter, service.limit_scope, service.tenant_key = self.limiter, f"{ws.id}:", ws.tenant
+        service.credentials = self.credentials  # revocations reach the engine too (never closed by the engine)
         uc = UseCase(uc_id, ws.id, str(spec.get("name") or uc_id), service, spec=dict(spec))
         service.stage_gate = lambda: self.effective_stage_and_reason(uc)  # execution gates: the stage governs every run
         return uc
@@ -505,7 +561,33 @@ class Platform:
         """The token's identity as one Member per workspace it explicitly belongs to (all in one tenant)."""
         if not authorization or not authorization.startswith("Bearer "):
             return {}
-        return self._tokens.get(hash_token(authorization[7:].strip()), {})
+        members = self._tokens.get(hash_token(authorization[7:].strip()), {})
+        return {} if members and self._token_problem(members) else members
+
+    @staticmethod
+    def _expired(member: Member) -> bool:
+        return member.expires_at is not None and credentials.now() >= member.expires_at
+
+    def _token_problem(self, members: Dict[str, Member]) -> Optional[str]:
+        """Why a known token is refused now (revoked, expired), or None. Checked on every request."""
+        member = next(iter(members.values()))
+        if self.credentials.revoked(member.token_sha256):
+            return "this token was revoked"
+        if self._expired(member):
+            when = credentials.iso(member.expires_at)
+            return (f"this token expired on {when}: sign in again or ask a workspace administrator for a new one"
+                    if member.kind == "person" else
+                    f"this service token expired on {when}: a workspace administrator must issue a new one")
+        return None
+
+    def refused_token(self, authorization: Optional[str]) -> Tuple[Optional[Member], Optional[str]]:
+        """For the answer and the access log when a token is refused: whose it was and why, if it is a known one."""
+        if not authorization or not authorization.startswith("Bearer "):
+            return None, None
+        members = self._tokens.get(hash_token(authorization[7:].strip()), {})
+        if not members:
+            return None, None
+        return next(iter(members.values())), self._token_problem(members)
 
     def member_for(self, authorization: Optional[str], workspace: Optional[str] = None) -> Optional[Member]:
         """The token's Member in ``workspace`` (None if it has no membership there), or its first membership."""
@@ -518,8 +600,9 @@ class Platform:
         ws = self.workspaces[member.workspace]
         tenant = self.tenants[ws.tenant]
         memberships = members or {ws.id: member}
-        return {"workspace": {"id": ws.id, "name": ws.name}, "member": member.name,
+        return {"workspace": {"id": ws.id, "name": ws.name}, "member": member.name, "kind": member.kind,
                 "workspace_admin": member.workspace_admin,
+                "token_expires_at": credentials.iso(member.expires_at),
                 "tenant": {"id": tenant.id, "name": tenant.name}, "tenant_admin": member.tenant_admin,
                 # every workspace the identity explicitly belongs to; choose one with /platform/me?workspace=<id>
                 "workspaces": [{"id": w, "name": self.workspaces[w].name, "workspace_admin": m.workspace_admin}
@@ -756,6 +839,8 @@ class Platform:
             return 200, self.tenant_view(tenant, members)
         if member is None:
             return 404, None  # a workspace the caller does not belong to, another tenant's, or none: the same answer
+        if len(parts) == 5 and parts[2] == "workspaces" and parts[4] == "my-token" and method == "POST":
+            return self._own_token(self.workspaces[member.workspace], member, raw_body, body_error)
         if len(parts) >= 5 and parts[2] == "workspaces" and parts[4] in ("members", "grants"):
             ws = self.workspaces.get(parts[3]) if parts[3] == member.workspace else None
             if ws is None:
@@ -833,12 +918,17 @@ class Platform:
         events, problem = self.admin.events(ws.id)
         api_added = {e["data"]["name"] for e in events if e["event"] == "member_added"}
         return {"members": [{"name": m.name, "kind": m.kind, "workspace_admin": m.workspace_admin,
-                             "approver": m.name in ws.release_approvers,
+                             "approver": m.name in ws.release_approvers, "scope": m.scope,
+                             "token": ("none" if not m.token_sha256 else "revoked"
+                                       if self.credentials.revoked(m.token_sha256) else
+                                       "expired" if self._expired(m) else "active"),
+                             "token_expires_at": credentials.iso(m.expires_at),
                              "source": "api" if m.name in api_added and m.name not in ws.config_members else
                              "configuration",
                              "use_cases": {uc: m.use_cases[uc] for uc in sorted(m.use_cases)}}
                             for m in sorted(ws.members.values(), key=lambda m: m.name)],
                 "pending_grants": sorted(pending_grants(events).values(), key=lambda g: g["proposed_at"]),
+                "token_policy": self.token_policy.view(),
                 "history": events, "integrity_problem": problem}
 
     def _administration(self, method: str, parts: List[str], ws: Workspace, member: Member,
@@ -878,6 +968,7 @@ class Platform:
                               check_new)
             self._refresh(ws)
             return 201, {"name": name, "kind": kind, "token": token,
+                         "token_expires_at": credentials.iso(ws.members[name].expires_at),
                          "note": "give this token to the member now: it is not stored and cannot be shown again"}
         if parts[4] == "members" and len(parts) == 7:
             name, action = parts[5], parts[6]
@@ -889,16 +980,25 @@ class Platform:
             if target.scope == "tenant" and action in ("remove", "token"):
                 raise AdminError(403, f"{name} is an identity of the tenant, with memberships in the platform "
                                       "configuration: it is not removed or re-keyed from one workspace")
+            if target.workspace_admin and action == "revoke-token":
+                raise AdminError(403, "workspace administrators are managed in the platform configuration only")
+            if target.scope == "tenant" and action == "revoke-token":
+                raise AdminError(403, f"{name} is an identity of the tenant: its token is replaced in the platform "
+                                      "configuration")
             if action == "remove":
                 self.admin.append(ws.id, "member_removed", who, reason, {"name": name})
+                self._retire(target.token_sha256, who, f"member removed: {reason}")
                 self._refresh(ws)
                 return 200, self.members_view(ws)
             if action == "token":
-                token, digest = new_token()
-                self.admin.append(ws.id, "token_rotated", who, reason, {"name": name, "token_sha256": digest})
+                return 200, self._rotate(ws, target, who, reason)
+            if action == "revoke-token":
+                if not target.token_sha256:
+                    raise AdminError(409, f"{name} has no token to revoke")
+                self.admin.append(ws.id, "token_revoked", who, reason, {"name": name})
+                self._retire(target.token_sha256, who, f"revoked: {reason}")
                 self._refresh(ws)
-                return 200, {"name": name, "token": token,
-                             "note": "the previous token stopped working; this one is shown once"}
+                return 200, self.members_view(ws)
             if action == "revoke":
                 uc_id = str(body.get("use_case") or "")
                 if uc_id not in target.use_cases:
@@ -948,6 +1048,36 @@ class Platform:
             self._refresh(ws)
             return 200, self.members_view(ws)
         return 404, None
+
+    def _retire(self, digest: str, who: str, reason: str) -> None:
+        """A token that was replaced, revoked or whose member was removed never works again, wherever it is named."""
+        if digest:
+            self.credentials.revoke(digest, who, reason)
+
+    def _rotate(self, ws: Workspace, target: Member, who: str, reason: str) -> Dict[str, Any]:
+        """Replace a member's token. The identity, its kind and its grants are unchanged; the new token gets one
+        lifetime of the policy, never more; the previous token is refused from now on."""
+        from .server import new_token
+
+        token, digest = new_token()
+        self.admin.append(ws.id, "token_rotated", who, reason, {"name": target.name, "token_sha256": digest})
+        self._retire(target.token_sha256, who, f"replaced: {reason}")
+        self._refresh(ws)
+        return {"name": target.name, "token": token,
+                "token_expires_at": credentials.iso(ws.members[target.name].expires_at),
+                "note": "the previous token stopped working; this one is shown once"}
+
+    def _own_token(self, ws: Workspace, member: Member, raw_body: Optional[bytes], body_error) -> Tuple[int, Any]:
+        """``POST /platform/workspaces/<ws>/my-token``: a person replaces their own token before it expires.
+        Not a service identity (an administrator re-keys machines), not a tenant-level identity (configuration),
+        and never with an expired or revoked token: that one is refused before it gets here."""
+        self._require_person(member, "replace its own token: a workspace administrator issues service tokens")
+        if member.scope == "tenant":
+            raise AdminError(403, f"{member.name} is an identity of the tenant: its token is replaced in the "
+                                  "platform configuration")
+        body = self._json(raw_body, body_error)
+        return 200, self._rotate(ws, member, f"{member.name}@{ws.id}",
+                                 str(body.get("reason") or "replaced by its owner"))
 
     def _releases(self, method: str, parts: List[str], ws: Workspace, uc: UseCase, member: Member,
                   raw_body: Optional[bytes], body_error) -> Tuple[int, Any]:
@@ -1068,7 +1198,8 @@ class Platform:
             self._stops = []
 
     def handle(self, method: str, raw_path: str, headers: Any, raw_body: Optional[bytes] = None,
-               body_error: Optional[Tuple[int, str]] = None) -> Tuple[int, str, bytes, Dict[str, str]]:
+               body_error: Optional[Tuple[int, str]] = None,
+               client: Optional[str] = None) -> Tuple[int, str, bytes, Dict[str, str]]:
         """One request through the router: (status, content type, body, extra headers). ``/platform/v1/...`` is
         served by the same handlers as ``/platform/...`` with the v1 envelope (docs/api-versioning.md)."""
         from .openapi import versioned_response
@@ -1078,7 +1209,7 @@ class Platform:
         if split.path == "/platform/v1" or split.path.startswith("/platform/v1/"):
             version = "1"
             raw_path = "/platform" + raw_path[len("/platform/v1"):]
-        status, ctype, data, extra = self._handle(method, raw_path, headers, raw_body, body_error)
+        status, ctype, data, extra = self._handle(method, raw_path, headers, raw_body, body_error, client or "-")
         path = urlsplit(raw_path).path
         if path.startswith("/platform/"):
             data, more = versioned_response(version, method, path, {}, status, ctype, data)
@@ -1096,16 +1227,31 @@ class Platform:
             extra = {**extra, **more}
         return status, ctype, data, extra
 
+    def _too_many(self, who: Optional[Member], method: str, path: str, wait: int,
+                  what: str) -> Tuple[int, str, bytes, Dict[str, str]]:
+        self._log(who, method, path, 429)
+        return 429, "application/json", json.dumps(limits.too_many(wait, what)).encode(), {"Retry-After": str(wait)}
+
     def _handle(self, method: str, raw_path: str, headers: Any, raw_body: Optional[bytes] = None,
-                body_error: Optional[Tuple[int, str]] = None) -> Tuple[int, str, bytes, Dict[str, str]]:
+                body_error: Optional[Tuple[int, str]] = None,
+                client: str = "-") -> Tuple[int, str, bytes, Dict[str, str]]:
         split = urlsplit(raw_path)
         path = split.path
+        if method == "GET" and path in ("/platform/health", "/platform/openapi.json"):
+            wait = self.limiter.hit("anonymous", client)
+            if wait:
+                return self._too_many(None, method, path, wait, "requests without a credential from this address")
         if method == "GET" and path == "/platform/health":
             return 200, "application/json", json.dumps({"status": "ok"}).encode(), {}
         if method == "GET" and path == "/platform/openapi.json":  # the platform's contract: no data, no token
             from .openapi import platform_spec
 
             return 200, "application/json", json.dumps(platform_spec()).encode(), {}
+        # an address that failed to authenticate too often is refused before its credential is looked at, so the
+        # answer tells nothing about a guessed token (GAP-030)
+        wait = self.limiter.blocked("auth_failures", client)
+        if wait:
+            return self._too_many(None, method, path, wait, "failed sign-ins from this address")
         members = self.members_for(headers.get("Authorization"))  # the identity, per workspace it belongs to
         parts = path.split("/")
         # /w/<ws>/u/<uc>/api/...  ->  ['', 'w', ws, 'u', uc, 'api', ...]
@@ -1118,13 +1264,29 @@ class Platform:
             # not a member token: only this workspace's own sign-in provider may vouch for it (ISO-3). The use
             # case's engine verifies it against that issuer and its mappings; anything else is refused there.
             inner = "/" + "/".join(parts[5:]) + (f"?{split.query}" if split.query else "")
-            ex = ApiExchange(uc.service, method, inner, headers, raw_body, body_error).run()
+            ex = ApiExchange(uc.service, method, inner, headers, raw_body, body_error, client).run()
             self._log(None, method, path, ex.status)
             return ex.status, ex.content_type, ex.data, ex.response_headers
         if not members:
-            self._log(None, method, path, 401)
-            return 401, "application/json", json.dumps({"error": "missing or invalid token"}).encode(), {}
+            self.limiter.hit("auth_failures", client)
+            whose, why = self.refused_token(headers.get("Authorization"))
+            self._log(whose if why else None, method, path, 401)
+            body = {"error": why, "reason": "token_expired" if "expired" in why else "token_revoked"} if why else {
+                "error": "missing or invalid token"}
+            return 401, "application/json", json.dumps(body).encode(), {}
         anyone = next(iter(members.values()))  # for the access log when the request names no workspace of theirs
+        # Every authenticated request is counted here, once, whatever it asks for and however it is answered
+        # (a refusal counts too): per identity in the workspace it names, and per tenant (GAP-030).
+        counted = member or anyone
+        who = f"{counted.workspace}:{counted.name}"
+        for name, key, what in (("api", who, f"requests by {counted.name}"),
+                                ("tenant", counted.tenant, "requests of this tenant"),
+                                ("admin", who, f"administrative changes by {counted.name}")):
+            if name == "admin" and not (method == "POST" and path.startswith("/platform/")):
+                continue
+            wait = self.limiter.hit(name, key)
+            if wait:
+                return self._too_many(counted, method, path, wait, what)
         if path == "/platform/me" and method == "GET":
             wanted = dict(p.split("=", 1) for p in split.query.split("&") if "=" in p).get("workspace")
             chosen = members.get(wanted) if wanted else anyone
@@ -1149,8 +1311,15 @@ class Platform:
             self._log(member or anyone, method, path, 404)
             return 404, "application/json", NOT_FOUND, {}
         inner = "/" + "/".join(parts[5:]) + (f"?{split.query}" if split.query else "")
-        ex = ApiExchange(uc.service, method, inner, headers, raw_body, body_error).run()
+        ex = ApiExchange(uc.service, method, inner, headers, raw_body, body_error, client, counted=True).run()
         return ex.status, ex.content_type, ex.data, ex.response_headers
+
+    def close(self) -> None:
+        """Close every engine and registry (after the server stopped)."""
+        for svc in self.services():
+            svc.close()
+        for part in (self.lifecycle, self.releases, self.admin, self.tenancy, self.credentials, self.log):
+            part.close()
 
     def _log(self, member: Optional[Member], method: str, path: str, status: int) -> None:
         try:
@@ -1174,7 +1343,9 @@ def make_platform_server(platform: Platform, host: str = "127.0.0.1", port: int 
 
         def _respond(self, method: str) -> None:
             raw, error = read_body(self.headers, self.rfile, method)
-            status, ctype, data, extra = platform.handle(method, self.path, self.headers, raw, error)
+            client = limits.client_address(self.client_address[0], self.headers.get("X-Forwarded-For"),
+                                           platform.trusted_proxies)
+            status, ctype, data, extra = platform.handle(method, self.path, self.headers, raw, error, client)
             self.send_response(status)
             self.send_header("Content-Type", ctype if "charset" in ctype else ctype + "; charset=utf-8")
             self.send_header("Content-Length", str(len(data)))
@@ -1202,9 +1373,8 @@ def make_platform_server(platform: Platform, host: str = "127.0.0.1", port: int 
 
         do_PUT = do_DELETE = do_PATCH = do_OPTIONS = _not_allowed  # noqa: N815
 
-    server = ThreadingHTTPServer((host, port), Handler)
-    server.daemon_threads = True
-    return server
+    return limits.BoundedHTTPServer((host, port), Handler, platform.server_limits["max_connections"],
+                                    platform.server_limits["request_timeout"])
 
 
 def serve(path: str, host: str = "127.0.0.1", port: int = 8700) -> None:  # pragma: no cover - blocking
@@ -1230,10 +1400,4 @@ def serve(path: str, host: str = "127.0.0.1", port: int = 8700) -> None:  # prag
     finally:
         platform.stop_background()
         server.server_close()
-        for svc in platform.services():
-            svc.close()
-        platform.lifecycle.close()
-        platform.releases.close()
-        platform.admin.close()
-        platform.tenancy.close()
-        platform.log.close()
+        platform.close()

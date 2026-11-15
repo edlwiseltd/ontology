@@ -15,6 +15,8 @@ The members a workspace has at any moment are the configuration's, with the log 
   who receives it, and never a service identity;
 * ``grant_revoked``: a workspace administrator takes a member's access to a use case away, at once (removing access
   needs no second person).
+* ``token_revoked``: a workspace administrator makes a member's token stop working at once, without removing the
+  member or their grants; the member has no credential until an administrator issues a new token (GAP-030).
 
 Every change reaches the use cases' engines before the next request (no restart). If the log does not verify, the
 workspace falls back to its configured administrators only (fail closed) until an operator repairs it.
@@ -36,7 +38,9 @@ GENESIS = "0" * 64
 EVENTS = ("member_added", "member_removed", "token_rotated", "grant_proposed", "grant_approved", "grant_withdrawn",
           "grant_revoked", "engine_reloaded", "draft_published", "release_restored",
           # IAM-3: the data access an administrator had implicitly, converted once into explicit, revocable grants
-          "grant_migrated", "privileges_separated")
+          "grant_migrated", "privileges_separated",
+          # GAP-030: a member's token refused from now on, until an administrator issues a new one
+          "token_revoked")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS admin_events (

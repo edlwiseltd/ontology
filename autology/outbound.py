@@ -9,21 +9,107 @@ network on its behalf (SSRF).
 
 Replies are read up to a size limit, and error texts never contain secret values: they are built from the
 configured URL template, and :func:`redact` removes any known secret that still appears.
+
+**Deadlines (GAP-021, GAP-030).** ``timeout`` is the longest silence accepted on the connection; it does not bound
+a reply that keeps trickling. Every call therefore also has a **deadline**: the total time from connecting to the
+last byte of the reply (``deadline``, by default ``DEADLINE_FACTOR`` times the timeout). At the deadline the
+connection is shut and the call fails with :class:`DeadlineExceeded`. Whether the other side acted is then not
+known: callers that write to other systems record that as an unknown outcome, to be confirmed or reconciled,
+never as a failure that is safe to repeat blindly.
 """
 
 from __future__ import annotations
 
+import http.client
+import socket
+import threading
 import urllib.error
 import urllib.parse
 import urllib.request
-from typing import Iterable, Optional, Sequence, Tuple
+from typing import Any, Iterable, List, Optional, Sequence, Tuple
 
 MAX_RESPONSE_BYTES = 16 * 1024 * 1024  # a reply larger than this is refused, not read into memory
 _DEFAULT_PORTS = {"http": 80, "https": 443}
 
 
+DEADLINE_FACTOR = 3.0  # default deadline of a call = this many times its timeout
+
+
 class OutboundError(Exception):
     """A reply that Autology refuses to use: too large, or redirected to an origin that was not allowed."""
+
+
+class DeadlineExceeded(OutboundError):
+    """The call did not finish within its deadline; the connection was shut. The other side may have acted."""
+
+
+class _Watch:
+    """Shuts a call's connections at its deadline, whatever the other side is doing (a reply that trickles one
+    byte at a time never reaches the per-read timeout)."""
+
+    def __init__(self, seconds: float):
+        self.seconds = seconds
+        self.expired = False
+        self._socks: List[Any] = []
+        self._lock = threading.Lock()
+        self._timer = threading.Timer(seconds, self._fire)
+        self._timer.daemon = True
+        self._timer.start()
+
+    @staticmethod
+    def _shut(sock: Any) -> None:
+        try:
+            sock.shutdown(socket.SHUT_RDWR)  # wakes a read that is waiting; the owner still closes the socket
+        except OSError:
+            pass
+
+    def add(self, sock: Any) -> None:
+        with self._lock:
+            self._socks.append(sock)
+            expired = self.expired
+        if expired:
+            self._shut(sock)
+
+    def _fire(self) -> None:
+        with self._lock:
+            self.expired = True
+            socks = list(self._socks)
+        for sock in socks:
+            self._shut(sock)
+
+    def cancel(self) -> None:
+        self._timer.cancel()
+
+    def error(self) -> DeadlineExceeded:
+        return DeadlineExceeded(f"no complete reply within the deadline of {self.seconds:g} s")
+
+
+def _watched(base: Any, watch: _Watch) -> Any:
+    class Watched(base):  # type: ignore[misc, valid-type]
+        def connect(self) -> None:
+            super().connect()
+            watch.add(self.sock)
+
+    return Watched
+
+
+class _WatchedHTTP(urllib.request.HTTPHandler):
+    def __init__(self, watch: _Watch):
+        super().__init__()
+        self._watch = watch
+
+    def http_open(self, req):  # noqa: D102
+        return self.do_open(_watched(http.client.HTTPConnection, self._watch), req)
+
+
+class _WatchedHTTPS(urllib.request.HTTPSHandler):
+    def __init__(self, watch: _Watch):
+        super().__init__()
+        self._watch = watch
+
+    def https_open(self, req):  # noqa: D102
+        return self.do_open(_watched(http.client.HTTPSConnection, self._watch), req,
+                            context=getattr(self, "_context", None))
 
 
 def origin(url: str) -> Tuple[str, str, int]:
@@ -85,15 +171,40 @@ class _SameOriginRedirects(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
-def urlopen(req: urllib.request.Request, timeout: float, extra_origins: Sequence[str] = ()):
-    """``urllib.request.urlopen`` with redirects confined to the request's origin (and ``extra_origins``)."""
-    opener = urllib.request.build_opener(_SameOriginRedirects(extra_origins))
-    return opener.open(req, timeout=timeout)  # noqa: S310 - destination comes from operator configuration
+def urlopen(req: urllib.request.Request, timeout: float, extra_origins: Sequence[str] = (),
+            deadline: Optional[float] = None):
+    """``urllib.request.urlopen`` with redirects confined to the request's origin (and ``extra_origins``), and a
+    deadline for the whole call (``deadline`` seconds; by default ``DEADLINE_FACTOR`` times ``timeout``). The
+    deadline keeps running while the reply is read with :func:`read_limited`."""
+    watch = _Watch(float(deadline) if deadline else float(timeout) * DEADLINE_FACTOR)
+    opener = urllib.request.build_opener(_SameOriginRedirects(extra_origins), _WatchedHTTP(watch),
+                                         _WatchedHTTPS(watch))
+    try:
+        resp = opener.open(req, timeout=timeout)  # noqa: S310 - destination comes from operator configuration
+    except BaseException:
+        watch.cancel()
+        if watch.expired:
+            raise watch.error() from None
+        raise
+    resp._autology_watch = watch
+    return resp
 
 
 def read_limited(resp, limit: int = MAX_RESPONSE_BYTES) -> bytes:
-    """Read a reply body, refusing one larger than ``limit`` bytes."""
-    data = resp.read(limit + 1)
+    """Read a reply body, refusing one larger than ``limit`` bytes or one that does not end within the call's
+    deadline."""
+    watch = getattr(resp, "_autology_watch", None)
+    try:
+        data = resp.read(limit + 1)
+    except Exception:
+        if watch is not None and watch.expired:
+            raise watch.error() from None
+        raise
+    finally:
+        if watch is not None:
+            watch.cancel()
+    if watch is not None and watch.expired:  # a reply cut at the deadline is never taken for a whole one
+        raise watch.error()
     if len(data) > limit:
         raise OutboundError(f"the reply is larger than {limit} bytes")
     return data

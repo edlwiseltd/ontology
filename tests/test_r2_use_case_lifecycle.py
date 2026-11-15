@@ -54,13 +54,7 @@ def template_config(**changes):
 
 
 def close(pf):
-    for svc in pf.services():
-        svc.close()
-    pf.lifecycle.close()
-    pf.releases.close()
-    pf.admin.close()
-    pf.tenancy.close()
-    pf.log.close()
+    pf.close()
 
 
 class LifecycleBase(unittest.TestCase):

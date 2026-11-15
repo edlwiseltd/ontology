@@ -7,13 +7,13 @@ reproduces the audit's finding passes in CI; it has not been re-verified by an i
 
 | Status | Count |
 |---|---|
-| Fixed | 24 |
-| Open | 21 |
+| Fixed | 25 |
+| Open | 20 |
 | Open (external evidence) | 5 |
 | Open (owner decision) | 2 |
 | Partly fixed | 9 |
 
-*Counts updated 15 November 2026 (H-1: GAP-058, GAP-059 added and fixed; REL-1a: GAP-020 fixed; ADM-1/2 and STU-6: GAP-030, GAP-056 partly fixed, GAP-051 updated; QA-1: GAP-025 partly fixed, GAP-040 updated; IAM-3: GAP-060 added and fixed, GAP-061 found, reproduced and fixed).* **High gaps not
+*Counts updated 15 November 2026 (H-1: GAP-058, GAP-059 added and fixed; REL-1a: GAP-020 fixed; ADM-1/2 and STU-6: GAP-030, GAP-056 partly fixed, GAP-051 updated; QA-1: GAP-025 partly fixed, GAP-040 updated; IAM-3: GAP-060 added and fixed, GAP-061 found, reproduced and fixed; R2 security sprint A: GAP-030 fixed, GAP-021 partly fixed).* **High gaps not
 fully fixed:** GAP-031 (waits for legal sign-off, D19), GAP-032 (ERP connector), GAP-052 (real models) and GAP-053
 (real process), which need external systems, keys or a customer. GAP-009 and GAP-018 are **Fixed** (repository-
 verified; independent re-verification open): GAP-009's atomicity is local, there is no compensation towards
@@ -42,7 +42,7 @@ and closure criteria: [the clarification note](AUTOLOGY_PARTIAL_GAPS_CLARIFICATI
 | GAP-018 | The server's graph is never refreshed from the store | High | **Fixed** (repository-verified; C1–C3 met, see the clarification note; independent re-verification open) | MOD-4 · `fd7ab77`, `f0a385a`; Increment B `118f8bc`; directive 02 (see log) | `tests/test_mod4_single_writer.py`; `tests/test_gap018_record_consistency.py` (15); `tests/test_gap018_directive02.py` (7, all failing on the code before directive 02): scenario commits now revision- and seal-checked in one transaction, schema upgrades transactional and restart-safe, API clients can send `expected_revision`, and a concurrency test (6 parallel writers, MCP readers and a run through the HTTP platform) loses no update and corrupts no record. **The Increment B "Fixed" was premature** for the scenario-commit path, found by this re-verification. Limits: detection, not prevention, of direct database writes; demo mode (no audit key) seals detect accidents only |
 | GAP-019 | IdP-removed signing keys stay trusted until restart; `aud` object → 500 | Low–Med | **Open** |  | R3 hardening |
 | GAP-020 | Ontology change while runs paused: silent rule change (same version), fingerprint not recorded; version bump strands runs | Med | **Fixed** (repository-verified, REL-1a; CI below) | REL-1a (see log) | Runs record the configuration fingerprint (ontology, governing settings, tool declarations) they started on and never continue on another (`WorkAgent.resume`); a review decision on another configuration is refused (409) before it is recorded; releases bind approvals to the fingerprint. `tests/test_rel1a_releases.py` (R7). Limits: Python code imported by tools is not in the fingerprint |
-| GAP-021 | HTTP timeout is per read, not a deadline; agent lock held for whole runs, inline backoff under the lock | Med | **Open** |  | R3 hardening (deadline-based HTTP timeout; agent lock) |
+| GAP-021 | HTTP timeout is per read, not a deadline; agent lock held for whole runs, inline backoff under the lock | Med | **Partly fixed** (R2 security sprint, increment A) | `tests/test_gap030_security.py` (`DeadlineTests`) | Fixed: every outbound call has a deadline for the whole call (`outbound.py`, default three times the timeout, configurable `deadline`); a reply cut at the deadline is an unknown outcome, journaled and reconciled; a run over `security.run_seconds` pauses between steps. Open: the agent lock is still held for a whole run and backoff waits under it (R3) |
 | GAP-022 | One failing deferred run aborts the scheduler tick | Med | **Open** |  | R2 (small): isolate each deferred run in a tick |
 | GAP-023 | Full-table scans and N+1 deserialisation on common endpoints | Med | **Open** |  | R3 (indexed queries, pagination) |
 | GAP-024 | No load, soak or capacity tests | Med | **Open (external evidence)** |  | R4 OPS-2 load test with agreed targets |
@@ -51,7 +51,7 @@ and closure criteria: [the clarification note](AUTOLOGY_PARTIAL_GAPS_CLARIFICATI
 | GAP-027 | JSON-LD export crashes on computed effects; IRIs differ between formats; Turtle breaks on spaces; both lossy | Med | **Open** |  | R3 |
 | GAP-028 | Semantic diff ignores impact rules, scheduling, question contents, settings, descriptions | Med | **Open** |  | R2: needed by REL-1 (release diffs) |
 | GAP-029 | Anthropic adapter lets non-API exceptions escape; chat contract vendor-shaped; one provider adapter | Med | **Partly fixed** |  | Adapter boundary unchanged; second provider adapter is R2 AI-1 (D7) |
-| GAP-030 | API tokens never expire or rotate without restart; no rate limiting or lockout | Med | **Partly fixed** | ADM-1 (see log) | Tokens can be replaced without a restart (`POST .../members/<name>/token`, old token refused at once; `test_adm1_administration` A3). Open: expiry, rate limiting, lockout (R3) |
+| GAP-030 | API tokens never expire or rotate without restart; no rate limiting or lockout | Med | **Fixed** (R2 security sprint, increment A) | `tests/test_gap030_security.py` (27 tests) | Original acceptance: *expired token refused; brute force throttled*. Now: every API token has a finite lifetime per kind (people 90 d, services 365 d by default), server-enforced at the router, the engine and MCP (`credentials.py`, `<data_dir>/credentials.db`); existing tokens get one lifetime from the upgrade; revocation and rotation without restart, audited; rate limits per address, identity, tenant and endpoint class with `429` + `Retry-After` (`limits.py`); connection ceiling and slow-client timeout. Limits: counters are per process (single node); application-level only. Default values to confirm: D23 |
 | GAP-031 | No licence; redistribution terms undefined | High (blocks any customer use) | **Partly fixed** (engineering done; legal open) | LEG-1 · `6a23ff5`; Increment C (see log) | `tests/test_leg1_licences.py`; CI checks the licences of what each built image contains; image pinned (`deploy/image-constraints.txt`); an image without the LGPL driver builds and passes the smoke test; base-image packages listed. **Open (legal):** decisions L1–L5 (D19). Customer distribution prohibited until recorded |
 | GAP-032 | No ERP connector (Odoo or other) | High for target market | **Open** |  | R3 INT-2/INT-3 on an Odoo 18 sandbox (D6), now possible since ACT-1–6 pass |
 | GAP-033 | Restore never exercised; no scheduled backups | Med | **Open** |  | R4 OPS-1 restore drill in CI |

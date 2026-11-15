@@ -44,6 +44,8 @@ unrestricted external access.*
 | D20 | When the unversioned (legacy) API paths may be removed | **Applied default: deprecated, never removed without notice**, owner confirmation pending | Keep them until the Console, the MCP relay and the generated SDKs use v1; announce removal at least one minor release ahead ([policy](../docs/api-versioning.md)) | None while they stay; removing them breaks clients that have not migrated |
 | D21 | Project access control and code review: protected main branch (required CI, no force-push), mandatory human review before merge (the AI agent is not a reviewer), a second repository administrator, two-factor authentication | **Pending** (15 Nov: repository has one admin, no protected branch, no human review; see [project RACI](AUTOLOGY_PROJECT_RACI.md) §3) | Apply all four before any pilot; name the reviewer (REV) | Code reaches the published branch without human review; one person can rewrite history |
 
+| D23 | Default token lifetimes and rate limits (GAP-030) | **Applied default**, owner confirmation pending (R2 security sprint, 15 Nov) | People 90 days, service identities 365 days, never more than 3650; limits per minute: 30 failed sign-ins and 600 anonymous requests per address, 1200 requests, 300 MCP messages, 120 administrative changes and 120 work-starting requests per identity, 12000 per tenant. All configurable (`security` in the configuration); shorter lifetimes for people where company sign-in (OIDC) is available | Longer lifetimes keep leaked tokens useful longer; lower limits may throttle busy integrations. Existing tokens expire one lifetime after the upgrade: owners must plan re-keying |
+
 ## 3. Evaluation: `openpyxl` (for decision XL)
 
 | Check | Result | Evidence |

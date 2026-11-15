@@ -192,8 +192,13 @@ class SchemaConformanceTests(V1Base):  # V5
                   (("POST", "/platform/workspaces/{ws}/members/{name}/revoke"), "POST", f"{ws}/members/v1-zoe/revoke",
                    {"use_case": "v1-case", "reason": "v1"}, 200),
                   (("GET", "/platform/workspaces/{ws}/members"), "GET", f"{ws}/members", None, 200),
+                  (("POST", "/platform/workspaces/{ws}/members/{name}/revoke-token"), "POST",
+                   f"{ws}/members/v1-zoe/revoke-token", {"reason": "v1"}, 200),
                   (("POST", "/platform/workspaces/{ws}/members/{name}/remove"), "POST", f"{ws}/members/v1-zoe/remove",
                    {"reason": "v1"}, 200)]
+        _, _, yan = self.raw("POST", f"{ws}/members", "acme-ada", {"name": "v1-yan", "reason": "v1"})
+        calls2.append((("POST", "/platform/workspaces/{ws}/my-token"), "POST", f"{ws}/my-token", {"reason": "v1"}, 200,
+                       yan["token"]))  # GAP-030: a person replaces her own token
         _, _, g2 = self.raw("POST", f"{ws}/grants", "acme-ada", {"member": "maria", "use_case": "v1-case",
                                                                  "permissions": ["read"], "reason": "v1"})
         calls2.append((("POST", "/platform/workspaces/{ws}/grants/{id}/withdraw"), "POST",

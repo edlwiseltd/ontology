@@ -276,3 +276,32 @@ nothing, to be reviewed and revoked by each customer; (5) `kind` and administrat
 `ADMINISTRATIVE` permission set, the tenancy registry's `by`, the grant workflow.
 IAM-3 evidence (local): full suite 717 OK (2 PostgreSQL tests skipped locally), 95.93 % lines (12,055 statements, 491 missed); ruff clean; mypy 198 (baseline lowered 201 → 198); Studio typecheck, 17 Vitest, build, 33/33 browser checks. CI: see below.
 **IAM CI:** IAM-1 `0008ae4` → [run 75](https://github.com/edlwiseltd/ontology/actions/runs/43745015501) success; IAM-3 `88e5fd7` → [run 76](https://github.com/edlwiseltd/ontology/actions/runs/43746947522) success (workflow conclusion: every job, including `quality` with the lowered mypy baseline and `studio` with 33 browser checks).
+
+## 15 November 2026 — R2 security and reliability sprint, increment A: GAP-030 authentication security
+
+Baseline verified before any change: HEAD `8135abd`, clean and in sync; 717 tests OK (2 PostgreSQL tests skipped
+locally), 95.93 % lines; CI run 77 success.
+
+| Story | Change | Tests | Behaviour change |
+|---|---|---|---|
+| Token lifetimes | New `autology/credentials.py`: `TokenPolicy` (`security.tokens`: `person_days` 90, `service_days` 365, at most 3650) and `CredentialRegistry` (first sight and revocation of every token digest; append-only, chained; `<data_dir>/credentials.db`, or `<store>.credentials` for a standalone engine). `User.expires_at`, `Member.expires_at`; enforced in `AutologyService.authenticate`, `Platform.members_for` and for every MCP message | T1, T2, T5, T6, T7 | **Yes: every API token now expires.** A token that existed before gets one lifetime from the first start of this version (not cut off, not eternal). `401` carries `reason: token_expired` |
+| Revocation and rotation | `POST .../members/<name>/revoke-token` (`token_revoked`); a replaced or revoked token and a removed member's token are retired in the registry for good; `POST .../my-token` lets a person replace their own workspace-level token; services, tenant-level identities and expired tokens cannot | T3, T4 | New routes; rotation never changes grants and gives one lifetime |
+| Rate limits | New `autology/limits.py`: fixed-window `RateLimiter` (classes `auth_failures`, `anonymous` per address; `api`, `mcp`, `admin`, `expensive` per identity; `tenant`), `client_address` (forwarded addresses believed from `trusted_proxies` only); enforced in the router and in `ApiExchange`; `429` + `Retry-After`, code `rate_limited` | R1–R7 | **Yes: requests above the limits get 429.** Defaults are generous (the 717 earlier tests pass unchanged) |
+| Timeouts | `BoundedHTTPServer` (connection ceiling, slow-client timeout) for both servers; `outbound.urlopen` deadline for the whole call (`_Watch`), mapped to an unknown outcome for tools; `WorkAgent.max_seconds` (`security.run_seconds`): a run pauses between steps | S1–S4 | A trickling reply now ends at the deadline (3 × timeout by default); runs longer than 900 s pause and can be resumed |
+| Contract | OpenAPI: two routes, `token_expires_at`, `kind`, member `token` state, `token_policy`, `429` on every operation; Studio types regenerated | `test_api_v1`, `test_api_contract` | Additive |
+
+**Security properties verified by executed tests** (not an independent certification): expired, revoked and
+replaced tokens are refused at every entry point; a refresh by a service, a tenant-level identity, another member or
+with an expired token is refused; rights are unchanged by rotation; limits hold across use cases, API versions and
+entry points and per tenant; forged `X-Forwarded-For` is ignored; MCP follows over HTTP and stdio; a deadline never
+leaves an untracked external effect (journal state `unknown`, reconciliation, no second payment); automations keep
+running as their service identity whatever happens to API tokens.
+**Limits stated:** rate-limit counters and the connection ceiling are per process (single node); the registry and
+the limits are application controls (whoever can delete files in the data directory can reset lifetimes); Studio
+users share the relay's address for the failed-sign-in limit; an administrator who issues a token has seen it
+(company sign-in avoids that); the agent lock is still held for a whole run (GAP-021 stays partly open).
+**Decision to confirm:** D23 (default lifetimes and limits).
+Evidence (local): full suite 744 OK (717 + 27; 2 PostgreSQL tests skipped locally), 95.94 % lines (12,644 statements,
+513 missed; baseline 95.93 %); ruff clean; mypy 198 (= baseline, no new error); Studio typecheck and 17 Vitest OK
+(generated types only). CI: recorded below once the run completes.
+

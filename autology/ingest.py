@@ -397,7 +397,8 @@ class Pipeline:
         for _ in range(MAX_PAGES):
             req = urllib.request.Request(url, headers=headers)
             try:
-                with outbound.urlopen(req, float(src.get("timeout", 30)), extra) as resp:
+                with outbound.urlopen(req, float(src.get("timeout", 30)), extra,
+                                      float(src["deadline"]) if src.get("deadline") else None) as resp:
                     payload = json.loads(outbound.read_limited(resp, limit))
             except urllib.error.HTTPError as exc:
                 where = " (redirect to another origin refused)" if 300 <= exc.code < 400 else ""

@@ -192,6 +192,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/platform/v1/workspaces/{ws}/members/{name}/revoke-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revoke a member's token at once; the member and its grants stay (GAP-030) */
+        post: operations["postWorkspacesWsMembersNameRevokeToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/platform/v1/workspaces/{ws}/members/{name}/token": {
         parameters: {
             query?: never;
@@ -203,6 +220,23 @@ export interface paths {
         put?: never;
         /** Replace a member's token; the new one is returned once */
         post: operations["postWorkspacesWsMembersNameToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/v1/workspaces/{ws}/my-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Replace your own token before it expires; the new one is returned once (GAP-030) */
+        post: operations["postWorkspacesWsMyToken"];
         delete?: never;
         options?: never;
         head?: never;
@@ -512,10 +546,13 @@ export interface components {
             name: string;
             note?: string;
             token: string;
+            token_expires_at?: string | null;
         } & {
             [key: string]: unknown;
         };
         Me: {
+            /** @enum {string} */
+            kind?: "person" | "service";
             member: string;
             tenant?: {
                 id: string;
@@ -524,6 +561,7 @@ export interface components {
                 [key: string]: unknown;
             };
             tenant_admin?: boolean;
+            token_expires_at?: string | null;
             use_cases: ({
                 id: string;
                 name: string;
@@ -565,6 +603,12 @@ export interface components {
             integrity_problem?: string | null;
             members: components["schemas"]["WorkspaceMember"][];
             pending_grants: components["schemas"]["GrantProposal"][];
+            token_policy?: {
+                person_days?: number;
+                service_days?: number;
+            } & {
+                [key: string]: unknown;
+            };
         } & {
             [key: string]: unknown;
         };
@@ -573,6 +617,11 @@ export interface components {
         } & {
             [key: string]: unknown;
         });
+        OptionalReason: {
+            reason?: string;
+        } & {
+            [key: string]: unknown;
+        };
         PublishDraft: {
             reason: string;
             revision: number;
@@ -751,7 +800,12 @@ export interface components {
             kind: "person" | "service";
             name: string;
             /** @enum {string} */
+            scope?: "workspace" | "tenant";
+            /** @enum {string} */
             source: "configuration" | "api";
+            /** @enum {string} */
+            token?: "active" | "expired" | "revoked" | "none";
+            token_expires_at?: string | null;
             use_cases: {
                 [key: string]: components["schemas"]["Grant"];
             };
@@ -807,6 +861,16 @@ export interface operations {
             /** @description Conflict: state, stage or revision */
             409: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -880,6 +944,16 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     getOpenapiJson: {
@@ -923,6 +997,16 @@ export interface operations {
             /** @description Conflict: state, stage or revision */
             409: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -988,6 +1072,16 @@ export interface operations {
             /** @description Conflict: state, stage or revision */
             409: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1061,6 +1155,16 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     postWorkspacesWsGrants: {
@@ -1126,6 +1230,16 @@ export interface operations {
             /** @description Conflict: state, stage or revision */
             409: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1204,6 +1318,16 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     postWorkspacesWsGrantsIdWithdraw: {
@@ -1270,6 +1394,16 @@ export interface operations {
             /** @description Conflict: state, stage or revision */
             409: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1343,6 +1477,16 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     postWorkspacesWsMembers: {
@@ -1408,6 +1552,16 @@ export interface operations {
             /** @description Conflict: state, stage or revision */
             409: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1486,6 +1640,16 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     postWorkspacesWsMembersNameRevoke: {
@@ -1552,6 +1716,98 @@ export interface operations {
             /** @description Conflict: state, stage or revision */
             409: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    postWorkspacesWsMembersNameRevokeToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReleaseDecision"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Members"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Permission or checkpoint refused */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found or not visible */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict: state, stage or revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1630,6 +1886,97 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    postWorkspacesWsMyToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OptionalReason"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssuedToken"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Permission or checkpoint refused */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found or not visible */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict: state, stage or revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     getWorkspacesWsUseCases: {
@@ -1691,6 +2038,16 @@ export interface operations {
             /** @description Conflict: state, stage or revision */
             409: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1768,6 +2125,16 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     getWorkspacesWsUseCasesUc: {
@@ -1830,6 +2197,16 @@ export interface operations {
             /** @description Conflict: state, stage or revision */
             409: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1900,6 +2277,16 @@ export interface operations {
             /** @description Conflict: state, stage or revision */
             409: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -1978,6 +2365,16 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     getWorkspacesWsUseCasesUcReleases: {
@@ -2040,6 +2437,16 @@ export interface operations {
             /** @description Conflict: state, stage or revision */
             409: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2118,6 +2525,16 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     getWorkspacesWsUseCasesUcReleasesN: {
@@ -2181,6 +2598,16 @@ export interface operations {
             /** @description Conflict: state, stage or revision */
             409: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2260,6 +2687,16 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     postWorkspacesWsUseCasesUcReleasesNApprove: {
@@ -2327,6 +2764,16 @@ export interface operations {
             /** @description Conflict: state, stage or revision */
             409: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2406,6 +2853,16 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     postWorkspacesWsUseCasesUcReleasesNRevoke: {
@@ -2473,6 +2930,16 @@ export interface operations {
             /** @description Conflict: state, stage or revision */
             409: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2551,6 +3018,16 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     postWorkspacesWsUseCasesUcStage: {
@@ -2617,6 +3094,16 @@ export interface operations {
             /** @description Conflict: state, stage or revision */
             409: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {

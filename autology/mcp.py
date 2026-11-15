@@ -48,11 +48,12 @@ INSTRUCTIONS = ("Tools over an Autology ontology: business objects, governed age
 
 
 class McpServer:
-    def __init__(self, service: Any, user: Any):
+    def __init__(self, service: Any, user: Any, limited: bool = True):
         from .chat import redacted_refs, tools_for
 
         self.service = service
         self.user = user
+        self.limited = limited  # False when the caller already counted the message (MCP over HTTP)
         self.tools = {t["name"]: t for t in tools_for(service, user)}
         self.refs = redacted_refs(service)
 
@@ -61,6 +62,19 @@ class McpServer:
         method, mid = message.get("method"), message.get("id")
         if mid is None:  # a notification (initialized, cancelled...): nothing to answer
             return None
+        # A session outlives one request, so every message is checked like a request (GAP-030): the token must
+        # still be the member's, neither expired nor revoked, and within the identity's MCP rate limit.
+        refused = self.service.current(self.user)
+        if refused:
+            self.service.log_access(self.user, "mcp", str(method)[:100], 401)
+            return {"jsonrpc": "2.0", "id": mid, "error": {"code": -32001, "message": f"sign-in ended: {refused}"}}
+        if self.limited:
+            wait = self.service.limiter.hit("mcp", self.service.limit_scope + self.user.name)
+            if wait:
+                self.service.log_access(self.user, "mcp", str(method)[:100], 429)
+                return {"jsonrpc": "2.0", "id": mid, "error": {
+                    "code": -32029, "message": f"too many MCP messages by {self.user.name}: retry in {wait} s",
+                    "data": {"retry_after_seconds": wait}}}
         try:
             if method == "initialize":
                 asked = (message.get("params") or {}).get("protocolVersion")

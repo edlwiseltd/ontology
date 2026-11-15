@@ -18,6 +18,15 @@
 | IAM-1: tenants own workspaces; versioned tenancy registry; migration into dedicated tenants | `0008ae4` | `tests/test_iam1_tenants.py`; CI run 75 |
 | IAM-3: administrators carry no business-data access; explicit approved grants; migration; GAP-061 fixed | `88e5fd7` | `tests/test_iam3_privilege_separation.py`; 33/33 browser checks; CI run 76 |
 
+## R2 security and reliability sprint (in progress)
+
+| Increment | Status | Evidence |
+|---|---|---|
+| A — GAP-030: token lifetimes, revocation, rotation, rate limits, timeouts | Done | `tests/test_gap030_security.py` (27 tests); see the implementation log |
+| B — IAM administrative security | Next | |
+| C — Backup, restore and release activation | Pending | |
+| D — Studio tenant and membership administration | Pending | |
+
 ## Waiting for the owner
 
 | Item | Needs |
@@ -27,7 +36,8 @@
 | Counsel's answers L1–L9 (D19) | GAP-031 closure; distribution stays blocked |
 | Review the migrated administrator grants (IAM-3) in each existing workspace | Revoke those not needed |
 | D22b–e; authorisation for IAM-2, IAM-4, IAM-5, IAM-6 | Not started, by instruction |
-| Next increment authorisation | Members and tenant screen in Studio, GAP-030 (token expiry, rate limiting), readiness (REL-3), AI-1 once D7/D10 are configured |
+| D23: confirm default token lifetimes (90 d people, 365 d services) and rate limits | Existing tokens expire one lifetime after the upgrade: plan re-keying |
+| Next increment authorisation | Readiness (REL-3), AI-1 once D7/D10 are configured |
 
 ## Hard limits (unchanged)
 

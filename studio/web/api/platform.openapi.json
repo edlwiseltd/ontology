@@ -301,6 +301,12 @@
           },
           "token": {
             "type": "string"
+          },
+          "token_expires_at": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -312,6 +318,13 @@
       "Me": {
         "additionalProperties": true,
         "properties": {
+          "kind": {
+            "enum": [
+              "person",
+              "service"
+            ],
+            "type": "string"
+          },
           "member": {
             "type": "string"
           },
@@ -333,6 +346,12 @@
           },
           "tenant_admin": {
             "type": "boolean"
+          },
+          "token_expires_at": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "use_cases": {
             "items": {
@@ -478,6 +497,18 @@
               "$ref": "#/components/schemas/GrantProposal"
             },
             "type": "array"
+          },
+          "token_policy": {
+            "additionalProperties": true,
+            "properties": {
+              "person_days": {
+                "type": "number"
+              },
+              "service_days": {
+                "type": "number"
+              }
+            },
+            "type": "object"
           }
         },
         "required": [
@@ -505,6 +536,16 @@
             "type": "object"
           }
         ]
+      },
+      "OptionalReason": {
+        "additionalProperties": true,
+        "properties": {
+          "reason": {
+            "maxLength": 500,
+            "type": "string"
+          }
+        },
+        "type": "object"
       },
       "PublishDraft": {
         "additionalProperties": true,
@@ -1148,12 +1189,34 @@
           "name": {
             "type": "string"
           },
+          "scope": {
+            "enum": [
+              "workspace",
+              "tenant"
+            ],
+            "type": "string"
+          },
           "source": {
             "enum": [
               "configuration",
               "api"
             ],
             "type": "string"
+          },
+          "token": {
+            "enum": [
+              "active",
+              "expired",
+              "revoked",
+              "none"
+            ],
+            "type": "string"
+          },
+          "token_expires_at": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "use_cases": {
             "additionalProperties": {
@@ -1232,6 +1295,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "security": [],
@@ -1312,6 +1392,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "The caller's workspace and the use cases they may open; their tenant and every workspace they belong to (choose one with ?workspace=)",
@@ -1362,6 +1459,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "security": [],
@@ -1432,6 +1546,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Approved templates",
@@ -1511,6 +1642,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "The caller's tenant: its workspaces (their own, or all for a tenant administrator) (IAM-1)",
@@ -1600,6 +1748,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Propose a grant; it takes effect once another person with authority approves it",
@@ -1697,6 +1862,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Approve a grant proposal (D11)",
@@ -1794,6 +1976,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Withdraw a grant proposal",
@@ -1873,6 +2072,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Members, their grants, pending grant proposals and the administration history (ADM-1)",
@@ -1960,6 +2176,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Add a member; the token is returned once",
@@ -2057,6 +2290,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Remove a member",
@@ -2154,9 +2404,140 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Revoke a member's grant on one use case, at once",
+        "x-autology-permission": "workspace admin (person)"
+      }
+    },
+    "/platform/v1/workspaces/{ws}/members/{name}/revoke-token": {
+      "post": {
+        "operationId": "postWorkspacesWsMembersNameRevokeToken",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ws",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReleaseDecision"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Members"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Missing or invalid token"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Permission or checkpoint refused"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not found or not visible"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Revoke a member's token at once; the member and its grants stay (GAP-030)",
         "x-autology-permission": "workspace admin (person)"
       }
     },
@@ -2251,10 +2632,133 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Replace a member's token; the new one is returned once",
         "x-autology-permission": "workspace admin (person)"
+      }
+    },
+    "/platform/v1/workspaces/{ws}/my-token": {
+      "post": {
+        "operationId": "postWorkspacesWsMyToken",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ws",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OptionalReason"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssuedToken"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Missing or invalid token"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Permission or checkpoint refused"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not found or not visible"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Replace your own token before it expires; the new one is returned once (GAP-030)",
+        "x-autology-permission": "member (person, workspace-level)"
       }
     },
     "/platform/v1/workspaces/{ws}/use-cases": {
@@ -2330,6 +2834,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Use cases of the caller's workspace",
@@ -2417,6 +2938,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Create a use case from a template",
@@ -2504,6 +3042,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "One use case with its stage history",
@@ -2599,6 +3154,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Checks of a target stage",
@@ -2696,6 +3268,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Make a saved, valid draft revision this use case's ontology, then reload; needs a release to run (STU-6)",
@@ -2783,6 +3372,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Releases, the active one, and whether the running configuration drifted (REL-1a)",
@@ -2878,6 +3484,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Propose a release of the configuration the engine runs now",
@@ -2973,6 +3596,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "One release (with its snapshot for administrators and release approvers)",
@@ -3078,6 +3718,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Activate an approved release that is exactly what runs (a rollback when it is older)",
@@ -3183,6 +3840,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Approve a release, bound to its fingerprint (D11)",
@@ -3288,6 +3962,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Put an approved release's ontology back and reload; activate the release afterwards to roll back",
@@ -3393,6 +4084,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Revoke an approval before activation",
@@ -3490,6 +4198,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Reload the engine from its files without a restart; not an activation (ADM-2)",
@@ -3587,6 +4312,23 @@
               }
             },
             "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Move one stage",

@@ -9,7 +9,7 @@ from unittest import mock
 from autology import Ontology, ReviewDecision, WorkAgent
 from autology.adapters import load_tools
 from autology.agent import DeferredApprover
-from autology.audit import AuditEntry, AuditLog, _digest
+from autology.audit import AuditLog, _digest
 
 from .test_platform import CASE, EX, add_big_order, service
 

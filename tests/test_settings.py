@@ -99,7 +99,7 @@ class SettingsTests(unittest.TestCase):
         self.assertIs(self.svc.ontology_summary(hana)["assistant"], True)
         fake = fake_anthropic()
         with mock.patch.dict(sys.modules, {"anthropic": fake}):
-            self.svc.chat.backend.client  # the engine builds its Claude client with the key from the Console
+            self.svc.chat.backend.client  # noqa: B018 - the engine builds its Claude client with the key from the Console
         self.assertEqual(fake.keys, [KEY])
         # the key is in the owner-only secrets file, not in the database or the access log
         self.assertEqual(json.loads(self.secrets.read_text())["anthropic_api_key"], KEY)

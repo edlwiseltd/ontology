@@ -31,7 +31,7 @@ from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Proto
 
 from .audit import AuditLog
 from .governance import Decision, GovernanceLayer, IntegrityError, Principal, Verdict
-from .ontology import STATUS, ActionType, Ontology, OntologyError, type_ok
+from .ontology import STATUS, Ontology, OntologyError, type_ok
 from .effects import (DONE, FAILED, NEEDS_PERSON, NOT_SENT, PENDING, REJECTED, REPLAY, RESOLVED_DONE,
                       RESOLVED_NOT_DONE, UNKNOWN, MemoryJournal, idempotency_key, inputs_digest)
 from .planner import Planner, SearchBudgetExceeded, apply_outcome

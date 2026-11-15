@@ -10,7 +10,7 @@ from autology.server import ApiError
 from .test_platform import CASE, EX, add_big_order, service
 
 
-def crashing_tools(capability="logistics.ship", exc=RuntimeError("carrier API returned garbage")):
+def crashing_tools(capability="logistics.ship", exc=RuntimeError("carrier API returned garbage")):  # noqa: B008
     tools = load_tools(EX / "tools.json")
 
     def boom(call):

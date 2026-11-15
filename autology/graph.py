@@ -11,9 +11,9 @@ interface with a graph database (Neo4j, Neptune) synced by ETL.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
-from .expressions import Expression, compile_expression
+from .expressions import Expression
 from .ontology import ID, PARAMS, STATUS, CompetencyQuestion, Ontology, OntologyError, check_types
 
 

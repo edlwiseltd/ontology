@@ -7,7 +7,7 @@ import unittest
 from autology import AutoApprover, Ontology, OntologyError, WorkAgent
 from autology.adapters import load_tools
 from autology.expressions import compile_expression
-from autology.governance import GovernanceLayer, Principal, Verdict
+from autology.governance import GovernanceLayer, Principal
 from autology.graph import KnowledgeGraph
 from autology.state import WorldState
 

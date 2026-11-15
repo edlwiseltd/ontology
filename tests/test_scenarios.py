@@ -1,6 +1,5 @@
 """Tier 2: what-if scenarios on a fork of the knowledge graph."""
 
-import copy
 import io
 import json
 import tempfile

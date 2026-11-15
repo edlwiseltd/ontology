@@ -124,7 +124,6 @@ class PlatformTests(unittest.TestCase):
     def test_a_service_member_cannot_approve_through_the_router(self):  # A2
         def patch(s):
             acme = s["workspaces"]["acme"] if isinstance(s["workspaces"], dict) else s["workspaces"][0]
-            ada = next(m for m in acme["members"] if m["name"].startswith("ada"))
             ivan = next(m for m in acme["members"] if m["name"] == "ivan")  # an SIU reviewer on the claims use case
             bot = {**json.loads(json.dumps(ivan)), "name": "bot@acme", "kind": "service", "token_env": "ACME_BOT_TOKEN"}
             acme["members"].append(bot)

@@ -25,3 +25,11 @@ packages = ["autology"]
 
 [tool.setuptools.package-data]
 autology = ["static/*", "console_static/*", "blueprints/*.json"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+# QA-1 (GAP-025): rules that find bugs, not style. CI fails on any of them.
+select = ["E9", "F", "B006", "B008", "B012", "B015", "B018"]

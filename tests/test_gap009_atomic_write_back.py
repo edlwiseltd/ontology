@@ -9,7 +9,6 @@ nothing and is completed by recovery. These are local records only: effects in o
 the external-effects journal, confirmation and reconciliation.
 """
 
-import copy
 import json
 import sqlite3
 import unittest

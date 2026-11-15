@@ -1,17 +1,14 @@
 """Review item 5: a human review must be decided by a human other than the requester."""
 
-import copy
-import io
 import json
 import tempfile
 import unittest
-from contextlib import redirect_stdout
 from pathlib import Path
 
 from autology import AutoApprover, Ontology, WorkAgent
 from autology.adapters import load_tools
 from autology.reporting import compliance_report
-from autology.server import ApiError, AutologyService, hash_token
+from autology.server import ApiError, hash_token
 
 from .test_platform import CASE, EX, _Api, add_big_order, service
 

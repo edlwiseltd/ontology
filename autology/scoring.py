@@ -20,7 +20,7 @@ says what evidence to add. It also checks the roadmap's phase gates
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional, Sequence
+from typing import Any, Dict, Iterable, List, Optional
 
 from .lint import lint
 from .ontology import Ontology

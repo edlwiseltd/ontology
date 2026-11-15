@@ -94,7 +94,6 @@ def metrics(results: Iterable[RunResult]) -> Metrics:
     results = list(results)
     n = len(results)
     by_status = Counter(r.status for r in results)
-    reviewed = [r for r in results if r.audit.events("review")]
     # a run parked for a review needs a person before it can finish: that is a human intervention too
     human = [r for r in results if r.audit.events("review") or r.status in HUMAN_STATUSES
              or r.status == "awaiting_review"]

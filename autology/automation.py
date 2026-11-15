@@ -40,7 +40,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence
 
-from .expressions import Expression, ExpressionError, compile_expression
+from .expressions import Expression, ExpressionError
 from .graph import Instance
 from .ontology import ID, PARAMS, Ontology, OntologyError
 

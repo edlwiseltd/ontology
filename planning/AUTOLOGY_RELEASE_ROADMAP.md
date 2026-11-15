@@ -51,7 +51,7 @@ finish execution gates, release governance, workspace administration and the API
 | API-2 | `/api/v1` paths, deprecation policy, version header | UIs upgrade independently | Old paths answer with a deprecation header for one release | 1 d — **done 15 Nov** (`/api/v1`, `/platform/v1`, `docs/api-versioning.md`); legacy paths deprecated, no removal date (owner decision) |
 | ARC-0 | Split `AutologyService` into services behind the route table (GAP-026) | The new services (admin, releases, architect, imports) would otherwise grow the god object | No behaviour change: the full suite passes unchanged | 5–8 d |
 | MIG-1 | Ordered migrations in one transaction (GAP-041) | R2 adds several tables | An interrupted migration leaves the old schema intact | 1 d |
-| QA-1 | mypy, ruff and pip-audit in CI (GAP-025); pinned constraints (GAP-040) | Larger surface, more contributors | CI fails on new type errors or known High vulnerabilities | 2–3 d |
+| QA-1 | mypy, ruff and pip-audit in CI (GAP-025); pinned constraints (GAP-040) | Larger surface, more contributors | CI fails on new type errors or known High vulnerabilities | 2–3 d — **done 15 Nov:** CI job `quality` (ruff bug rules, mypy ratchet at 201, pip-audit), `npm audit` in the studio job, actions pinned by SHA, base image by digest |
 | AI-1 | Provider-neutral model adapter contract, validated with two adapters (D7) | The architect needs a model | The same eval suite passes with both adapters; adapter errors never escape (GAP-029). Real-provider runs need API keys from the owner | 3 d + API cost |
 | UI-1 | Review inbox moved out of the engine process | Completes the UI separation | The engine serves only the API | 1 d |
 

@@ -3,7 +3,7 @@
 import json
 import unittest
 
-from autology import DeferredApprover, ToolRegistry, ToolResult, WorkAgent
+from autology import DeferredApprover, ToolResult, WorkAgent
 from autology.adapters import load_tools
 from autology.server import AutologyService
 

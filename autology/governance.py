@@ -28,7 +28,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, FrozenSet, List, Optional, Tuple
 
-from .ontology import ID, ActionType, Ontology, Rule
+from .ontology import ID, Ontology, Rule
 from .state import GroundAction, WorldState, ground, ground_name
 
 REDACTED = "***redacted***"

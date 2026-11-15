@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import copy as _copy
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from .governance import GovernanceLayer, Principal, Verdict
 from .graph import Instance, KnowledgeGraph, build_case, fork, snapshot, write_back

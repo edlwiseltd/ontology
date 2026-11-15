@@ -43,7 +43,7 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from .ontology import ID, STATUS, Ontology, OntologyError
 
@@ -400,7 +400,7 @@ class Pipeline:
                 with outbound.urlopen(req, float(src.get("timeout", 30)), extra) as resp:
                     payload = json.loads(outbound.read_limited(resp, limit))
             except urllib.error.HTTPError as exc:
-                where = f" (redirect to another origin refused)" if 300 <= exc.code < 400 else ""
+                where = " (redirect to another origin refused)" if 300 <= exc.code < 400 else ""
                 raise fail(f"{outbound.safe_url(url)} answered HTTP {exc.code}{where}") from None
             except outbound.OutboundError as exc:
                 raise fail(f"{outbound.safe_url(url)}: {exc}") from None

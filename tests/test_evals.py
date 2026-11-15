@@ -1,16 +1,13 @@
 """Tier 2: evaluation harness for reasoners."""
 
-import copy
 import io
 import json
 import random
-import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from types import SimpleNamespace
 
-from autology import OntologyError
 from autology.__main__ import main as cli
 from autology.evals import Check, _make_reasoner, check, load_suite, run_suite
 from autology.reasoners import FunctionChatModel, LLMReasoner, PlanFollowingReasoner

@@ -46,6 +46,11 @@ docker exec autology autology backup /config/server.json /data/backups/2026-11-1
 self-contained file, then opens the copy and checks the schema and **every run's audit chain**; the command exits
 with 2 if any chain does not verify. Copy the file off the machine (object storage, another host).
 
+**Updating pinned components (QA-1).** The base image is pinned by digest in the `Dockerfile` and GitHub Actions
+by commit SHA in `.github/workflows/`; update them deliberately (new digest or SHA, with the version in the comment),
+then rebuild and let CI's licence and vulnerability checks run. `deploy/mypy-baseline.txt` may only go down:
+after fixing type errors, run `python deploy/mypy_ratchet.py --update`.
+
 **Restore:** stop the server, replace `/data/autology.db` with the backup (and delete any `autology.db-wal` and
 `autology.db-shm` next to it), start the server. The audit chains only verify with the same `AUTOLOGY_AUDIT_KEY`,
 so keep that key with the backups' recovery instructions, not with the backups.

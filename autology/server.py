@@ -174,13 +174,14 @@ class AutologyService:
                 handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
                 root.addHandler(handler)
             root.setLevel(min(root.level or logging.INFO, logging.INFO))
-        from .audit import KEY_ENV, audit_key
+        from .audit import KEY_ENV
 
         if self.audit_key is None and not self.simulation:
             raise ValueError(f"set {KEY_ENV} to a secret so the audit chain is keyed (HMAC); without it anyone who "
                              "can edit the store can rewrite the log undetected")
         # set by the platform: () -> the use case's effective stage (see execution_policy)
-        self.stage_gate: Optional[Callable[[], Optional[str]]] = None
+        # the platform answers the stage, or (stage, reason) when it can say why (drift, broken history)
+        self.stage_gate: Optional[Callable[[], Any]] = None
         self.agents: Dict[str, AgentConfig] = {}
         for name, spec in (config.get("agents") or {}).items():
             delegates = [WorkAgent(d["name"], self.ontology, load_tools(rel(d["tools"])), roles=d.get("roles", []),
@@ -289,7 +290,7 @@ class AutologyService:
         from .views import ViewPolicy
 
         self.views = ViewPolicy(self)  # what each user may see of runs and reviews
-        from .chat import GovernedChat, load_backend
+        from .chat import GovernedChat
 
         self.tracing = dict(config.get("tracing") or {})
         if self.tracing and urlparse(str(self.tracing.get("endpoint", ""))).scheme not in ("http", "https"):
@@ -756,7 +757,7 @@ class AutologyService:
         the in-memory graph changes only after that transaction commits. A failure leaves every record as it was
         and the write-back pending: recovery completes it (it is idempotent). This covers local records only:
         effects in other systems go through the external-effects journal and reconciliation, never this."""
-        from .graph import advance_base, plan_write_back
+        from .graph import plan_write_back
         from .store import WriteSetConflict
 
         base = linked["base"] or {}
@@ -864,7 +865,6 @@ class AutologyService:
         self.store.close()
 
     def health(self) -> Dict[str, Any]:
-        from .audit import audit_key
 
         tampered = self.tampered_records()
         out = {"status": "degraded" if self.quarantined or tampered else "ok", "ontology": self.ontology.ref,
@@ -2077,7 +2077,6 @@ class AutologyService:
         return self._scenario_view(sid, self.store.get_scenario(sid), scenario, user)
 
     def compare_scenario(self, user: User, sid: str, body: Dict[str, Any]) -> Dict[str, Any]:
-        from .scenarios import ScenarioError
 
         self.require(user, "read")
         row, scenario = self._load_scenario(sid, user)

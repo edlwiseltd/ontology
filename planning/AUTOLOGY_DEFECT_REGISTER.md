@@ -8,12 +8,12 @@ reproduces the audit's finding passes in CI; it has not been re-verified by an i
 | Status | Count |
 |---|---|
 | Fixed | 22 |
-| Open | 22 |
+| Open | 21 |
 | Open (external evidence) | 5 |
 | Open (owner decision) | 2 |
-| Partly fixed | 8 |
+| Partly fixed | 9 |
 
-*Counts updated 15 November 2026 (H-1: GAP-058, GAP-059 added and fixed; REL-1a: GAP-020 fixed; ADM-1/2 and STU-6: GAP-030, GAP-056 partly fixed, GAP-051 updated).* **High gaps not
+*Counts updated 15 November 2026 (H-1: GAP-058, GAP-059 added and fixed; REL-1a: GAP-020 fixed; ADM-1/2 and STU-6: GAP-030, GAP-056 partly fixed, GAP-051 updated; QA-1: GAP-025 partly fixed, GAP-040 updated).* **High gaps not
 fully fixed:** GAP-031 (waits for legal sign-off, D19), GAP-032 (ERP connector), GAP-052 (real models) and GAP-053
 (real process), which need external systems, keys or a customer. GAP-009 and GAP-018 are **Fixed** (repository-
 verified; independent re-verification open): GAP-009's atomicity is local, there is no compensation towards
@@ -46,7 +46,7 @@ and closure criteria: [the clarification note](AUTOLOGY_PARTIAL_GAPS_CLARIFICATI
 | GAP-022 | One failing deferred run aborts the scheduler tick | Med | **Open** |  | R2 (small): isolate each deferred run in a tick |
 | GAP-023 | Full-table scans and N+1 deserialisation on common endpoints | Med | **Open** |  | R3 (indexed queries, pagination) |
 | GAP-024 | No load, soak or capacity tests | Med | **Open (external evidence)** |  | R4 OPS-2 load test with agreed targets |
-| GAP-025 | No type checking, linting or dependency scanning in CI; 165 mypy errors | Med | **Open** |  | R2: mypy, ruff and pip-audit in CI |
+| GAP-025 | No type checking, linting or dependency scanning in CI; 165 mypy errors | Med | **Partly fixed** | QA-1 (see log) | CI job `quality`: ruff (bug-finding rules, `pyproject.toml`; 42 findings fixed), a mypy ratchet (`deploy/mypy_ratchet.py`, baseline 201 errors on 15 Nov: the count may only go down), pip-audit on the image's pins, `npm audit` for Studio. Open: the 201 existing type errors |
 | GAP-026 | `AutologyService` god object (1,232 lines, 87 methods); `_dispatch` CC 78; `_validate` CC 111 | Med | **Open** |  | R2: split the service (the god object grew in R1) |
 | GAP-027 | JSON-LD export crashes on computed effects; IRIs differ between formats; Turtle breaks on spaces; both lossy | Med | **Open** |  | R3 |
 | GAP-028 | Semantic diff ignores impact rules, scheduling, question contents, settings, descriptions | Med | **Open** |  | R2: needed by REL-1 (release diffs) |
@@ -61,7 +61,7 @@ and closure criteria: [the clarification note](AUTOLOGY_PARTIAL_GAPS_CLARIFICATI
 | GAP-037 | `ingest` permission can change facts rules depend on (e.g. lower an amount below a review threshold) | Med | **Open** |  | Documented as privileged; per-attribute ingest rights in R3 |
 | GAP-038 | Expressions: unbounded string/tuple repetition; list-literal equality; negated comparisons on missing data are true | Low–Med | **Open** |  | R3 |
 | GAP-039 | Escalation roles `operations`, `security`, `it-integration` hard-coded | Low | **Open** |  | R2 (small) |
-| GAP-040 | Unpinned `anthropic` (uses beta parameters), `ortools` undeclared, Docker installs unpinned, actions not SHA-pinned | Med | **Partly fixed** | LEG-1 inventory | Licences inventoried; versions still unpinned: R2 lock/constraints file |
+| GAP-040 | Unpinned `anthropic` (uses beta parameters), `ortools` undeclared, Docker installs unpinned, actions not SHA-pinned | Med | **Partly fixed** | Increment C; QA-1 (see log) | Image pins (`deploy/image-constraints.txt`), base image pinned by digest, GitHub Actions pinned by commit SHA, pip and the QA tools pinned in CI, licences inventoried. Open: hashes (`--require-hashes`), the unpinned `anthropic` extra in `pyproject.toml` (libraries keep ranges; applications pin) |
 | GAP-041 | Schema migrations run outside a transaction, no ordered steps | Low | **Open** |  | R2: ordered migrations in a transaction (three more were added in R1: schema 11, 12) |
 | GAP-042 | 56 MB of unrelated `.claude/skills` content and video notes in the repository | Low | **Open** |  | R2 (small): move unrelated content out |
 | GAP-043 | Stale docs (methodology test count, autology.md multi-instance, ontology-concepts on pipelines; date types "checked"); one undocumented route | Low | **Partly fixed** |  | Docs updated with every R1 story; docs-claims checklist in CI open |

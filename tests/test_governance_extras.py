@@ -236,7 +236,7 @@ class TracingTests(unittest.TestCase):
         self.assertEqual(run_spans(escalated, "e")[0]["status"]["code"], 2)
 
     def test_deferred_and_tool_errors(self):
-        from autology import ToolError, ToolRegistry
+        from autology import ToolError
 
         doc = copy.deepcopy(DOC)
         doc["actions"]["pick_order"]["on_failure"] = {"max_attempts": 3, "backoff_seconds": 3600,

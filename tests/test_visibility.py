@@ -1,6 +1,5 @@
 """Review item 2: row, field and checkpoint rules cover runs, reviews and question answers."""
 
-import copy
 import json
 import tempfile
 import unittest

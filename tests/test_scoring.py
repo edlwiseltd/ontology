@@ -12,7 +12,7 @@ from autology.__main__ import main as cli
 from autology.graph import KnowledgeGraph
 from autology.scoring import GRADES, _linear, score_deployment, score_ontology
 
-from .helpers import MFG, MFG_ONTOLOGY, ONTOLOGY_PATH, load_doc, manufacturing_tools as mt, order_case, \
+from .helpers import MFG, MFG_ONTOLOGY, load_doc, manufacturing_tools as mt, order_case, \
     supplier_case
 
 

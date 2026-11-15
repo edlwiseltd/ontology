@@ -10,7 +10,7 @@ from autology import AutoApprover, Ontology, OntologyError, Proposal, WorkAgent
 from autology.graph import KnowledgeGraph
 from autology.impact import ImpactAgent
 from autology.ontology import load_document
-from autology.scheduling import (Assignment, Job, ListScheduler, Problem, Schedule, ScheduleAgent, Task, build_problem,
+from autology.scheduling import (Job, ListScheduler, Problem, Schedule, ScheduleAgent, Task, build_problem,
                                  clone_job, default_solver, gantt_html, gantt_text, scheduling_tools, validate_schedule)
 
 from .helpers import ROOT

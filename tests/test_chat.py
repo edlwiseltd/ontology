@@ -12,7 +12,7 @@ from autology.chat import (AnthropicChatBackend, ChatTurn, GovernedChat, Scripte
                            echo_content, load_backend, tools_for)
 from autology.server import ApiError
 
-from .test_platform import TOKENS, _Api, service
+from .test_platform import _Api, service
 
 
 def last_results(messages):

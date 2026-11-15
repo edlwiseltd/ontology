@@ -16,7 +16,7 @@ from autology.graph import Instance, KnowledgeGraph, build_case
 from autology.store import SCHEMA_VERSION, Store
 from autology.server import ApiError
 
-from .test_platform import EX, TOKENS, _Api, service
+from .test_platform import EX, _Api, service
 
 DATA = json.loads((EX / "data.json").read_text())
 DOC = json.loads((EX / "ontology.json").read_text())

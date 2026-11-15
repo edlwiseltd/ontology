@@ -35,12 +35,15 @@ there with the licence its own metadata states, and that none is under a licence
 | importlib-metadata | Apache-2.0 | CI only: dependency of opentelemetry-api on some versions | no |  |
 | isodate | BSD-3-Clause | CI only: dependency of rdflib on some versions | no |  |
 | jiter | MIT | dependency of anthropic | Docker image |  |
+| mypy | MIT | CI only: type-checking ratchet (QA-1) | no |  |
 | numpy | BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0 | dependency of anthropic (in the image) and of ortools (CI) | no |  |
 | openpyxl | MIT | approved for the Excel template factory (XL-1, R2); not used yet | not yet |  |
 | opentelemetry-api | Apache-2.0 | dependency of anthropic (in the image) and of ortools (CI) | Docker image |  |
 | ortools | Apache-2.0 | CI only: the scheduling example's CP-SAT solver tests | no |  |
 | packaging | Apache-2.0 OR BSD-2-Clause | CI and release: dependency of build | no |  |
 | pandas | BSD-3-Clause | dependency of anthropic (in the image) and of ortools (CI) | no |  |
+| pip | MIT | CI: the installer itself, pinned | no |  |
+| pip-audit | Apache-2.0 | CI only: known-vulnerability scan of the image's pins (QA-1) | no |  |
 | protobuf | BSD-3-Clause | dependency of anthropic (in the image) and of ortools (CI) | no |  |
 | psycopg | LGPL-3.0-only | optional extra 'postgres': SQL pipelines and the reporting database | Docker image (default build; not in the EXTRAS=llm build) | LGPL obligations for a bundled, unmodified library: keep its licence text in the image and allow it to be replaced. Confirm with counsel before distributing the image |
 | psycopg-binary | LGPL-3.0-only | binary build of psycopg (bundles libpq, PostgreSQL licence) | Docker image (default build; not in the EXTRAS=llm build) | as psycopg; libpq is under the PostgreSQL licence (permissive) |
@@ -53,6 +56,7 @@ there with the licence its own metadata states, and that none is under a licence
 | pytz | MIT | CI only: dependency of pandas on some versions | no |  |
 | pyyaml | MIT | optional extra 'yaml': YAML ontologies | not in the image |  |
 | rdflib | BSD-3-Clause | CI only: RDF/OWL export tests | no |  |
+| ruff | MIT | CI only: lint gate (QA-1) | no |  |
 | setuptools | MIT | build backend | no |  |
 | six | MIT | CI only: dependency of python-dateutil | no |  |
 | sniffio | MIT OR Apache-2.0 | dependency of anthropic | Docker image |  |

@@ -1,7 +1,6 @@
 """Tier 3 delivery: online backups, the --store override, and the packaging the Docker image relies on."""
 
 import io
-import json
 import os
 import sqlite3
 import tempfile

@@ -57,7 +57,7 @@ import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
-from typing import Any, Callable, Dict, Mapping, Optional, Tuple, Union
+from typing import Any, Callable, Mapping, Optional, Tuple, Union
 
 from .agent import AutoApprover, ConsoleApprover, ReviewDecision, ReviewRequest
 from .reasoners import ClaudeReasoner, PlanFollowingReasoner, RoutingReasoner

@@ -16,7 +16,7 @@ from autology.__main__ import main as cli
 from autology.sdk import _free, _pascal, _snake, generate, names
 
 from .helpers import ROOT
-from .test_platform import BIG_ORDER_RUN, EX, TOKENS, _Api, add_big_order, service
+from .test_platform import EX, TOKENS, _Api, add_big_order, service
 
 ONTOLOGIES = [EX / "ontology.json", ROOT / "examples/scheduling/ontology.json",
               ROOT / "examples/manufacturing/enterprise.json", ROOT / "examples/customer_onboarding/ontology.json",

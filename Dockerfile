@@ -3,7 +3,8 @@
 #   docker build -t autology .
 #   docker run -p 8800:8800 -v "$PWD/config:/config:ro" -v autology-data:/data \
 #     -e AUTOLOGY_AUDIT_KEY=... -e AUTOLOGY_TOKEN_ADMIN=... autology
-FROM python:3.13-slim
+# pinned by digest (QA-1, audit F-06): the same base image on every build; update deliberately
+FROM python:3.13-slim@sha256:e48f59cdba69a3cbd9ed2cf0f348d90d45a8d350d98134cf1070bc106ee9ed90
 # Which optional extras the image installs. The default is unchanged; "llm" builds an image without the LGPL
 # PostgreSQL driver (no SQL pipelines or PostgreSQL reporting target); "" installs the engine alone. See
 # planning/AUTOLOGY_PARTIAL_GAPS_CLARIFICATION.md (GAP-031) before distributing any image.

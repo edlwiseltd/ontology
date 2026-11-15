@@ -5,7 +5,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from autology import Ontology, WorkAgent
 from autology.reasoners import PlanFollowingReasoner, Proposal
 from autology.server import ApiError
 

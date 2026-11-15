@@ -327,6 +327,30 @@
       "family": "permissive",
       "use": "CI and release on Python 3.10: dependency of build",
       "shipped": "no"
+    },
+    "mypy": {
+      "licence": "MIT",
+      "family": "permissive",
+      "use": "CI only: type-checking ratchet (QA-1)",
+      "shipped": "no"
+    },
+    "pip": {
+      "licence": "MIT",
+      "family": "permissive",
+      "use": "CI: the installer itself, pinned",
+      "shipped": "no"
+    },
+    "pip-audit": {
+      "licence": "Apache-2.0",
+      "family": "permissive",
+      "use": "CI only: known-vulnerability scan of the image's pins (QA-1)",
+      "shipped": "no"
+    },
+    "ruff": {
+      "licence": "MIT",
+      "family": "permissive",
+      "use": "CI only: lint gate (QA-1)",
+      "shipped": "no"
     }
   },
   "not_python": {

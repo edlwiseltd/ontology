@@ -64,6 +64,7 @@ from .store import Store, StoreError, StoreJournal
 
 log = logging.getLogger("autology.server")
 PERMISSIONS = frozenset({"read", "run", "review", "audit", "ingest", "reconcile", "admin"})
+PRINCIPAL_KINDS = ("person", "service")  # who an API identity is: a signed-in person, or a machine (D11, F-02)
 FINAL_STATUSES = frozenset({"completed", "blocked", "escalated", "suspended"})
 MAX_BODY = 1_000_000
 STATIC = Path(__file__).resolve().parent / "static"
@@ -86,6 +87,8 @@ class User:
     reviewer_roles: FrozenSet[str] = frozenset()
     # roles an administrator lets this person use through an agent, beyond their own (D4): {agent: roles}
     run_as: Tuple[Tuple[str, FrozenSet[str]], ...] = ()
+    # "person" or "service" (a script, pipeline or integration): only a person records human approvals (D11, F-02)
+    kind: str = "person"
 
     def grants(self, agent: str) -> FrozenSet[str]:
         return next((roles for name, roles in self.run_as if name == agent), frozenset())
@@ -226,9 +229,12 @@ class AutologyService:
                 cfg_agent = self.agents.get(agent_name)
                 if cfg_agent is None:
                     raise ValueError(f"user {u['name']}: run_as names unknown agent {agent_name!r}")
+            kind = u.get("kind", "person")
+            if kind not in PRINCIPAL_KINDS:
+                raise ValueError(f"user {u['name']}: kind must be one of {list(PRINCIPAL_KINDS)}")
             self.users.append(User(u["name"], digest.lower(), perms, frozenset(u.get("roles", [])),
                                    frozenset(u.get("reviewer_roles", [])),
-                                   tuple(sorted((a, frozenset(r)) for a, r in run_as.items()))))
+                                   tuple(sorted((a, frozenset(r)) for a, r in run_as.items())), kind))
         # identities automations run as (D4): explicit, least privilege, limited to named agents
         self.service_identities: Dict[str, Dict[str, Any]] = {}
         for sid, spec in (config.get("service_identities") or {}).items():
@@ -1001,10 +1007,12 @@ class AutologyService:
     def _deliver(url: str, note: Dict[str, Any]) -> None:
         import urllib.request
 
+        from . import outbound
+
         req = urllib.request.Request(url, json.dumps({"autology": note}).encode(), method="POST",
                                      headers={"Content-Type": "application/json", "User-Agent": "Autology"})
-        try:
-            urllib.request.urlopen(req, timeout=5).close()
+        try:  # a redirect to another origin is not followed (audit F-01)
+            outbound.urlopen(req, 5).close()
         except Exception:  # best effort: the notification stays in the store either way
             log.warning("webhook delivery to %s failed", urlparse(url).netloc, exc_info=True)  # no path: may hold tokens
 
@@ -1520,8 +1528,14 @@ class AutologyService:
             raise ApiError(404, f"no review {review_id!r}")
         return view
 
+    def require_person(self, user: User, what: str) -> None:
+        """A service identity (script, pipeline, integration) never records what only a person may (D11, F-02)."""
+        if user.kind != "person":
+            raise ApiError(403, f"{user.name} is a service identity: it cannot {what}; a signed-in person must")
+
     def decide(self, user: User, review_id: str, body: Dict[str, Any]) -> Dict[str, Any]:
         self.require(user, "review")
+        self.require_person(user, "record a human approval")
         if not isinstance(body.get("approved"), bool):
             raise ApiError(400, "approved must be true or false")
         review = self.get_review(user, review_id)
@@ -1707,6 +1721,7 @@ class AutologyService:
     def reconcile(self, user: User, key: str, body: Dict[str, Any]) -> Dict[str, Any]:
         """A person settles one external call: it happened (with what the system returned) or it did not."""
         self.require(user, "reconcile")
+        self.require_person(user, "settle an external call")
         call = self.store.get_call(key)
         if call is None or not self._call_visible(call, user):
             raise ApiError(404, f"no external call {key!r}")

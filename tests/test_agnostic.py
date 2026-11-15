@@ -215,7 +215,10 @@ class AdapterTests(HttpFixture):
                                                              "reviewer": "jane@legal", "comment": "ok"})}
         req = ReviewRequest("c1", "sign_contract", "", ("legal",), [], {})
         decision = load_approver({"type": "http", "url": self.base + "/review"}).review(req)
-        self.assertEqual((decision.approved, decision.reviewer), (True, "jane@legal"))
+        # a machine's answer (H-1/F-02): attributed to the system, the claimed person kept only as a claim
+        self.assertEqual((decision.approved, decision.reviewer, decision.automatic),
+                         (True, f"http:{self.base}/review", True))
+        self.assertIn("jane@legal", decision.comment)
         down = HttpApprover("http://127.0.0.1:9/review", timeout=0.5).review(req)
         self.assertFalse(down.approved)
         self.assertIn("unavailable", down.comment)

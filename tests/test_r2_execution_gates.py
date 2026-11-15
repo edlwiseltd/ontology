@@ -280,7 +280,8 @@ class OutboundIntegrationTests(GateBase):
     def configure(self, cfg):
         cfg["webhooks"] = [{"url": r.url, "kinds": ["proposal", "review"], "environment": env}
                            for env, r in self.hooks.items()]
-        cfg["agents"]["claims"]["approver"] = {"type": "http", "url": self.approver.url, "environment": "sandbox"}
+        # an HTTP approver is a machine: since H-1/F-02 a real server refuses it for human reviews (tested in
+        # tests/test_h1_approval_identity.py); its stage gate is checked directly below
 
     def propose(self):
         hana = self.svc.authenticate("Bearer acme-hana")
@@ -290,20 +291,25 @@ class OutboundIntegrationTests(GateBase):
             t.join(5)
 
     def test_nothing_leaves_in_draft_or_simulation_and_only_the_sandbox_in_pilot(self):
+        from autology.adapters import HttpApprover
+        from autology.agent import ReviewRequest
+
+        approver = HttpApprover(self.approver.url, environment="sandbox")
+        approver.gate = self.svc._environment_refused  # the gate the service installs on an HTTP approver
+        request = ReviewRequest("CL-2", "pay_claim", "", ("siu",), [], {})
         self.propose()  # draft
         self.set_stage("simulation")
         self.propose()
-        status, run = self.start("CL-2")  # needs a review: the HTTP approver is a sandbox system
-        self.assertEqual(status, 200)
+        decision = approver.review(request)  # a sandbox system, in simulation: not reached
         self.assertEqual(self.approver.hits, [])  # the review request was not sent
-        self.assertEqual(run["status"], "blocked")  # declined, fail closed: the approval cannot happen
-        self.assertIn("review request not sent", run["escalation"]["details"][0])
-        reviews = [e for e in self.svc.store.load_run(run["run_id"]).audit if e.event == "review"]
-        self.assertEqual((reviews[0].data["approved"], reviews[0].data["reviewer"]), (False, "autology"))
+        self.assertEqual((decision.approved, decision.reviewer), (False, "autology"))  # declined, fail closed
+        self.assertIn("review request not sent", decision.comment)
         self.assertEqual((self.hooks["sandbox"].hits, self.hooks["production"].hits), ([], []))
         self.set_stage("pilot")
         self.propose()
         self.assertEqual((len(self.hooks["sandbox"].hits), self.hooks["production"].hits), (1, []))
+        self.assertTrue(approver.review(request).approved)  # pilot: the sandbox system may be reached
+        self.assertEqual(len(self.approver.hits), 1)
         self.start("CL-3")
         self.assertEqual(self.hooks["production"].hits, [])  # never, in any stage
         self.assertEqual(len(self.svc.store.list_notifications(limit=50)) > 0, True)  # still in the inbox

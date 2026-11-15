@@ -94,9 +94,11 @@ def rsa_pkcs1_verify(n: int, e: int, alg: str, message: bytes, signature: bytes)
 
 def _fetch_json(url: str, data: Optional[bytes] = None, headers: Optional[Dict[str, str]] = None,
                 timeout: float = 10.0) -> Any:
+    from . import outbound
+
     req = urllib.request.Request(url, data=data, headers={"Accept": "application/json", **(headers or {})})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return json.loads(resp.read())
+    with outbound.urlopen(req, timeout) as resp:  # redirects stay within the provider's origin (audit F-01)
+        return json.loads(outbound.read_limited(resp, 1024 * 1024))
 
 
 class OidcProvider:

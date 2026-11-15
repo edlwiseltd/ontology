@@ -177,9 +177,11 @@ def export(payload: Dict[str, Any], endpoint: str, headers: Optional[Dict[str, s
     """POST an OTLP/JSON payload to a collector (``.../v1/traces``). Returns the HTTP status."""
     import urllib.request
 
+    from . import outbound
+
     req = urllib.request.Request(endpoint, json.dumps(payload).encode(), method="POST",
                                  headers={"Content-Type": "application/json", **(headers or {})})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    with outbound.urlopen(req, timeout) as resp:  # redirects stay within the collector's origin (audit F-01)
         return resp.status
 
 

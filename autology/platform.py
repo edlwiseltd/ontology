@@ -66,6 +66,7 @@ class Member:
     token_sha256: str
     workspace_admin: bool = False
     use_cases: Dict[str, Dict[str, Any]] = field(default_factory=dict)  # use case -> permissions/roles/reviewer roles
+    kind: str = "person"  # or "service": a machine identity never records a human approval (D11, F-02)
 
     def grant(self, use_case: str) -> Optional[Dict[str, Any]]:
         if self.workspace_admin:
@@ -189,7 +190,10 @@ class Platform:
                 grants[uc] = {"permissions": sorted(perms), "roles": list(g.get("roles") or []),
                               "reviewer_roles": list(g.get("reviewer_roles") or []),
                               "run_as": {a: list(r) for a, r in (g.get("run_as") or {}).items()}}
-            member = Member(name, ws_id, digest, bool(m.get("workspace_admin")), grants)
+            kind = m.get("kind", "person")
+            if kind not in ("person", "service"):
+                raise PlatformError(f"{where}: kind must be \"person\" or \"service\"")
+            member = Member(name, ws_id, digest, bool(m.get("workspace_admin")), grants, kind)
             ws.members[name] = member
             self._tokens[digest] = member
         for uc_id, uc_spec in (spec.get("use_cases") or {}).items():
@@ -239,7 +243,7 @@ class Platform:
         for member in ws.members.values():
             grant = member.grant(uc_id)
             if grant:
-                users.append({"name": member.name, "token_sha256": member.token_sha256, **grant})
+                users.append({"name": member.name, "token_sha256": member.token_sha256, "kind": member.kind, **grant})
         config["users"] = users
         service = AutologyService(config, config_path.parent)
         uc = UseCase(uc_id, ws.id, str(spec.get("name") or uc_id), service)

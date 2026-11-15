@@ -15,7 +15,7 @@ python -m autology console --engine http://127.0.0.1:8700/w/acme/u/claims --port
 |---|---|---|
 | Platform | The router, the platform access log, the data directory | `platform.json` |
 | Workspace | Members (people with one API token each), use cases, a secrets file | `platform.json` → `workspaces.<id>` |
-| Member | A person in one workspace; `workspace_admin`, or per-use-case permissions, ontology roles and reviewer roles | `workspaces.<id>.members` |
+| Member | A person (or, with `"kind": "service"`, a machine identity such as a pipeline) in one workspace; `workspace_admin`, or per-use-case permissions, ontology roles and reviewer roles. A service member never decides a human review or settles an external call | `workspaces.<id>.members` |
 | Use case | A complete engine: ontology, agents, tools, rules, pipelines, automations, settings; its own store and audit chain | `workspaces.<id>.use_cases.<id>.config` → an ordinary `server.json` |
 
 A use case's `server.json` is the same file a single engine uses. The platform replaces three things in it: the

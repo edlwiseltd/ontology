@@ -100,36 +100,61 @@ def import_target(target: str, search: tuple = ()) -> Any:
         raise AdapterError(f"{module_name!r} has no attribute {attr!r}") from None
 
 
-def _post_json(url: str, payload: Any, headers: Mapping[str, str], timeout: float) -> Tuple[int, Any]:
+def _post_json(url: str, payload: Any, headers: Mapping[str, str], timeout: float,
+               label: Optional[str] = None) -> Tuple[int, Any]:
     """POST JSON; returns ``(status, body)``. Raises :class:`NotSent` when the request cannot have reached the
-    service, :class:`OutcomeUnknown` when it was sent but no usable reply came back, :class:`Rejected` for 4xx."""
+    service, :class:`OutcomeUnknown` when it was sent but no usable reply came back, :class:`Rejected` for 4xx.
+
+    A redirect is followed only within the URL's origin (audit F-01): a service that answers with a redirect to
+    another host has received the request and may have acted, so that is an unknown outcome, and nothing is sent
+    to the other host. Messages name ``label`` (the configured URL template), never the expanded URL or headers,
+    so no secret reaches run records or the audit."""
     import http.client
 
+    from . import outbound
+
+    where = outbound.safe_url(label if label is not None else url)
+    secrets = [v for v in headers.values()] + [url]
     body = json.dumps(payload, default=str).encode()
     req = urllib.request.Request(url, data=body, method="POST",
                                  headers={"Content-Type": "application/json", **headers})
+
+    def clean(message: str) -> str:
+        return outbound.redact(message, secrets)
+
     try:
-        resp = urllib.request.urlopen(req, timeout=timeout)  # noqa: S310 - URL comes from operator config
+        resp = outbound.urlopen(req, timeout)
     except urllib.error.HTTPError as exc:
         code = exc.code
         if code in (408, 425, 429):  # timed out waiting for the request, too early, rate limited: not processed
-            raise NotSent(f"HTTP {code} from {url}: not processed, safe to retry") from None
+            raise NotSent(f"HTTP {code} from {where}: not processed, safe to retry") from None
+        if 300 <= code < 400:
+            raise OutcomeUnknown(f"HTTP {code} from {where}: redirect to another origin not followed; the service "
+                                 "may have acted") from None
         if 400 <= code < 500:
-            raise Rejected(f"HTTP {code} from {url}: the request was refused") from None
-        raise OutcomeUnknown(f"HTTP {code} from {url}: the service may have acted") from None
+            raise Rejected(f"HTTP {code} from {where}: the request was refused") from None
+        raise OutcomeUnknown(f"HTTP {code} from {where}: the service may have acted") from None
     except urllib.error.URLError as exc:  # connecting or sending failed: the request was not received whole
-        raise NotSent(f"cannot reach {url}: {exc.reason}") from None
+        raise NotSent(clean(f"cannot reach {where}: {exc.reason}")) from None
     except (TimeoutError, ConnectionError, http.client.HTTPException, OSError) as exc:  # sent, no reply
-        raise OutcomeUnknown(f"no reply from {url} after sending ({type(exc).__name__}: {exc})") from None
+        raise OutcomeUnknown(clean(f"no reply from {where} after sending ({type(exc).__name__})")) from None
     try:
         with resp:
-            raw = resp.read().decode() or "{}"
+            raw = outbound.read_limited(resp).decode() or "{}"
+    except outbound.OutboundError as exc:
+        raise OutcomeUnknown(f"the reply from {where} was refused ({exc}); the service may have acted") from None
     except (TimeoutError, ConnectionError, http.client.HTTPException, OSError) as exc:
-        raise OutcomeUnknown(f"the reply from {url} was cut off ({type(exc).__name__})") from None
+        raise OutcomeUnknown(f"the reply from {where} was cut off ({type(exc).__name__})") from None
     try:
         return resp.status, json.loads(raw)
     except ValueError:
-        raise OutcomeUnknown(f"{url} answered {resp.status} with a body that is not JSON; it may have acted") from None
+        raise OutcomeUnknown(f"{where} answered {resp.status} with a body that is not JSON; it may have acted") from None
+
+
+def _where(url: str) -> str:
+    from .outbound import safe_url
+
+    return safe_url(url)
 
 
 def http_tool(url: str, headers: Optional[Mapping[str, str]] = None, timeout: float = 10.0) -> Callable:
@@ -147,13 +172,13 @@ def http_tool(url: str, headers: Optional[Mapping[str, str]] = None, timeout: fl
         resolved = {k: _expand(v) for k, v in (headers or {}).items()}
         if call.idempotency_key:
             resolved.setdefault("Idempotency-Key", call.idempotency_key)
-        status, data = _post_json(target, payload, resolved, timeout)
+        status, data = _post_json(target, payload, resolved, timeout, label=url)
         if not isinstance(data, dict):
-            raise OutcomeUnknown(f"{url} returned {type(data).__name__}, expected an object; it may have acted")
+            raise OutcomeUnknown(f"{_where(url)} returned {type(data).__name__}, expected an object; it may have acted")
         return ToolResult(data.get("outcome"), data.get("updates") or {}, str(data.get("message", "")),
                           data.get("output"), pending=status == 202)
 
-    handler.__doc__ = f"HTTP tool at {url}"
+    handler.__doc__ = f"HTTP tool at {_where(url)}"
     return handler
 
 
@@ -241,6 +266,11 @@ class HttpApprover:
         self.url, self.headers, self.timeout, self.environment = url, dict(headers or {}), timeout, environment
         self.gate = None  # set by the service: the use case's stage decides whether this system may be reached
 
+    # An outside system answering over HTTP is a machine, whatever name it puts in its reply. It can approve, so
+    # a real server refuses it for human reviews (like any automatic approver); a rule that needs no person is
+    # simply not a review rule (D11, audit F-02).
+    can_approve = True
+
     def review(self, request: ReviewRequest) -> ReviewDecision:
         refused = self.gate(self.environment, "the review service") if self.gate else None
         if refused:  # not sent at all: declining is the safe answer (fail closed)
@@ -248,9 +278,13 @@ class HttpApprover:
         target = _expand(self.url)
         resolved = {k: _expand(v) for k, v in self.headers.items()}
         try:
-            _, data = _post_json(target, request.__dict__, resolved, self.timeout)
-            return ReviewDecision(bool(data.get("approved", False)), str(data.get("reviewer", self.url)),
-                                  str(data.get("comment", "")))
+            _, data = _post_json(target, request.__dict__, resolved, self.timeout, label=self.url)
+            claimed = str(data.get("reviewer") or "")[:200]
+            comment = str(data.get("comment", ""))
+            if claimed:  # kept for the record as a claim; it is not an authenticated person
+                comment = f"reviewer claimed by the service: {claimed}" + (f"; {comment}" if comment else "")
+            return ReviewDecision(bool(data.get("approved", False)), f"http:{_where(self.url)}", comment,
+                                  automatic=True)
         except (ToolError, urllib.error.URLError, TimeoutError, OSError, ValueError, AttributeError) as exc:
             return ReviewDecision(False, "http-approver", f"declined: review service unavailable ({exc})")
 

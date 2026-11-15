@@ -101,7 +101,7 @@ Register it in the server config with `"pipelines": {"claims_feed": "pipelines/c
 | `json` | a JSON file | `items`: dotted path to the list, e.g. `"data.claims"` |
 | `jsonl` | one JSON object per line | |
 | `sql` | a query | `database`: a SQLite file (opened read-only), or `driver` (any DB-API module, e.g. `psycopg`) with `dsn_env`, the environment variable holding the connection string. `{watermark}` in the query becomes a bound parameter |
-| `http` | JSON over GET | `items`, `next` (dotted path to the next page's URL), `headers` with secrets as `{"env": "NAME", "prefix": "Bearer "}` |
+| `http` | JSON over GET | `items`, `next` (dotted path to the next page's URL), `headers` with secrets as `{"env": "NAME", "prefix": "Bearer "}`, optional `next_origins` (other origins a `next` link may point to, e.g. `["https://api2.example.com"]`), `max_bytes` (reply size limit, 16 MB by default), `timeout`. A `next` link or a redirect to another origin is refused and nothing (no secret) is sent there; errors never contain the secret |
 | `push` | rows sent to `POST /api/pipelines/{name}/run` | `{"rows": {"shops": [{...}]}}`. A push call loads only what was pushed |
 
 Connection strings and API keys always come from environment variables; a pipeline file never holds a secret.

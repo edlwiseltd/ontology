@@ -39,6 +39,7 @@ import json
 import os
 import re
 import string
+import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -239,6 +240,17 @@ class Pipeline:
                                         "the connection string (never the secret itself)")
             if src["type"] == "http" and not str(src.get("url", "")).startswith(("http://", "https://")):
                 raise PipelineError(f"{self.name}.{sname}: url must be http or https")
+            if src["type"] == "http":
+                from .outbound import OutboundError, origin
+
+                extra = src.get("next_origins", [])
+                if not isinstance(extra, list):
+                    raise PipelineError(f"{self.name}.{sname}: next_origins must be a list of http(s) origins")
+                for o in extra:
+                    try:
+                        origin(o)
+                    except OutboundError as exc:
+                        raise PipelineError(f"{self.name}.{sname}: next_origins: {exc}") from None
             inc = src.get("incremental")
             if inc is not None and (not isinstance(inc, dict) or not inc.get("column")):
                 raise PipelineError(f"{self.name}.{sname}: incremental needs a column")
@@ -360,29 +372,53 @@ class Pipeline:
             conn.close()
 
     def _http(self, src: Dict[str, Any]) -> List[Dict[str, Any]]:
-        headers = {"Accept": "application/json"}
+        """Read an HTTP(S) JSON source, following ``next`` links. A link or redirect chosen by the source is
+        followed only within the configured URL's origin, or an origin listed in ``next_origins``, so the
+        source's credentials never leave for another host (audit F-01). Secrets never appear in errors."""
+        from . import outbound
+
+        headers, secrets = {"Accept": "application/json"}, []
         for name, value in (src.get("headers") or {}).items():
             if isinstance(value, dict) and "env" in value:  # secrets come from the environment
                 secret = os.environ.get(value["env"])
                 if not secret:
                     raise PipelineError(f"{self.name}: environment variable {value['env']} is not set")
+                secrets.append(secret)
                 value = value.get("prefix", "") + secret
             headers[name] = str(value)
-        url, rows = src["url"], []
+        base = src["url"]
+        extra = tuple(src.get("next_origins") or ())
+        limit = int(src.get("max_bytes", outbound.MAX_RESPONSE_BYTES))
+        url, rows = base, []
+
+        def fail(message: str) -> PipelineError:
+            return PipelineError(outbound.redact(f"{self.name}: {message}", secrets))
+
         for _ in range(MAX_PAGES):
             req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req, timeout=float(src.get("timeout", 30))) as resp:
-                payload = json.loads(resp.read())
+            try:
+                with outbound.urlopen(req, float(src.get("timeout", 30)), extra) as resp:
+                    payload = json.loads(outbound.read_limited(resp, limit))
+            except urllib.error.HTTPError as exc:
+                where = f" (redirect to another origin refused)" if 300 <= exc.code < 400 else ""
+                raise fail(f"{outbound.safe_url(url)} answered HTTP {exc.code}{where}") from None
+            except outbound.OutboundError as exc:
+                raise fail(f"{outbound.safe_url(url)}: {exc}") from None
+            except (OSError, ValueError) as exc:
+                raise fail(f"cannot read {outbound.safe_url(url)}: {type(exc).__name__}: {exc}") from None
             page = _dig(payload, src.get("items"))
             if not isinstance(page, list):
-                raise PipelineError(f"{self.name}: {url} returned no list at {src.get('items')!r}")
+                raise fail(f"{outbound.safe_url(url)} returned no list at {src.get('items')!r}")
             rows.extend(page)
             url = _dig(payload, src.get("next")) if src.get("next") else None
             if not url:
                 return rows
             if not str(url).startswith(("http://", "https://")):
-                raise PipelineError(f"{self.name}: next page {url!r} is not an http(s) URL")
-        raise PipelineError(f"{self.name}: more than {MAX_PAGES} pages")
+                raise fail(f"next page {outbound.safe_url(url)} is not an http(s) URL")
+            if not outbound.allowed(str(url), base, extra):
+                raise fail(f"next page {outbound.safe_url(url)} is on another origin than {outbound.safe_url(base)}; "
+                           "it is not requested and no credential is sent there (list it in next_origins to allow)")
+        raise fail(f"more than {MAX_PAGES} pages")
 
     # -- transform ----------------------------------------------------------------
     def read(self, watermarks: Dict[str, str], pushed: Optional[Dict[str, List[Dict[str, Any]]]] = None) -> Plan:

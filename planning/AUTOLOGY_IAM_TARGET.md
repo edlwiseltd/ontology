@@ -137,6 +137,11 @@ aussi l'accès illimité aux données.
 | Revue humaine | `review` + rôles de relecteur | selon les règles |
 | Accès privilégié exceptionnel | `admin` (existante, inchangée) | illimité, accordé à deux personnes, revu |
 
+**Correction (15 novembre, sprint de clôture R2).** La reprise d'une écriture (`POST /api/runs/{id}/write-back`)
+n'exige pas `admin` mais `reconcile` : elle ne fait pas partie de la proposition. Le périmètre exact, les capacités
+interdites, la migration et les tests sont désormais dans la
+[spécification D24](AUTOLOGY_D24_OPERATE_SPECIFICATION.md) (en anglais), qui prévaut sur le périmètre ci-dessous.
+
 **Périmètre proposé de `operate`** (quatre opérations, toutes sans lecture de données) : `POST /api/tick`,
 `POST /api/reporting`, `POST /api/agents/{nom}/reinstate`, `POST /api/runs/{id}/write-back`. Resteraient réservées à
 `admin` : l'écriture directe d'enregistrements, la validation de scénarios, la lecture hors règles.

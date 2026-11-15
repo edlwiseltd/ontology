@@ -515,3 +515,45 @@ Studio browser checks were run for the fix below (56/56).
 The commit that records these results is documentation only; its own run is reported with the sprint report
 ([sprint report](AUTOLOGY_R2_DECISION_INTEGRITY_SPRINT_REPORT.md)).
 
+## 15 November 2026 — R2 closure sprint, increment A: decision-critical facts fail closed
+
+Baseline verified before any change: HEAD `e2f54cf` (documentation only on top of `744deae`), clean and in sync;
+CI run 89 success; the last report's measurable claims checked against the source (schema version 15, engine class
+2,142 lines and 139 methods, 820 tests). **One discrepancy found:** the sprint report said write rules bind
+"every ingestion path", which is true, but the record API (`POST /api/objects`) and scenario commit applied no
+write rule (they require the unrestricted `admin` permission, which is exempt by definition), and a decision
+field without a rule stayed writable by any ingester. Reproduced on `e2f54cf`: an `admin` without the rule's role
+set a write-protected amount to 1 through the record API and to 2 through a scenario commit; an ingest-only caller
+changed an unprotected decision field from 48000 to 100.
+
+| Story | Change | Tests | Behaviour change |
+|---|---|---|---|
+| Explicit classification | Attribute key `"decision_critical": true` (strict loader, published JSON Schema, `Ontology.critical_fields`); lint SEC003 for a classified field no rule protects | K1 | None for existing models: the key is opt-in and a model without it keeps its fingerprint |
+| One policy for every write path | `integrity.critical_refusal`: the writer must hold the roles of a `write_access` rule on the field, whatever the rule's condition; with no rule, nobody. Applied by ingestion (pushed, scheduled, command line), the record API (REST, MCP), scenario commit, and governance for an action's declared effects and tool results. The unrestricted permission is not exempt | K2–K6 | **Yes, for classified fields only** |
+| No value in refusals | Refusals, logs, the access log and notifications name the field and the rule, never the attempted value | K7 | None |
+
+**Human control stays a policy.** With the role and no review rule, an agent sets a classified fact and completes
+on its own (K6). Release approval and the stage gates are untouched.
+**Not changed, on purpose (D24 pending):** ordinary `write_access` rules on unclassified fields still do not bind
+the unrestricted permission on the record API or a scenario commit (pinned by a test). Unclassified decision
+fields are still reported, not blocked.
+**Migration:** none required. To adopt for a field: classify it, add a `write_access` rule naming roles, give the
+roles to the people and service identities that maintain it, declare them on the pipelines that load it
+([integrations](../docs/integrations.md)).
+Evidence (local): the 11 new tests pass, 10 of them fail on `e2f54cf`; full suite 832 OK (2 PostgreSQL tests
+skipped locally), 95.79 % lines (14,313 statements, 603 missed; `integrity.py` 98 %, `governance.py` 98 %); ruff
+clean; mypy 198 (= baseline). The engine class stayed within its size limit (a pure helper moved to `graph.py`).
+No API route or schema changed.
+
+## 15 November 2026 — R2 closure sprint, increment B: D24 specification (blocked on approval)
+
+**Status: blocked, as instructed.** No authorisation semantics changed.
+[D24 specification](AUTOLOGY_D24_OPERATE_SPECIFICATION.md): exact permitted operations (scheduler pass with a
+counts-only answer, reporting refresh), prohibited capabilities, relationship to `admin`, `configure` and the data
+permissions, additive migration with no automatic change of any grant, and twelve security tests to accompany an
+implementation. **Correction to the previous design:** retrying a write-back needs `reconcile`, not `admin`, and
+was wrongly listed as an operation `operate` would take over; the readiness test asserted `403 or 404` and hid
+that. The test now asserts 403 on the three operations that do need `admin` and has a separate case for write-back
+(5 tests, part of the 832-test run above). A sub-decision is put to the owner: whether reinstating a suspended
+agent belongs to `operate` (recommended: no, it lifts a safety control).
+

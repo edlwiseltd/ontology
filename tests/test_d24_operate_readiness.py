@@ -4,17 +4,20 @@ The proposed ``operate`` permission is **not** implemented: these tests pin the 
 change of semantics cannot slip in unapproved, and verify the evidence the access review now gives for the decision.
 
   D1 ``operate`` is not a permission today: it cannot be configured or granted
-  D2 the operations it would cover (scheduler pass, reporting refresh, agent reinstatement, write-back retry) are
-     refused to everyone who does not hold the engine's unrestricted ``admin`` permission
+  D2 the operations it could cover (scheduler pass, reporting refresh, agent reinstatement) are refused to
+     everyone who does not hold the engine's unrestricted ``admin`` permission. Retrying a write-back is not one
+     of them: it already has its own permission (``reconcile``) and never needed ``admin`` (a correction to the
+     first version of the D24 design, which listed it)
   D3 the access review shows, for every unrestricted grant, what it was used for; a holder whose recorded use never
      read business data is reported as one a narrower grant would serve
   D4 requests are classified from the access log's own targets
 """
 
 import json
+import os
 
 from autology.platform import Platform
-from autology.server import AutologyService, PERMISSIONS
+from autology.server import PERMISSIONS, ApiError, AutologyService
 
 from . import test_ingest
 from .test_adm1_administration import AdminBase, WS
@@ -34,13 +37,27 @@ class OperateReadinessTests(AdminBase):
             AutologyService(cfg, test_ingest.EX)
 
     def test_operational_routes_need_the_unrestricted_permission_today(self):  # D2
-        routes = [("POST", "/tick", {}), ("POST", "/reporting", {}), ("POST", "/agents/claims/reinstate", {"reason": "x"}),
-                  ("POST", "/runs/none/write-back", {})]
+        routes = [("POST", "/tick", {}), ("POST", "/reporting", {}),
+                  ("POST", "/agents/claims/reinstate", {"reason": "a reason long enough"})]
         for token in ("acme-hana", "acme-ivan", "acme-maria"):  # read, run, review: none of them operates the engine
             for method, path, body in routes:
                 status, _ = self.call(method, ENGINE + path, token, body)
-                self.assertIn(status, (403, 404), (token, path))
+                self.assertEqual(status, 403, (token, path))
         self.assertEqual(self.call("POST", f"{ENGINE}/tick", body={})[0], 200)  # ada holds an explicit admin grant
+
+    def test_a_write_back_retry_needs_reconcile_not_the_unrestricted_permission(self):  # D2 (correction)
+        os.environ["AUTOLOGY_TOKEN_RITA"] = "tok-rita"
+        users = json.loads((test_ingest.EX / "server.json").read_text())["users"]
+        users.append({"name": "rita", "token_env": "AUTOLOGY_TOKEN_RITA", "permissions": ["reconcile"]})
+        svc = test_ingest.service(users=users)
+        self.addCleanup(svc.close)
+        users = {u.name: u for u in svc.users}
+        with self.assertRaises(ApiError) as refused:  # no reconcile permission: refused before anything is read
+            svc.retry_write_back(users["hana"], "R-none")
+        with self.assertRaises(ApiError) as missing:  # reconcile without admin passes the permission check
+            svc.retry_write_back(users["rita"], "R-none")
+        self.assertEqual((refused.exception.status, missing.exception.status), (403, 404))
+        self.assertNotIn("admin", users["rita"].permissions)
 
     def test_the_review_shows_what_unrestricted_access_was_used_for(self):  # D3
         def mine():

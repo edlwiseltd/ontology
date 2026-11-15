@@ -225,5 +225,8 @@ def run(config_path: str, token_env: str = "AUTOLOGY_TOKEN", reader: IO[str] = s
     except ApiError as exc:
         print(f"sign-in failed: {exc.message}", file=sys.stderr)
         return 2
+    if not user.permissions - {"configure"}:  # an administrative identity has no data or action to be served (IAM-3)
+        print(f"sign-in failed: {user.name} has no permission in this use case", file=sys.stderr)
+        return 2
     McpServer(service, user).serve(reader, writer)
     return 0

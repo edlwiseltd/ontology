@@ -2,8 +2,10 @@
 
 *15 novembre 2026. Le modèle cible a été proposé par le propriétaire, qui recommande de le retenir comme exigence
 cible ; il est enregistré comme **direction approuvée (D22)**. Ce document vérifie d'abord ce qui existe dans le
-code, pour que la cible **étende** le système d'identité actuel sans en créer un second. **Rien n'est encore
-implémenté au-delà de l'existant décrit au §2.***
+code, pour que la cible **étende** le système d'identité actuel sans en créer un second. Mise à jour du même jour :
+**IAM-1 (tenants) et IAM-3 (séparation administration / données) sont implémentés** (directive IAM, D22a décidée :
+moindre privilège par défaut) ; voir le journal d'implémentation. IAM-2, IAM-4, IAM-5 et IAM-6 ne sont pas
+commencés. Les §2 et §3 décrivent l'état **avant** ces deux incréments.*
 
 ## 1. Modèle cible (propriétaire, 15 novembre)
 
@@ -72,9 +74,9 @@ Principe : **chaque incrément étend l'existant.** Mêmes jetons, même OIDC, m
 
 | Incrément | Contenu | Réutilise | Taille (hypothèses) |
 |---|---|---|---|
-| **IAM-1 Tenant** | Niveau `tenants` au-dessus des workspaces ; Tenant Admins ; membres rattachés au tenant avec des droits par workspace et par cas d'usage. **Compatibilité :** un workspace sans tenant devient un tenant à un seul workspace, de même identifiant, sans changement de comportement | Routeur, journal d'administration (ADM-1), OIDC par workspace étendu au tenant | M (5 à 7 j) |
+| **IAM-1 Tenant** (fait le 15 nov.) | Niveau `tenants` au-dessus des workspaces ; Tenant Admins ; membres rattachés au tenant avec des droits par workspace et par cas d'usage. **Compatibilité :** un workspace sans tenant devient un tenant à un seul workspace, de même identifiant, sans changement de comportement | Routeur, journal d'administration (ADM-1), OIDC par workspace étendu au tenant | M (5 à 7 j) |
 | **IAM-2 Opérateurs de plateforme** | Identités d'opérateur distinctes (jetons ou OIDC propre) ; API de cycle de vie des tenants ; **aucune route de données**. Accès exceptionnel (« break-glass ») : demande justifiée, limitée dans le temps, approuvée selon D22b, enregistrée dans le journal **du tenant** et visible par lui | Jetons, journal chaîné, approbation indépendante (D11) | M (4 à 6 j). Les accès directs aux fichiers relèvent de l'exploitation (D3) |
-| **IAM-3 Séparer administration et données** | `workspace_admin` / Tenant Admin n'implique plus l'accès aux données ; les droits sur les données deviennent des droits explicites, approuvés comme les autres. Comportement actuel conservé par défaut tant que D22a n'est pas tranchée | `Member.grant`, `User.can` | S (2 à 3 j) |
+| **IAM-3 Séparer administration et données** (fait le 15 nov.) | `workspace_admin` / Tenant Admin n'implique plus l'accès aux données ; les droits sur les données deviennent des droits explicites, approuvés comme les autres. Comportement actuel conservé par défaut tant que D22a n'est pas tranchée | `Member.grant`, `User.can` | S (2 à 3 j) |
 | **IAM-4 Portal User** | Audience `portal` ; invitation ou inscription via un fournisseur d'identité externe (pas de mots de passe stockés par Autology, recommandé) ; ABAC sur le sujet : `row_access` avec `$principal` (ex. `Reservation.customer == $principal.id`) ; seules les actions déclarées pour le portail | OIDC, `row_access`, `action_access`, API v1 | L (8 à 12 j) |
 | **IAM-5 Public Visitor** | Identité anonyme ; actions et champs déclarés `public` dans l'ontologie (recherche, soumission de demande) ; limitation de débit et quotas ; les demandes publiques deviennent des cas traités par des Internal Users | Ontologie, gouvernance, automatisations | M (5 à 7 j) après GAP-030 |
 | **IAM-6 Identités d'agents et de plugins** | Chaque agent et chaque plugin a une identité de service avec ses permissions et ses limites d'autonomie (B6), intersectées avec celles du demandeur ; jamais d'héritage implicite d'un administrateur | `service_identities`, `run_roles`, `kind: service` | M, avec le runtime de plugins (B2) |
@@ -107,7 +109,7 @@ stores.
 
 | ID | Question | Recommandation |
 |---|---|---|
-| **D22a** | Un Tenant Admin voit-il par défaut les données métier de ses cas d'usage ? | Non par défaut (séparation des tâches), avec un droit « données » explicite et approuvé |
+| **D22a** | Un Tenant Admin voit-il par défaut les données métier de ses cas d'usage ? | **Décidé le 15 nov. : non.** Moindre privilège par défaut, droit explicite, limité et auditable (appliqué par IAM-3) |
 | **D22b** | Qui approuve un accès exceptionnel d'un Platform Admin aux données d'un tenant ? | Un Tenant Admin du tenant concerné, pour une durée limitée ; accès d'urgence sans approbation préalable seulement s'il est notifié immédiatement et revu après |
 | **D22c** | Comment s'authentifient les Portal Users ? | Fournisseur d'identité externe (OIDC du tenant, ou service d'identité grand public choisi par le tenant), sans mots de passe stockés par Autology |
 | **D22d** | Quelles protections pour les actions publiques ? | Limitation de débit et quotas obligatoires (GAP-030) ; protection anti-robot à choisir ; aucune donnée personnelle renvoyée aux visiteurs |

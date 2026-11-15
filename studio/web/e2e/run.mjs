@@ -176,10 +176,21 @@ try {
   await maria.close();
   // publishing a saved draft makes it the use case's model (through the platform; nothing written to shared files)
   await ada.click(".uc-list button:has-text('Water')");  // the Releases tab stays selected
-  await ada.waitForSelector("text=Publish draft revision");
-  await ada.fill("#rel-reason", "e2e: publish the designed model");
-  await ada.click("button:has-text('Publish draft revision')");
-  await ada.waitForSelector(".ok:has-text('published')");
+  await ada.waitForSelector("[data-testid=publish-needs-another]");
+  const own = await ada.evaluate(async () => {  // ada saved the revision: the platform refuses her, whatever the UI shows
+    const h = { Authorization: "Bearer " + sessionStorage.getItem("autology-studio-token"), "Content-Type": "application/json" };
+    return (await fetch("/platform/v1/workspaces/acme/use-cases/water-ops/publish-draft", { method: "POST", headers: h,
+      body: JSON.stringify({ revision: 2, reason: "bypass" }) })).status;
+  });
+  check("the author of a draft cannot publish it herself (403)",
+        own === 403 && await ada.locator("button:has-text('Publish draft revision')").isDisabled(), String(own));
+  const second = await browser.newPage();
+  await second.goto(STUDIO);
+  const published = await second.evaluate(async () => (await fetch("/platform/v1/workspaces/acme/use-cases/water-ops/publish-draft", {
+    method: "POST", headers: { Authorization: "Bearer acme-maria", "Content-Type": "application/json" },
+    body: JSON.stringify({ revision: 2, reason: "e2e: reviewed the designed model" }) })).status);
+  await second.close();
+  check("another person with release authority publishes it", published === 200, String(published));
   const active = await ada.evaluate(async () => Object.keys((await (await fetch("/w/acme/u/water-ops/api/v1/ontology", {
     headers: { Authorization: "Bearer " + sessionStorage.getItem("autology-studio-token") } })).json()).entities).length);
   check("a published draft becomes the use case's active model", active > 1, `${active} entities`);

@@ -23,7 +23,7 @@ from autology.lifecycle import Lifecycle
 from autology.platform import Platform, PlatformError
 
 from .helpers import ROOT
-from .test_workspaces import EX, TOKENS, Client
+from .test_workspaces import Client, EX, TOKENS, data_admins
 
 TEMPLATES = {"claims-starter": {"name": "Motor claims starter", "description": "Settle motor claims",
                                 "config": "../auto_insurance/server.json"}}
@@ -33,7 +33,7 @@ CHECKS = "/platform/workspaces/acme/use-cases/claims/checks?to="
 
 def make_platform(data_dir=None, **changes):
     os.environ.update(TOKENS)
-    spec = json.loads((EX / "platform.json").read_text())
+    spec = data_admins(json.loads((EX / "platform.json").read_text()))
     spec["data_dir"] = data_dir or tempfile.mkdtemp()
     spec["templates"] = TEMPLATES
     spec.update(changes)
@@ -107,7 +107,7 @@ class StageTests(LifecycleBase):
     def test_a_use_case_configuration_cannot_set_its_own_stage(self):  # L1
         cfg = json.loads((ROOT / "examples" / "auto_insurance" / "server.json").read_text())
         self.assertNotIn("stage", cfg)
-        spec = json.loads((EX / "platform.json").read_text())
+        spec = data_admins(json.loads((EX / "platform.json").read_text()))
         spec["workspaces"]["acme"]["use_cases"]["claims"]["stage"] = "pilot"  # ignored: not a configuration key
         pf = Platform({**spec, "data_dir": tempfile.mkdtemp()}, EX)
         try:
@@ -138,7 +138,7 @@ class StageTests(LifecycleBase):
         demo = template_config(simulation=True)
         with mock.patch.dict(os.environ):
             os.environ.pop("AUTOLOGY_AUDIT_KEY", None)
-            spec = json.loads((EX / "platform.json").read_text())
+            spec = data_admins(json.loads((EX / "platform.json").read_text()))
             spec["workspaces"] = {"acme": {**spec["workspaces"]["acme"],
                                            "use_cases": {"claims": {"name": "Demo", "config": demo}}}}
             for m in spec["workspaces"]["acme"]["members"]:
@@ -309,7 +309,13 @@ class UseCaseManagementTests(LifecycleBase):
         # its data is its own: an object written in the original claims use case is not there
         self.c.call("POST", "/w/acme/u/claims/api/objects", "acme-ada",
                     {"type": "Claim", "id": "CL-ONLY-HERE", "attributes": {"amount": 1, "status": "reported"}})
-        self.assertEqual(self.c.call("GET", "/w/acme/u/claims-pilot/api/objects/CL-ONLY-HERE", "acme-ada")[0], 404)
+        created = self.pf.workspaces["acme"].use_cases["claims-pilot"].service
+        self.assertIn("CL-ONLY-HERE", self.pf.workspaces["acme"].use_cases["claims"].service.graph._instances)
+        self.assertNotIn("CL-ONLY-HERE", created.graph._instances)
+        # ... and creating a use case gives its administrator no access to its business data (IAM-3): 403, with or
+        # without the record
+        self.assertEqual(self.c.call("GET", "/w/acme/u/claims-pilot/api/objects/CL-ONLY-HERE", "acme-ada")[0], 403)
+        self.assertEqual(self.c.call("GET", "/w/acme/u/claims-pilot/api/objects/CL-1", "acme-ada")[0], 403)
 
     def test_a_created_use_case_cannot_reach_pilot_until_reviewers_are_named(self):  # L3, L7
         self.create({"id": "claims-pilot", "name": "Claims pilot", "template": "claims-starter"})

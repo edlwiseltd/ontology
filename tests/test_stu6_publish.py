@@ -1,6 +1,7 @@
 """STU-6 (engine side): a Studio draft becomes a governed release, and a release's model can be restored.
 
-  P1 a workspace administrator publishes a saved, valid draft revision: it becomes the use case's own ontology
+  P1 a person with release authority who did not save it publishes a saved, valid draft revision (never its
+     author alone: its access rules would change what members read, IAM-3); it becomes the use case's own ontology
      (a file in the use case's data folder; shared configuration files are never written) and the engine reloads
   P2 publishing is a configuration change: with an active release, nothing runs until another person approves a
      release of the published configuration and it is activated
@@ -44,7 +45,12 @@ class PublishTests(AdminBase):
         revision = self.save_draft(lambda d: d["entities"]["Claim"].__setitem__("description", "A motor claim (v2)"))
         self.assertEqual(self.call("POST", f"{UC}/publish-draft", "acme-hana", {"revision": revision,
                                                                                   "reason": "x"})[0], 403)
-        status, view = self.call("POST", f"{UC}/publish-draft", body={"revision": revision, "reason": "v2 wording"})
+        # the person who saved the revision never publishes it herself (IAM-3): another person with authority does
+        status, out = self.call("POST", f"{UC}/publish-draft", body={"revision": revision, "reason": "mine"})
+        self.assertEqual(status, 403)
+        self.assertIn("another person", out["error"]["message"])
+        status, view = self.call("POST", f"{UC}/publish-draft", "acme-maria", {"revision": revision,
+                                                                                "reason": "v2 wording"})
         self.assertEqual(status, 200, view)
         self.assertEqual((view["published_revision"], view["release"]["drift"], view["effective_stage"]),
                          (revision, True, "draft"))
@@ -77,7 +83,7 @@ class PublishTests(AdminBase):
 
     def test_an_invalid_draft_is_never_published(self):  # P3
         revision = self.save_draft(lambda d: d["entities"]["Claim"]["attributes"].__setitem__("amount", "currency!"))
-        status, out = self.call("POST", f"{UC}/publish-draft", body={"revision": revision, "reason": "try"})
+        status, out = self.call("POST", f"{UC}/publish-draft", "acme-maria", {"revision": revision, "reason": "try"})
         self.assertEqual(status, 409)
         self.assertIn("not valid", out["error"]["message"])
         self.assertFalse((self.pf.data_dir / "acme" / "claims" / "ontology.json").exists())

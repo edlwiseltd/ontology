@@ -252,3 +252,26 @@ credential prefixes and sign-in stay as they were (changing the keys would inval
 **Limits:** application-level control only (data directory, configuration and key custody are infrastructure);
 `tenancy assign` records the OS user as a claim; no tenant-level OIDC yet.
 IAM-1 evidence (local): full suite 708 OK (2 PostgreSQL tests skipped locally), 95.95 % lines (12,003 statements, 486 missed); ruff clean; mypy 199 (baseline 201); Studio typecheck, build, 31/31 browser checks. CI: see below.
+
+## 15 November 2026 — IAM development directive: IAM-3 administrative privilege separation (D22a decided)
+
+| Story | Change | Tests | Behaviour change |
+|---|---|---|---|
+| Administrative permission | Engine permission `configure` (`server.py`): model summary, model drafts, validation, architect proposals, the assistant's settings. It reads no record, run, review or audit entry; MCP (HTTP and stdio) refuses an identity that holds nothing else. `admin` (everything on one engine, regardless of row and field rules) is unchanged and implies it | `test_entry_point_matrix` and `test_api_contract` now include a `configure`-only identity on every documented route (**found:** `POST /api/mcp` acknowledged it; fixed) | Routes that asked for `admin` only to design or configure now ask for `configure` (contract and docs updated) |
+| Roles no longer carry data | `Member.grant`: a workspace or tenant administrator gets `configure` on every use case of the workspace and nothing else; explicit grants are merged with it. Activation answers list run identifiers only to callers with data access (a count otherwise) | `tests/test_iam3_privilege_separation.py` (9): S1 administrators refused on 13 data routes in 4 workspace/identity combinations, S2 administrative powers intact, S3 explicit approved grant obeys row and field rules and is revoked at once, S4 escalation attempts refused, S6 scoped to one use case, workspace and tenant, S7 self-review still refused. **All failed on `0008ae4`** (checked in a worktree) | Administrators lose implicit data access |
+| Safe migration | `_separate_privileges`, once per workspace, recorded in its administration log (`privileges_separated`): in a workspace that already had data, each configured administrator receives an explicit `admin` grant per existing use case (`grant_migrated`, in one transaction), visible in the members view and revocable; nothing is given to new workspaces, administrators or use cases. A log that does not verify gives no data access | S5: migration, restart (runs once), revocation persists, interrupted migration records nothing, tampered log fails closed | Existing deployments keep working; review and revoke the migrated grants |
+| Grants for administrators | `POST .../grants` and `.../members/<name>/revoke` now accept administrators (their data access is a grant like any other); approval still needs another person who is neither proposer nor grantee | S3, S4; `test_adm1_administration` updated (the 409 "already has every right" no longer exists) | — |
+| **GAP-061, found and reproduced during this increment** | An administrator with `configure` only saved a draft without the row-access rule, published it alone, and a member then saw a record hidden from her (reproduced on the example orders use case). Fixed: the author of a draft revision cannot publish it (another person with release authority does; named approvers may); only an approved release's model can be restored. Studio shows why the button is disabled | S8; `test_stu6_publish` updated; e2e 33 checks (+2: the author is refused 403, a second person publishes) | `publish-draft` needs a second person |
+
+**Tests changed on purpose** (the behaviour changed): 12 test modules build their platform through `data_admins`
+(`tests/test_workspaces.py`), which writes out an explicit `admin` grant for the administrators they use to load
+data; `test_r2_use_case_lifecycle` now asserts that creating a use case gives its administrator no data access.
+**Remaining risks:** (1) two colluding persons defeat any four-eyes rule; (2) files changed on disk by whoever
+operates the platform, backups and the audit key are outside application control (infrastructure); (3) the engine's
+`admin` grant still bypasses row and field rules by design: grant narrower permissions where possible;
+(4) the one-time migration grants `admin` per use case to existing administrators: a deliberate choice to break
+nothing, to be reviewed and revoked by each customer; (5) `kind` and administrator flags come from configuration
+(no operator identity yet, IAM-2); (6) standalone engines (no platform) keep their own `admin` users as configured.
+**Not implemented, by instruction:** IAM-2, IAM-4, IAM-5, IAM-6. Extension points kept: `Member.kind`/`scope`,
+`ADMINISTRATIVE` permission set, the tenancy registry's `by`, the grant workflow.
+IAM-3 evidence (local): full suite 717 OK (2 PostgreSQL tests skipped locally), 95.93 % lines (12,055 statements, 491 missed); ruff clean; mypy 198 (baseline lowered 201 → 198); Studio typecheck, 17 Vitest, build, 33/33 browser checks. CI: see below.

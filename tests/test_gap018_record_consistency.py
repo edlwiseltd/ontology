@@ -32,7 +32,7 @@ from autology.store import RecordConflict, Store
 from .test_ingest import service as ingest_service
 from .test_platform import service
 from .test_r2_use_case_lifecycle import close
-from .test_workspaces import EX, TOKENS, Client, simulate_all
+from .test_workspaces import Client, EX, TOKENS, data_admins, simulate_all
 
 INIT = {"jsonrpc": "2.0", "id": 1, "method": "initialize",
         "params": {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "t", "version": "1"}}}
@@ -52,7 +52,7 @@ def sql(path, statement, *args):
 class McpThroughThePlatformTests(unittest.TestCase):
     def setUp(self):
         os.environ.update(TOKENS)
-        spec = json.loads((EX / "platform.json").read_text())
+        spec = data_admins(json.loads((EX / "platform.json").read_text()))
         spec["data_dir"] = tempfile.mkdtemp()
         self.spec = spec
         self.pf = simulate_all(Platform(spec, EX))

@@ -36,7 +36,7 @@ from autology.tenancy import Tenancy, TenancyError
 
 from .test_iso1_mcp_per_workspace import HANDSHAKE, tool
 from .test_r2_use_case_lifecycle import close
-from .test_workspaces import EX, TOKENS, Client
+from .test_workspaces import Client, EX, TOKENS, data_admins
 
 GROUP_TOKENS = {"GROUP_TOKEN_TARA": "group-tara", "GROUP_TOKEN_SAM": "group-sam", "GROUP_TOKEN_ERIN": "group-erin",
                 "GROUP_TOKEN_BOT": "group-bot"}
@@ -47,7 +47,7 @@ HANDLER = {"permissions": ["read", "run"], "roles": ["claims_handler"],
 
 def legacy_spec(data_dir):
     """The example platform, as before tenants existed (absolute configuration paths, a given data directory)."""
-    spec = json.loads((EX / "platform.json").read_text())
+    spec = data_admins(json.loads((EX / "platform.json").read_text()))
     spec["data_dir"] = data_dir
     for ws in spec["workspaces"].values():
         for uc in ws["use_cases"].values():

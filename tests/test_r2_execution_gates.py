@@ -29,7 +29,7 @@ from autology.platform import Platform
 
 from .helpers import ROOT
 from .test_r2_use_case_lifecycle import close
-from .test_workspaces import EX, TOKENS, Client
+from .test_workspaces import Client, EX, TOKENS, data_admins
 
 AUTO = ROOT / "examples" / "auto_insurance"
 BANK = textwrap.dedent('''
@@ -87,7 +87,7 @@ class GateBase(unittest.TestCase):
     def setUp(self):
         os.environ.update(TOKENS)
         self.folder = gated_config(self.environments, getattr(self, "configure", None))
-        spec = json.loads((EX / "platform.json").read_text())
+        spec = data_admins(json.loads((EX / "platform.json").read_text()))
         spec["data_dir"] = tempfile.mkdtemp()
         spec["workspaces"]["acme"]["use_cases"]["claims"]["config"] = str(self.folder / "server.json")
         self.pf = Platform(spec, EX)

@@ -27,7 +27,7 @@ from .test_gap009_atomic_write_back import FlakyDb
 from .test_platform import service
 from .test_r2_use_case_lifecycle import close
 from .test_scenarios import NEW_ORDER
-from .test_workspaces import EX, TOKENS, Client, simulate_all
+from .test_workspaces import Client, EX, TOKENS, data_admins, simulate_all
 
 
 def sql(path, statement, *args):
@@ -166,7 +166,7 @@ class ConcurrencyTests(unittest.TestCase):
         os.environ.update(TOKENS)
         import tempfile
 
-        spec = json.loads((EX / "platform.json").read_text())
+        spec = data_admins(json.loads((EX / "platform.json").read_text()))
         spec["data_dir"] = tempfile.mkdtemp()
         pf = simulate_all(Platform(spec, EX))
         c = Client(pf)

@@ -14,7 +14,7 @@ from pathlib import Path
 
 from autology.platform import Platform, PlatformError
 
-from .test_workspaces import EX, TOKENS
+from .test_workspaces import EX, TOKENS, data_admins
 
 EXAMPLES = EX.parent
 
@@ -36,7 +36,7 @@ def platform_with(claims_tools=None, env_prefix=None, pipelines=None):
         (folder / "feed.json").write_text(json.dumps(pipelines))
         cfg["pipelines"] = {"feed": str(folder / "feed.json")}
     (folder / "nw_claims.json").write_text(json.dumps(cfg))
-    spec = json.loads((EX / "platform.json").read_text())
+    spec = data_admins(json.loads((EX / "platform.json").read_text()))
     spec["data_dir"] = tempfile.mkdtemp()
     for ws in spec["workspaces"].values():
         for uc in ws["use_cases"].values():

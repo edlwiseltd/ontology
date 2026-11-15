@@ -356,7 +356,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Put a release's ontology back and reload; activate the release afterwards to roll back */
+        /** Put an approved release's ontology back and reload; activate the release afterwards to roll back */
         post: operations["postWorkspacesWsUseCasesUcReleasesNRestore"];
         delete?: never;
         options?: never;
@@ -423,6 +423,7 @@ export interface components {
             /** @enum {string} */
             event: "activated" | "rolled_back";
             runs_on_other_configurations: string[];
+            runs_on_other_configurations_count?: number;
         } & {
             [key: string]: unknown;
         });

@@ -7,13 +7,13 @@ reproduces the audit's finding passes in CI; it has not been re-verified by an i
 
 | Status | Count |
 |---|---|
-| Fixed | 22 |
+| Fixed | 24 |
 | Open | 21 |
 | Open (external evidence) | 5 |
 | Open (owner decision) | 2 |
 | Partly fixed | 9 |
 
-*Counts updated 15 November 2026 (H-1: GAP-058, GAP-059 added and fixed; REL-1a: GAP-020 fixed; ADM-1/2 and STU-6: GAP-030, GAP-056 partly fixed, GAP-051 updated; QA-1: GAP-025 partly fixed, GAP-040 updated).* **High gaps not
+*Counts updated 15 November 2026 (H-1: GAP-058, GAP-059 added and fixed; REL-1a: GAP-020 fixed; ADM-1/2 and STU-6: GAP-030, GAP-056 partly fixed, GAP-051 updated; QA-1: GAP-025 partly fixed, GAP-040 updated; IAM-3: GAP-060 added and fixed, GAP-061 found, reproduced and fixed).* **High gaps not
 fully fixed:** GAP-031 (waits for legal sign-off, D19), GAP-032 (ERP connector), GAP-052 (real models) and GAP-053
 (real process), which need external systems, keys or a customer. GAP-009 and GAP-018 are **Fixed** (repository-
 verified; independent re-verification open): GAP-009's atomicity is local, there is no compensation towards
@@ -81,3 +81,5 @@ and closure criteria: [the clarification note](AUTOLOGY_PARTIAL_GAPS_CLARIFICATI
 | GAP-057 | Automations run synchronously inside request threads under one lock | Med | **Open** |  | R3: background worker queue |
 | GAP-058 (audit F-01, 15 Nov) | HTTP ingestion sent its secret headers to the "next page" URL chosen by the remote source, on any host; redirects were followed with credentials for pipelines, HTTP tools, the HTTP approver, webhooks, OIDC and trace export; replies unbounded; secrets could appear in error texts | Med | **Fixed** (repository-verified; CI below) | H-1 (see log) | `autology/outbound.py` (origin rules, same-origin redirects, size limit, redaction) used by `ingest.py`, `adapters.py`, `server.py` (webhooks), `oidc.py`, `tracing.py`; `next_origins` allow-list. `tests/test_h1_outbound.py` (12; 7 failed on `bc84fb2`). Limits: operator-configured destinations stay trusted (no private-address blocking, so on-premise systems keep working); not an independent security test |
 | GAP-059 (audit F-02, 15 Nov) | A machine could record a "human" approval: the HTTP approver satisfied human reviews outside simulation with a reviewer name chosen by the remote service, and API identities had no person/service distinction | Med | **Fixed** (repository-verified; CI below) | H-1 (see log) | Users and platform members declare `kind` (`person` default, `service`); `decide` and `reconcile` refuse service identities (403); the HTTP approver counts as automatic (refused on a real server; attributed to `http:<origin>`, claimed name kept as a claim). `tests/test_h1_approval_identity.py` (6, all failed on `bc84fb2`). Policy-authorised autonomy unchanged (A5). Limits: `kind` is declared by the operator; company sign-in users are treated as persons; release approvals follow in REL-1a |
+| GAP-060 (IAM analysis, 15 Nov) | Administration and data access were one privilege: a workspace administrator was engine `admin` on every use case, which bypasses row and field rules | Med | **Fixed** (repository-verified; CI below) | IAM-3 (see log) | Administrators hold `configure` only; data needs an explicit approved grant; existing administrators' access migrated once into explicit revocable grants. `tests/test_iam3_privilege_separation.py` (8, all failing before) |
+| GAP-061 (found and reproduced during IAM-3, 15 Nov) | A model published by one administrator (`publish-draft`, or `restore` of a never-approved release) was loaded by the engine at once: its access rules applied to data reads before a second person approved anything. Reproduced: an administrator with `configure` only published a model without the row-access rule and a member then saw a record hidden from her | Med | **Fixed** (repository-verified; CI below) | IAM-3 (see log) | The author of a draft revision cannot publish it (another person with release authority does); only an approved release's model can be restored. `test_iam3_privilege_separation` S8, `test_stu6_publish`, e2e (author refused 403, second person publishes). Limit: two colluding persons; files changed on disk by an operator are outside application control |

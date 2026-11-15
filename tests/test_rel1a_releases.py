@@ -32,7 +32,7 @@ from autology.releases import ReleaseError, configuration_snapshot, fingerprint_
 
 from .helpers import ROOT
 from .test_r2_use_case_lifecycle import close
-from .test_workspaces import EX, TOKENS, Client
+from .test_workspaces import Client, EX, TOKENS, data_admins
 
 AUTO = ROOT / "examples" / "auto_insurance"
 REL = "/platform/v1/workspaces/acme/use-cases/claims/releases"
@@ -52,7 +52,7 @@ class ReleaseBase(unittest.TestCase):
         self.start()
 
     def spec(self):
-        spec = json.loads((EX / "platform.json").read_text())
+        spec = data_admins(json.loads((EX / "platform.json").read_text()))
         spec["data_dir"] = self.data_dir
         acme = spec["workspaces"]["acme"]
         acme["use_cases"]["claims"]["config"] = str(self.config_dir / "server.json")
@@ -221,7 +221,8 @@ class LifecycleOfAReleaseTests(ReleaseBase):
         self.approve(rel2["number"])
         status, out = self.activate(rel2["number"])
         self.assertEqual(status, 200)
-        self.assertIn(run["run_id"], out["runs_on_other_configurations"])
+        self.assertEqual(out["runs_on_other_configurations_count"], 1)
+        self.assertIn(run["run_id"], out["runs_on_other_configurations"])  # ada holds an explicit data grant here
         status, out = self.call("POST", f"/w/acme/u/claims/api/v1/reviews/{run['pending_review']}/decision",
                                 "acme-ivan", {"approved": True, "comment": "ok"})
         self.assertEqual(status, 409, out)

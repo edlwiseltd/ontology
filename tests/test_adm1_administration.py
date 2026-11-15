@@ -26,7 +26,7 @@ from autology.platform import Platform
 
 from .helpers import ROOT
 from .test_r2_use_case_lifecycle import close
-from .test_workspaces import EX, TOKENS, Client
+from .test_workspaces import Client, EX, TOKENS, data_admins
 
 AUTO = ROOT / "examples" / "auto_insurance"
 WS = "/platform/v1/workspaces/acme"
@@ -43,7 +43,7 @@ class AdminBase(unittest.TestCase):
 
     def start(self):
         self.stop()
-        spec = json.loads((EX / "platform.json").read_text())
+        spec = data_admins(json.loads((EX / "platform.json").read_text()))
         spec["data_dir"] = self.data_dir
         spec["workspaces"]["acme"]["use_cases"]["claims"]["config"] = str(self.config_dir / "server.json")
         self.pf = Platform(spec, EX)
@@ -123,7 +123,6 @@ class MembershipTests(AdminBase):
         status, out = self.propose("zoe", ["run"], run_as={"no-such-agent": ["finance"]})
         self.assertEqual(status, 400)
         self.assertIn("unknown agent", out["error"]["message"])
-        self.assertEqual(self.propose("ada", ["read"])[0], 409)  # an administrator already has every right
         self.assertEqual(self.call("POST", f"{WS}/grants", body={"member": "zoe", "use_case": "nope",
                                                                  "permissions": [], "reason": "x"})[0], 400)
 

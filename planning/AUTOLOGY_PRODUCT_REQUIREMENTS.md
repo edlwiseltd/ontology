@@ -99,6 +99,9 @@ acceptance tests; numbers in brackets refer to the master instructions' §13 acc
   justified, approved and audited in the tenant's own log.
 - **R-IAM-4** AI agents and plugins act under distinct service identities with their own permissions and autonomy
   limits, intersected with the requester's; never implicit administrator rights.
+- **R-IAM-6** (D22a, decided) Administrative roles (workspace or tenant administrator) carry no business-data
+  access: an explicit, scoped, approved and revocable grant is required; administrative privileges never bypass
+  row, field, workspace or use-case authorisation.
 - **R-IAM-5** Every request is authorised by the Engine per tenant, resource, action and context (RBAC + ABAC +
   autonomy policies), extending the existing identity system ([gap analysis](AUTOLOGY_IAM_TARGET.md)), not a second one.
 

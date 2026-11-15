@@ -55,6 +55,7 @@ from .tenancy import Tenancy, TenancyError
 
 log = logging.getLogger("autology.platform")
 ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
+ADMINISTRATIVE = "configure"  # the engine permission an administrative role carries; never business data (IAM-3)
 ONTOLOGY_OVERRIDE = "ontology.json"  # in <data_dir>/<ws>/<uc>/: this use case's own ontology (published or restored)
 NOT_FOUND = json.dumps({"error": "not found"}).encode()
 
@@ -76,9 +77,19 @@ class Member:
     scope: str = "workspace"  # where the identity is defined: "workspace" (one workspace) or "tenant"
 
     def grant(self, use_case: str) -> Optional[Dict[str, Any]]:
-        if self.workspace_admin:
-            return {"permissions": ["admin"], "roles": [], "reviewer_roles": []}
-        return self.use_cases.get(use_case)
+        """What the member may do in one use case's engine. An administrator (of the workspace or of the tenant)
+        gets the administrative permission only (IAM-3, D22a): ``configure`` reads no business record, run,
+        review or audit entry. Business data needs an explicit grant, like for anyone else; an administrative role
+        never bypasses row, field, workspace or use-case authorisation."""
+        explicit = self.use_cases.get(use_case)
+        if not self.workspace_admin:
+            return explicit
+        if explicit is None:
+            return {"permissions": [ADMINISTRATIVE], "roles": [], "reviewer_roles": []}
+        return {**explicit, "permissions": sorted(set(explicit["permissions"]) | {ADMINISTRATIVE})}
+
+    def has_data_access(self, use_case: str) -> bool:
+        return bool(set((self.grant(use_case) or {}).get("permissions", [])) - {ADMINISTRATIVE})
 
 
 @dataclass
@@ -232,6 +243,7 @@ class Platform:
         # their own dedicated tenant, and the configuration can never merge or split tenants by itself
         existing = {ws_id for ws_id in workspace_specs if (self.data_dir / ws_id).is_dir()
                     and any((self.data_dir / ws_id).iterdir())}
+        self._existing = existing  # workspaces that had data before this start (migrations: IAM-1, IAM-3)
         try:
             self.tenancy = Tenancy(self.data_dir / "tenancy.db", workspace_key(audit_key(), "platform:tenancy"))
             self.tenancy.reconcile({ws_id: self._tenant_of[ws_id] for ws_id in workspace_specs}, existing)
@@ -343,6 +355,7 @@ class Platform:
             if unknown:
                 raise PlatformError(f"workspace {ws_id} member {member.name}: unknown use cases {sorted(unknown)}")
         ws.config_members = {n: _copy_member(m) for n, m in ws.members.items()}
+        self._separate_privileges(ws, spec)  # IAM-3 migration, once per workspace, before the log is replayed
         self._replay(ws)  # the administration log over the configuration (ADM-1), before any engine is built
         for uc_id, uc_spec in (spec.get("use_cases") or {}).items():
             if not ID.match(uc_id):
@@ -366,6 +379,31 @@ class Platform:
             ws.use_cases[row["id"]] = uc
         self.workspaces[ws_id] = ws
         self._rebuild_tokens()
+
+    def _separate_privileges(self, ws: Workspace, spec: Dict[str, Any]) -> None:
+        """IAM-3 migration, once per workspace (recorded in its administration log). Administrators no longer get
+        business-data access from their role. So that an upgrade takes nothing away silently, the access each
+        administrator of an **existing** workspace had implicitly becomes an explicit grant per use case: visible
+        in the members view, revocable like any other, and never given again automatically (not to new
+        administrators, new workspaces or new use cases)."""
+        events, problem = self.admin.events(ws.id)
+        if problem or any(e["event"] == "privileges_separated" for e in events):
+            return  # a log that does not verify fails closed: administrators keep the administrative role only
+        batch: List[Tuple[str, str, str, Dict[str, Any]]] = []
+        if ws.id in self._existing:
+            use_cases = list(spec.get("use_cases") or {}) + [r["id"] for r in self.lifecycle.created(ws.id)]
+            for m in ws.config_members.values():
+                if m.workspace_admin and m.scope == "workspace":
+                    for uc_id in use_cases:
+                        batch.append(("grant_migrated", "autology",
+                                      "IAM-3 migration: the data access this administrator had from the role is now "
+                                      "an explicit grant; revoke it if it is not needed",
+                                      {"member": m.name, "use_case": uc_id, "grant": {
+                                          "permissions": ["admin"], "roles": [], "reviewer_roles": [], "run_as": {}}}))
+        batch.append(("privileges_separated", "autology",
+                      "administrative roles no longer carry business-data access (IAM-3, D22a)",
+                      {"existing_workspace": ws.id in self._existing, "grants_migrated": len(batch)}))
+        self.admin.append_batch(ws.id, batch)
 
     # -- membership: platform.json plus the administration log (ADM-1, ADM-2) --------------------------------------
     def _replay(self, ws: Workspace) -> None:
@@ -392,6 +430,10 @@ class Platform:
                     members[p["member"]].use_cases[p["use_case"]] = p["grant"]
             elif e["event"] == "grant_withdrawn":
                 proposals.pop(d["id"], None)
+            elif e["event"] == "grant_migrated" and d["member"] in members:
+                have = members[d["member"]].use_cases.get(d["use_case"])
+                members[d["member"]].use_cases[d["use_case"]] = d["grant"] if have is None else {
+                    **have, "permissions": sorted(set(have["permissions"]) | set(d["grant"]["permissions"]))}
             elif e["event"] == "grant_revoked" and d["member"] in members:
                 members[d["member"]].use_cases.pop(d["use_case"], None)
         ws.members = members
@@ -556,7 +598,8 @@ class Platform:
         st = self.stage_of(uc)
         view = {"id": uc.id, "name": uc.name, "origin": uc.origin, "template": uc.template,
                 "ontology": uc.service.ontology.ref, "fingerprint": uc.service.ontology.fingerprint,
-                "path": f"/w/{uc.workspace}/u/{uc.id}", "permissions": member.grant(uc.id)["permissions"],
+                "path": f"/w/{uc.workspace}/u/{uc.id}",
+                "permissions": (member.grant(uc.id) or {"permissions": []})["permissions"],  # an approver: none
                 "stage": st["stage"], "stale": st["stale"], "integrity_problem": st["integrity_problem"],
                 "effective_stage": self.effective_stage(uc), "stages": list(STAGES)}
         rel = self.release_of(uc)
@@ -627,6 +670,11 @@ class Platform:
         row = uc.service.store.draft(revision)
         if row is None:
             raise LifecycleError(404, f"no draft revision {revision}")
+        # A published model is loaded at once, and its access rules then govern what members read. So one person
+        # never does it alone (IAM-3, GAP-061): whoever saved the revision cannot publish it.
+        if row["author"] == member.name:
+            raise LifecycleError(403, "you saved this draft revision: another person with release authority must "
+                                      "publish it (a model's access rules never change on one person's say-so)")
         verdict = validate(row["document"])
         if not verdict["valid"]:
             raise LifecycleError(409, "the draft is not valid: " + "; ".join(p["message"] for p in verdict["problems"]))
@@ -641,6 +689,11 @@ class Platform:
             raise ReleaseError(404, f"no release {number}")
         if not isinstance(snapshot.get("ontology"), dict) or "entities" not in snapshot["ontology"]:
             raise ReleaseError(409, f"release {number} has no ontology document to restore")
+        release = self.releases.release(ws.id, uc.id, number)
+        if not release["approved_by"] and release["status"] not in ("active", "superseded"):
+            # only a model another person already approved comes back without a second look (IAM-3, GAP-061)
+            raise ReleaseError(409, f"release {number} was never approved: its model cannot be restored; have the "
+                                    "release approved first, or publish the model as a draft")
         fresh = self._write_override(ws, uc, snapshot["ontology"], member, reason, "release_restored",
                                      {"release": number})
         release = self.releases.release(ws.id, uc.id, number)
@@ -708,7 +761,7 @@ class Platform:
             if ws is None:
                 return 404, None  # another workspace, or none: the same answer
             return self._administration(method, parts, ws, member, raw_body, body_error)
-        releases = len(parts) >= 7 and parts[6] == "releases"
+        releases = len(parts) >= 7 and parts[6] in ("releases", "publish-draft")  # open to named approvers
         if len(parts) < 5 or parts[2] != "workspaces" or parts[4] != "use-cases" or len(parts) > (9 if releases else 7):
             return 404, None
         ws = self.workspaces.get(parts[3]) if parts[3] == member.workspace else None
@@ -749,9 +802,9 @@ class Platform:
         if action == "releases":
             return self._releases(method, parts, ws, uc, member, raw_body, body_error)
         if action == "publish-draft" and method == "POST" and len(parts) == 7:
-            if not member.workspace_admin:
-                raise LifecycleError(403, "workspace administrators only")
-            self._require_person(member, "publish a draft")
+            if not self.may_approve_releases(ws, member):
+                raise LifecycleError(403, "only a person with release authority (a workspace administrator or a "
+                                          "named release approver) may publish a draft")
             body = self._json(raw_body, body_error)
             return 200, self.publish_draft(ws, uc, member, body.get("revision"), str(body.get("reason") or ""))
         if action == "reload" and method == "POST" and len(parts) == 7:
@@ -831,7 +884,7 @@ class Platform:
             target = ws.members.get(name)
             if target is None:
                 return 404, None
-            if target.workspace_admin:
+            if target.workspace_admin and action in ("remove", "token"):
                 raise AdminError(403, "workspace administrators are managed in the platform configuration only")
             if target.scope == "tenant" and action in ("remove", "token"):
                 raise AdminError(403, f"{name} is an identity of the tenant, with memberships in the platform "
@@ -859,8 +912,6 @@ class Platform:
             target, uc = ws.members.get(name), ws.use_cases.get(uc_id)
             if target is None or uc is None:
                 raise AdminError(400, "member and use_case must name a member and a use case of this workspace")
-            if target.workspace_admin:
-                raise AdminError(409, f"{name} is a workspace administrator and already has every right")
             perms = body.get("permissions") or []
             if not isinstance(perms, list) or set(perms) - PERMISSIONS:
                 raise AdminError(400, f"permissions: a list of {sorted(PERMISSIONS)}")
@@ -989,7 +1040,9 @@ class Platform:
         waiting = [r["run_id"] for r in uc.service.store.list_runs(limit=10 ** 6)
                    if r["status"] in ("awaiting_review", "deferred", "paused", "pending_confirmation")]
         stopped = [rid for rid in waiting if self._run_configuration(uc, rid) not in ("", running)]
-        return 200, {**out, "event": event["kind"], "runs_on_other_configurations": stopped}
+        # run identifiers are execution evidence: listed only for someone who may read this use case's data (IAM-3)
+        return 200, {**out, "event": event["kind"], "runs_on_other_configurations_count": len(stopped),
+                     "runs_on_other_configurations": stopped if member.has_data_access(uc.id) else []}
 
     @staticmethod
     def _run_configuration(uc: UseCase, run_id: str) -> str:

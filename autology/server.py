@@ -63,7 +63,11 @@ from .openapi import page_window, versioned_response
 from .store import Store, StoreError, StoreJournal
 
 log = logging.getLogger("autology.server")
-PERMISSIONS = frozenset({"read", "run", "review", "audit", "ingest", "reconcile", "admin"})
+# "configure" is the administrative permission (IAM-3, D22a): design the model, change the assistant's settings.
+# It reads no business record, run, review or audit entry. "admin" is full authority on one engine's data and
+# operations; it implies every other permission and is given only by an explicit grant, never by an
+# administrative role.
+PERMISSIONS = frozenset({"read", "run", "review", "audit", "ingest", "reconcile", "configure", "admin"})
 PRINCIPAL_KINDS = ("person", "service")  # who an API identity is: a signed-in person, or a machine (D11, F-02)
 FINAL_STATUSES = frozenset({"completed", "blocked", "escalated", "suspended"})
 MAX_BODY = 1_000_000
@@ -437,6 +441,11 @@ class AutologyService:
         if not user.can(permission):
             raise ApiError(403, f"{user.name} lacks the {permission!r} permission")
 
+    @staticmethod
+    def require_any(user: User, *permissions: str) -> None:
+        if not any(user.can(p) for p in permissions):
+            raise ApiError(403, f"{user.name} lacks the {' or '.join(repr(p) for p in permissions)} permission")
+
     # -- data access for API callers ----------------------------------------
     def _rule_applies(self, rule, inst: Instance) -> bool:
         if rule.when is None:
@@ -521,7 +530,7 @@ class AutologyService:
                 "reviewer_roles": sorted(user.reviewer_roles)}
 
     def ontology_summary(self, user: User) -> Dict[str, Any]:
-        self.require(user, "read")
+        self.require_any(user, "read", "configure")
         o = self.ontology
         return {"ref": o.ref, "fingerprint": o.fingerprint, "description": o.description, "modules": list(o.modules),
                 "free_form_cases": self.simulation or "admin" in user.permissions,
@@ -886,7 +895,7 @@ class AutologyService:
     def model_draft(self, user: User) -> Dict[str, Any]:
         from .modeling import questions, validate
 
-        self.require(user, "read")
+        self.require_any(user, "read", "configure")
         row = self.store.draft()
         doc = row["document"] if row else self._active_document()
         return {"revision": row["revision"] if row else 0, "document": doc,
@@ -899,7 +908,7 @@ class AutologyService:
     def save_model_draft(self, user: User, body: Dict[str, Any]) -> Dict[str, Any]:
         from .store import RecordConflict
 
-        self.require(user, "admin")
+        self.require(user, "configure")
         doc, expected = body.get("document"), body.get("expected_revision")
         if not isinstance(doc, dict):
             raise ApiError(400, "document must be a JSON object (an ontology document)")
@@ -915,20 +924,20 @@ class AutologyService:
         return self.model_draft(user)
 
     def model_draft_history(self, user: User) -> Dict[str, Any]:
-        self.require(user, "read")
+        self.require_any(user, "read", "configure")
         return {"items": self.store.draft_history()}
 
     def validate_model(self, user: User, body: Dict[str, Any]) -> Dict[str, Any]:
         from .modeling import questions, validate
 
-        self.require(user, "read")
+        self.require_any(user, "read", "configure")
         doc = body.get("document")
         return {"validation": validate(doc), "questions": questions(doc, self)}
 
     def architect_proposals(self, user: User, body: Dict[str, Any]) -> Dict[str, Any]:
         from .modeling import propose
 
-        self.require(user, "admin")
+        self.require(user, "configure")
         brief = body.get("brief")
         if not isinstance(brief, str) or not 1 <= len(brief.strip()) <= 4000:
             raise ApiError(400, "brief: 1 to 4000 characters describing the business")
@@ -943,7 +952,9 @@ class AutologyService:
         this user: the same tools, permissions, redaction and gates. Notifications get no answer."""
         from .mcp import McpServer
 
-        if not user.permissions:  # a token with no permission gets nothing, not even an acknowledgement
+        # a token with no operational permission gets nothing, not even an acknowledgement; the administrative
+        # "configure" permission is not one: MCP serves data and actions (IAM-3)
+        if not user.permissions - {"configure"}:
             raise ApiError(403, f"{user.name} has no permission in this use case")
         if not isinstance(message, dict):
             return {"jsonrpc": "2.0", "id": None, "error": {"code": -32600, "message": "invalid request"}}
@@ -1182,13 +1193,13 @@ class AutologyService:
         self.chat = GovernedChat(self, backend) if backend else None
 
     def assistant_view(self, user: User) -> Dict[str, Any]:
-        self.require(user, "admin")
+        self.require(user, "configure")
         return self.assistant_settings.view()
 
     def update_assistant(self, user: User, body: Dict[str, Any]) -> Dict[str, Any]:
         from .settings import SettingsError
 
-        self.require(user, "admin")
+        self.require(user, "configure")
         try:
             self.assistant_settings.update(body)
         except SettingsError as exc:
@@ -1202,7 +1213,7 @@ class AutologyService:
 
     def test_assistant(self, user: User) -> Dict[str, Any]:
         """Check the key and model with Claude without spending tokens (a model lookup)."""
-        self.require(user, "admin")
+        self.require(user, "configure")
         cfg = self.assistant_settings
         try:
             import anthropic

@@ -25,7 +25,7 @@ from autology.platform import Platform
 from .helpers import ROOT
 from .schema_check import errors
 from .test_r2_use_case_lifecycle import close
-from .test_workspaces import EX, TOKENS, Client, simulate_all
+from .test_workspaces import Client, EX, TOKENS, data_admins, simulate_all
 
 E = "/w/acme/u/claims/api"
 
@@ -34,7 +34,7 @@ class V1Base(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         os.environ.update(TOKENS)
-        s = json.loads((EX / "platform.json").read_text())
+        s = data_admins(json.loads((EX / "platform.json").read_text()))
         s["data_dir"] = tempfile.mkdtemp()
         cls.pf = simulate_all(Platform(s, EX))
         cls.c = Client(cls.pf)
@@ -203,7 +203,8 @@ class SchemaConformanceTests(V1Base):  # V5
             "document": draft["document"], "expected_revision": draft["revision"], "note": "v1"})
         self.assertEqual(status, 200, saved)
         calls2.append((("POST", "/platform/workspaces/{ws}/use-cases/{uc}/publish-draft"), "POST",
-                       f"{base}/v1-case/publish-draft", {"revision": saved["revision"], "reason": "v1"}, 200))
+                       f"{base}/v1-case/publish-draft", {"revision": saved["revision"], "reason": "v1"}, 200,
+                       "acme-maria"))  # never the author of the revision (IAM-3)
         for key, method, path, body, status, *who in calls2:
             with self.subTest(route=key, path=path):
                 got, _, out = self.raw(method, path, who[0] if who else "acme-ada", body)

@@ -21,6 +21,9 @@
                   "type": "string"
                 },
                 "type": "array"
+              },
+              "runs_on_other_configurations_count": {
+                "type": "integer"
               }
             },
             "required": [
@@ -2696,7 +2699,7 @@
           }
         },
         "summary": "Make a saved, valid draft revision this use case's ontology, then reload; needs a release to run (STU-6)",
-        "x-autology-permission": "workspace admin (person)"
+        "x-autology-permission": "release authority (person, not the author of the revision)"
       }
     },
     "/platform/v1/workspaces/{ws}/use-cases/{uc}/releases": {
@@ -3287,7 +3290,7 @@
             "description": "Conflict: state, stage or revision"
           }
         },
-        "summary": "Put a release's ontology back and reload; activate the release afterwards to roll back",
+        "summary": "Put an approved release's ontology back and reload; activate the release afterwards to roll back",
         "x-autology-permission": "workspace admin (person)"
       }
     },

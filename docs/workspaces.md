@@ -15,7 +15,7 @@ python -m autology console --engine http://127.0.0.1:8700/w/acme/u/claims --port
 |---|---|---|
 | Platform | The router, the platform access log, the data directory | `platform.json` |
 | Workspace | Members (people with one API token each), use cases, a secrets file | `platform.json` → `workspaces.<id>` |
-| Member | A person (or, with `"kind": "service"`, a machine identity such as a pipeline) in one workspace; `workspace_admin`, or per-use-case permissions, ontology roles and reviewer roles. A service member never decides a human review or settles an external call | `workspaces.<id>.members` |
+| Member | A person (or, with `"kind": "service"`, a machine identity such as a pipeline) in one workspace; `workspace_admin` (an administrative role: no business data by itself, IAM-3) and/or per-use-case permissions, ontology roles and reviewer roles. A service member never decides a human review or settles an external call | `workspaces.<id>.members` |
 | Use case | A complete engine: ontology, agents, tools, rules, pipelines, automations, settings; its own store and audit chain | `workspaces.<id>.use_cases.<id>.config` → an ordinary `server.json` |
 
 A use case's `server.json` is the same file a single engine uses. The platform replaces three things in it: the
@@ -43,6 +43,8 @@ mode. The same `server.json` can therefore back a use case in several workspaces
 | `GET /platform/workspaces/<ws>/use-cases/<uc>/releases/<n>` | a member granted it, or a release approver | One release; administrators and release approvers also get its snapshot |
 | `POST .../releases/<n>/approve` | a person with release authority, not the proposer | `{"reason"}`: approve, bound to the release's fingerprint |
 | `POST .../releases/<n>/revoke` | the approver or a workspace administrator | `{"reason"}`: withdraw an approval before activation |
+| `POST .../<uc>/publish-draft` | a person with release authority who did not save the revision | `{"revision", "reason"}`: make a saved, valid draft revision the use case's model and reload; it needs a release to run |
+| `POST .../releases/<n>/restore` | a workspace administrator (a person) | `{"reason"}`: put an **approved** release's model back and reload; activate that release afterwards to roll back |
 | `POST .../<uc>/reload` | a workspace administrator (a person) | `{"reason"}`: reload the engine from its files without a restart; refused, with nothing changed, if they do not load. Not an activation |
 | `GET /platform/workspaces/<ws>/members` | a workspace administrator or approver | Members (configured or added through the API), their grants, pending grant proposals, the administration history |
 | `POST /platform/workspaces/<ws>/members` | a workspace administrator (a person) | `{"name", "kind", "reason"}`: add a person or a service identity; the token is in the answer, once |
@@ -52,7 +54,7 @@ mode. The same `server.json` can therefore back a use case in several workspaces
 | `POST /platform/workspaces/<ws>/grants` | a workspace administrator (a person) | `{"member", "use_case", "permissions", "roles", "reviewer_roles", "run_as", "reason"}`: propose a grant (checked by the engine first) |
 | `POST .../grants/<id>/approve` | a person with authority who is neither the proposer nor the member | `{"reason"}`: the grant takes effect at the next request |
 | `POST .../grants/<id>/withdraw` | a workspace administrator (a person) | `{"reason"}`: drop a pending proposal |
-| `POST .../releases/<n>/activate` | a workspace administrator (a person) | `{"reason"}`: activate an approved release that is exactly what runs; an older one is a rollback. The answer lists runs waiting on another configuration |
+| `POST .../releases/<n>/activate` | a workspace administrator (a person) | `{"reason"}`: activate an approved release that is exactly what runs; an older one is a rollback. The answer counts the runs waiting on another configuration |
 
 Every route above (except the contract itself) is also served under `/platform/v1/...`, and every engine route
 under `/w/<ws>/u/<uc>/api/v1/...`: same handlers, same rules, with one error envelope, page metadata on lists and
@@ -113,6 +115,38 @@ tenant as for ones that do not exist.
 operators have no Autology identity yet (IAM-2): `tenancy assign` records the operating-system user as a claim.
 These are application controls; whoever can write the data directory, the configuration or the audit key is outside
 them (file permissions, backups, encryption and key custody are infrastructure controls).
+
+## Administrators do not see business data by default (IAM-3)
+
+Being an administrator, of a workspace or of a tenant, is an **administrative** role. In every use case of the
+workspace it carries one engine permission, `configure`: the model summary, model drafts and their validation,
+architect proposals, the assistant's settings. It carries **no** business-data access: records, runs, reviews,
+audit entries, reports, data upload, the scheduler and MCP all answer `403`, from the engine itself. An
+administrative role never bypasses row, field, workspace or use-case rules.
+
+- **Business data needs an explicit grant**, for administrators like for anyone: proposed with
+  `POST .../grants` (permissions, roles, reviewer roles, `run_as`, for one use case), approved by another person
+  with authority who is neither the proposer nor the person who receives it, recorded in the administration log,
+  and revoked at once with `POST .../members/<name>/revoke`. A grant written in `platform.json` under an
+  administrator's `use_cases` is explicit too. The engine's own `admin` permission (everything on one use case,
+  regardless of row and field rules) exists only as such a grant.
+- **Migration, once per workspace.** When this version first loads a workspace that already has data, each of its
+  configured administrators receives, for each existing use case, an explicit `admin` grant recorded as
+  `grant_migrated`: an upgrade takes nothing away silently, and what used to be hidden in a role is now visible in
+  `GET .../members` and revocable. Nothing is granted afterwards: not to new administrators, new workspaces or use
+  cases created later. Review the migrated grants and revoke those that are not needed.
+- **A model never changes on one person's say-so.** A published model is loaded at once and its access rules then
+  govern what members read, so `publish-draft` is refused to whoever saved the draft revision: another person with
+  release authority (a workspace administrator or a named approver) publishes it. A release's model can be restored
+  only if that release was approved.
+- Separation of duties is unchanged: an administrator who holds a data grant still cannot decide the review of a run
+  they started, approve their own release or their own grant.
+- If the administration log does not verify, administrators keep the administrative role only.
+
+**Limits.** These are application controls: whoever can read the data directory, backups or the audit key is
+outside them (file permissions, encryption and key custody are infrastructure controls). Platform operators have no
+application identity, so they have no application permission on customer data either; governed exceptional access
+is a later increment (IAM-2).
 
 ## Administration without restarts (ADM-1, ADM-2)
 

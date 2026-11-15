@@ -1030,7 +1030,7 @@
           }
         },
         "summary": "Provisional additions for a business brief (blueprints; not AI)",
-        "x-autology-permission": "admin"
+        "x-autology-permission": "configure"
       }
     },
     "/api/v1/audit-heads": {
@@ -2034,7 +2034,7 @@
           }
         },
         "summary": "The model draft (never active), its validation and discovery questions",
-        "x-autology-permission": "read"
+        "x-autology-permission": "read or configure"
       },
       "post": {
         "operationId": "postModelDraft",
@@ -2111,7 +2111,7 @@
           }
         },
         "summary": "Save a draft revision over the one read (expected_revision)",
-        "x-autology-permission": "admin"
+        "x-autology-permission": "configure"
       }
     },
     "/api/v1/model/draft/history": {
@@ -2181,7 +2181,7 @@
           }
         },
         "summary": "Draft revisions",
-        "x-autology-permission": "read"
+        "x-autology-permission": "read or configure"
       }
     },
     "/api/v1/model/validate": {
@@ -2260,7 +2260,7 @@
           }
         },
         "summary": "Validate a model document with the engine's strict loader",
-        "x-autology-permission": "read"
+        "x-autology-permission": "read or configure"
       }
     },
     "/api/v1/notifications": {
@@ -2764,7 +2764,7 @@
           }
         },
         "summary": "The ontology the use case runs",
-        "x-autology-permission": "read"
+        "x-autology-permission": "read or configure"
       }
     },
     "/api/v1/openapi.json": {
@@ -5450,7 +5450,7 @@
           }
         },
         "summary": "Assistant settings",
-        "x-autology-permission": "admin"
+        "x-autology-permission": "configure"
       },
       "post": {
         "operationId": "postSettingsAssistant",
@@ -5529,7 +5529,7 @@
           }
         },
         "summary": "Change the assistant settings",
-        "x-autology-permission": "admin"
+        "x-autology-permission": "configure"
       }
     },
     "/api/v1/settings/assistant/test": {
@@ -5610,7 +5610,7 @@
           }
         },
         "summary": "Test the assistant's model connection",
-        "x-autology-permission": "admin"
+        "x-autology-permission": "configure"
       }
     },
     "/api/v1/tick": {

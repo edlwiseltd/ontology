@@ -204,13 +204,13 @@ provider when `oidc` is configured: see [`integrations.md`](integrations.md)), e
 | `POST /api/runs/{id}/outcomes` | review | Record a decision's outcome |
 | `GET /api/outcomes` | read | Outcomes summary |
 | `GET /api/sdk/{language}` | read | A typed client for this ontology (`python`, `typescript`) |
-| `GET /api/model/draft` | read | The model draft (or the active model if none), with the engine's validation and rule-based discovery questions. A draft never changes what runs |
-| `POST /api/model/draft` | admin | `{"document", "expected_revision", "note"}`: save a new draft revision over the one you read; 409 if someone saved meanwhile |
-| `GET /api/model/draft/history` | read | Draft revisions (append-only) |
-| `POST /api/model/validate` | read | `{"document"}`: strict validation with the problem's location (`entities.X…`, `relationships.N`), plus discovery questions; nothing is saved |
-| `POST /api/architect/proposals` | admin | `{"brief"}`: provisional additions from an approved industry blueprint, labelled `"ai": false`; nothing is applied |
+| `GET /api/model/draft` | read or configure | The model draft (or the active model if none), with the engine's validation and rule-based discovery questions. A draft never changes what runs |
+| `POST /api/model/draft` | configure | `{"document", "expected_revision", "note"}`: save a new draft revision over the one you read; 409 if someone saved meanwhile |
+| `GET /api/model/draft/history` | read or configure | Draft revisions (append-only) |
+| `POST /api/model/validate` | read or configure | `{"document"}`: strict validation with the problem's location (`entities.X…`, `relationships.N`), plus discovery questions; nothing is saved |
+| `POST /api/architect/proposals` | configure | `{"brief"}`: provisional additions from an approved industry blueprint, labelled `"ai": false`; nothing is applied |
 | `GET /api/me` | any | Who am I, with permissions and roles |
-| `GET /api/ontology` | read | Entities, actions, goals, rules, questions, agents |
+| `GET /api/ontology` | read or configure | Entities, actions, goals, rules, questions, agents |
 | `GET /api/objects?type=&limit=&offset=` | read | Objects, row- and field-filtered for the caller |
 | `GET /api/objects/{id}` | read | One object with its visible links |
 | `POST /api/objects` | admin | Create or update an object and its outgoing links, validated against the ontology. Optional `"expected_revision"` (from the object's `revision`; 0 = must not exist yet): if the record changed since, 409 with the current revision and nothing written |
@@ -235,8 +235,8 @@ provider when `oidc` is configured: see [`integrations.md`](integrations.md)), e
 | `GET /api/ingest-batches/{id}` | ingest | One load, with its quarantined rows |
 | `GET /api/metrics` | audit | Operational metrics in the Prometheus text format (counts only) |
 | `POST /api/reporting` | admin | Rewrite the governed reporting database for BI tools |
-| `GET /api/settings/assistant` · `POST /api/settings/assistant` | admin | The Claude assistant's settings: on/off, model, effort, key (write-only; only its last four characters are ever returned) |
-| `POST /api/settings/assistant/test` | admin | Check the key and model with Claude (a model lookup: no tokens spent) |
+| `GET /api/settings/assistant` · `POST /api/settings/assistant` | configure | The Claude assistant's settings: on/off, model, effort, key (write-only; only its last four characters are ever returned) |
+| `POST /api/settings/assistant/test` | configure | Check the key and model with Claude (a model lookup: no tokens spent) |
 
 **Permissions:**
 
@@ -248,7 +248,8 @@ provider when `oidc` is configured: see [`integrations.md`](integrations.md)), e
 | `audit` | Raw audit entries |
 | `ingest` | Running data pipelines and reading quarantined rows (give it to the account a pipeline tool uses, and nothing else) |
 | `reconcile` | Settling external calls whose outcome is unknown or unconfirmed ([integrations](integrations.md#acting-in-other-systems-safely)) |
-| `admin` | Everything |
+| `configure` | Administration without data (IAM-3): the model summary, model drafts, validation, architect proposals, the assistant's settings. It reads no record, run, review or audit entry |
+| `admin` | Everything on this engine: data upload, every record regardless of row and field rules, scheduler, scenario commit, and all the permissions above. Behind the platform it is given only by an explicit, approved grant, never by an administrative role |
 
 A user's `roles` are ontology roles, and the row and field rules apply to everything returned to them.
 

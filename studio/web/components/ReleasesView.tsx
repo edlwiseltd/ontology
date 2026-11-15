@@ -20,6 +20,7 @@ export default function ReleasesView({ workspace, useCase, member, admin, onChan
   const [note, setNote] = useState("");
   const [reason, setReason] = useState("");
   const [draftRevision, setDraftRevision] = useState<number>(0);
+  const [draftAuthor, setDraftAuthor] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const me = `${member}@${workspace}`;
 
@@ -27,7 +28,11 @@ export default function ReleasesView({ workspace, useCase, member, admin, onChan
     setError("");
     try {
       setState(await api.releases(workspace, useCase.id));
-      if (admin) setDraftRevision((await api.draft(useCase.path)).revision);
+      if (admin) {
+        const draft = await api.draft(useCase.path);
+        setDraftRevision(draft.revision);
+        setDraftAuthor(draft.author ?? null);
+      }
     } catch (e) { setError((e as Error).message); }
   }, [workspace, useCase.id, useCase.path, admin]);
 
@@ -109,7 +114,10 @@ export default function ReleasesView({ workspace, useCase, member, admin, onChan
             <>
               <p className="muted small">Makes saved draft revision {draftRevision} this use case&apos;s model. Nothing runs on it
                 until a release of it is approved by another person, activated, and the use case is simulated again.</p>
-              <button type="button" disabled={busy || needReason}
+              {draftAuthor === member && <p className="warn small" data-testid="publish-needs-another">
+                You saved this revision: another person with release authority must publish it (the platform refuses the
+                author).</p>}
+              <button type="button" disabled={busy || needReason || draftAuthor === member}
                       onClick={() => act(`Draft revision ${draftRevision} published: propose a release of it`,
                                          () => api.publishDraft(workspace, useCase.id, draftRevision, reason))}>
                 Publish draft revision {draftRevision}</button>

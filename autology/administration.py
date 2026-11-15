@@ -34,7 +34,9 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 GENESIS = "0" * 64
 EVENTS = ("member_added", "member_removed", "token_rotated", "grant_proposed", "grant_approved", "grant_withdrawn",
-          "grant_revoked", "engine_reloaded", "draft_published", "release_restored")
+          "grant_revoked", "engine_reloaded", "draft_published", "release_restored",
+          # IAM-3: the data access an administrator had implicitly, converted once into explicit, revocable grants
+          "grant_migrated", "privileges_separated")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS admin_events (
@@ -121,6 +123,32 @@ class AdminLog:
             self._db.execute("INSERT INTO admin_events VALUES (:workspace, :seq, :event, :by, :reason, :data, :at, "
                              ":prev, :mac)", row)
         return {"seq": row["seq"], "event": event, "by": by, "reason": reason, "data": data, "at": row["at"]}
+
+    def append_batch(self, workspace: str, items: List[Tuple[str, str, str, Dict[str, Any]]]) -> int:
+        """Append several events ``(event, by, reason, data)`` in one transaction: all of them, or none (a
+        migration interrupted half-way leaves the log as it was and is simply run again)."""
+        with self._lock:
+            _, problem = self.events(workspace)
+            if problem:
+                raise AdminError(409, problem)
+            self._db.execute("BEGIN IMMEDIATE")
+            try:
+                for event, by, reason, data in items:
+                    if event not in EVENTS:
+                        raise AdminError(400, f"unknown administration event {event!r}")
+                    last = self._db.execute("SELECT seq, mac FROM admin_events WHERE workspace=? ORDER BY seq DESC "
+                                            "LIMIT 1", (workspace,)).fetchone()
+                    row = {"workspace": workspace, "seq": (last["seq"] + 1) if last else 1, "event": event, "by": by,
+                           "reason": reason, "data": _canonical(data), "at": _now(),
+                           "prev": last["mac"] if last else GENESIS}
+                    row["mac"] = self._mac(workspace, self._payload(row))
+                    self._db.execute("INSERT INTO admin_events VALUES (:workspace, :seq, :event, :by, :reason, :data, "
+                                     ":at, :prev, :mac)", row)
+                self._db.execute("COMMIT")
+            except BaseException:
+                self._db.execute("ROLLBACK")
+                raise
+        return len(items)
 
 
 def pending_grants(events: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:

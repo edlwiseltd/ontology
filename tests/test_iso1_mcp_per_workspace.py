@@ -10,14 +10,14 @@ from unittest import mock
 
 from autology.mcp import run
 
-from .test_workspaces import EX, TOKENS
+from .test_workspaces import EX, TOKENS, data_admins
 
 HANDSHAKE = {"jsonrpc": "2.0", "id": 1, "method": "initialize",
              "params": {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "t", "version": "1"}}}
 
 
 def platform_file():
-    spec = json.loads((EX / "platform.json").read_text())
+    spec = data_admins(json.loads((EX / "platform.json").read_text()))
     spec["data_dir"] = tempfile.mkdtemp()
     path = Path(tempfile.mkdtemp()) / "platform.json"
     for ws in spec["workspaces"].values():  # keep the use-case configs reachable from the copied file

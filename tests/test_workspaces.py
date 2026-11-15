@@ -22,9 +22,21 @@ TOKENS = {"ACME_TOKEN_ADA": "acme-ada", "ACME_TOKEN_HANA": "acme-hana", "ACME_TO
 KEY = "sk-ant-api03-" + "y" * 40 + "ACME"
 
 
+def data_admins(spec):
+    """Give every configured workspace administrator an explicit engine ``admin`` grant on the configured use
+    cases. Since IAM-3 an administrative role carries no business-data access (tests/test_iam3_privilege_
+    separation.py); the tests that use this helper are about something else and need someone who may load and
+    read data, so the grant is written out, as a deployment would write it."""
+    for ws in spec["workspaces"].values():
+        for m in ws.get("members", []):
+            if m.get("workspace_admin"):
+                m["use_cases"] = {uc: {"permissions": ["admin"]} for uc in ws.get("use_cases", {})}
+    return spec
+
+
 def platform(**changes):
     os.environ.update(TOKENS)
-    spec = json.loads((EX / "platform.json").read_text())
+    spec = data_admins(json.loads((EX / "platform.json").read_text()))
     spec["data_dir"] = tempfile.mkdtemp()
     spec.update(changes)
     return simulate_all(Platform(spec, EX))

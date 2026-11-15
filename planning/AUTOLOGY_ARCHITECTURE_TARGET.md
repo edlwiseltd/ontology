@@ -242,3 +242,9 @@ LinkML. **Phase:** a reversible experiment on synthetic data only, after R2.
 Commercial verticals, marketplaces and new business models discussed with the owner are **not** in the engineering
 roadmap. They stay in product discussions until the owner authorises a mandate. Technical feasibility, product
 desirability, commercial viability and deployment readiness are assessed separately.
+
+## B9. Multi-tenant identity and access (approved direction D22)
+
+Five identity categories, tenant above workspaces, no default platform-admin access to customer data, distinct
+service identities for agents and plugins, RBAC + ABAC + autonomy policies enforced by the Engine. Existing
+mechanisms, gaps and increments IAM-1…IAM-6: [IAM target](AUTOLOGY_IAM_TARGET.md).

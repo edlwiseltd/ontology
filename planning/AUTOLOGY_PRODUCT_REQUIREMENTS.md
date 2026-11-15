@@ -90,6 +90,18 @@ acceptance tests; numbers in brackets refer to the master instructions' §13 acc
   required evidence, giving ALLOW / REQUIRE APPROVAL / DENY (and possibly simulation-only or deferred); Autology never
   replaces certified safety functions ([architecture B6](AUTOLOGY_ARCHITECTURE_TARGET.md)).
 
+## Identity and access (R-IAM; approved direction D22, 15 Nov)
+
+- **R-IAM-1** Five identity categories (Platform Administrator, Tenant Administrator, Internal User, Portal User,
+  Public Visitor), not a hierarchy: no category reaches another's data implicitly.
+- **R-IAM-2** Tenant (the customer organisation) distinct from, and owning, workspaces, use cases and applications.
+- **R-IAM-3** Platform administrators have no default access to customer data; exceptional access is limited,
+  justified, approved and audited in the tenant's own log.
+- **R-IAM-4** AI agents and plugins act under distinct service identities with their own permissions and autonomy
+  limits, intersected with the requester's; never implicit administrator rights.
+- **R-IAM-5** Every request is authorised by the Engine per tenant, resource, action and context (RBAC + ABAC +
+  autonomy policies), extending the existing identity system ([gap analysis](AUTOLOGY_IAM_TARGET.md)), not a second one.
+
 ## Extensibility and knowledge (R-EX, R-KN; directions and candidates, V2)
 
 - **R-EX-1** (approved direction) Core + Plugin Runtime: everything extensible except the Core governance and

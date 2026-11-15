@@ -203,3 +203,4 @@ The owner's order is kept where the repository's dependencies allow it:
 | 11 | Decision & Action Designer | Needs authorisation | B5 model design; criticality model (B6) |
 | 12 | Advanced autonomous agents, Integration Hub | Needs authorisation | Plugin runtime or connector contract; D6/D13/D15 |
 | 13 | Independent Workspace UI and production operations | Needs authorisation | PROD, D2, D3, restore drills (GAP-033), independent security review |
+| 14 | Multi-tenant IAM (D22): IAM-1 tenant, IAM-3 admin/data separation, IAM-2 platform operators, then GAP-030, IAM-4 portal users, IAM-5 public visitors, IAM-6 agent and plugin identities | Approved direction; needs authorisation per increment and D22a–e | Extends the existing identity system ([gap analysis](AUTOLOGY_IAM_TARGET.md)); IAM-4/5 after GAP-030 (rate limiting, token expiry); IAM-6 with the plugin runtime |

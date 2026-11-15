@@ -30,6 +30,9 @@
               },
               "unrestricted": {
                 "type": "integer"
+              },
+              "unrestricted_without_data_use": {
+                "type": "integer"
               }
             },
             "required": [
@@ -83,6 +86,9 @@
           },
           "member": {
             "type": "string"
+          },
+          "narrower_would_do": {
+            "type": "boolean"
           },
           "needs_review": {
             "type": "boolean"
@@ -145,6 +151,32 @@
               "string",
               "null"
             ]
+          },
+          "usage": {
+            "additionalProperties": true,
+            "properties": {
+              "configuration": {
+                "type": "integer"
+              },
+              "data": {
+                "type": "integer"
+              },
+              "last_request_at": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "operational": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "operational",
+              "configuration",
+              "data"
+            ],
+            "type": "object"
           },
           "use_case": {
             "type": "string"

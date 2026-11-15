@@ -114,3 +114,46 @@ stores.
 | **D22c** | Comment s'authentifient les Portal Users ? | Fournisseur d'identité externe (OIDC du tenant, ou service d'identité grand public choisi par le tenant), sans mots de passe stockés par Autology |
 | **D22d** | Quelles protections pour les actions publiques ? | Limitation de débit et quotas obligatoires (GAP-030) ; protection anti-robot à choisir ; aucune donnée personnelle renvoyée aux visiteurs |
 | D22e | Données personnelles des Portal Users et des visiteurs (consentement, conservation) | À voir avec le DPO avant IAM-4 et IAM-5 |
+
+## 7. D24 — permission `operate` : conception prête, non activée (15 novembre 2026)
+
+*Section ajoutée par le sprint « Decision Integrity ». Rien de ce qui suit n'est en vigueur : la décision D24
+appartient au propriétaire. Aucun contrôle d'autorisation n'a été modifié ; `tests/test_d24_operate_readiness.py`
+fige le comportement actuel pour qu'aucun changement ne passe sans approbation.*
+
+**Constat vérifié.** La permission moteur `admin` sert aujourd'hui à deux choses distinctes : exploiter le moteur
+(passe de l'ordonnanceur, rafraîchissement du reporting, réactivation d'un agent, reprise d'une écriture) et lire ou
+écrire toutes les données du cas d'usage sans règles de ligne ni de champ. Quiconque doit exploiter reçoit donc
+aussi l'accès illimité aux données.
+
+**Séparation cible.**
+
+| Capacité | Permission | Données métier |
+|---|---|---|
+| Administration de la configuration | `configure` (existante) | aucune |
+| Exploitation du moteur | **`operate` (proposée)** | aucune : ni lecture ni écriture d'enregistrement |
+| Accès aux données métier | `read`, `run`, `review`, `audit`, `ingest`, `reconcile` avec rôles | règles de ligne et de champ appliquées |
+| Gestion des accès | rôle d'administrateur d'espace (plateforme) | aucune |
+| Revue humaine | `review` + rôles de relecteur | selon les règles |
+| Accès privilégié exceptionnel | `admin` (existante, inchangée) | illimité, accordé à deux personnes, revu |
+
+**Périmètre proposé de `operate`** (quatre opérations, toutes sans lecture de données) : `POST /api/tick`,
+`POST /api/reporting`, `POST /api/agents/{nom}/reinstate`, `POST /api/runs/{id}/write-back`. Resteraient réservées à
+`admin` : l'écriture directe d'enregistrements, la validation de scénarios, la lecture hors règles.
+
+**Si D24 est approuvée, étapes (environ 1 à 2 jours) :** ajouter `operate` à l'ensemble des permissions ; remplacer
+`require(admin)` par `require_any(operate, admin)` sur ces quatre opérations seulement ; l'accorder par la procédure
+existante (proposition, approbation par une autre personne, jamais à soi-même, jamais par une identité de service) ;
+ne rien retirer automatiquement ; inverser les assertions D1 et D2 du fichier de tests ; mettre à jour le contrat
+d'API et l'écran Access de Studio.
+
+**Preuve disponible dès maintenant pour décider.** La revue d'accès (`GET .../access-review`) indique, pour chaque
+octroi illimité, l'usage réellement constaté dans le journal d'accès du cas d'usage (`usage` : opérations
+d'exploitation, de configuration, sur les données) et `narrower_would_do` lorsque aucun usage n'a porté sur des
+données : ces détenteurs sont les candidats à un octroi plus étroit. C'est une information, pas un contrôle, limitée
+aux 2 000 dernières requêtes de l'identité.
+
+**Question pour le propriétaire.** Approuvez-vous (a) l'ajout de `operate` avec le périmètre ci-dessus, `admin`
+restant inchangée ? Options : (a) oui ; (b) oui avec un autre périmètre (à préciser) ; (c) non, conserver l'état
+actuel. Conséquence de (c) : l'exploitation continue d'exiger l'accès illimité aux données. Défaut recommandé : (a).
+

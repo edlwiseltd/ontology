@@ -1263,6 +1263,51 @@ class Platform:
                            "may_approve": self.may_approve_releases(ws, viewer)}
         return view
 
+    # What the engine's unrestricted permission is used for in practice (D24). Operational requests are those a
+    # future, narrower "operate" permission would cover: they run the engine and read no business record.
+    OPERATIONAL = (("POST", ("tick",)), ("POST", ("reporting",)), ("POST", ("agents", "*", "reinstate")),
+                   ("POST", ("runs", "*", "write-back")))
+    USAGE_WINDOW = 2000  # most recent requests of one identity looked at, per use case
+
+    @classmethod
+    def _usage_kind(cls, target: str) -> Optional[str]:
+        """``"operational"``, ``"configuration"`` or ``"data"`` for an access-log target such as
+        ``"POST /api/v1/tick"``; None for what tells nothing (sign-in, health, the caller's own identity)."""
+        method, _, path = target.partition(" ")
+        parts = [p for p in path.split("/") if p]
+        if parts[:1] == ["api"]:
+            parts = parts[1:]
+        if parts[:1] == ["v1"]:
+            parts = parts[1:]
+        if not parts or parts[0] in ("me", "health", "openapi.json", "auth", "ontology", "agents") and method == "GET":
+            return None
+        for verb, shape in cls.OPERATIONAL:
+            if method == verb and len(parts) == len(shape) and all(s in ("*", p) for s, p in zip(shape, parts)):
+                return "operational"
+        if parts[0] in ("model", "architect", "settings"):
+            return "configuration"
+        return "data"
+
+    def _admin_usage(self, ws: Workspace, member: str, uc_id: str) -> Dict[str, Any]:
+        """How an identity that holds the unrestricted permission on a use case has used the engine, from the
+        use case's own access log (successful requests only). Evidence for an access review, not a control."""
+        uc = ws.use_cases.get(uc_id)
+        usage: Dict[str, Any] = {"operational": 0, "configuration": 0, "data": 0, "last_request_at": None}
+        if uc is None or uc.unavailable:
+            return usage
+        try:
+            rows = uc.service.store.access_log(member, limit=self.USAGE_WINDOW)
+        except Exception:  # an engine being switched or closed: the review still answers
+            return usage
+        for row in rows:
+            if row["kind"] != "http" or int(row["status"]) >= 400:
+                continue
+            kind = self._usage_kind(row["target"])
+            if kind:
+                usage[kind] += 1
+                usage["last_request_at"] = usage["last_request_at"] or row["timestamp"]
+        return usage
+
     def access_review(self, ws: Workspace) -> Dict[str, Any]:
         """Every business-data grant of the workspace, where it comes from and whether it still needs a person's
         review (R2 security sprint B): the report an owner reads after the IAM-3 migration, and regularly after."""
@@ -1275,7 +1320,13 @@ class Platform:
                     continue
                 rec = ws.grant_records.get((m.name, uc_id)) or {"origin": "configuration", "by": "configuration",
                                                                 "approved_by": None, "at": None, "review": None}
+                usage = self._admin_usage(ws, m.name, uc_id) if access == "unrestricted" else None
                 items.append({"member": m.name, "kind": m.kind, "administrator": m.workspace_admin,
+                              # For unrestricted grants: what the access was used for. "narrower_would_do" is true
+                              # when every recorded use was operational or configuration work, none of which
+                              # needs to read business data: such a holder is a candidate for a narrower grant
+                              # (and for the "operate" permission, should the owner approve it: D24).
+                              **({"usage": usage, "narrower_would_do": usage["data"] == 0} if usage else {}),
                               "use_case": uc_id, "permissions": sorted(grant["permissions"]),
                               "roles": sorted(grant.get("roles") or []),
                               "reviewer_roles": sorted(grant.get("reviewer_roles") or []),
@@ -1286,7 +1337,8 @@ class Platform:
                 "summary": {"grants": len(items),
                             "unrestricted": sum(i["data_access"] == "unrestricted" for i in items),
                             "administrators_with_data_access": len({i["member"] for i in items if i["administrator"]}),
-                            "needs_review": sum(i["needs_review"] for i in items)},
+                            "needs_review": sum(i["needs_review"] for i in items),
+                            "unrestricted_without_data_use": sum(bool(i.get("narrower_would_do")) for i in items)},
                 "unrestricted_means": list(UNRESTRICTED_MEANS),
                 "how_to_resolve": "for each grant that needs review, a person with authority who is not the member "
                                   "either confirms it (POST .../members/<name>/confirm-grant), revokes it "

@@ -432,3 +432,19 @@ Evidence (local): full suite 788 OK (770 + 18; 2 PostgreSQL tests skipped locall
 statements, 578 missed); after that run an unused helper was removed and one rule made stricter (a `write_access`
 condition that cannot be evaluated now protects the field), re-checked with the targeted modules (47 OK); ruff
 clean; mypy 198 (= baseline). No API route or schema changed, so Studio was not rebuilt. CI: recorded below.
+
+## 15 November 2026 — Decision integrity sprint, increment B: D24 least-privilege operations (blocked on approval)
+
+**Status: partial, by design.** D24 was not approved in the directive, so no authorisation semantics changed:
+`operate` does not exist as a permission and `admin` is what it was.
+
+| Story | Change | Tests | Behaviour change |
+|---|---|---|---|
+| Design | Target separation of capabilities, proposed scope of `operate` (four engine operations that read no record), the steps if approved, and the question for the owner: [IAM target §7](AUTOLOGY_IAM_TARGET.md); D24 updated in the decision register | — | None |
+| Present behaviour pinned | `operate` cannot be configured or granted; the four operations are refused without `admin` | `test_d24_operate_readiness.py` D1, D2 | None (characterisation) |
+| Effective-access evidence | `GET .../access-review`: for every unrestricted grant, `usage` (operational, configuration, data requests found in the use case's access log) and `narrower_would_do`; summary `unrestricted_without_data_use` | D3, D4; updated `test_iamb_admin_hardening` (one exact-summary assertion) | Additive fields in the review |
+
+**Remaining for D24:** the owner's approval; then the implementation steps listed in the design (about 1–2 days).
+**Limits of the evidence:** it reads the last 2,000 requests of the identity in that use case; absence of data use
+in the log is not proof that the access is unnecessary.
+

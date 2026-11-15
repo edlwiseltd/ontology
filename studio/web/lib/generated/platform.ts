@@ -530,6 +530,7 @@ export interface components {
                 grants: number;
                 needs_review: number;
                 unrestricted: number;
+                unrestricted_without_data_use?: number;
             } & {
                 [key: string]: unknown;
             };
@@ -546,6 +547,7 @@ export interface components {
             granted_by?: string;
             kind?: string;
             member: string;
+            narrower_would_do?: boolean;
             needs_review: boolean;
             /** @enum {string} */
             origin: "configuration" | "migration" | "grant";
@@ -560,6 +562,14 @@ export interface components {
             reviewer_roles?: string[];
             roles?: string[];
             since?: string | null;
+            usage?: {
+                configuration: number;
+                data: number;
+                last_request_at?: string | null;
+                operational: number;
+            } & {
+                [key: string]: unknown;
+            };
             use_case: string;
         } & {
             [key: string]: unknown;

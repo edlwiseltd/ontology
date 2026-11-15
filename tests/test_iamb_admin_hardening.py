@@ -257,7 +257,8 @@ class AccessReviewTests(Base):
                          [("claims", "migration", "unrestricted", True, "autology"),
                           ("orders", "migration", "unrestricted", True, "autology")])
         self.assertEqual(report["summary"], {"grants": len(report["items"]), "unrestricted": 2,
-                                             "administrators_with_data_access": 1, "needs_review": 2})
+                                             "administrators_with_data_access": 1, "needs_review": 2,
+                                             "unrestricted_without_data_use": 2})  # neither was used on data yet
         others = [i for i in report["items"] if i["member"] != "ada"]
         self.assertTrue(others and all(i["origin"] == "configuration" and not i["needs_review"] for i in others))
         self.assertIn("confirm-grant", report["how_to_resolve"])

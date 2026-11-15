@@ -179,6 +179,16 @@ resolve one, each recorded:
 Nothing is revoked automatically: the migrated grants keep working until a person decides, and the report shows how
 many still wait.
 
+### In Studio
+
+Studio's **Access** screen (workspace menu) does all of the above without raw API calls: the tenant and its
+workspaces, members with their effective permissions per use case and the state of their token, adding and removing
+members, requesting grants, approving or withdrawing them, the access review, token requests, replacing one's own
+token, and the administration history. A workspace switcher appears when an identity belongs to several workspaces.
+Studio decides nothing: it shows the platform's answers (`you.may_administer`, `you.may_approve` are hints for which
+buttons to show) and every call is checked by the platform again; a member without authority sees a clear
+"permission denied" state, and a request that needs a second person says so.
+
 ### Who has seen a member's token
 
 Whoever issues a token sees it once. The members view shows `token_issued_by` for each member (`configuration`, the
@@ -443,8 +453,7 @@ refusal.
 
 ## Not yet included
 
-Member administration through the API (members and grants are defined in `platform.json` and loaded at
-start; use cases can be created from templates, not renamed or archived), stages enforced at run time, shared
-resources between use cases, and a database other than SQLite per use case. See [`../planning/AUTOLOGY_IMPLEMENTATION_BACKLOG.md`](../planning/AUTOLOGY_IMPLEMENTATION_BACKLOG.md).
+Tenant-level identities and workspace administrators through the API (they are defined in `platform.json`), renaming
+or archiving use cases, shared resources between use cases, and a database other than SQLite per use case. See [`../planning/AUTOLOGY_IMPLEMENTATION_BACKLOG.md`](../planning/AUTOLOGY_IMPLEMENTATION_BACKLOG.md).
 
 **Agent grants per use case.** A member's grant for a use case may carry `"run_as": {"claims": ["fraud_analytics", "finance"]}`: the roles that member may use through that agent, beyond their own (see "What an agent may do for a person" in [platform.md](platform.md)). Without it, the agent acts with the member's own roles only.

@@ -194,7 +194,7 @@ The owner's order is kept where the repository's dependencies allow it:
 | 2 | H-1 (F-01, F-02) | Done, CI run 67 | — |
 | 3 | REL-1a releases | Done at repository level (see log) | — |
 | 4 | Architecture Part B (plugins, knowledge hub, composable intelligence, decision/action, autonomy) | Documented | — |
-| 5 | Workspace administration (ADM-1, ADM-2) | Done 15 Nov (owner: "all approved"); members screen open | REL-1a (done); D11 details per workspace; hot reload is shared with release activation |
+| 5 | Workspace administration (ADM-1, ADM-2) | Done 15 Nov (owner: "all approved"); members screen done 15 Nov (R2 sprint D) | REL-1a (done); D11 details per workspace; hot reload is shared with release activation |
 | 6 | Real AI Solution Architect (AI-1, ARC-1) | Needs authorisation | D7/D10 configuration and keys; SEC-A (injection tests) before any real document |
 | 7 | Readiness assessment (REL-3) | Needs authorisation | REL-1a (a score belongs to a release); owner validation of weights |
 | 8 | Excel Template Factory and document intake (R3) | Needs authorisation | F-01 origin rules for any fetched source; provenance model (B3) |

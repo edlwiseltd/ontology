@@ -2,8 +2,9 @@
 // them to the platform. The token stays in this browser tab (sessionStorage) and is sent as a bearer token, so
 // there is no cookie to forge. UI-side checks are advisory: every rule is enforced by the platform and the engine.
 
-import type { ActivationResult, ApiErrorBody, CheckResult, Draft, Me, ModelDocument, MoveResult, OntologySummary,
-  Proposal, Published, Release, ReleaseState, Restored, Stage, Template, UseCase, ValidationResult } from "./types";
+import type { AccessReview, ActivationResult, ApiErrorBody, CheckResult, Draft, GrantProposal, IssuedToken, Me,
+  Members, ModelDocument, MoveResult, OntologySummary, Proposal, Published, Release, ReleaseState, Restored, Stage,
+  Template, TenantView, TokenIssuedOrRequested, UseCase, ValidationResult } from "./types";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string, public data: Record<string, unknown> = {}) {
@@ -53,9 +54,47 @@ export function errorMessage(data: Record<string, unknown>, status: number): str
 }
 
 const ws = (id: string) => `/platform/v1/workspaces/${encodeURIComponent(id)}/use-cases`;
+const adm = (id: string) => `/platform/v1/workspaces/${encodeURIComponent(id)}`;
+const enc = encodeURIComponent;
+
+export interface GrantRequest {
+  member: string; use_case: string; permissions: string[]; roles: string[]; reviewer_roles: string[];
+  reason: string; unrestricted?: boolean;
+}
+
+// Access administration (ADM-1, IAM-1, GAP-030, sprint B). Studio only asks: who may see, add, propose, approve,
+// confirm, revoke or re-key is decided by the platform on every call, whatever a screen shows or hides.
+export const access = {
+  tenant: (tenant: string) => request<TenantView>("GET", `/platform/v1/tenants/${enc(tenant)}`),
+  members: (w: string) => request<Members>("GET", `${adm(w)}/members`),
+  review: (w: string) => request<AccessReview>("GET", `${adm(w)}/access-review`),
+  addMember: (w: string, name: string, kind: "person" | "service", reason: string) =>
+    request<IssuedToken>("POST", `${adm(w)}/members`, { name, kind, reason }),
+  removeMember: (w: string, name: string, reason: string) =>
+    request<Members>("POST", `${adm(w)}/members/${enc(name)}/remove`, { reason }),
+  newToken: (w: string, name: string, reason: string) =>
+    request<TokenIssuedOrRequested>("POST", `${adm(w)}/members/${enc(name)}/token`, { reason }),
+  revokeToken: (w: string, name: string, reason: string) =>
+    request<Members>("POST", `${adm(w)}/members/${enc(name)}/revoke-token`, { reason }),
+  revokeGrant: (w: string, name: string, use_case: string, reason: string) =>
+    request<Members>("POST", `${adm(w)}/members/${enc(name)}/revoke`, { use_case, reason }),
+  confirmGrant: (w: string, name: string, use_case: string, reason: string, unrestricted: boolean) =>
+    request<AccessReview>("POST", `${adm(w)}/members/${enc(name)}/confirm-grant`,
+                          { use_case, reason, ...(unrestricted ? { unrestricted: true } : {}) }),
+  proposeGrant: (w: string, grant: GrantRequest) => request<GrantProposal>("POST", `${adm(w)}/grants`, grant),
+  grantDecision: (w: string, id: string, action: "approve" | "withdraw", reason: string, unrestricted = false) =>
+    request<Members>("POST", `${adm(w)}/grants/${enc(id)}/${action}`,
+                     { reason, ...(unrestricted ? { unrestricted: true } : {}) }),
+  issueRequestedToken: (w: string, id: string, reason: string) =>
+    request<IssuedToken>("POST", `${adm(w)}/token-requests/${enc(id)}/approve`, { reason }),
+  withdrawTokenRequest: (w: string, id: string, reason: string) =>
+    request<Members>("POST", `${adm(w)}/token-requests/${enc(id)}/withdraw`, { reason }),
+  myToken: (w: string, reason: string) => request<IssuedToken>("POST", `${adm(w)}/my-token`, { reason }),
+};
 
 export const api = {
-  me: () => request<Me>("GET", "/platform/v1/me"),
+  me: (workspace?: string) =>
+    request<Me>("GET", workspace ? `/platform/v1/me?workspace=${enc(workspace)}` : "/platform/v1/me"),
   useCases: (w: string) => request<{ items: UseCase[] }>("GET", ws(w)),
   useCase: (w: string, uc: string) => request<UseCase>("GET", `${ws(w)}/${encodeURIComponent(uc)}`),
   checks: (w: string, uc: string, to: Stage) =>

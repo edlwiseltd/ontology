@@ -25,6 +25,18 @@ export type ActivationResult = P["ActivationResult"];
 export type Published = P["Published"];
 export type Restored = P["Restored"];
 
+// -- access administration (ADM-1, IAM-1, sprint B): the platform decides; these are its answers -------------
+export type Members = P["Members"];
+export type WorkspaceMember = P["WorkspaceMember"];
+export type GrantProposal = P["GrantProposal"];
+export type TokenRequest = P["TokenRequest"];
+export type AdminEvent = P["AdminEvent"];
+export type IssuedToken = P["IssuedToken"];
+export type TokenIssuedOrRequested = P["TokenIssuedOrRequested"];
+export type AccessReview = P["AccessReview"];
+export type AccessReviewItem = P["AccessReviewItem"];
+export type TenantView = P["TenantView"];
+
 export type OntologySummary = E["OntologySummary"];
 
 // -- model design ---------------------------------------------------------------------------------------------

@@ -365,3 +365,31 @@ synthetic example data only.
 Evidence (local): full suite 770 OK (756 + 14; 2 PostgreSQL tests skipped locally), 95.76 % lines (13,270 statements,
 562 missed; baseline 95.93 %: the new error paths of recovery and activation are not all exercised); ruff clean;
 mypy 198 (= baseline, no new error); Studio typecheck, 17 Vitest, build, 33/33 browser checks.
+
+## 15 November 2026 — R2 security and reliability sprint, increment D: Studio tenant and membership administration
+
+Studio is extended, not rebuilt: one new component (`AccessView`), one helper module, new functions in the existing
+typed client; no new library; the types come from the published contract (`npm run generate:api`). No backend
+change was needed beyond what increments A to C added (`effective`, `you`, `use_cases`, `permissions` in the
+members view; access review; token requests).
+
+| Story | Change | Tests | Behaviour |
+|---|---|---|---|
+| Context | Header: tenant › workspace › area; a workspace switcher when the identity belongs to several (`GET /platform/v1/me?workspace=`); the Access screen names tenant and workspace with their ids | e2e "tenant and workspace are named explicitly" | The workspace is explicit in every call's path |
+| Members and effective permissions | Table per member: role, token state and expiry, who issued the token, and per use case the effective permissions in words ("administration only, no business data", "data within row and field rules", "unrestricted data access") | e2e members; unit `accessLabel`, `roleOf`, `tokenLabel` | — |
+| Add, remove, revoke | Add a member (token shown once, never kept on screen or in the history), remove, revoke a grant, revoke a token; each with a reason | e2e add, revoke (stops at once), remove (401) | — |
+| Request and approve | Grant request form (member, use case, permissions, roles); "approval required" state; pending list with Approve / Withdraw; the proposer and the grantee are told why they cannot approve; unrestricted access needs an explicit acknowledgement | e2e approval journey with two people; proposer's direct approval 403; unrestricted without acknowledgement refused by the platform | — |
+| Tokens | New token (two people when the member holds business data: the requester sees none, the second person sees it once); replace one's own token (Studio continues with the new one) | e2e re-key, own token | — |
+| Review and history | Access review summary and the grants that wait for a person (Confirm / Revoke); administration history | e2e review summary, history | — |
+| Denied states | A member without authority sees "You do not have permission…" with the platform's reason; errors from the platform are shown as given | e2e permission-denied state; seven direct calls refused (403 ×5, 404 ×2) | No security decision rests on a hidden control |
+| Relay | `Retry-After` from the platform (429, 503) is passed on | unit | — |
+
+Accessibility and responsiveness: every field has a label (checked in the browser test), tables have names, status
+and errors use `role="status"` / `role="alert"`, the page has no horizontal scroll on a phone (checked); a full
+WCAG audit was not done. **Limits:** tenant-level identities and administrators are still defined in the
+configuration (shown, not edited); grants' `run_as` is not editable in the form (API only); the access review's
+confirm action is in the screen but its browser check is indirect (the route is covered by
+`test_iamb_admin_hardening.py`).
+Evidence (local): Studio typecheck, 23 Vitest (17 + 6), build, 56/56 browser checks against a real platform (33 +
+23); Python suite unchanged since increment C (770 OK).
+

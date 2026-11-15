@@ -109,3 +109,20 @@ button.danger { color: var(--bad); border-color: var(--bad); margin-top: 10px; }
 .releases th, .releases td { text-align: left; padding: 6px 8px; border-top: 1px solid var(--line); vertical-align: top; }
 .releases td.row { display: flex; gap: 6px; flex-wrap: wrap; }
 @media (max-width: 700px) { .releases th:nth-child(3), .releases td:nth-child(3) { display: none; } }
+
+/* access administration */
+.access .two { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); }
+.grid { width: 100%; border-collapse: collapse; font-size: 13px; }
+.grid th, .grid td { text-align: left; padding: 6px 8px; border-top: 1px solid var(--line); vertical-align: top; }
+.grid th { color: var(--muted); font-weight: 600; } .grid tr[aria-current="true"] td { font-weight: 600; }
+.grid td.actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.scroll { overflow-x: auto; } .plain { list-style: none; padding: 0; margin: 6px 0; } .plain li { margin-bottom: 10px; }
+fieldset { border: 1px solid var(--line); border-radius: var(--radius); margin: 2px 0 10px; padding: 6px 10px; }
+legend { font-size: 12.5px; color: var(--muted); padding: 0 4px; }
+label.check { display: flex; gap: 8px; align-items: baseline; color: var(--ink); font-size: 13px; margin: 3px 0; }
+label.check input { width: auto; margin: 0; } label.check.warn { margin-bottom: 10px; }
+.token-box { border-color: var(--accent); } code.token { display: block; padding: 8px; margin: 6px 0; border: 1px dashed var(--line);
+  border-radius: var(--radius); overflow-wrap: anywhere; user-select: all; }
+button.danger-inline { color: var(--bad); border-color: var(--bad); } .context select { width: auto; margin: 0; }
+@media (max-width: 900px) { .access .two { grid-template-columns: 1fr; } }
+

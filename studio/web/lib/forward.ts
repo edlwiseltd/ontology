@@ -51,6 +51,9 @@ export async function forward(req: Request, base = process.env.AUTOLOGY_PLATFORM
     const res = await fetcher(target, { method: req.method, headers, body, redirect: "manual", cache: "no-store" });
     const out = new Headers({ "Content-Type": res.headers.get("content-type") ?? "application/json",
                               "Cache-Control": "no-store" });
+    // "retry in N seconds" is the platform's answer to too many requests (429) or an engine being switched (503)
+    const retry = res.headers.get("retry-after");
+    if (retry && /^\d{1,5}$/.test(retry)) out.set("Retry-After", retry);
     return new Response(await res.arrayBuffer(), { status: res.status, headers: out });
   } catch {
     return json(502, "the platform cannot be reached");

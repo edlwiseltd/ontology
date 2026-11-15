@@ -1,6 +1,6 @@
 # Work in progress — Autology
 
-*Updated 15 November 2026 (master directive V2). Branch `claude/autology-ontology-agent-4ajjer`.*
+*Updated 15 November 2026 (R2 security and reliability sprint). Branch `claude/autology-ontology-agent-4ajjer`.*
 
 ## Done in this directive
 
@@ -18,14 +18,14 @@
 | IAM-1: tenants own workspaces; versioned tenancy registry; migration into dedicated tenants | `0008ae4` | `tests/test_iam1_tenants.py`; CI run 75 |
 | IAM-3: administrators carry no business-data access; explicit approved grants; migration; GAP-061 fixed | `88e5fd7` | `tests/test_iam3_privilege_separation.py`; 33/33 browser checks; CI run 76 |
 
-## R2 security and reliability sprint (in progress)
+## R2 security and reliability sprint (15 November 2026)
 
 | Increment | Status | Evidence |
 |---|---|---|
 | A — GAP-030: token lifetimes, revocation, rotation, rate limits, timeouts | Done, `940c04f`, CI run 78 | `tests/test_gap030_security.py` (27 tests); see the implementation log |
 | B — IAM administrative security | Done, `01228d3` (CI run 79: Python jobs green, one Studio browser check failed on a UI race fixed in C) | `tests/test_iamb_admin_hardening.py` (12 tests); GAP-062, GAP-063 found and fixed |
-| C — Backup, restore and release activation | Done | `tests/test_ops1_recovery_and_activation.py` (14 tests); GAP-033 fixed |
-| D — Studio tenant and membership administration | Pending | |
+| C — Backup, restore and release activation | Done, `8111d7f` | `tests/test_ops1_recovery_and_activation.py` (14 tests); GAP-033 fixed |
+| D — Studio tenant and membership administration | Done | Access screen in Studio; 23 Vitest, 56/56 browser checks |
 
 ## Waiting for the owner
 

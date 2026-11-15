@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, getToken, setToken } from "@/lib/api";
 import type { Me, OntologySummary, Template, UseCase } from "@/lib/types";
+import AccessView from "./AccessView";
 import DesignView from "./DesignView";
 import OntologyView from "./OntologyView";
 import ReleasesView from "./ReleasesView";
@@ -25,6 +26,7 @@ export default function Workbench() {
   const [creating, setCreating] = useState<Template[] | null>(null);
   const [createError, setCreateError] = useState("");
   const [theme, setTheme] = useState<"auto" | "light" | "dark">("auto");
+  const [area, setArea] = useState<"use-cases" | "access">("use-cases");
 
   // The use case the person chose last. Answers that arrive for an earlier choice (a refresh started before they
   // clicked another use case) are dropped, so a late answer never puts another use case's detail on screen.
@@ -32,13 +34,15 @@ export default function Workbench() {
 
   const signOut = useCallback(() => {
     setToken(null); setMe(null); setUseCases([]); setSelected(null); setDetail(null); setOntology(null);
-    current.current = null;
+    current.current = null; setArea("use-cases");
     setStatus("signed-out");
   }, []);
 
-  const load = useCallback(async () => {
+  // The workspace is always explicit: the platform answers for the one named here (or the identity's first one),
+  // and every later call names it in its path.
+  const load = useCallback(async (workspace?: string) => {
     try {
-      const who = await api.me();
+      const who = await api.me(workspace);
       setMe(who);
       setUseCases((await api.useCases(who.workspace.id)).items);
       setStatus("ready");
@@ -55,9 +59,16 @@ export default function Workbench() {
     else document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
 
+  const switchWorkspace = useCallback(async (id: string) => {
+    current.current = null;
+    setSelected(null); setDetail(null); setOntology(null); setEntity(null); setCreating(null);
+    await load(id);
+  }, [load]);
+
   const open = useCallback(async (id: string) => {
     if (!me) return;
     current.current = id;
+    setArea("use-cases");
     setSelected(id); setOntology(null); setOntologyError(""); setEntity(null);
     const uc = await api.useCase(me.workspace.id, id);
     if (current.current !== id) return;
@@ -123,8 +134,17 @@ export default function Workbench() {
       <header className="bar">
         <div className="brand"><span aria-hidden="true">◆</span> Autology Studio</div>
         <div className="context" aria-label="Context">
-          <span>{me.workspace.name}</span>
-          {detail && <><span aria-hidden="true">›</span><span>{detail.name}</span>
+          {me.tenant && <><span className="muted" data-testid="tenant-name">{me.tenant.name}</span><span aria-hidden="true">›</span></>}
+          {(me.workspaces?.length ?? 0) > 1 ? (
+            <>
+              <label className="sr-only" htmlFor="workspace">Workspace</label>
+              <select id="workspace" value={me.workspace.id} onChange={(e) => void switchWorkspace(e.target.value)}>
+                {me.workspaces!.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+              </select>
+            </>
+          ) : <span data-testid="workspace-name">{me.workspace.name}</span>}
+          {area === "access" ? <><span aria-hidden="true">›</span><span>Access</span></>
+            : detail && <><span aria-hidden="true">›</span><span>{detail.name}</span>
             <span className={`stage stage-${detail.effective_stage}`}>{LABELS[detail.stage]}</span></>}
         </div>
         <div className="who">
@@ -146,7 +166,8 @@ export default function Workbench() {
         <ul className="uc-list">
           {useCases.map((uc) => (
             <li key={uc.id}>
-              <button type="button" aria-current={uc.id === selected ? "true" : undefined} onClick={() => open(uc.id)}>
+              <button type="button" aria-current={area === "use-cases" && uc.id === selected ? "true" : undefined}
+                      onClick={() => open(uc.id)}>
                 <span>{uc.name}<br /><span className="muted small">{uc.id}</span></span>
                 <span className={`stage stage-${uc.effective_stage}`}>{LABELS[uc.stage]}{uc.stale ? " · stale" : ""}</span>
               </button>
@@ -171,16 +192,27 @@ export default function Workbench() {
             {createError && <p className="error" role="alert">{createError}</p>}
           </form>
         )}
+        <h2 className="section">Workspace</h2>
+        <ul className="uc-list">
+          <li>
+            <button type="button" aria-current={area === "access" ? "true" : undefined} data-testid="open-access"
+                    onClick={() => setArea("access")}>
+              <span>Access<br /><span className="muted small">members, grants, approvals</span></span>
+            </button>
+          </li>
+        </ul>
         <h2 className="section">Coming next</h2>
         <ul className="planned small muted" aria-label="Planned areas">
           <li>AI Architect with a model provider — blocked on D7/D10 (blueprints work today)</li>
           <li>Processes, organisation, agents — planned</li>
-          <li>Members and grants screen — the API exists (ADM-1); screen planned</li>
         </ul>
       </nav>
 
       <main className="main">
-        {!detail ? <p className="muted empty">Choose a use case.</p> : (
+        {area === "access" ? (
+          <AccessView key={me.workspace.id} me={me}
+                      onOwnToken={(token) => { setToken(token); void load(me.workspace.id); }} />
+        ) : !detail ? <p className="muted empty">Choose a use case.</p> : (
           <>
             <div role="tablist" aria-label="Views" className="tabs">
               <button role="tab" aria-selected={view === "overview"} onClick={() => setView("overview")}>Overview</button>

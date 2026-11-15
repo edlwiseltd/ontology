@@ -245,6 +245,13 @@ class AutologyService:
         for cfg_agent in self.agents.values():
             for member in [cfg_agent.agent] + cfg_agent.agent.delegates:
                 member.configuration = self.configuration_fingerprint
+        # ARC-0: responsibilities taken out of this class, one at a time. Each service works through the engine it
+        # belongs to (its store, its rules, its permission checks): there is still one authority, this one.
+        from .ingestion import IngestionService
+        from .notifications import NotificationService
+
+        self.notifications = NotificationService(self)
+        self.ingestion = IngestionService(self)
         self._init_security(config, base)
         self.users: List[User] = self.parse_users(config.get("users", []))
         # identities automations run as (D4): explicit, least privilege, limited to named agents
@@ -1161,68 +1168,19 @@ class AutologyService:
             raise ApiError(409, refusal, {"stage": self.execution_policy()["stage"]})
 
     def _not_for_notifications(self, inst: Instance, attr: str, user: User) -> bool:
-        """A field this reader may not be shown in a notification: one a data_access rule hides from them, or
-        one that needs a written justification to read (a notification cannot ask for one)."""
-        return self.field_hidden(inst, attr, user) or f"{inst.type}.{attr}" in self.views.gated
+        return self.notifications._not_for_notifications(inst, attr, user)
 
     def _hidden_from_roles(self, inst: Instance, attr: str, roles) -> bool:
-        """Whether some role a notification is addressed to may not be shown this field of this record."""
-        return f"{inst.type}.{attr}" in self.views.gated or any(
-            self.field_hidden(inst, attr, User("-", "", frozenset({"read"}), frozenset({role}))) for role in roles)
+        return self.notifications._hidden_from_roles(inst, attr, roles)
 
     def _notify_record(self, kind: str, roles, template: str, inst: Instance, ref: Dict[str, Any]) -> Dict[str, Any]:
-        """A notification about one record, from a template with ``{attribute}`` placeholders (GAP-035). The text
-        that is stored and sent to webhooks is the one every addressed role may read; each reader later gets
-        the text rendered for them (:meth:`list_notifications`)."""
-        from .integrity import PRIVATE_REF, placeholders, render
-
-        values = {name: (inst.id if name == "id" else inst.get(name)) for name in placeholders(template)}
-        message = render(template, values, lambda attr: self._hidden_from_roles(inst, attr, roles))
-        return self._notify(kind, roles, message, {**ref, PRIVATE_REF: {"template": template, "values": values}})
+        return self.notifications._notify_record(kind, roles, template, inst, ref)
 
     def _evidence_changed(self, changes: Dict[str, List[str]], by: str) -> List[str]:
-        """Tell the people who have a decision pending on a record that facts it rests on were changed (GAP-037).
-        ``changes`` maps a record id to its decision-critical attributes that changed. The approval itself is
-        never used on the new facts: the run re-reads its records when it resumes and asks again (ACT-6).
-        Returns the runs concerned."""
-        if not changes:
-            return []
-        runs = []
-        for review in self.store.list_reviews("pending", limit=10 ** 6):
-            linked = self.store.run_sources(review["run_id"]) or {}
-            ids = set()
-            for src in (linked.get("sources") or {}).values():
-                ids.update(src if isinstance(src, list) else [src])
-            for iid in sorted(ids & set(changes)):
-                with self.graph_lock:
-                    inst = self.graph._instances.get(iid)
-                etype = inst.type if inst is not None else "record"
-                self._notify("evidence_changed", review["request"].get("reviewers") or [],
-                             f"Facts behind a pending decision changed: {etype} {iid} ({', '.join(changes[iid])}), "
-                             f"changed by {by}. Run {review['run_id']} will ask for approval again on the current "
-                             "facts; an approval given on the earlier ones is not used.",
-                             {"instance": iid, "run_id": review["run_id"], "review_id": review["review_id"],
-                              "attributes": list(changes[iid])})
-                if review["run_id"] not in runs:
-                    runs.append(review["run_id"])
-        return runs
+        return self.notifications._evidence_changed(changes, by)
 
     def _notify(self, kind: str, roles, message: str, ref: Dict[str, Any]) -> Dict[str, Any]:
-        from .integrity import public_note
-
-        note = self.store.add_notification(kind, roles, message, ref)
-        outgoing = public_note(note)  # never the private rendering data: only what every addressed role may read
-        for hook in self.webhooks:
-            if not hook["kinds"] or kind in hook["kinds"]:
-                refused = self._environment_refused(hook["environment"], "a webhook")
-                if refused:  # the notification stays in the inbox; nothing leaves the platform
-                    log.info("webhook not delivered: %s", refused)
-                    continue
-                t = threading.Thread(target=self._deliver, args=(hook["url"], outgoing), daemon=True)
-                t.start()
-                self.deliveries.append(t)
-        self.deliveries = [t for t in self.deliveries if t.is_alive()]
-        return note
+        return self.notifications._notify(kind, roles, message, ref)
 
     @staticmethod
     def _deliver(url: str, note: Dict[str, Any]) -> None:
@@ -1454,127 +1412,22 @@ class AutologyService:
     def ingest(self, name: str, triggered_by: str, dry_run: bool = False,
                pushed: Optional[Dict[str, Any]] = None, roles: Optional[FrozenSet[str]] = None,
                unrestricted: bool = False) -> Dict[str, Any]:
-        """Run one pipeline: read its sources, check every row, write the accepted ones, fire automations.
-
-        Fields protected by a ``write_access`` rule are written only with the right roles (GAP-037): ``roles``,
-        the caller's, for rows the caller pushed; the pipeline's own declared roles for the sources the operator
-        configured (and for pushed rows when no caller is known, e.g. the command line). ``unrestricted`` is a
-        caller holding the engine's ``admin`` permission. This is the one entry for every way a pipeline runs:
-        the API, the schedule, the command line."""
-        from .ingest import PipelineError, apply_to_graph
-        from .integrity import write_refusal
-
-        pipe = self.pipelines.get(name)
-        if pipe is None:
-            raise ApiError(404, f"no pipeline {name!r}")
-        with self.ingest_lock:
-            try:
-                plan = pipe.read(self.store.ingest_watermarks(name), pushed)
-            except PipelineError as exc:
-                batch = self.store.record_ingest_failure(name, triggered_by, str(exc))
-                log.warning("pipeline %s failed: %s", name, exc)
-                raise ApiError(502 if not pushed else 400, str(exc), {"batch_id": batch}) from None
-            with self.graph_lock:
-                from .store import ABSENT, RecordConflict
-
-                def guard(entity, existing, changing, was_pushed):
-                    if unrestricted and was_pushed:
-                        return None
-                    writer = roles if was_pushed and roles is not None else pipe.roles
-                    return write_refusal(self.ontology, entity, existing, changing, writer)
-
-                plan = pipe.plan(self.graph, plan, guard)
-                critical = {iid: sorted(a for a in attrs if f"{etype}.{a}" in self.decision_fields)
-                            for iid, (etype, attrs) in plan.updates.items()}
-                critical = {iid: attrs for iid, attrs in critical.items() if attrs}
-                try:  # over the revisions this process holds: a stale or tampered record refuses the load
-                    batch = self.store.apply_ingest(plan, triggered_by, dry_run, expected={
-                        iid: self.revisions.get(iid, ABSENT) for iid in plan.updates})
-                except RecordConflict as exc:
-                    self._record_conflict(exc)
-                    raise ApiError(409, f"{exc}; nothing was loaded, run the pipeline again",
-                                   {"record": exc.iid, "tampered": exc.tampered}) from None
-                if not dry_run:
-                    apply_to_graph(self.graph, plan)
-                    self.revisions.update(self.store.instance_revisions(list(plan.creates) + list(plan.updates)))
-        out = {"batch_id": batch, "dry_run": dry_run, **plan.summary(),
-               # facts that rules, preconditions, goals or automations read, changed on existing records: names only
-               "decision_fields_changed": [{"id": iid, "attributes": attrs} for iid, attrs in sorted(critical.items())]}
-        if not dry_run:
-            if critical:
-                try:
-                    self.store.log_access(triggered_by, "ingest.decision_fields",
-                                          f"{name} batch {batch}: {len(critical)} records", 200)
-                except Exception:  # the load is done; its report still says what changed
-                    self.log_error("recording decision-field changes")
-                out["decisions_to_revalidate"] = self._evidence_changed(critical, f"pipeline {name} ({triggered_by})")
-            fired = self._changed(plan.changed_ids)
-            if fired:
-                out["triggered"] = [f.as_dict() for f in fired]
-        return out
+        return self.ingestion.ingest(name, triggered_by, dry_run, pushed, roles, unrestricted)
 
     def _due_pipelines(self) -> List[Dict[str, Any]]:
-        from datetime import datetime, timezone
-
-        loads = []
-        for name, pipe in self.pipelines.items():
-            if not pipe.every or all(s["type"] == "push" for s in pipe.sources.values()):
-                continue
-            last = self.store.ingest_batches(name, limit=1)
-            if last and (datetime.now(timezone.utc) - datetime.fromisoformat(last[0]["started_at"])
-                         ).total_seconds() < pipe.every:
-                continue
-            try:
-                out = self.ingest(name, "schedule")
-                loads.append({k: out[k] for k in ("batch_id", "created", "updated", "rejected")})
-            except ApiError as exc:
-                loads.append({"pipeline": name, "error": exc.message})
-        return loads
+        return self.ingestion._due_pipelines()
 
     def list_pipelines(self, user: User) -> Dict[str, Any]:
-        self.require(user, "ingest")
-        items = []
-        for name, pipe in self.pipelines.items():
-            last = self.store.ingest_batches(name, limit=1)
-            written = sorted({f"{m.entity}.{a}" for m in pipe.mappings for a in m.attributes})
-            guarded = {r.params["field"] for r in self.ontology.rules_of("write_access")}
-            items.append({"name": name, "every": pipe.every, "roles": sorted(pipe.roles),
-                          # decision-critical fields this pipeline writes, and those no write_access rule protects:
-                          # for those, whoever may run the pipeline may change what decisions rest on
-                          "decision_fields": [f for f in written if f in self.decision_fields],
-                          "unprotected_decision_fields": [f for f in written if f in self.decision_fields
-                                                          and f not in guarded],
-                          "sources": {s: src["type"] for s, src in pipe.sources.items()},
-                          "entities": sorted({m.entity for m in pipe.mappings}),
-                          "watermarks": self.store.ingest_watermarks(name),
-                          "last_batch": last[0] if last else None})
-        return {"items": items}
+        return self.ingestion.list_pipelines(user)
 
     def run_pipeline(self, user: User, name: str, body: Dict[str, Any]) -> Dict[str, Any]:
-        self.require(user, "ingest")
-        rows = body.get("rows")
-        if rows is not None and (not isinstance(rows, dict) or
-                                 not all(isinstance(v, list) for v in rows.values())):
-            raise ApiError(400, "rows must map each push source to a list of records")
-        return self.ingest(name, user.name, bool(body.get("dry_run")), rows, roles=user.roles,
-                           unrestricted="admin" in user.permissions)
+        return self.ingestion.run_pipeline(user, name, body)
 
     def ingest_batch(self, user: User, batch_id: str) -> Dict[str, Any]:
-        """A load and its quarantined rows. The rows hold raw source data, so only ingesters see them."""
-        self.require(user, "ingest")
-        rows = [b for b in self.store.ingest_batches(limit=10 ** 6) if b["batch_id"] == batch_id]
-        if not rows:
-            raise ApiError(404, f"no batch {batch_id!r}")
-        return {**rows[0], "rejects": self.store.ingest_rejects(batch_id)}
+        return self.ingestion.ingest_batch(user, batch_id)
 
     def object_lineage(self, user: User, iid: str) -> Dict[str, Any]:
-        """Where an object came from: every load that created or changed it (attribute names, not values)."""
-        self.require(user, "read")
-        with self.graph_lock:
-            inst = self.graph._instances.get(iid)
-            if inst is None or not self.visible(inst, user):
-                raise ApiError(404, f"no object {iid!r}")
-        return {"id": iid, "type": inst.type, "loads": self.store.lineage(iid)}
+        return self.ingestion.object_lineage(user, iid)
 
     def start_background(self, interval: Optional[float] = None) -> threading.Event:
         """Tick every ``interval`` seconds in a daemon thread; set the returned event to stop."""
@@ -1638,39 +1491,7 @@ class AutologyService:
         return {"firings": [f.as_dict() for f in firings]}
 
     def list_notifications(self, user: User, since: Optional[str], limit: int) -> Dict[str, Any]:
-        self.require(user, "read")
-        from .integrity import PRIVATE_REF, public_note, render
-
-        unrestricted = "admin" in user.permissions
-        roles = None if unrestricted else user.roles | user.reviewer_roles
-        items = []
-        runs: Dict[str, bool] = {}
-        for note in self.store.list_notifications(roles, since, limit=10 ** 9):
-            if len(items) >= limit:
-                break
-            iid = note["ref"].get("instance")
-            with self.graph_lock:
-                inst = self.graph._instances.get(iid) if iid else None
-            if inst is not None and not self.visible(inst, user):
-                continue  # don't leak hidden rows through notification text
-            run_id = note["ref"].get("run_id")
-            if run_id and not unrestricted:  # a notification about a run the reader may not see (GAP-035)
-                if run_id not in runs:
-                    try:
-                        runs[run_id] = self.views.can_see_run(user, self.store.load_run(run_id))
-                    except KeyError:
-                        runs[run_id] = True  # no such run any more: nothing of it can be shown
-                if not runs[run_id]:
-                    continue
-            private = note["ref"].get(PRIVATE_REF)
-            out = public_note(note)
-            if private and inst is not None:  # the text for this reader: fields they may not read are not shown
-                def not_shown(attr: str, record: Instance = inst) -> bool:
-                    return self._not_for_notifications(record, attr, user)
-
-                out["message"] = render(private["template"], private["values"], not_shown)
-            items.append(out)
-        return {"items": items}
+        return self.notifications.list_notifications(user, since, limit)
 
     def run_roles(self, cfg: AgentConfig, user: Optional[User] = None, identity: Optional[str] = None) -> List[str]:
         """The roles a run may use (D4): the agent's, narrowed to what the requester may do (their own roles

@@ -7,13 +7,13 @@ reproduces the audit's finding passes in CI; it has not been re-verified by an i
 
 | Status | Count |
 |---|---|
-| Fixed | 31 |
-| Open | 16 |
+| Fixed | 32 |
+| Open | 14 |
 | Open (external evidence) | 5 |
 | Open (owner decision) | 2 |
-| Partly fixed | 9 |
+| Partly fixed | 10 |
 
-*Counts updated 15 November 2026 (H-1: GAP-058, GAP-059 added and fixed; REL-1a: GAP-020 fixed; ADM-1/2 and STU-6: GAP-030, GAP-056 partly fixed, GAP-051 updated; QA-1: GAP-025 partly fixed, GAP-040 updated; IAM-3: GAP-060 added and fixed, GAP-061 found, reproduced and fixed; R2 security sprint A: GAP-030 fixed, GAP-021 partly fixed; sprint B: GAP-062 and GAP-063 found, reproduced and fixed; sprint C: GAP-033 fixed; SEC-A: GAP-035, GAP-037, GAP-045 fixed).* **High gaps not
+*Counts updated 15 November 2026 (H-1: GAP-058, GAP-059 added and fixed; REL-1a: GAP-020 fixed; ADM-1/2 and STU-6: GAP-030, GAP-056 partly fixed, GAP-051 updated; QA-1: GAP-025 partly fixed, GAP-040 updated; IAM-3: GAP-060 added and fixed, GAP-061 found, reproduced and fixed; R2 security sprint A: GAP-030 fixed, GAP-021 partly fixed; sprint B: GAP-062 and GAP-063 found, reproduced and fixed; sprint C: GAP-033 fixed; SEC-A: GAP-035, GAP-037, GAP-045 fixed; MIG-1: GAP-041 fixed; ARC-0: GAP-026 partly fixed).* **High gaps not
 fully fixed:** GAP-031 (waits for legal sign-off, D19), GAP-032 (ERP connector), GAP-052 (real models) and GAP-053
 (real process), which need external systems, keys or a customer. GAP-009 and GAP-018 are **Fixed** (repository-
 verified; independent re-verification open): GAP-009's atomicity is local, there is no compensation towards
@@ -47,7 +47,7 @@ and closure criteria: [the clarification note](AUTOLOGY_PARTIAL_GAPS_CLARIFICATI
 | GAP-023 | Full-table scans and N+1 deserialisation on common endpoints | Med | **Open** |  | R3 (indexed queries, pagination) |
 | GAP-024 | No load, soak or capacity tests | Med | **Open (external evidence)** |  | R4 OPS-2 load test with agreed targets |
 | GAP-025 | No type checking, linting or dependency scanning in CI; 165 mypy errors | Med | **Partly fixed** | QA-1 (see log) | CI job `quality`: ruff (bug-finding rules, `pyproject.toml`; 42 findings fixed), a mypy ratchet (`deploy/mypy_ratchet.py`, baseline 201 errors on 15 Nov: the count may only go down), pip-audit on the image's pins, `npm audit` for Studio. Open: the 201 existing type errors |
-| GAP-026 | `AutologyService` god object (1,232 lines, 87 methods); `_dispatch` CC 78; `_validate` CC 111 | Med | **Open** |  | R2: split the service (the god object grew in R1) |
+| GAP-026 | `AutologyService` god object (1,232 lines, 87 methods); `_dispatch` CC 78; `_validate` CC 111 | Med | **Partly fixed** (ARC-0 first step, 15 Nov) | `tests/test_arc0_services.py` (delegation, no second authority, size ratchet) | Notifications and ingestion extracted into `notifications.py` and `ingestion.py` behind unchanged engine methods (class 2,323 → 2,142 lines). Open: runs and reviews, scenarios, model design, assistant, the route table of `_dispatch`, `_validate` |
 | GAP-027 | JSON-LD export crashes on computed effects; IRIs differ between formats; Turtle breaks on spaces; both lossy | Med | **Open** |  | R3 |
 | GAP-028 | Semantic diff ignores impact rules, scheduling, question contents, settings, descriptions | Med | **Open** |  | R2: needed by REL-1 (release diffs) |
 | GAP-029 | Anthropic adapter lets non-API exceptions escape; chat contract vendor-shaped; one provider adapter | Med | **Partly fixed** |  | Adapter boundary unchanged; second provider adapter is R2 AI-1 (D7) |
@@ -62,7 +62,7 @@ and closure criteria: [the clarification note](AUTOLOGY_PARTIAL_GAPS_CLARIFICATI
 | GAP-038 | Expressions: unbounded string/tuple repetition; list-literal equality; negated comparisons on missing data are true | Low–Med | **Open** |  | R3 |
 | GAP-039 | Escalation roles `operations`, `security`, `it-integration` hard-coded | Low | **Open** |  | R2 (small) |
 | GAP-040 | Unpinned `anthropic` (uses beta parameters), `ortools` undeclared, Docker installs unpinned, actions not SHA-pinned | Med | **Partly fixed** | Increment C; QA-1 (see log) | Image pins (`deploy/image-constraints.txt`), base image pinned by digest, GitHub Actions pinned by commit SHA, pip and the QA tools pinned in CI, licences inventoried. Open: hashes (`--require-hashes`), the unpinned `anthropic` extra in `pyproject.toml` (libraries keep ranges; applications pin) |
-| GAP-041 | Schema migrations run outside a transaction, no ordered steps | Low | **Open** |  | R2: ordered migrations in a transaction (three more were added in R1: schema 11, 12) |
+| GAP-041 | Schema migrations run outside a transaction, no ordered steps | Low | **Fixed** (MIG-1, 15 Nov) | `tests/test_mig1_migrations.py` (M1–M6): upgrades from schemas 3, 10 and 13; interruption at every step | Original acceptance: *an interrupted migration leaves the old schema intact*. Versioned, ordered, idempotent steps; new tables, steps, validation, ledger and version in one transaction; incompatible states refused. Additive only: no downgrade (restore the backup). Engine store only; the platform registries have one schema each |
 | GAP-042 | 56 MB of unrelated `.claude/skills` content and video notes in the repository | Low | **Open** |  | R2 (small): move unrelated content out |
 | GAP-043 | Stale docs (methodology test count, autology.md multi-instance, ontology-concepts on pipelines; date types "checked"); one undocumented route | Low | **Partly fixed** |  | Docs updated with every R1 story; docs-claims checklist in CI open |
 | GAP-044 | No organisation isolation inside one deployment | – | **Fixed** | Phase 1 `e157e5b`, ISO-1–3 | Workspaces with dedicated stores, keys, sign-in and MCP scope; D1: isolated pilots first. Independent verification open |

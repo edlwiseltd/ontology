@@ -227,65 +227,45 @@ class Store:
         self.path = str(path)
         self.audit_key = ENV_KEY if audit_key is None else audit_key  # the key its chains and seals use
         self._lock = threading.RLock()
+        self.migrated: List[int] = []  # schema steps applied when this store was opened (MIG-1)
         self._db = sqlite3.connect(self.path, check_same_thread=False, isolation_level=None)
         self._db.row_factory = sqlite3.Row
         with self._lock:
             if self.path != ":memory:":
                 self._db.execute("PRAGMA journal_mode=WAL")
             self._db.execute("PRAGMA foreign_keys=ON")
-            self._db.executescript(SCHEMA)
-            row = self._db.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()
-            if row is None:
+            from . import migrations
+
+            has_meta = self._db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='meta'").fetchone()
+            row = self._db.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone() if has_meta \
+                else None
+            if row is None:  # a new store: created at the current schema, nothing to migrate
+                self._db.executescript(SCHEMA)
+                self._db.execute(migrations.LEDGER)
                 self._db.execute("INSERT INTO meta VALUES ('schema_version', ?)", (str(SCHEMA_VERSION),))
                 self._set_digest(self._db, self._compute_digest(self._db))
             elif int(row["value"]) > SCHEMA_VERSION:
                 raise StoreError(f"store schema {row['value']} is newer than this Autology ({SCHEMA_VERSION})")
-            elif int(row["value"]) < SCHEMA_VERSION:  # older store: the new tables were just created
-                # every step and the version bump in ONE transaction: an upgrade interrupted half-way leaves the old
-                # schema intact and is simply run again at the next start (restart-safe; SQLite DDL is transactional)
-                self._db.execute("BEGIN IMMEDIATE")
+            elif int(row["value"]) < SCHEMA_VERSION:
+                # ordered steps, new tables, validation and the version number in ONE transaction (MIG-1): an
+                # upgrade that is interrupted or does not validate leaves the old schema intact and is run again
+                # at the next start
                 try:
-                    columns = {r["name"] for r in self._db.execute("PRAGMA table_info(runs)")}
-                    if "started_by" not in columns:  # schema 4: who started each run
-                        self._db.execute("ALTER TABLE runs ADD COLUMN started_by TEXT")
-                    source_columns = {r["name"] for r in self._db.execute("PRAGMA table_info(run_sources)")}
-                    for col in ("base", "conflicts"):  # schema 5: write-back snapshots and conflicts
-                        if col not in source_columns:
-                            self._db.execute(f"ALTER TABLE run_sources ADD COLUMN {col} TEXT")
-                    if "failures" not in {r["name"] for r in self._db.execute("PRAGMA table_info(automation_state)")}:
-                        self._db.execute("ALTER TABLE automation_state ADD COLUMN failures INTEGER NOT NULL DEFAULT 0")
-                    if "alg" not in {r["name"] for r in self._db.execute("PRAGMA table_info(audit)")}:  # schema 6
-                        self._db.execute("ALTER TABLE audit ADD COLUMN alg TEXT NOT NULL DEFAULT 'sha256'")
-                    instance_columns = {r["name"] for r in self._db.execute("PRAGMA table_info(instances)")}
-                    if "revision" not in instance_columns:  # schema 14: record revisions and seals (audit GAP-018)
-                        self._db.execute("ALTER TABLE instances ADD COLUMN revision INTEGER NOT NULL DEFAULT 0")
-                        self._db.execute("ALTER TABLE instances ADD COLUMN seal TEXT")
-                        # existing rows are sealed as they are: a change made before this upgrade cannot be told apart
-                        for r in self._db.execute("SELECT id, type, attributes, revision FROM instances").fetchall():
-                            self._db.execute("UPDATE instances SET seal=? WHERE id=?",
-                                             (self._instance_seal(r["id"], r["type"], r["attributes"], r["revision"]),
-                                              r["id"]))
-                        self._set_digest(self._db, self._compute_digest(self._db))
-                    if "wb_version" not in source_columns:  # schema 13: atomic write-back (audit GAP-009)
-                        self._db.execute("ALTER TABLE run_sources ADD COLUMN wb_version TEXT")
-                        self._db.execute("ALTER TABLE run_sources ADD COLUMN wb_state TEXT")
-                        # existing runs were written back field by field already: mark them done, never replay them
-                        self._db.execute(
-                            "UPDATE run_sources SET wb_version=(SELECT updated_at FROM runs WHERE runs.run_id="
-                            "run_sources.run_id), wb_state=CASE WHEN conflicts IS NULL OR conflicts='[]' THEN "
-                            "'committed' ELSE 'conflict' END")
-                    if "run_key" not in columns:  # schema 12: the run's identity, which its journal rows carry
-                        self._db.execute("ALTER TABLE runs ADD COLUMN run_key TEXT")
-                    if "seal" not in columns:  # schema 11: every run record is sealed; existing ones are sealed now
-                        self._db.execute("ALTER TABLE runs ADD COLUMN seal TEXT")
-                        for r in self._db.execute("SELECT run_id FROM runs").fetchall():
-                            self._db.execute("UPDATE runs SET seal=? WHERE run_id=?",
-                                             (self._seal_of(self._db, r["run_id"]), r["run_id"]))
-                    self._db.execute("UPDATE meta SET value=? WHERE key='schema_version'", (str(SCHEMA_VERSION),))
-                except BaseException:
-                    self._db.execute("ROLLBACK")
-                    raise
-                self._db.execute("COMMIT")
+                    self.migrated = migrations.upgrade(self, self._db, SCHEMA, int(row["value"]), SCHEMA_VERSION)
+                except migrations.MigrationError as exc:
+                    raise StoreError(str(exc)) from None
+            else:
+                self._db.executescript(SCHEMA)  # idempotent: indexes and triggers of this version
+                problems = migrations.layout_problems(self._db, SCHEMA)
+                if problems:  # the version says "current" but the tables do not: never run on that
+                    raise StoreError(f"the store says schema {SCHEMA_VERSION} but does not match it "
+                                     f"({'; '.join(problems)}): restore it from a backup")
+
+    def migration_history(self) -> List[Dict[str, Any]]:
+        """The schema steps applied to this store, oldest first (empty for a store created at this version)."""
+        if not self._query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='schema_migrations'"):
+            return []
+        return [dict(r) for r in self._query("SELECT * FROM schema_migrations ORDER BY version")]
 
     def close(self) -> None:
         with self._lock:

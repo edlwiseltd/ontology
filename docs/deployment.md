@@ -111,6 +111,16 @@ so keep that key with the backups' recovery instructions, not with the backups.
    columns only; nothing is dropped). This release moves it to schema 11. Schema 11 seals every stored run record (see the audit notes in [platform.md](platform.md)). Records already in the store are sealed as they are, so check them first: the step-1 backup (`autology backup`) lists any run whose audit chain does not verify, and the `autology_audit_unverified_runs` metric must be 0.
 3. Rolling back means restoring the backup: an older version refuses to open a store with a newer schema.
 
+**How a store is upgraded (MIG-1).** The steps are explicit and versioned (`autology/migrations.py`), run in
+ascending order, and the whole upgrade (new tables, every step, validation against the schema this version expects,
+the ledger and the new version number) is **one transaction**: an upgrade that is interrupted, fails or does not
+validate leaves the store exactly as it was and is run again at the next start. Each step checks what is there
+before changing it, so re-running is safe. Steps only add (tables, columns, seals of existing rows); nothing is
+dropped, so there is no automatic downgrade. A store that claims the current version but lacks a table or column
+is refused, as is a newer one. The `schema_migrations` table lists the steps applied to a store and the version it
+came from. The platform's registries (tenancy, administration, releases, lifecycle, credentials) have a single
+schema each so far and are not part of this mechanism.
+
 The ontology is versioned separately: check a new ontology with `autology diff OLD NEW` before you deploy it.
 
 ## Checked

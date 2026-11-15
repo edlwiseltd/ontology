@@ -448,3 +448,19 @@ clean; mypy 198 (= baseline). No API route or schema changed, so Studio was not 
 **Limits of the evidence:** it reads the last 2,000 requests of the identity in that use case; absence of data use
 in the log is not proof that the access is unnecessary.
 
+## 15 November 2026 — Decision integrity sprint, increment C: MIG-1 and a first step of ARC-0
+
+| Story | Change | Tests | Behaviour change |
+|---|---|---|---|
+| MIG-1 (GAP-041) | New `autology/migrations.py`: eight versioned steps (4, 5, 6, 11, 12, 13, 14, 15) in ascending order, each idempotent; `upgrade()` runs new tables, the steps, the remaining schema statements, validation against the layout this version expects, the ledger (`schema_migrations`) and the version number in one transaction. `Store.__init__` uses it; a store at the current version is checked against the expected layout; `Store.migration_history()` | M1–M6: upgrades from schemas 3, 10 and 13 with runs, audit chains, records, reviews and logs intact; a failure injected at every step leaves version, tables, columns and rows as they were | New tables are now created inside the upgrade transaction (before, outside it). A store whose version says "current" while a column is missing is refused instead of being silently altered |
+| ARC-0 (GAP-026), first step | `NotificationService` (`notifications.py`) and `IngestionService` (`ingestion.py`) hold the code of 12 methods; `AutologyService` keeps the same methods, which delegate. The services ask the engine for permissions, visibility and write rules | S1–S4: same signatures, calls on a service refused exactly as through the engine, interception on the engine still works, a ratchet on the class size (2,142 lines, 139 methods) | None |
+
+**What is not claimed.** No rollback of a migration (additive steps; going back is restoring the backup). The
+platform registries are outside this mechanism. ARC-0 is not complete: runs and reviews, scenarios, model design,
+the assistant and the dispatcher's route table remain in the class.
+Evidence (local): full suite 802 OK (788 + 4 for D24 + 6 for MIG-1 + 4 for ARC-0; 2 PostgreSQL tests skipped
+locally), 95.82 % lines (13,636 statements, 570 missed; `migrations.py` 97 %, `notifications.py` 97 %,
+`ingestion.py` 93 %); ruff clean; mypy 198 (= baseline). No API route or schema changed, so Studio was not rebuilt.
+A mistake during this increment, recorded: `git stash` was used to compare type-check output while a suite was
+running, which reverted tracked files under the run; that run was discarded and the suite was run again from a
+quiet tree (the figures above). Comparisons now use a separate worktree.

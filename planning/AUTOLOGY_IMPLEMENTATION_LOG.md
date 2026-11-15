@@ -275,3 +275,4 @@ nothing, to be reviewed and revoked by each customer; (5) `kind` and administrat
 **Not implemented, by instruction:** IAM-2, IAM-4, IAM-5, IAM-6. Extension points kept: `Member.kind`/`scope`,
 `ADMINISTRATIVE` permission set, the tenancy registry's `by`, the grant workflow.
 IAM-3 evidence (local): full suite 717 OK (2 PostgreSQL tests skipped locally), 95.93 % lines (12,055 statements, 491 missed); ruff clean; mypy 198 (baseline lowered 201 → 198); Studio typecheck, 17 Vitest, build, 33/33 browser checks. CI: see below.
+**IAM CI:** IAM-1 `0008ae4` → [run 75](https://github.com/edlwiseltd/ontology/actions/runs/43745015501) success; IAM-3 `88e5fd7` → [run 76](https://github.com/edlwiseltd/ontology/actions/runs/43746947522) success (workflow conclusion: every job, including `quality` with the lowered mypy baseline and `studio` with 33 browser checks).

@@ -51,6 +51,55 @@ by commit SHA in `.github/workflows/`; update them deliberately (new digest or S
 then rebuild and let CI's licence and vulnerability checks run. `deploy/mypy-baseline.txt` may only go down:
 after fixing type errors, run `python deploy/mypy_ratchet.py --update`.
 
+### A whole platform (workspaces)
+
+```bash
+autology platform-backup  /config/platform.json /backups/2026-11-15        # while the platform runs
+autology platform-verify  /backups/2026-11-15                              # any time; changes nothing
+autology platform-restore /backups/2026-11-15 /restore-test/data           # into a NEW data directory
+```
+
+**What is in it:** every use case's store (records, runs, reviews, audit chains, the external-calls journal), its
+published model and its reporting database; and the platform's registries: tenancy (which tenant owns which
+workspace), administration (members, grants, token events), releases, lifecycle stages, credentials (token
+lifetimes and revocations) and the access log. A `MANIFEST.json` lists every file with its size and SHA-256, the
+counts, what was left out, and is signed with a key derived from the audit key.
+
+**What is not, and is needed to use a backup:** the configuration files (`platform.json` and what it references),
+the environment (`AUTOLOGY_AUDIT_KEY`, members' token variables, integration credentials), and each workspace's
+`secrets.json` (a Claude key saved from the Console) unless `--include-secrets` is given. Keep the audit key with the
+recovery instructions, never with the backups.
+
+**Consistency.** Copying a live database file is not a backup: the write-ahead log holds committed data the main
+file does not have yet (a test shows a copied file that lacks a committed record, and even its table). Each
+database is copied with SQLite's online backup (one committed snapshot). There is no transaction across databases,
+so the order is fixed: use-case stores and models first, then the registries, then the access log. The registries
+are therefore never older than the data they govern. A change made during the backup may be in the registries and
+not in a store; the restored use case then counts as drifted (nothing runs) until a person activates a release.
+
+**Verified, complete or absent.** The copy is checked before it is kept (SQLite integrity of every database, every
+registry's chain, every run's audit chain); a source that does not verify is not backed up as if it were good. The
+backup folder appears only when everything succeeded, with permissions 0700/0600.
+
+**Restore order.** `platform-restore` checks the manifest's signature and every hash, copies into a folder beside
+the target, verifies everything again, and only then puts it in place. It never overwrites: the target must not
+exist or must be empty. To replace a live data directory: stop the platform; move the old directory aside;
+restore; put back the configuration and environment (same audit key); start; then check `GET /platform/health`,
+sign in, look at one use case's release and stage, and at `GET .../members` (its `integrity_problem` must be
+empty). To **rehearse**: restore into another directory and start a second platform on it with a copy of the
+configuration whose `data_dir` points there; the running platform is not touched (the copy's writer leases are
+cleared). CI does exactly this on every push (`tests/test_ops1_recovery_and_activation.py`).
+
+**Retention and scheduling** are the operator's: run `platform-backup` from cron or the platform's job runner, copy
+the folder off the machine, encrypt it at rest, and delete old ones on your schedule. A backup is as sensitive as
+the data. Measured on the example platform (3 stores, 60 runs, 1.9 MB): backup 0.08 s, verification 0.05 s,
+restore 0.05 s; time grows with the size of the stores, so measure on your own data.
+
+**Limits:** SQLite stores only (back a PostgreSQL store up with PostgreSQL's tools); no point-in-time recovery
+between backups; application-level checks do not replace encrypted, access-controlled backup storage.
+
+### One engine
+
 **Restore:** stop the server, replace `/data/autology.db` with the backup (and delete any `autology.db-wal` and
 `autology.db-shm` next to it), start the server. The audit chains only verify with the same `AUTOLOGY_AUDIT_KEY`,
 so keep that key with the backups' recovery instructions, not with the backups.

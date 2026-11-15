@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, getToken, setToken } from "@/lib/api";
 import type { Me, OntologySummary, Template, UseCase } from "@/lib/types";
 import DesignView from "./DesignView";
@@ -26,8 +26,13 @@ export default function Workbench() {
   const [createError, setCreateError] = useState("");
   const [theme, setTheme] = useState<"auto" | "light" | "dark">("auto");
 
+  // The use case the person chose last. Answers that arrive for an earlier choice (a refresh started before they
+  // clicked another use case) are dropped, so a late answer never puts another use case's detail on screen.
+  const current = useRef<string | null>(null);
+
   const signOut = useCallback(() => {
     setToken(null); setMe(null); setUseCases([]); setSelected(null); setDetail(null); setOntology(null);
+    current.current = null;
     setStatus("signed-out");
   }, []);
 
@@ -52,18 +57,25 @@ export default function Workbench() {
 
   const open = useCallback(async (id: string) => {
     if (!me) return;
+    current.current = id;
     setSelected(id); setOntology(null); setOntologyError(""); setEntity(null);
     const uc = await api.useCase(me.workspace.id, id);
+    if (current.current !== id) return;
     setDetail(uc);
-    try { setOntology(await api.ontology(uc.path)); }
-    catch (e) { setOntologyError((e as Error).message); }
+    try {
+      const model = await api.ontology(uc.path);
+      if (current.current === id) setOntology(model);
+    } catch (e) { if (current.current === id) setOntologyError((e as Error).message); }
   }, [me]);
 
   const refresh = useCallback(async () => {
     if (!me) return;
+    const id = current.current;
     setUseCases((await api.useCases(me.workspace.id)).items);
-    if (selected) setDetail(await api.useCase(me.workspace.id, selected));
-  }, [me, selected]);
+    if (!id) return;
+    const uc = await api.useCase(me.workspace.id, id);
+    if (current.current === id) setDetail(uc);
+  }, [me]);
 
   async function signIn(ev: React.FormEvent<HTMLFormElement>) {
     ev.preventDefault();

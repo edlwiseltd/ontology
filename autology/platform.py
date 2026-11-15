@@ -39,6 +39,7 @@ import logging
 import os
 import re
 import threading
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -84,6 +85,79 @@ class PlatformError(ValueError):
     pass
 
 
+SWAP_WAIT = 10.0  # seconds a request waits for an engine being switched, and a switch for requests in flight
+
+
+class Busy(Exception):
+    """An engine switch could not start (requests still in flight) or a request could not wait any longer."""
+
+
+class Gate:
+    """Who may touch one use case's engine: any number of requests together, or one switch of the engine alone.
+    A switch (reload, publication, release activation) waits for the requests in flight, which finish on the
+    configuration they started on; requests that arrive during a switch wait for it and then see the new engine,
+    never something in between."""
+
+    def __init__(self) -> None:
+        self._cond = threading.Condition()
+        self._shared = 0
+        self._owner: Optional[int] = None
+        self._depth = 0
+
+    def enter(self, timeout: Optional[float] = None) -> bool:
+        import time
+
+        end = time.monotonic() + (SWAP_WAIT if timeout is None else timeout)
+        with self._cond:
+            if self._owner == threading.get_ident():  # the switching thread itself reads what it is building
+                self._depth += 1
+                return True
+            while self._owner is not None:
+                left = end - time.monotonic()
+                if left <= 0:
+                    return False
+                self._cond.wait(left)
+            self._shared += 1
+            return True
+
+    def leave(self) -> None:
+        with self._cond:
+            if self._owner == threading.get_ident():
+                self._depth -= 1
+            else:
+                self._shared -= 1
+            self._cond.notify_all()
+
+    def acquire(self, timeout: Optional[float] = None) -> None:
+        import time
+
+        me, end = threading.get_ident(), time.monotonic() + (SWAP_WAIT if timeout is None else timeout)
+        with self._cond:
+            if self._owner == me:
+                self._depth += 1
+                return
+            while self._owner is not None:
+                left = end - time.monotonic()
+                if left <= 0:
+                    raise Busy()
+                self._cond.wait(left)
+            self._owner, self._depth = me, 1  # from now on, new requests wait
+            while self._shared:
+                left = end - time.monotonic()
+                if left <= 0:
+                    self._owner, self._depth = None, 0
+                    self._cond.notify_all()
+                    raise Busy()
+                self._cond.wait(left)
+
+    def release(self) -> None:
+        with self._cond:
+            self._depth -= 1
+            if self._depth == 0:
+                self._owner = None
+            self._cond.notify_all()
+
+
 @dataclass
 class Member:
     name: str
@@ -124,6 +198,8 @@ class UseCase:
     template: Optional[str] = None
     spec: Dict[str, Any] = field(default_factory=dict)  # how it was loaded (its config file), for a reload (ADM-2)
     stop: Optional[threading.Event] = None  # its scheduler, while the platform runs in the background
+    # set when a switch failed and even the previous configuration could not be loaded again: nothing is served
+    unavailable: Optional[str] = None
 
 
 @dataclass
@@ -166,6 +242,7 @@ class Workspace:
     # where each data grant comes from, who approved it and whether a person reviewed it: (member, use case) -> record
     grant_records: Dict[Tuple[str, str], Dict[str, Any]] = field(default_factory=dict)
     token_issuers: Dict[str, str] = field(default_factory=dict)  # member -> who issued the token they hold now
+    gates: Dict[str, Gate] = field(default_factory=dict)  # use case id -> who may touch its engine now
     admin_problem: Optional[str] = None  # the administration log does not verify: only configured admins remain
 
 
@@ -603,6 +680,8 @@ class Platform:
         service.credentials = self.credentials  # revocations reach the engine too (never closed by the engine)
         uc = UseCase(uc_id, ws.id, str(spec.get("name") or uc_id), service, spec=dict(spec))
         service.stage_gate = lambda: self.effective_stage_and_reason(uc)  # execution gates: the stage governs every run
+        gate = ws.gates.setdefault(uc_id, Gate())
+        service.background_guard = (gate.enter, gate.leave)  # the scheduler never ticks while the engine is switched
         return uc
 
     # -- requests --------------------------------------------------------------------------------------------
@@ -775,20 +854,21 @@ class Platform:
         """Write this use case's own ontology and reload its engine; if the result does not load, the previous file
         (or its absence) is put back and nothing changes."""
         path = self.data_dir / ws.id / uc.id / ONTOLOGY_OVERRIDE
-        previous = path.read_bytes() if path.is_file() else None
-        tmp = path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(document, indent=1, ensure_ascii=False), encoding="utf-8")
-        tmp.replace(path)
-        try:
-            fresh = self.reload_use_case(ws, uc, member, reason)
-        except LifecycleError:
-            if previous is None:
-                path.unlink()
-            else:
-                path.write_bytes(previous)
-            raise
-        self.admin.append(ws.id, event, f"{member.name}@{ws.id}", reason,
-                          {**data, "use_case": uc.id, "configuration": fresh.service.configuration_fingerprint})
+        with self._switching(ws, uc.id):  # alone on the engine from the first byte written to the reload
+            previous = path.read_bytes() if path.is_file() else None
+            tmp = path.with_suffix(".tmp")
+            tmp.write_text(json.dumps(document, indent=1, ensure_ascii=False), encoding="utf-8")
+            tmp.replace(path)
+            try:
+                fresh = self.reload_use_case(ws, uc, member, reason)
+            except LifecycleError:
+                if previous is None:
+                    path.unlink()
+                else:
+                    path.write_bytes(previous)
+                raise
+            self.admin.append(ws.id, event, f"{member.name}@{ws.id}", reason,
+                              {**data, "use_case": uc.id, "configuration": fresh.service.configuration_fingerprint})
         return fresh
 
     def publish_draft(self, ws: Workspace, uc: UseCase, member: Member, revision: Any, reason: str) -> Dict[str, Any]:
@@ -832,32 +912,186 @@ class Platform:
         return {**self.use_case_view(fresh, member, detail=True),
                 "matches_release": release["fingerprint"] == fresh.service.configuration_fingerprint}
 
+    @contextmanager
+    def _switching(self, ws: Workspace, uc_id: str):
+        """Alone on one use case's engine: requests in flight have finished, new ones wait."""
+        gate = ws.gates.setdefault(uc_id, Gate())
+        try:
+            gate.acquire(SWAP_WAIT)
+        except Busy:
+            raise LifecycleError(409, "requests on this use case are still in progress: nothing was changed; "
+                                      "try again when they have finished (a running step is never cut)") from None
+        try:
+            with self._lock:
+                yield
+        finally:
+            gate.release()
+
+    def _swap(self, ws: Workspace, uc: UseCase) -> UseCase:
+        """Replace the running engine by one built from the files as they are now. The caller is alone on the use
+        case (:meth:`_switching`) and has checked that the files load."""
+        if uc.stop is not None:
+            uc.stop.set()
+        uc.service.close()
+        fresh = self._load_use_case(ws, uc.id, uc.spec, self._base_dir)
+        fresh.origin, fresh.template = uc.origin, uc.template
+        ws.use_cases[uc.id] = fresh
+        if self.running:
+            fresh.stop = fresh.service.start_background()
+            self._stops.append(fresh.stop)
+        return fresh
+
     def reload_use_case(self, ws: Workspace, uc: UseCase, member: Member, reason: str) -> UseCase:
         """Reload one engine from its configuration files without restarting the platform (ADM-2). The files are
-        first loaded into a throwaway engine; only if that works is the running engine replaced. A reload is not
-        an activation: if a release is active and the files changed, the use case counts as draft until a person
-        activates an approved release of what now runs (REL-1a)."""
+        first loaded into a throwaway engine; only if that works is the running engine replaced, once the requests
+        in flight have finished. A reload is not an activation: if a release is active and the files changed, the
+        use case counts as draft until a person activates an approved release of what now runs (REL-1a)."""
         reason = (reason or "").strip()
         if not (1 <= len(reason) <= 500):
             raise LifecycleError(400, "give a reason (1 to 500 characters)")
-        with self._lock:
+        with self._switching(ws, uc.id):
+            uc = ws.use_cases[uc.id]
             before = uc.service.configuration_fingerprint
             try:
                 after = self._load_use_case(ws, uc.id, uc.spec, self._base_dir, validate_only=True)
             except (PlatformError, ValueError, OSError) as exc:
                 raise LifecycleError(400, f"the configuration does not load, nothing was changed: {exc}") from None
-            if uc.stop is not None:
-                uc.stop.set()
-            uc.service.close()
-            fresh = self._load_use_case(ws, uc.id, uc.spec, self._base_dir)
-            fresh.origin, fresh.template = uc.origin, uc.template
-            ws.use_cases[uc.id] = fresh
-            if self.running:
-                fresh.stop = fresh.service.start_background()
-                self._stops.append(fresh.stop)
+            fresh = self._swap(ws, uc)
             self.admin.append(ws.id, "engine_reloaded", f"{member.name}@{ws.id}", reason,
                               {"use_case": uc.id, "from": before, "to": after})
         return fresh
+
+    def activate_release(self, ws: Workspace, uc: UseCase, member: Member, number: int,
+                         reason: str) -> Dict[str, Any]:
+        """Make an approved release what runs, in one coordinated step (REL-1a; R2 reliability sprint C).
+
+        No restart and no separate reload: if the engine does not already run the release's configuration, the
+        release's model is put in place, the configuration is rebuilt from the deployed files and checked against
+        the release's fingerprint *before* anything changes, and the engine is switched only once the requests in
+        flight have finished. Other requests wait and then see the new configuration, never a mixture. If any
+        step fails, the model and the engine that ran before are put back and the previous release stays active
+        (fail closed). Activating an older release is a rollback, the same way. The approval history is never
+        rewritten: activation only appends."""
+        who = f"{member.name}@{ws.id}"
+        reason = (reason or "").strip()
+        if not (1 <= len(reason) <= 500):
+            raise ReleaseError(400, "give a reason (1 to 500 characters)")
+        with self._switching(ws, uc.id):
+            uc = ws.use_cases[uc.id]
+            st = self.releases.state(ws.id, uc.id)
+            if st["integrity_problem"]:
+                raise ReleaseError(409, st["integrity_problem"])
+            target = next((i for i in st["items"] if i["number"] == number), None)
+            if target is None:
+                raise ReleaseError(404, f"no release {number}")
+            if not target["approved_by"]:
+                raise ReleaseError(409, f"release {number} is not approved: another person with release authority "
+                                        "must approve it first")
+            if target["status"] == "active":
+                raise ReleaseError(409, f"release {number} is already active")
+            previous = st["active"]
+            kind = "rolled_back" if previous and previous["number"] > number else "activated"
+            before = uc.service.configuration_fingerprint
+            path = self.data_dir / ws.id / uc.id / ONTOLOGY_OVERRIDE
+            model_before = path.read_bytes() if path.is_file() else None
+            switched = False
+
+            def put_back() -> None:
+                """The model and the engine that ran before the attempt."""
+                if model_before is None:
+                    path.unlink(missing_ok=True)
+                else:
+                    path.write_bytes(model_before)
+                if switched:
+                    current = ws.use_cases[uc.id]
+                    try:
+                        self._swap(ws, current)
+                    except Exception as exc:  # even the previous configuration no longer loads: serve nothing
+                        current.unavailable = (f"activation of release {number} failed and the previous "
+                                               f"configuration could not be loaded again ({type(exc).__name__})")
+                        log.exception("use case %s/%s is unavailable", ws.id, uc.id)
+
+            fresh = uc
+            try:
+                if target["fingerprint"] != before:
+                    snapshot = self.releases.snapshot(ws.id, uc.id, number) or {}
+                    document = snapshot.get("ontology")
+                    if isinstance(document, dict) and "entities" in document:
+                        tmp = path.with_suffix(".tmp")
+                        tmp.write_text(json.dumps(document, indent=1, ensure_ascii=False), encoding="utf-8")
+                        tmp.replace(path)
+                    try:
+                        candidate = str(self._load_use_case(ws, uc.id, uc.spec, self._base_dir, validate_only=True))
+                    except (PlatformError, ValueError, OSError) as exc:
+                        raise ReleaseError(409, f"release {number} does not load with the deployed files, nothing "
+                                                f"was changed: {exc}") from None
+                    if candidate != target["fingerprint"]:
+                        raise ReleaseError(
+                            409, f"release {number} ({target['fingerprint'][:12]}) cannot be brought into force "
+                                 f"from the deployed files: with its model they give configuration "
+                                 f"{candidate[:12]}. What differs is outside the model (agents, governing settings "
+                                 "or tool declarations in the use case's files): deploy that release's files, then "
+                                 "activate it again; no restart or reload is needed. Nothing was changed")
+                    switched = True
+                    fresh = self._swap(ws, uc)
+                running = fresh.service.configuration_fingerprint
+
+                def check_activate(item, state):
+                    if not item["approved_by"]:
+                        raise ReleaseError(409, f"release {item['number']} is not approved")
+                    if item["status"] == "active":
+                        raise ReleaseError(409, f"release {item['number']} is already active")
+                    if item["fingerprint"] != running:  # never record as active what does not run
+                        raise ReleaseError(409, f"the engine runs configuration {running[:12]}, not release "
+                                                f"{item['number']} ({item['fingerprint'][:12]})")
+                out = self.releases.record(ws.id, uc.id, number, kind, who, reason, check_activate)
+            except ReleaseError:
+                put_back()
+                raise
+            except BaseException as exc:
+                put_back()
+                if not isinstance(exc, Exception):
+                    raise
+                log.exception("activation of release %s of %s/%s failed", number, ws.id, uc.id)
+                state = ws.use_cases[uc.id].unavailable
+                raise ReleaseError(500, f"the activation of release {number} failed ({type(exc).__name__}); "
+                                   + (f"{state}: the use case serves nothing until a reload succeeds" if state else
+                                      "the model and the engine that ran before were put back, and the release "
+                                      "that was active stays active")) from None
+            if switched:
+                self.admin.append(ws.id, "release_restored", who, reason,
+                                  {"release": number, "use_case": uc.id, "configuration": running,
+                                   "by": "activation", "from": before})
+            stage = self._revalidate_stage(ws, fresh, who, number)
+            # runs started on another configuration never continue on this one (WorkAgent.resume, decide)
+            waiting = [r["run_id"] for r in fresh.service.store.list_runs(limit=10 ** 6)
+                       if r["status"] in ("awaiting_review", "deferred", "paused", "pending_confirmation")]
+            stopped = [rid for rid in waiting if self._run_configuration(fresh, rid) not in ("", running)]
+        # run identifiers are execution evidence: listed only for someone who may read this use case's data (IAM-3)
+        return {**out, "event": kind, "reloaded": switched, "configuration": running, "stage": stage,
+                "runs_on_other_configurations_count": len(stopped),
+                "runs_on_other_configurations": stopped if member.has_data_access(uc.id) else []}
+
+    def _revalidate_stage(self, ws: Workspace, uc: UseCase, who: str, number: int) -> Dict[str, Any]:
+        """A stage is granted for one model. When an activation changes the model, the use case is simulated
+        again at once if the simulation checks pass, so that the release that was just activated runs without a
+        second manual step; pilot is never granted automatically (a person decides it again, with its checks),
+        and production is never granted at all."""
+        st = self.stage_of(uc)
+        if st["integrity_problem"] or not st["stale"]:
+            return {"stage": self.effective_stage(uc), "revalidated": False}
+        was = st["stage"]
+        try:
+            self.lifecycle.move(ws.id, uc.id, uc.service, "draft", who,
+                                f"release {number} activated: the model changed, the stage is granted again")
+            self.lifecycle.move(ws.id, uc.id, uc.service, "simulation", who,
+                                f"release {number} activated: simulated again on the new model",
+                                extra_checks=self._stage_checks(uc))
+        except LifecycleError as exc:
+            return {"stage": self.effective_stage(uc), "revalidated": False, "was": was, "problem": str(exc),
+                    "checks": exc.checks or []}
+        return {"stage": self.effective_stage(uc), "revalidated": True, "was": was,
+                "next": "pilot needs a person's decision again (POST .../stage)" if was == "pilot" else None}
 
     def _json(self, raw_body: Optional[bytes], body_error: Optional[Tuple[int, str]]) -> Dict[str, Any]:
         if body_error:
@@ -918,6 +1152,23 @@ class Platform:
         # a named release approver (e.g. an external one, D11) sees a use case's releases without other grants
         if uc is None or not (member.grant(uc.id) or (releases and member.name in ws.release_approvers)):
             return 404, None
+        action = parts[6] if len(parts) >= 7 else None
+        # reload, publication, activation and restore switch the engine: they take the use case for themselves.
+        # Everything else shares it, waits for a switch in progress, and then sees the engine that is in force.
+        switching = action in ("reload", "publish-draft") or (
+            action == "releases" and len(parts) == 9 and parts[8] in ("activate", "restore"))
+        if switching:
+            return self._use_case_route(method, parts, query, ws, uc, member, raw_body, body_error)
+        gate = ws.gates.setdefault(uc.id, Gate())
+        if not gate.enter():
+            raise LifecycleError(503, "this use case is being switched to another configuration: retry shortly")
+        try:
+            return self._use_case_route(method, parts, query, ws, ws.use_cases[uc.id], member, raw_body, body_error)
+        finally:
+            gate.leave()
+
+    def _use_case_route(self, method: str, parts: List[str], query: str, ws: Workspace, uc: UseCase, member: Member,
+                        raw_body: Optional[bytes], body_error: Optional[Tuple[int, str]]) -> Tuple[int, Any]:
         action = parts[6] if len(parts) >= 7 else None
         if action is None and method == "GET":
             return 200, self.use_case_view(uc, member, detail=True)
@@ -1290,7 +1541,6 @@ class Platform:
             return 200, self.restore_release(ws, uc, member, number, str(body.get("reason") or ""))
         body = self._json(raw_body, body_error)
         reason = str(body.get("reason") or "")
-        running = uc.service.configuration_fingerprint
         if parts[8] == "approve":
             if not self.may_approve_releases(ws, member):
                 raise LifecycleError(403, "only a person with release authority (a workspace administrator or a "
@@ -1317,35 +1567,7 @@ class Platform:
         if not member.workspace_admin:
             raise LifecycleError(403, "workspace administrators only")
         self._require_person(member, "activate a release")
-        event = {"kind": "activated"}
-
-        def check_activate(item, st):
-            if not item["approved_by"]:
-                raise ReleaseError(409, f"release {item['number']} is not approved: another person with release "
-                                        "authority must approve it first")
-            if item["status"] == "active":
-                raise ReleaseError(409, f"release {item['number']} is already active")
-            if item["fingerprint"] != running:
-                raise ReleaseError(409, f"the engine runs configuration {running[:12]}, not release {item['number']} "
-                                        f"({item['fingerprint'][:12]}): deploy that release's configuration and "
-                                        "restart, then activate it")
-            active = st["active"]
-            if active and active["number"] > item["number"]:
-                event["kind"] = "rolled_back"
-
-        st = self.releases.state(ws.id, uc.id)
-        previous = st["active"]
-        target = next((i for i in st["items"] if i["number"] == number), None)
-        if target and previous and previous["number"] > number:
-            event["kind"] = "rolled_back"
-        out = self.releases.record(ws.id, uc.id, number, event["kind"], who, reason, check_activate)
-        # runs started on another configuration never continue on this one (WorkAgent.resume, AutologyService.decide)
-        waiting = [r["run_id"] for r in uc.service.store.list_runs(limit=10 ** 6)
-                   if r["status"] in ("awaiting_review", "deferred", "paused", "pending_confirmation")]
-        stopped = [rid for rid in waiting if self._run_configuration(uc, rid) not in ("", running)]
-        # run identifiers are execution evidence: listed only for someone who may read this use case's data (IAM-3)
-        return 200, {**out, "event": event["kind"], "runs_on_other_configurations_count": len(stopped),
-                     "runs_on_other_configurations": stopped if member.has_data_access(uc.id) else []}
+        return 200, self.activate_release(ws, uc, member, number, reason)
 
     @staticmethod
     def _run_configuration(uc: UseCase, run_id: str) -> str:
@@ -1437,9 +1659,8 @@ class Platform:
             # not a member token: only this workspace's own sign-in provider may vouch for it (ISO-3). The use
             # case's engine verifies it against that issuer and its mappings; anything else is refused there.
             inner = "/" + "/".join(parts[5:]) + (f"?{split.query}" if split.query else "")
-            ex = ApiExchange(uc.service, method, inner, headers, raw_body, body_error, client).run()
-            self._log(None, method, path, ex.status)
-            return ex.status, ex.content_type, ex.data, ex.response_headers
+            assert ws is not None  # uc is one of its use cases
+            return self._engine(ws, uc.id, None, method, path, inner, headers, raw_body, body_error, client, False)
         if not members:
             self.limiter.hit("auth_failures", client)
             whose, why = self.refused_token(headers.get("Authorization"))
@@ -1479,13 +1700,43 @@ class Platform:
                 self._log(member or anyone, method, path, status)
             if out is None:
                 return 404, "application/json", NOT_FOUND, {}
-            return status, "application/json", json.dumps(out).encode(), {}
+            if status == 503:
+                out["retry_after_seconds"] = 2
+            return status, "application/json", json.dumps(out).encode(), ({"Retry-After": "2"} if status == 503
+                                                                          else {})
         if uc is None or member is None or not member.grant(uc.id):
             self._log(member or anyone, method, path, 404)
             return 404, "application/json", NOT_FOUND, {}
         inner = "/" + "/".join(parts[5:]) + (f"?{split.query}" if split.query else "")
-        ex = ApiExchange(uc.service, method, inner, headers, raw_body, body_error, client, counted=True).run()
-        return ex.status, ex.content_type, ex.data, ex.response_headers
+        assert ws is not None  # uc is one of its use cases
+        return self._engine(ws, uc.id, member, method, path, inner, headers, raw_body, body_error, client, True)
+
+    def _engine(self, ws: Workspace, uc_id: str, member: Optional[Member], method: str, path: str, inner: str,
+                headers: Any, raw_body: Optional[bytes], body_error: Optional[Tuple[int, str]], client: str,
+                counted: bool) -> Tuple[int, str, bytes, Dict[str, str]]:
+        """One request to a use case's engine. It shares the use case with other requests; while the engine is
+        being switched (a release activated, a reload) it waits, then is served by the engine in force: a request
+        never sees a configuration that is half in place."""
+        gate = ws.gates.setdefault(uc_id, Gate())
+        if not gate.enter():
+            return self._unavailable(member, method, path,
+                                     "this use case is being switched to another configuration: retry shortly")
+        try:
+            uc = ws.use_cases[uc_id]
+            if uc.unavailable:
+                return self._unavailable(member, method, path, f"this use case is unavailable: {uc.unavailable}")
+            ex = ApiExchange(uc.service, method, inner, headers, raw_body, body_error, client, counted=counted).run()
+            if member is None:  # a company sign-in: the engine identified the caller, the router records the call
+                self._log(None, method, path, ex.status)
+            return ex.status, ex.content_type, ex.data, ex.response_headers
+        finally:
+            gate.leave()
+
+    def _unavailable(self, who: Optional[Member], method: str, path: str,
+                     message: str) -> Tuple[int, str, bytes, Dict[str, str]]:
+        self._log(who, method, path, 503)
+        return 503, "application/json", json.dumps({"error": message, "retry_after_seconds": 2}).encode(), {
+            "Retry-After": "2"}
 
     def close(self) -> None:
         """Close every engine and registry (after the server stopped)."""

@@ -294,8 +294,24 @@ use case and in the engine's `/api/health`. Store paths, members, sign-in and se
 2. Another **person** with release authority **approves** it: a workspace administrator or a member named in the
    workspace's `"release_approvers"` (for example an external approver with no other access, which a workspace with a
    single administrator needs). The proposer never approves their own release; a service identity never approves.
-3. A workspace administrator **activates** it. Activation is refused unless the engine runs exactly that
-   configuration. Activating an older approved release is recorded as a **rollback**.
+3. A workspace administrator **activates** it, in one step, with no restart and no reload:
+   - if the engine does not already run the release's configuration, the platform puts the release's model in
+     place, rebuilds the configuration from the deployed files and compares its fingerprint with the release's
+     **before anything changes**. If they differ (a setting outside the model changed in the files), activation is
+     refused and says so: deploy that release's files and activate again;
+   - the engine is switched once the requests in flight have finished (a running step is never cut; if they do not
+     finish within 10 seconds, activation is refused and can be repeated). Requests that arrive during the switch
+     wait, then are served by the new configuration: nobody sees a model without its release. The scheduler does
+     not tick during a switch;
+   - if any step fails, the model and the engine that ran before are put back and the previous release stays
+     active. If even that configuration no longer loads, the use case serves nothing (`503`) until a reload
+     succeeds; other use cases are unaffected;
+   - when the model changed, the use case is **simulated again at once** if the simulation checks pass, recorded
+     in the stage history in the activator's name. Pilot is never granted automatically: a person decides it
+     again, with its checks. Production is never granted.
+
+   Activating an older approved release is a **rollback**, the same single step. Approvals are never rewritten:
+   activation only appends to the history.
 
 While a release is active, an engine running another configuration (a file changed and the use case restarted)
 counts as **draft**: nothing runs and nothing is sent until a person activates an approved release of what now runs.
@@ -305,8 +321,10 @@ A release approval authorises no business action: the stage and the ontology's r
 Releases live in `<data_dir>/releases.db`, append-only, chained with the workspace's audit key; a changed history or
 snapshot is detected and the use case then counts as draft.
 
-**Limits:** activation does not reload the engine (deploy the release's files, then reload the use case or restart); Studio drafts
-cannot yet become releases; Python code imported by tools is not part of the snapshot.
+**Limits:** a release carries its model, so the platform can put the model back by itself; agents' settings and
+tool declarations live in the use case's files, which only the operator deploys (activation checks them, it does
+not rewrite them); Python code imported by tools is not part of the snapshot; one platform process (no coordination
+between several instances).
 
 ## Lifecycle stages (Draft → Simulation → Pilot)
 

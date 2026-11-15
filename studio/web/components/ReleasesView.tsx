@@ -62,12 +62,15 @@ export default function ReleasesView({ workspace, useCase, member, admin, onChan
     if (r.status === "approved" && (admin || r.approved_by === me))
       out.push(<button key="v" className="small" disabled={busy || needReason}
                        onClick={() => act(`Approval of release ${r.number} revoked`, () => api.releaseAction(workspace, useCase.id, r.number, "revoke", reason))}>Revoke approval</button>);
-    if (admin && r.approved_by && r.status !== "active" && r.fingerprint === running)
-      out.push(<button key="t" className="small" disabled={busy || needReason}
-                       onClick={() => act(`Release ${r.number} activated`, () => api.activateRelease(workspace, useCase.id, r.number, reason))}>Activate</button>);
-    if (admin && r.fingerprint !== running)
-      out.push(<button key="r" className="small" disabled={busy || needReason}
-                       onClick={() => act(`Release ${r.number}'s model restored: activate it to roll back`, () => api.restoreRelease(workspace, useCase.id, r.number, reason))}>Restore its model</button>);
+    if (admin && r.approved_by && r.status !== "active") {
+      // One step, decided by the platform: it puts the release's model in place, switches the engine once the
+      // requests in flight have finished, and puts everything back if that fails. An older release is a rollback.
+      const back = !!state.active && state.active.number > r.number;
+      out.push(<button key="t" className="small" disabled={busy || needReason} data-testid={back ? "rollback" : "activate"}
+                       onClick={() => act(back ? `Rolled back to release ${r.number}` : `Release ${r.number} activated`,
+                                          () => api.activateRelease(workspace, useCase.id, r.number, reason))}>
+        {back ? "Roll back to this release" : "Activate"}</button>);
+    }
     return out;
   };
 
@@ -87,7 +90,7 @@ export default function ReleasesView({ workspace, useCase, member, admin, onChan
 
       {(state.may_propose || state.may_approve) && (
         <div className="card">
-          <label htmlFor="rel-reason">Reason for an approval, revocation, activation or restore</label>
+          <label htmlFor="rel-reason">Reason for an approval, revocation, activation or rollback</label>
           <input id="rel-reason" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500}
                  placeholder="what you checked, or why" />
         </div>

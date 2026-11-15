@@ -817,6 +817,23 @@
                 }
               }
             }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "The access log",
@@ -897,6 +914,23 @@
               }
             },
             "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -1012,6 +1046,23 @@
                 }
               }
             }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Reinstate a suspended agent",
@@ -1108,6 +1159,23 @@
                 }
               }
             }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Provisional additions for a business brief (blueprints; not AI)",
@@ -1188,6 +1256,23 @@
               }
             },
             "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -1429,6 +1514,23 @@
                 }
               }
             }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Automations",
@@ -1537,6 +1639,23 @@
                 }
               }
             }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Fire an automation by hand",
@@ -1635,6 +1754,23 @@
                 }
               }
             }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Talk to the governed assistant",
@@ -1725,6 +1861,23 @@
               }
             },
             "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -1896,6 +2049,23 @@
                 }
               }
             }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "One load and its quarantined rows",
@@ -1986,6 +2156,23 @@
               }
             },
             "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -2091,6 +2278,23 @@
                 }
               }
             }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "One MCP JSON-RPC message",
@@ -2170,6 +2374,23 @@
               }
             },
             "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -2264,6 +2485,23 @@
                 }
               }
             }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Prometheus metrics",
@@ -2343,6 +2581,23 @@
               }
             },
             "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -2444,6 +2699,23 @@
                 }
               }
             }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Save a draft revision over the one read (expected_revision)",
@@ -2524,6 +2796,23 @@
               }
             },
             "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -2620,6 +2909,23 @@
               }
             },
             "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -2725,6 +3031,23 @@
               }
             },
             "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -2852,6 +3175,23 @@
                 }
               }
             }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Records the caller may see",
@@ -2939,6 +3279,23 @@
               }
             },
             "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -3050,6 +3407,23 @@
                 }
               }
             }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "One record",
@@ -3147,6 +3521,23 @@
                 }
               }
             }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Where a record's values came from",
@@ -3226,6 +3617,23 @@
               }
             },
             "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -3388,6 +3796,23 @@
                 }
               }
             }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Outcomes summary",
@@ -3468,6 +3893,23 @@
               }
             },
             "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -3583,6 +4025,23 @@
                 }
               }
             }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Run a data pipeline",
@@ -3663,6 +4122,23 @@
               }
             },
             "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -3778,6 +4254,23 @@
                 }
               }
             }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Confirm or decline a proposal (owner)",
@@ -3886,6 +4379,23 @@
                 }
               }
             }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Answer a competency question",
@@ -3966,6 +4476,23 @@
               }
             },
             "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -4081,6 +4608,23 @@
                 }
               }
             }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Settle an external call",
@@ -4161,6 +4705,23 @@
               }
             },
             "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -4266,6 +4827,23 @@
                 }
               }
             }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Refresh the reporting database",
@@ -4363,6 +4941,23 @@
                 }
               }
             }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Human reviews",
@@ -4453,6 +5048,23 @@
               }
             },
             "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -4561,6 +5173,23 @@
               }
             },
             "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -4681,6 +5310,23 @@
                 }
               }
             }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Runs the caller may see",
@@ -4770,6 +5416,23 @@
               }
             },
             "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -4874,6 +5537,23 @@
                 }
               }
             }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "One run",
@@ -4971,6 +5651,23 @@
                 }
               }
             }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "A run's audit chain and whether it verifies",
@@ -5061,6 +5758,23 @@
               }
             },
             "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -5167,6 +5881,23 @@
               }
             },
             "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -5282,6 +6013,23 @@
                 }
               }
             }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Resume a deferred or escalated run",
@@ -5372,6 +6120,23 @@
               }
             },
             "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -5487,6 +6252,23 @@
                 }
               }
             }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Retry a run's write-back after a conflict",
@@ -5577,6 +6359,23 @@
               }
             },
             "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -5680,6 +6479,23 @@
                 }
               }
             }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Create a scenario",
@@ -5770,6 +6586,23 @@
               }
             },
             "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -5885,6 +6718,23 @@
                 }
               }
             }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Apply a scenario to the live data",
@@ -5986,6 +6836,23 @@
               }
             },
             "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -6101,6 +6968,23 @@
                 }
               }
             }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Discard a scenario (owner or admin)",
@@ -6209,6 +7093,23 @@
                 }
               }
             }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Add edits to a scenario (owner or admin)",
@@ -6289,6 +7190,23 @@
               }
             },
             "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -6393,6 +7311,23 @@
                 }
               }
             }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "A typed client for this ontology",
@@ -6473,6 +7408,23 @@
               }
             },
             "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -6569,6 +7521,23 @@
               }
             },
             "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
             "headers": {
               "Retry-After": {
                 "schema": {
@@ -6674,6 +7643,23 @@
                 }
               }
             }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         },
         "summary": "Test the assistant's model connection",
@@ -6765,6 +7751,23 @@
               }
             },
             "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
             "headers": {
               "Retry-After": {
                 "schema": {

@@ -374,6 +374,7 @@ class AutologyService:
         for cfg_agent in self.agents.values():  # checked between steps: a started action is never cut short
             for member in [cfg_agent.agent] + cfg_agent.agent.delegates:
                 member.max_seconds = self.run_seconds
+        self.background_guard: Optional[Tuple[Any, Any]] = None  # behind the platform: (enter, leave) of the gate
         self.limit_scope = ""  # behind the platform: "<workspace>:", so an identity is counted once per workspace
         self.tenant_key: Optional[str] = None  # behind the platform: the tenant all requests are counted under
         # Where token first-sight dates are kept: beside a SQLite store by default. "" means the caller (the
@@ -1474,12 +1475,22 @@ class AutologyService:
 
         def loop():
             while not stop.wait(every):
+                # behind the platform the scheduler shares the use case with requests: it never ticks while the
+                # engine is being switched, and an engine that was replaced meanwhile does not tick again
+                guard = self.background_guard
+                if guard is not None and not guard[0]():
+                    continue
                 try:
+                    if stop.is_set():
+                        continue
                     self.tick()
                     self.scheduler_status["last_tick"] = _utcnow()
                 except Exception as exc:  # keep the scheduler alive, but never silently
                     self.log_error("scheduler tick")
                     self.scheduler_status["last_error"] = {"at": _utcnow(), "error": f"{type(exc).__name__}: {exc}"}
+                finally:
+                    if guard is not None:
+                        guard[1]()
 
         threading.Thread(target=loop, daemon=True, name="autology-scheduler").start()
         return stop

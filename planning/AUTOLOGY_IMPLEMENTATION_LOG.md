@@ -336,3 +336,32 @@ any four-eyes rule; grants written in the configuration are the operator's (repo
 application controls only. Not an independent security certification.
 Evidence (local): full suite 756 OK (744 + 12; 2 PostgreSQL tests skipped locally); ruff clean; mypy 198 (= baseline,
 no new error); contract regenerated, Studio types follow. Coverage is taken from CI for this increment.
+**CI for increment B:** `01228d3` → [run 79](https://github.com/edlwiseltd/ontology/actions/runs/43756581206): tests
+(3.10, 3.13), package and quality succeeded; the **studio job failed** at one browser check (waiting for the
+publication warning after switching use case). Cause, found by reading the component: a late answer of a refresh
+started before the click put the previous use case's detail back on screen (`Workbench`, present since STU-6,
+exposed by timing; the check passes locally). Fixed in the next commit (answers for an earlier selection are
+dropped); the browser tests were not run locally before pushing increment B, which this log records as a miss.
+
+## 15 November 2026 — R2 security and reliability sprint, increment C: backup, restore and release activation
+
+| Story | Change | Tests | Behaviour change |
+|---|---|---|---|
+| **GAP-033** platform backup | New `autology/recovery.py` and commands `platform-backup`, `platform-verify`, `platform-restore`. Every SQLite database is copied with the online backup (one committed snapshot; the write-ahead log is included by construction); order: stores and models, then registries, then access log; writer leases cleared in the copy; deep verification (integrity, every registry chain, every run's audit chain) before the manifest is written; manifest with sizes, SHA-256 and counts, signed with a key derived from the audit key; folder appears only when complete; 0700/0600; secrets left out unless asked | B1, B3, B5, B6, B7, B8 | New commands. `autology backup` (one engine) unchanged |
+| Restore | Manifest signature and hashes checked read-only; copy beside the target; deep verification; counts compared; then put in place. Never overwrites; the backup is only read; a failure leaves nothing | B1, B2, B4, B5 | — |
+| Isolated restore drill | A second platform is started on the restored directory while the first runs: tenant mappings, members, grants, token lifetimes and revocations, releases, stages, runs and audit chains are compared with the source; the two do not influence each other | B1, B2 (in CI on every push) | — |
+| Coordinated activation | `Platform.activate_release`: the release's model is put in place, the configuration rebuilt from the deployed files and compared with the release's fingerprint before anything changes, the engine switched under a per-use-case gate, the activation recorded, the stage re-granted (simulation only); on any failure the model and engine are put back | A1, A2, A3 | **Yes:** no restart, no reload and no manual stage steps after activation; rollback is one call; the old error "deploy that release's configuration and restart" is gone |
+| No intermediate state | `Gate`: requests share a use case, a switch (reload, publication, activation, restore) is alone; requests in flight finish first (a switch gives up after 10 s rather than cut them), later ones wait, then see the new engine; the scheduler does not tick during a switch; `503` + `Retry-After` when a wait is too long or a use case is unavailable | A4, A5, A7 | Engine and use-case routes may answer 503 during a long switch |
+| Authorisation unchanged | Only a workspace administrator who is a person activates; unapproved or revoked releases are refused; pilot is never granted automatically, production never | A6 | — |
+| Studio | Releases screen: Activate, or "Roll back to this release", for any approved release (the separate "Restore its model" button is gone; the API route stays); `Workbench` drops late answers for an earlier selection | 33 browser checks | — |
+
+**Tests changed on purpose:** `test_stu6_publish` (after activation the use case is simulated again by itself; the
+manual stage steps were removed from the test).
+**Consistency boundary and restoration order** are stated in `docs/deployment.md`; activation semantics in
+`docs/workspaces.md`. **Limits:** SQLite stores; no point-in-time recovery; backup storage, encryption, retention
+and scheduling are the operator's; agents' settings and tool declarations are deployed by the operator (activation
+verifies them, it does not rewrite them); one platform process. Recovery was demonstrated by executed tests, on
+synthetic example data only.
+Evidence (local): full suite 770 OK (756 + 14; 2 PostgreSQL tests skipped locally), 95.76 % lines (13,270 statements,
+562 missed; baseline 95.93 %: the new error paths of recovery and activation are not all exercised); ruff clean;
+mypy 198 (= baseline, no new error); Studio typecheck, 17 Vitest, build, 33/33 browser checks.

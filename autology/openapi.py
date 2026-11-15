@@ -235,6 +235,11 @@ def _paths(routes, prefix_from: str, prefix_to: str, responses, requests, status
         out["429"] = {"description": "Too many requests: retry after the Retry-After header (seconds)",
                       "headers": {"Retry-After": {"schema": {"type": "integer"}}},
                       "content": {"application/json": {"schema": REF("Error")}}}
+        if not public:
+            out["503"] = {"description": "The use case is being switched to another configuration, or is "
+                                         "unavailable: retry after the Retry-After header (seconds)",
+                          "headers": {"Retry-After": {"schema": {"type": "integer"}}},
+                          "content": {"application/json": {"schema": REF("Error")}}}
         op: Dict[str, Any] = {"operationId": _operation_id(method, path), "summary": summary,
                               "x-autology-permission": permission, "responses": out}
         if params:
@@ -384,6 +389,9 @@ PLATFORM_SCHEMAS: Dict[str, Any] = {
                          ("items", "running_fingerprint", "drift", "history")),
     "ActivationResult": {"allOf": [REF("Release"), _obj({
         "event": {"type": "string", "enum": ["activated", "rolled_back"]},
+        "reloaded": B, "configuration": S,
+        "stage": _obj({"stage": STAGE, "revalidated": B, "was": S, "next": NS, "problem": S,
+                       "checks": {"type": "array", "items": ANY}}, ("stage", "revalidated")),
         "runs_on_other_configurations": {"type": "array", "items": S},
         "runs_on_other_configurations_count": I}, ("event", "runs_on_other_configurations"))]},
     "ReleaseProposal": _obj({"note": {"type": "string", "minLength": 1, "maxLength": 500}}, ("note",)),

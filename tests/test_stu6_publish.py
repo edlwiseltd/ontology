@@ -59,10 +59,11 @@ class PublishTests(AdminBase):
         self.assertIn("A motor claim (v2)", own.read_text())
         self.assertEqual(self.run_clean_claim()[0], 409)  # nothing runs on an unreleased configuration
         second = self.release("v2 wording")
-        # a new model also makes the stage stale: it is simulated again before anything runs (lifecycle rule)
-        self.assertEqual(self.run_clean_claim()[0], 409)
-        self.assertEqual(self.call("POST", f"{UC}/stage", body={"to": "draft", "reason": "new model"})[0], 200)
-        self.assertEqual(self.call("POST", f"{UC}/stage", body={"to": "simulation", "reason": "simulate v2"})[0], 200)
+        # a new model makes the stage stale; activation simulates the use case again by itself when the simulation
+        # checks pass, so the release that was just activated runs without another manual step (sprint C)
+        _, view = self.call("GET", UC)
+        self.assertEqual((view["stage"], view["stale"], view["effective_stage"]), ("simulation", False, "simulation"))
+        self.assertEqual([h["to_stage"] for h in view["history"]][-2:], ["draft", "simulation"])
         status, run = self.run_clean_claim()
         self.assertEqual((status, run.get("status")), (200, "completed"), run)
         self.assertEqual(self.call("GET", f"{ENGINE}/model/draft")[1]["document"]["entities"]["Claim"]["description"],
@@ -72,9 +73,7 @@ class PublishTests(AdminBase):
         self.assertTrue(back["matches_release"])
         self.assertTrue(back["release"]["drift"])  # release 2 is active; release 1's configuration runs
         status, out = self.call("POST", f"{UC}/releases/{first}/activate", body={"reason": "roll back"})
-        self.assertEqual((status, out["event"]), (200, "rolled_back"))
-        self.call("POST", f"{UC}/stage", body={"to": "draft", "reason": "rolled back"})
-        self.call("POST", f"{UC}/stage", body={"to": "simulation", "reason": "simulate v1 again"})
+        self.assertEqual((status, out["event"], out["stage"]["revalidated"]), (200, "rolled_back", True))
         self.assertEqual(self.run_clean_claim()[1]["status"], "completed")
         self.assertNotEqual(first, second)
         _, admin = self.call("GET", "/platform/v1/workspaces/acme/members")

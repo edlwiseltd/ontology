@@ -7,13 +7,13 @@ reproduces the audit's finding passes in CI; it has not been re-verified by an i
 
 | Status | Count |
 |---|---|
-| Fixed | 27 |
-| Open | 20 |
+| Fixed | 28 |
+| Open | 19 |
 | Open (external evidence) | 5 |
 | Open (owner decision) | 2 |
 | Partly fixed | 9 |
 
-*Counts updated 15 November 2026 (H-1: GAP-058, GAP-059 added and fixed; REL-1a: GAP-020 fixed; ADM-1/2 and STU-6: GAP-030, GAP-056 partly fixed, GAP-051 updated; QA-1: GAP-025 partly fixed, GAP-040 updated; IAM-3: GAP-060 added and fixed, GAP-061 found, reproduced and fixed; R2 security sprint A: GAP-030 fixed, GAP-021 partly fixed; sprint B: GAP-062 and GAP-063 found, reproduced and fixed).* **High gaps not
+*Counts updated 15 November 2026 (H-1: GAP-058, GAP-059 added and fixed; REL-1a: GAP-020 fixed; ADM-1/2 and STU-6: GAP-030, GAP-056 partly fixed, GAP-051 updated; QA-1: GAP-025 partly fixed, GAP-040 updated; IAM-3: GAP-060 added and fixed, GAP-061 found, reproduced and fixed; R2 security sprint A: GAP-030 fixed, GAP-021 partly fixed; sprint B: GAP-062 and GAP-063 found, reproduced and fixed; sprint C: GAP-033 fixed).* **High gaps not
 fully fixed:** GAP-031 (waits for legal sign-off, D19), GAP-032 (ERP connector), GAP-052 (real models) and GAP-053
 (real process), which need external systems, keys or a customer. GAP-009 and GAP-018 are **Fixed** (repository-
 verified; independent re-verification open): GAP-009's atomicity is local, there is no compensation towards
@@ -54,7 +54,7 @@ and closure criteria: [the clarification note](AUTOLOGY_PARTIAL_GAPS_CLARIFICATI
 | GAP-030 | API tokens never expire or rotate without restart; no rate limiting or lockout | Med | **Fixed** (R2 security sprint, increment A) | `tests/test_gap030_security.py` (27 tests) | Original acceptance: *expired token refused; brute force throttled*. Now: every API token has a finite lifetime per kind (people 90 d, services 365 d by default), server-enforced at the router, the engine and MCP (`credentials.py`, `<data_dir>/credentials.db`); existing tokens get one lifetime from the upgrade; revocation and rotation without restart, audited; rate limits per address, identity, tenant and endpoint class with `429` + `Retry-After` (`limits.py`); connection ceiling and slow-client timeout. Limits: counters are per process (single node); application-level only. Default values to confirm: D23 |
 | GAP-031 | No licence; redistribution terms undefined | High (blocks any customer use) | **Partly fixed** (engineering done; legal open) | LEG-1 · `6a23ff5`; Increment C (see log) | `tests/test_leg1_licences.py`; CI checks the licences of what each built image contains; image pinned (`deploy/image-constraints.txt`); an image without the LGPL driver builds and passes the smoke test; base-image packages listed. **Open (legal):** decisions L1–L5 (D19). Customer distribution prohibited until recorded |
 | GAP-032 | No ERP connector (Odoo or other) | High for target market | **Open** |  | R3 INT-2/INT-3 on an Odoo 18 sandbox (D6), now possible since ACT-1–6 pass |
-| GAP-033 | Restore never exercised; no scheduled backups | Med | **Open** |  | R4 OPS-1 restore drill in CI |
+| GAP-033 | Restore never exercised; no scheduled backups | Med | **Fixed** (R2 reliability sprint, increment C) | `tests/test_ops1_recovery_and_activation.py` (`RecoveryTests`, 8 tests, in CI on every push) | Original acceptance: *restore drill passes in CI; measured recovery time*. `autology platform-backup / platform-verify / platform-restore` (`recovery.py`): consistent online copy of every store and registry in a fixed order, verified and signed manifest, restore into a new directory only, second platform started on the restored data while the first runs. Measured on the example platform: backup 0.08 s, restore 0.05 s. Scheduling, retention, off-site copies and encryption remain the operator's (documented); PostgreSQL stores are out of scope of this command |
 | GAP-034 | No encryption at rest for the store | Med (customer-dependent) | **Open (owner decision)** |  | D3 still open |
 | GAP-035 | Notification text may include restricted fields; review notifications lack an instance key for filtering | Med | **Open** |  | R2 |
 | GAP-036 | Every reader can list and read every scenario | Low | **Open** |  | R2 (small): scenario owner/visibility checks |

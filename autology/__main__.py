@@ -24,6 +24,9 @@
     python -m autology reporting SERVER.json [--out reporting.db] [--roles analyst]   # governed tables for BI tools
     python -m autology serve SERVER.json [--host 127.0.0.1] [--port 8800] [--store PATH] [--assistant [MODEL]]
     python -m autology backup SERVER.json OUT.db [--store PATH]          # consistent online backup, verified
+    python -m autology platform-backup PLATFORM.json BACKUP_DIR [--include-secrets]   # the whole platform, verified
+    python -m autology platform-verify BACKUP_DIR                         # check a backup without changing it
+    python -m autology platform-restore BACKUP_DIR NEW_DATA_DIR           # verified restore; never overwrites
     python -m autology console --engine http://127.0.0.1:8800 [--port 8900]   # separate UI to talk to the engine
     python -m autology platform PLATFORM.json [--port 8700]      # isolated workspaces, each with use cases
     python -m autology token                                               # new API token and its hash
@@ -256,6 +259,18 @@ def _build_parser() -> argparse.ArgumentParser:
     bk.add_argument("--store", help="store file, overriding the config")
     bk.add_argument("--audit-scope", help="workspace id, for a use case's store behind the platform router "
                                           "(its chains use that workspace's audit key)")
+    pb = sub.add_parser("platform-backup", help="back up a whole platform data directory, consistently, while "
+                                                 "it runs; every chain is verified")
+    pb.add_argument("config", help="the platform configuration (platform.json)")
+    pb.add_argument("out", help="a new folder for the backup")
+    pb.add_argument("--include-secrets", action="store_true",
+                    help="also copy each workspace's secrets.json (a Claude key saved from the Console)")
+    pv = sub.add_parser("platform-verify", help="check a platform backup completely, without changing it")
+    pv.add_argument("backup")
+    pr = sub.add_parser("platform-restore", help="restore a platform backup into a new data directory; verified, "
+                                                  "never overwrites")
+    pr.add_argument("backup")
+    pr.add_argument("target", help="the new data directory (must not exist, or be empty)")
     rp = sub.add_parser("reporting", help="write the governed reporting database that BI tools read")
     rp.add_argument("config")
     rp.add_argument("--out", help="SQLite file (default: the server config's reporting.target)")
@@ -363,6 +378,33 @@ def _cmd_score(args, onto: Ontology) -> int:
     if args.min_score is not None and (card.overall or 0) < args.min_score:
         print(f"score {card.overall} is below the minimum {args.min_score}", file=sys.stderr)
         return 4
+    return 0
+
+
+def _cmd_recovery(args) -> int:
+    from . import recovery
+
+    try:
+        if args.command == "platform-backup":
+            out = recovery.backup(recovery.data_dir_of(args.config), args.out, include_secrets=args.include_secrets)
+            what = "backup"
+        elif args.command == "platform-verify":
+            out, what = recovery.verify(args.backup), "verified"
+        else:
+            out, what = recovery.restore(args.backup, args.target), "restored"
+    except recovery.RecoveryError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    c = out["counts"]
+    print(f"{what} {out['path']}: {out['files']} files, {c['stores']} stores in {c['workspaces']} workspaces, "
+          f"{c['runs']} runs, {c['objects']} objects, {c['releases']} releases, {c['admin_events']} administration "
+          f"events; every chain verifies" + (f"; {out['seconds']} s" if "seconds" in out else ""))
+    for name in out.get("not_included", []):
+        print(f"  not included: {name}")
+    for need in out.get("needs", []):
+        print(f"  needs: {need}")
+    if what == "backup" and not out["keyed"]:
+        print("  note: AUTOLOGY_AUDIT_KEY is not set: the manifest is hashed, not signed", file=sys.stderr)
     return 0
 
 
@@ -564,6 +606,8 @@ def main(argv=None) -> int:
         return _cmd_reporting(args)
     if args.command == "backup":
         return _cmd_backup(args)
+    if args.command in ("platform-backup", "platform-verify", "platform-restore"):
+        return _cmd_recovery(args)
 
     onto = _load(args.ontology)
     if args.command == "validate":

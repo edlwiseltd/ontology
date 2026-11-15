@@ -565,10 +565,25 @@ export interface components {
             [key: string]: unknown;
         };
         ActivationResult: components["schemas"]["Release"] & ({
+            configuration?: string;
             /** @enum {string} */
             event: "activated" | "rolled_back";
+            reloaded?: boolean;
             runs_on_other_configurations: string[];
             runs_on_other_configurations_count?: number;
+            stage?: {
+                checks?: {
+                    [key: string]: unknown;
+                }[];
+                next?: string | null;
+                problem?: string;
+                revalidated: boolean;
+                /** @enum {string} */
+                stage: "draft" | "simulation" | "pilot" | "production";
+                was?: string;
+            } & {
+                [key: string]: unknown;
+            };
         } & {
             [key: string]: unknown;
         });
@@ -1128,6 +1143,16 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     getOpenapiJson: {
@@ -1262,6 +1287,16 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     getTenantsTenant: {
@@ -1331,6 +1366,16 @@ export interface operations {
             };
             /** @description Too many requests: retry after the Retry-After header (seconds) */
             429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
                 headers: {
                     "Retry-After"?: number;
                     [name: string]: unknown;
@@ -1416,6 +1461,16 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     postWorkspacesWsGrants: {
@@ -1489,6 +1544,16 @@ export interface operations {
             };
             /** @description Too many requests: retry after the Retry-After header (seconds) */
             429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
                 headers: {
                     "Retry-After"?: number;
                     [name: string]: unknown;
@@ -1579,6 +1644,16 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     postWorkspacesWsGrantsIdWithdraw: {
@@ -1653,6 +1728,16 @@ export interface operations {
             };
             /** @description Too many requests: retry after the Retry-After header (seconds) */
             429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
                 headers: {
                     "Retry-After"?: number;
                     [name: string]: unknown;
@@ -1738,6 +1823,16 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     postWorkspacesWsMembers: {
@@ -1811,6 +1906,16 @@ export interface operations {
             };
             /** @description Too many requests: retry after the Retry-After header (seconds) */
             429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
                 headers: {
                     "Retry-After"?: number;
                     [name: string]: unknown;
@@ -1901,6 +2006,16 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     postWorkspacesWsMembersNameRemove: {
@@ -1975,6 +2090,16 @@ export interface operations {
             };
             /** @description Too many requests: retry after the Retry-After header (seconds) */
             429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
                 headers: {
                     "Retry-After"?: number;
                     [name: string]: unknown;
@@ -2065,6 +2190,16 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     postWorkspacesWsMembersNameRevokeToken: {
@@ -2139,6 +2274,16 @@ export interface operations {
             };
             /** @description Too many requests: retry after the Retry-After header (seconds) */
             429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
                 headers: {
                     "Retry-After"?: number;
                     [name: string]: unknown;
@@ -2229,6 +2374,16 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     postWorkspacesWsMyToken: {
@@ -2302,6 +2457,16 @@ export interface operations {
             };
             /** @description Too many requests: retry after the Retry-After header (seconds) */
             429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
                 headers: {
                     "Retry-After"?: number;
                     [name: string]: unknown;
@@ -2392,6 +2557,16 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     postWorkspacesWsTokenRequestsIdWithdraw: {
@@ -2474,6 +2649,16 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     getWorkspacesWsUseCases: {
@@ -2543,6 +2728,16 @@ export interface operations {
             };
             /** @description Too many requests: retry after the Retry-After header (seconds) */
             429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
                 headers: {
                     "Retry-After"?: number;
                     [name: string]: unknown;
@@ -2632,6 +2827,16 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     getWorkspacesWsUseCasesUc: {
@@ -2702,6 +2907,16 @@ export interface operations {
             };
             /** @description Too many requests: retry after the Retry-After header (seconds) */
             429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
                 headers: {
                     "Retry-After"?: number;
                     [name: string]: unknown;
@@ -2782,6 +2997,16 @@ export interface operations {
             };
             /** @description Too many requests: retry after the Retry-After header (seconds) */
             429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
                 headers: {
                     "Retry-After"?: number;
                     [name: string]: unknown;
@@ -2872,6 +3097,16 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     getWorkspacesWsUseCasesUcReleases: {
@@ -2942,6 +3177,16 @@ export interface operations {
             };
             /** @description Too many requests: retry after the Retry-After header (seconds) */
             429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
                 headers: {
                     "Retry-After"?: number;
                     [name: string]: unknown;
@@ -3032,6 +3277,16 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     getWorkspacesWsUseCasesUcReleasesN: {
@@ -3103,6 +3358,16 @@ export interface operations {
             };
             /** @description Too many requests: retry after the Retry-After header (seconds) */
             429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
                 headers: {
                     "Retry-After"?: number;
                     [name: string]: unknown;
@@ -3194,6 +3459,16 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     postWorkspacesWsUseCasesUcReleasesNApprove: {
@@ -3269,6 +3544,16 @@ export interface operations {
             };
             /** @description Too many requests: retry after the Retry-After header (seconds) */
             429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
                 headers: {
                     "Retry-After"?: number;
                     [name: string]: unknown;
@@ -3360,6 +3645,16 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     postWorkspacesWsUseCasesUcReleasesNRevoke: {
@@ -3435,6 +3730,16 @@ export interface operations {
             };
             /** @description Too many requests: retry after the Retry-After header (seconds) */
             429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
                 headers: {
                     "Retry-After"?: number;
                     [name: string]: unknown;
@@ -3525,6 +3830,16 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     postWorkspacesWsUseCasesUcStage: {
@@ -3599,6 +3914,16 @@ export interface operations {
             };
             /** @description Too many requests: retry after the Retry-After header (seconds) */
             429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
                 headers: {
                     "Retry-After"?: number;
                     [name: string]: unknown;

@@ -185,13 +185,13 @@ class AdministratorsTests(Base):
         base = "/platform/v1/workspaces/acme"
         # a member the administrator creates (and whose token she holds) cannot approve for her
         _, made = self.call("POST", f"{base}/members", body={"name": "puppet", "reason": "x"})
-        _, g = self.call("POST", f"{base}/grants", body={"member": "ada", "use_case": "claims",
+        _, g = self.call("POST", f"{base}/grants", body={"member": "ada", "use_case": "claims", "unrestricted": True,
                                                          "permissions": ["admin"], "reason": "x"})
         for token in ("acme-ada", made["token"], "acme-hana", "group-sam"):
             status, _ = self.call("POST", f"{base}/grants/{g['id']}/approve", token, {"reason": "x"})
             self.assertEqual(status, 403, token)
         # the puppet cannot be made an approver or an administrator through the API
-        _, g2 = self.call("POST", f"{base}/grants", body={"member": "puppet", "use_case": "claims",
+        _, g2 = self.call("POST", f"{base}/grants", body={"member": "puppet", "use_case": "claims", "unrestricted": True,
                                                           "permissions": ["admin", "configure"], "reason": "x"})
         self.assertEqual(self.call("POST", f"{base}/grants/{g2['id']}/approve", "acme-ada", {"reason": "x"})[0], 403)
         _, view = self.call("GET", f"{base}/members")
@@ -199,7 +199,7 @@ class AdministratorsTests(Base):
         self.assertEqual((puppet["workspace_admin"], puppet["approver"], puppet["use_cases"]), (False, False, {}))
         # a tenant administrator proposing for herself is refused the same way, in either workspace
         _, g3 = self.call("POST", "/platform/v1/workspaces/acme-eu/grants", "group-tara", {
-            "member": "tara", "use_case": "claims", "permissions": ["admin"], "reason": "x"})
+            "member": "tara", "use_case": "claims", "permissions": ["admin"], "unrestricted": True, "reason": "x"})
         self.assertEqual(self.call("POST", f"/platform/v1/workspaces/acme-eu/grants/{g3['id']}/approve",
                                    "group-tara", {"reason": "x"})[0], 403)
         self.assertEqual(self.engine("GET", "/objects", "group-tara", ws="acme-eu")[0], 403)

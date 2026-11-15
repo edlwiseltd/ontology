@@ -48,7 +48,7 @@ from urllib.parse import urlsplit
 from . import credentials, limits
 from .audit import audit_key, workspace_key
 from .lifecycle import Check, Lifecycle, LifecycleError, STAGES
-from .administration import AdminError, AdminLog, new_grant_id, pending_grants
+from .administration import AdminError, AdminLog, new_grant_id, pending_grants, pending_token_requests
 from .releases import ReleaseError, ReleaseRegistry
 from .server import ApiExchange, AutologyService, PERMISSIONS, hash_token, read_body
 from .store import Store
@@ -57,8 +57,27 @@ from .tenancy import Tenancy, TenancyError
 log = logging.getLogger("autology.platform")
 ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
 ADMINISTRATIVE = "configure"  # the engine permission an administrative role carries; never business data (IAM-3)
+UNRESTRICTED = "admin"  # the engine permission that bypasses row and field rules on one use case's data
+# What the engine's "admin" permission means, stated once (R2 security sprint B). It is never implied by an
+# administrative role: it exists only as an explicit grant on one use case, acknowledged as unrestricted by the
+# person who proposes it and by the other person who approves it.
+UNRESTRICTED_MEANS = (
+    "reads every record and every field of the use case: row rules (data_access) and field rules do not apply",
+    "reads every run, review, notification and reconciliation item, whatever the roles involved",
+    "starts and resumes runs with all of the agent's roles, and free-form cases outside simulation",
+    "decides reviews whatever reviewer role they ask for (still never its own run's, never as a service identity)",
+    "writes records directly, edits and commits any scenario, reinstates agents, runs the scheduler and reporting",
+    "never reaches another use case, another workspace or another tenant; never changes members, grants, "
+    "stages or releases (those are administrative roles, which in turn read no data)",
+)
 ONTOLOGY_OVERRIDE = "ontology.json"  # in <data_dir>/<ws>/<uc>/: this use case's own ontology (published or restored)
 NOT_FOUND = json.dumps({"error": "not found"}).encode()
+
+
+_UNRESTRICTED_HELP = (
+    'the "admin" permission is unrestricted access to this use case\'s business data: row and field rules do not '
+    'apply to it. Grant narrower permissions where they are enough (read, run, review, audit, ingest, reconcile, '
+    'with roles); to go ahead, send "unrestricted": true. The proposer and the approver each acknowledge it')
 
 
 class PlatformError(ValueError):
@@ -144,6 +163,9 @@ class Workspace:
     # for a workspace with one administrator (D11); never the proposer, never a service identity
     release_approvers: Tuple[str, ...] = ()
     config_members: Dict[str, Member] = field(default_factory=dict)  # platform.json's members, before the admin log
+    # where each data grant comes from, who approved it and whether a person reviewed it: (member, use case) -> record
+    grant_records: Dict[Tuple[str, str], Dict[str, Any]] = field(default_factory=dict)
+    token_issuers: Dict[str, str] = field(default_factory=dict)  # member -> who issued the token they hold now
     admin_problem: Optional[str] = None  # the administration log does not verify: only configured admins remain
 
 
@@ -441,8 +463,15 @@ class Platform:
         events, problem = self.admin.events(ws.id)
         ws.admin_problem = problem
         members = {n: _copy_member(m) for n, m in ws.config_members.items()}
+        records: Dict[Tuple[str, str], Dict[str, Any]] = {
+            (m.name, uc): {"origin": "configuration", "by": "configuration", "approved_by": None, "at": None,
+                           "acknowledged": False, "review": None}
+            for m in members.values() for uc in m.use_cases}
+        issuers = {n: "configuration" for n in members}
         if problem:  # fail closed: only the configured administrators keep access until an operator repairs it
             ws.members = {n: m for n, m in members.items() if m.workspace_admin}
+            ws.grant_records = {k: v for k, v in records.items() if k[0] in ws.members}
+            ws.token_issuers = {n: v for n, v in issuers.items() if n in ws.members}
             self._stamp(ws.members.values())
             return
         proposals: Dict[str, Dict[str, Any]] = {}
@@ -450,29 +479,49 @@ class Platform:
             d = e["data"]
             if e["event"] == "member_added":
                 members[d["name"]] = Member(d["name"], ws.id, d["token_sha256"], False, {}, d["kind"], ws.tenant)
+                issuers[d["name"]] = e["by"]
             elif e["event"] == "member_removed":
                 members.pop(d["name"], None)
+                issuers.pop(d["name"], None)
+                records = {k: v for k, v in records.items() if k[0] != d["name"]}
+                # proposals made for a removed member end with them: a later namesake never inherits one
+                proposals = {k: v for k, v in proposals.items() if v["member"] != d["name"]}
             elif e["event"] == "token_rotated" and d["name"] in members:
                 members[d["name"]].token_sha256 = d["token_sha256"]
                 members[d["name"]].token_expires = None  # an explicit date was about the configured token
+                issuers[d["name"]] = "self" if e["by"] == f"{d['name']}@{ws.id}" else e["by"]
             elif e["event"] == "token_revoked" and d["name"] in members:
                 members[d["name"]].token_sha256 = ""  # no credential until an administrator issues a new one
             elif e["event"] == "grant_proposed":
-                proposals[d["id"]] = d
+                proposals[d["id"]] = {**d, "proposed_by": e["by"]}
             elif e["event"] == "grant_approved":
                 p = proposals.pop(d["id"], None)
                 if p and p["member"] in members:
                     members[p["member"]].use_cases[p["use_case"]] = p["grant"]
+                    records[(p["member"], p["use_case"])] = {
+                        "origin": "grant", "by": p["proposed_by"], "approved_by": e["by"], "at": e["at"],
+                        "acknowledged": bool(p.get("unrestricted") and d.get("unrestricted")), "review": None}
             elif e["event"] == "grant_withdrawn":
                 proposals.pop(d["id"], None)
             elif e["event"] == "grant_migrated" and d["member"] in members:
                 have = members[d["member"]].use_cases.get(d["use_case"])
                 members[d["member"]].use_cases[d["use_case"]] = d["grant"] if have is None else {
                     **have, "permissions": sorted(set(have["permissions"]) | set(d["grant"]["permissions"]))}
+                records[(d["member"], d["use_case"])] = {"origin": "migration", "by": e["by"], "approved_by": None,
+                                                         "at": e["at"], "acknowledged": False, "review": None}
             elif e["event"] == "grant_revoked" and d["member"] in members:
                 members[d["member"]].use_cases.pop(d["use_case"], None)
+                records.pop((d["member"], d["use_case"]), None)
+            elif e["event"] == "grant_confirmed":
+                rec = records.get((d["member"], d["use_case"]))
+                have = members[d["member"]].use_cases.get(d["use_case"]) if d["member"] in members else None
+                # a review is about the grant as it was: if the grant changed since, it does not carry over
+                if rec is not None and have is not None and sorted(have["permissions"]) == sorted(d["permissions"]):
+                    rec["review"] = {"by": e["by"], "at": e["at"], "reason": e["reason"]}
         self._stamp(members.values())
         ws.members = members
+        ws.grant_records = {k: v for k, v in records.items() if k[0] in members and k[1] in members[k[0]].use_cases}
+        ws.token_issuers = issuers
 
     def _stamp(self, members: Any) -> None:
         """Give each member's token its expiry: the policy's lifetime for its kind, counted from the first time
@@ -841,7 +890,8 @@ class Platform:
             return 404, None  # a workspace the caller does not belong to, another tenant's, or none: the same answer
         if len(parts) == 5 and parts[2] == "workspaces" and parts[4] == "my-token" and method == "POST":
             return self._own_token(self.workspaces[member.workspace], member, raw_body, body_error)
-        if len(parts) >= 5 and parts[2] == "workspaces" and parts[4] in ("members", "grants"):
+        if len(parts) >= 5 and parts[2] == "workspaces" and parts[4] in ("members", "grants", "token-requests",
+                                                                         "access-review"):
             ws = self.workspaces.get(parts[3]) if parts[3] == member.workspace else None
             if ws is None:
                 return 404, None  # another workspace, or none: the same answer
@@ -914,22 +964,83 @@ class Platform:
         or a named approver."""
         return member.kind == "person" and (member.workspace_admin or member.name in ws.release_approvers)
 
-    def members_view(self, ws: Workspace) -> Dict[str, Any]:
+    @staticmethod
+    def _data_access(grant: Optional[Dict[str, Any]]) -> str:
+        """How much business data a grant reaches: none (administrative only), scoped (row and field rules
+        apply) or unrestricted (the engine's ``admin`` permission: they do not)."""
+        perms = set((grant or {}).get("permissions", [])) - {ADMINISTRATIVE}
+        return "unrestricted" if UNRESTRICTED in perms else "scoped" if perms else "none"
+
+    def _needs_review(self, record: Dict[str, Any], grant: Dict[str, Any]) -> bool:
+        """A grant no person has looked at with full knowledge: created by the IAM-3 migration, or unrestricted
+        without the two acknowledgements a proposal and its approval now carry."""
+        if record.get("review"):
+            return False
+        return record["origin"] == "migration" or (self._data_access(grant) == "unrestricted"
+                                                   and not record.get("acknowledged"))
+
+    def members_view(self, ws: Workspace, viewer: Optional[Member] = None) -> Dict[str, Any]:
         events, problem = self.admin.events(ws.id)
         api_added = {e["data"]["name"] for e in events if e["event"] == "member_added"}
-        return {"members": [{"name": m.name, "kind": m.kind, "workspace_admin": m.workspace_admin,
+        view: Dict[str, Any] = {
+                "members": [{"name": m.name, "kind": m.kind, "workspace_admin": m.workspace_admin,
+                             "tenant_admin": m.tenant_admin,
                              "approver": m.name in ws.release_approvers, "scope": m.scope,
                              "token": ("none" if not m.token_sha256 else "revoked"
                                        if self.credentials.revoked(m.token_sha256) else
                                        "expired" if self._expired(m) else "active"),
                              "token_expires_at": credentials.iso(m.expires_at),
+                             # who has seen the token this member holds now (whoever issues a token sees it once)
+                             "token_issued_by": ws.token_issuers.get(m.name, "configuration"),
                              "source": "api" if m.name in api_added and m.name not in ws.config_members else
                              "configuration",
-                             "use_cases": {uc: m.use_cases[uc] for uc in sorted(m.use_cases)}}
+                             "use_cases": {uc: m.use_cases[uc] for uc in sorted(m.use_cases)},
+                             # what the member may actually do in each use case, administrative role included
+                             "effective": {uc: {"permissions": (m.grant(uc) or {"permissions": []})["permissions"],
+                                                "data_access": self._data_access(m.grant(uc))}
+                                           for uc in sorted(ws.use_cases)}}
                             for m in sorted(ws.members.values(), key=lambda m: m.name)],
                 "pending_grants": sorted(pending_grants(events).values(), key=lambda g: g["proposed_at"]),
+                "pending_token_requests": sorted(pending_token_requests(events).values(),
+                                                 key=lambda r: r["requested_at"]),
                 "token_policy": self.token_policy.view(),
+                "use_cases": [{"id": uc.id, "name": uc.name} for uc in ws.use_cases.values()],
+                "permissions": sorted(PERMISSIONS),
                 "history": events, "integrity_problem": problem}
+        if viewer is not None:  # what the caller may do here; the platform decides again on every call
+            view["you"] = {"member": viewer.name, "may_administer": viewer.workspace_admin and viewer.kind == "person",
+                           "may_approve": self.may_approve_releases(ws, viewer)}
+        return view
+
+    def access_review(self, ws: Workspace) -> Dict[str, Any]:
+        """Every business-data grant of the workspace, where it comes from and whether it still needs a person's
+        review (R2 security sprint B): the report an owner reads after the IAM-3 migration, and regularly after."""
+        items = []
+        for m in sorted(ws.members.values(), key=lambda m: m.name):
+            for uc_id in sorted(m.use_cases):
+                grant = m.use_cases[uc_id]
+                access = self._data_access(grant)
+                if access == "none":
+                    continue
+                rec = ws.grant_records.get((m.name, uc_id)) or {"origin": "configuration", "by": "configuration",
+                                                                "approved_by": None, "at": None, "review": None}
+                items.append({"member": m.name, "kind": m.kind, "administrator": m.workspace_admin,
+                              "use_case": uc_id, "permissions": sorted(grant["permissions"]),
+                              "roles": sorted(grant.get("roles") or []),
+                              "reviewer_roles": sorted(grant.get("reviewer_roles") or []),
+                              "data_access": access, "origin": rec["origin"], "granted_by": rec["by"],
+                              "approved_by": rec["approved_by"], "since": rec["at"], "review": rec.get("review"),
+                              "needs_review": self._needs_review(rec, grant)})
+        return {"workspace": ws.id, "generated_at": credentials.iso(credentials.now()), "items": items,
+                "summary": {"grants": len(items),
+                            "unrestricted": sum(i["data_access"] == "unrestricted" for i in items),
+                            "administrators_with_data_access": len({i["member"] for i in items if i["administrator"]}),
+                            "needs_review": sum(i["needs_review"] for i in items)},
+                "unrestricted_means": list(UNRESTRICTED_MEANS),
+                "how_to_resolve": "for each grant that needs review, a person with authority who is not the member "
+                                  "either confirms it (POST .../members/<name>/confirm-grant), revokes it "
+                                  "(.../revoke), or replaces it with a narrower one (propose a grant, approved by "
+                                  "another person)"}
 
     def _administration(self, method: str, parts: List[str], ws: Workspace, member: Member,
                         raw_body: Optional[bytes], body_error) -> Tuple[int, Any]:
@@ -940,12 +1051,17 @@ class Platform:
         if not (member.workspace_admin or self.may_approve_releases(ws, member)):
             raise LifecycleError(403, "workspace administrators and approvers only")
         if parts[4] == "members" and len(parts) == 5 and method == "GET":
-            return 200, self.members_view(ws)
+            return 200, self.members_view(ws, member)
+        if parts[4] == "access-review" and len(parts) == 5 and method == "GET":
+            return 200, self.access_review(ws)
         if method != "POST":
             return 405, {"error": f"{method} is not supported here"}
         body = self._json(raw_body, body_error)
         reason = str(body.get("reason") or "")
-        admin_only = not (parts[4] == "grants" and len(parts) == 7 and parts[6] == "approve")
+        # what a named approver who is not an administrator may also do: the second person's part of a decision
+        second_person = len(parts) == 7 and ((parts[4] in ("grants", "token-requests") and parts[6] == "approve")
+                                             or (parts[4] == "members" and parts[6] == "confirm-grant"))
+        admin_only = not second_person
         if admin_only and not member.workspace_admin:
             raise LifecycleError(403, "workspace administrators only")
         self._require_person(member, "administer the workspace")
@@ -989,23 +1105,49 @@ class Platform:
                 self.admin.append(ws.id, "member_removed", who, reason, {"name": name})
                 self._retire(target.token_sha256, who, f"member removed: {reason}")
                 self._refresh(ws)
-                return 200, self.members_view(ws)
+                return 200, self.members_view(ws, member)
             if action == "token":
+                # Whoever issues a token sees it. For a member who holds business data that would hand their
+                # access to the administrator alone, so a second person issues it (D11, D22a); a member without
+                # data access is re-keyed at once, as before.
+                if any(target.has_data_access(uc) for uc in ws.use_cases):
+                    rid = "t-" + new_grant_id()[2:]
+                    self.admin.append(ws.id, "token_requested", who, reason, {"id": rid, "name": name})
+                    return 202, {"status": "pending", "id": rid, "name": name,
+                                 "note": f"{name} holds business-data access: another person with authority issues "
+                                         "the token (POST .../token-requests/<id>/approve) and is the only one to "
+                                         "see it"}
                 return 200, self._rotate(ws, target, who, reason)
+            if action == "confirm-grant":
+                uc_id = str(body.get("use_case") or "")
+                grant = target.use_cases.get(uc_id)
+                if grant is None or self._data_access(grant) == "none":
+                    raise AdminError(409, f"{name} has no data grant on {uc_id!r}")
+                if not self.may_approve_releases(ws, member):
+                    raise AdminError(403, "only a person with authority (a workspace administrator or a named "
+                                          "approver) confirms a grant")
+                if name == member.name:
+                    raise AdminError(403, "nobody confirms their own grant: another person with authority must")
+                if self._data_access(grant) == "unrestricted" and body.get("unrestricted") is not True:
+                    raise AdminError(400, _UNRESTRICTED_HELP)
+                self.admin.append(ws.id, "grant_confirmed", who, reason,
+                                  {"member": name, "use_case": uc_id, "permissions": sorted(grant["permissions"])})
+                self._refresh(ws)
+                return 200, self.access_review(ws)
             if action == "revoke-token":
                 if not target.token_sha256:
                     raise AdminError(409, f"{name} has no token to revoke")
                 self.admin.append(ws.id, "token_revoked", who, reason, {"name": name})
                 self._retire(target.token_sha256, who, f"revoked: {reason}")
                 self._refresh(ws)
-                return 200, self.members_view(ws)
+                return 200, self.members_view(ws, member)
             if action == "revoke":
                 uc_id = str(body.get("use_case") or "")
                 if uc_id not in target.use_cases:
                     raise AdminError(409, f"{name} has no grant on {uc_id!r}")
                 self.admin.append(ws.id, "grant_revoked", who, reason, {"member": name, "use_case": uc_id})
                 self._refresh(ws)
-                return 200, self.members_view(ws)
+                return 200, self.members_view(ws, member)
             return 404, None
         if parts[4] == "grants" and len(parts) == 5:  # propose a grant: it takes effect only once approved
             name, uc_id = str(body.get("member") or ""), str(body.get("use_case") or "")
@@ -1015,6 +1157,9 @@ class Platform:
             perms = body.get("permissions") or []
             if not isinstance(perms, list) or set(perms) - PERMISSIONS:
                 raise AdminError(400, f"permissions: a list of {sorted(PERMISSIONS)}")
+            unrestricted = UNRESTRICTED in perms
+            if unrestricted and body.get("unrestricted") is not True:  # never by accident, never by default
+                raise AdminError(400, _UNRESTRICTED_HELP)
             grant = {"permissions": sorted(set(perms)), "roles": [str(r) for r in body.get("roles") or []],
                      "reviewer_roles": [str(r) for r in body.get("reviewer_roles") or []],
                      "run_as": {str(a): [str(r) for r in rs] for a, rs in (body.get("run_as") or {}).items()}}
@@ -1025,9 +1170,10 @@ class Platform:
                 raise AdminError(400, str(exc)) from None
             gid = new_grant_id()
             self.admin.append(ws.id, "grant_proposed", who, reason,
-                              {"id": gid, "member": name, "use_case": uc_id, "grant": grant})
+                              {"id": gid, "member": name, "use_case": uc_id, "grant": grant,
+                               **({"unrestricted": True} if unrestricted else {})})
             return 201, {"id": gid, "member": name, "use_case": uc_id, "grant": grant, "proposed_by": who,
-                         "status": "pending"}
+                         "status": "pending", "data_access": self._data_access(grant)}
         if parts[4] == "grants" and len(parts) == 7 and parts[6] in ("approve", "withdraw"):
             gid = parts[5]
 
@@ -1043,10 +1189,32 @@ class Platform:
                         raise AdminError(403, "nobody approves a grant to themselves")
                     if proposal["member"] not in ws.members or proposal["use_case"] not in ws.use_cases:
                         raise AdminError(409, "the member or the use case no longer exists")
+                    if UNRESTRICTED in proposal["grant"]["permissions"] and body.get("unrestricted") is not True:
+                        raise AdminError(400, _UNRESTRICTED_HELP)  # the approver acknowledges it too
+            acknowledged = {"unrestricted": True} if body.get("unrestricted") is True and parts[6] == "approve" else {}
             self.admin.append(ws.id, "grant_approved" if parts[6] == "approve" else "grant_withdrawn", who, reason,
-                              {"id": gid}, check)
+                              {"id": gid, **acknowledged}, check)
             self._refresh(ws)
-            return 200, self.members_view(ws)
+            return 200, self.members_view(ws, member)
+        if parts[4] == "token-requests" and len(parts) == 7 and parts[6] in ("approve", "withdraw"):
+            rid = parts[5]
+            request = pending_token_requests(self.admin.events(ws.id)[0]).get(rid)
+            if request is None:
+                raise AdminError(404, f"no pending token request {rid!r}")
+
+            def check_request(events):
+                if rid not in pending_token_requests(events):
+                    raise AdminError(404, f"no pending token request {rid!r}")
+                if parts[6] == "approve" and request["requested_by"] == who:
+                    raise AdminError(403, "the requester cannot issue the token: another person with authority "
+                                          "must (D11), so that no single person takes over a member's access")
+                if parts[6] == "approve" and request["name"] not in ws.members:
+                    raise AdminError(409, "the member no longer exists")
+            if parts[6] == "withdraw":
+                self.admin.append(ws.id, "token_request_withdrawn", who, reason, {"id": rid}, check_request)
+                return 200, self.members_view(ws, member)
+            return 200, self._rotate(ws, ws.members[request["name"]] if request["name"] in ws.members else None,
+                                     who, reason, check_request, rid)
         return 404, None
 
     def _retire(self, digest: str, who: str, reason: str) -> None:
@@ -1054,13 +1222,18 @@ class Platform:
         if digest:
             self.credentials.revoke(digest, who, reason)
 
-    def _rotate(self, ws: Workspace, target: Member, who: str, reason: str) -> Dict[str, Any]:
+    def _rotate(self, ws: Workspace, target: Optional[Member], who: str, reason: str, check: Any = None,
+                request: Optional[str] = None) -> Dict[str, Any]:
         """Replace a member's token. The identity, its kind and its grants are unchanged; the new token gets one
         lifetime of the policy, never more; the previous token is refused from now on."""
         from .server import new_token
 
+        if target is None:
+            raise AdminError(409, "the member no longer exists")
         token, digest = new_token()
-        self.admin.append(ws.id, "token_rotated", who, reason, {"name": target.name, "token_sha256": digest})
+        self.admin.append(ws.id, "token_rotated", who, reason,
+                          {"name": target.name, "token_sha256": digest, **({"request": request} if request else {})},
+                          check)
         self._retire(target.token_sha256, who, f"replaced: {reason}")
         self._refresh(ws)
         return {"name": target.name, "token": token,

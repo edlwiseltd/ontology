@@ -303,5 +303,36 @@ users share the relay's address for the failed-sign-in limit; an administrator w
 **Decision to confirm:** D23 (default lifetimes and limits).
 Evidence (local): full suite 744 OK (717 + 27; 2 PostgreSQL tests skipped locally), 95.94 % lines (12,644 statements,
 513 missed; baseline 95.93 %); ruff clean; mypy 198 (= baseline, no new error); Studio typecheck and 17 Vitest OK
-(generated types only). CI: recorded below once the run completes.
+(generated types only). **CI:** `940c04f` → [run 78](https://github.com/edlwiseltd/ontology/actions/runs/43755274397) success
+(five jobs: tests on Python 3.10 and 3.13 with PostgreSQL, package, studio, quality).
 
+## 15 November 2026 — R2 security and reliability sprint, increment B: IAM administrative security
+
+Verification first (no change): the administrative role (`configure`) is refused every data route through REST (v1
+and legacy), MCP over HTTP and stdio, and gains nothing from the scheduler; these two tests pass on the previous
+commit too. The engine's `admin` permission is consulted at 19 places (`server.py`, `views.py`): every one is a
+bypass of a row, field, role or ownership rule *inside one use case*; none crosses a use case, workspace or tenant.
+They are now stated once (`UNRESTRICTED_MEANS`, docs/workspaces.md) and awaiting the owner's decision D24.
+
+| Story | Change | Tests | Behaviour change |
+|---|---|---|---|
+| Unrestricted access is deliberate | A grant proposal containing `admin` needs `"unrestricted": true`, and so does its approval; recorded on both events | H3 | **Yes:** proposals and approvals of `admin` without the acknowledgement get 400 |
+| Access review and approval path | `GET .../access-review`: every data grant with origin (configuration, migration, grant), proposer, approver, `data_access`, `needs_review`; `POST .../members/<name>/confirm-grant` (`grant_confirmed`) by a person with authority who is not the member; replacing by a narrower grant; revoking | H4, H9 | New routes. Nothing is revoked automatically: migrated grants keep working until a person decides |
+| **GAP-062** no take-over by re-keying | `POST .../members/<name>/token` for a member with business data records `token_requested` (202); `POST .../token-requests/<id>/approve` by another person issues the token, shown to that person only; `withdraw`; `token_issued_by` in the members view | H5 | **Yes:** re-keying a member with data needs two people (a member without data: unchanged) |
+| **GAP-063** proposals end with the member | `member_removed` drops the member's pending proposals and token requests (replay and lists) | H6 | A namesake added later inherits nothing |
+| Effective permissions | Members view: `effective` per use case (permissions and `data_access`), `tenant_admin`, `use_cases`, `permissions`, `you` (what the caller may do; information only) | H2, H8 | Additive |
+| Service identities | No change needed; verified that they propose, approve, confirm, request and administer nothing | H7 | — |
+
+**Tests changed on purpose:** `test_adm1_administration` (A3 re-key through a second person; A4 acknowledgement),
+`test_iam3_privilege_separation` (S4 acknowledgement), `test_gap030_security` (T3 second person), `test_api_v1`
+(new typed routes). 10 of the 12 new tests fail on the previous commit; the 2 that pass verify properties IAM-3
+already had.
+**Migration report and approval path** for existing permissions: the access review, per workspace; each migrated
+administrator grant is confirmed by another person, replaced by a narrower grant, or revoked. No approved access was
+revoked by this increment and no new superuser capability exists.
+**Remaining risks:** `admin` remains a bypass inside a use case (D24); the person who issues a token has seen it,
+and a new member's first token is issued by one administrator (D25, OIDC for people); two colluding persons defeat
+any four-eyes rule; grants written in the configuration are the operator's (reported, flagged when unrestricted);
+application controls only. Not an independent security certification.
+Evidence (local): full suite 756 OK (744 + 12; 2 PostgreSQL tests skipped locally); ruff clean; mypy 198 (= baseline,
+no new error); contract regenerated, Studio types follow. Coverage is taken from CI for this increment.

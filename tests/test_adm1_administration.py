@@ -132,8 +132,12 @@ class MembershipTests(AdminBase):
         self.assertEqual(status, 200)
         self.assertEqual(self.engine("acme-hana")[0], 404)  # no second person needed to take access away
         self.assertEqual(self.c.call("GET", "/platform/v1/me", "acme-ivan")[0], 200)
-        status, out = self.call("POST", f"{WS}/members/ivan/token", body={"reason": "laptop lost"})
-        self.assertEqual(status, 200)
+        # ivan holds business data: his new token is requested by one person and issued by another (sprint B)
+        status, asked = self.call("POST", f"{WS}/members/ivan/token", body={"reason": "laptop lost"})
+        self.assertEqual((status, asked["status"]), (202, "pending"))
+        status, out = self.call("POST", f"{WS}/token-requests/{asked['id']}/approve", "acme-maria",
+                                {"reason": "confirmed with ivan"})
+        self.assertEqual(status, 200, out)
         self.assertEqual(self.c.call("GET", "/platform/v1/me", "acme-ivan")[0], 401)
         self.assertEqual(self.engine(out["token"])[0], 200)
         self.assertEqual(self.call("POST", f"{WS}/members/ivan/remove", body={"reason": "left"})[0], 200)
@@ -143,7 +147,8 @@ class MembershipTests(AdminBase):
         status, out = self.call("POST", f"{WS}/members/ada/remove", body={"reason": "x"})
         self.assertEqual(status, 403)
         self.add("zoe")
-        status, g = self.propose("zoe", ["admin"])  # engine admin on one use case is a grant, approved like any
+        # engine admin on one use case is a grant, approved like any, and acknowledged as unrestricted (sprint B)
+        status, g = self.propose("zoe", ["admin"], unrestricted=True)
         self.assertEqual(status, 201)
         _, view = self.call("GET", f"{WS}/members")
         self.assertFalse(next(m for m in view["members"] if m["name"] == "zoe")["workspace_admin"])

@@ -1,6 +1,165 @@
 {
   "components": {
     "schemas": {
+      "AccessReview": {
+        "additionalProperties": true,
+        "properties": {
+          "generated_at": {
+            "type": "string"
+          },
+          "how_to_resolve": {
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AccessReviewItem"
+            },
+            "type": "array"
+          },
+          "summary": {
+            "additionalProperties": true,
+            "properties": {
+              "administrators_with_data_access": {
+                "type": "integer"
+              },
+              "grants": {
+                "type": "integer"
+              },
+              "needs_review": {
+                "type": "integer"
+              },
+              "unrestricted": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "grants",
+              "unrestricted",
+              "needs_review"
+            ],
+            "type": "object"
+          },
+          "unrestricted_means": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "workspace": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspace",
+          "items",
+          "summary"
+        ],
+        "type": "object"
+      },
+      "AccessReviewItem": {
+        "additionalProperties": true,
+        "properties": {
+          "administrator": {
+            "type": "boolean"
+          },
+          "approved_by": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "data_access": {
+            "enum": [
+              "scoped",
+              "unrestricted"
+            ],
+            "type": "string"
+          },
+          "granted_by": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "member": {
+            "type": "string"
+          },
+          "needs_review": {
+            "type": "boolean"
+          },
+          "origin": {
+            "enum": [
+              "configuration",
+              "migration",
+              "grant"
+            ],
+            "type": "string"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "review": {
+            "oneOf": [
+              {
+                "additionalProperties": true,
+                "properties": {
+                  "at": {
+                    "type": "string"
+                  },
+                  "by": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "by",
+                  "at",
+                  "reason"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reviewer_roles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "since": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "use_case": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "member",
+          "use_case",
+          "permissions",
+          "data_access",
+          "origin",
+          "needs_review"
+        ],
+        "type": "object"
+      },
       "ActivationResult": {
         "allOf": [
           {
@@ -194,6 +353,27 @@
         ],
         "type": "object"
       },
+      "GrantConfirmation": {
+        "additionalProperties": true,
+        "properties": {
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "type": "string"
+          },
+          "unrestricted": {
+            "type": "boolean"
+          },
+          "use_case": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "use_case",
+          "reason"
+        ],
+        "type": "object"
+      },
       "GrantCreate": {
         "additionalProperties": true,
         "properties": {
@@ -227,6 +407,9 @@
             "additionalProperties": true,
             "type": "object"
           },
+          "unrestricted": {
+            "type": "boolean"
+          },
           "use_case": {
             "type": "string"
           }
@@ -239,9 +422,34 @@
         ],
         "type": "object"
       },
+      "GrantDecision": {
+        "additionalProperties": true,
+        "properties": {
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "type": "string"
+          },
+          "unrestricted": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "type": "object"
+      },
       "GrantProposal": {
         "additionalProperties": true,
         "properties": {
+          "data_access": {
+            "enum": [
+              "none",
+              "scoped",
+              "unrestricted"
+            ],
+            "type": "string"
+          },
           "grant": {
             "$ref": "#/components/schemas/Grant"
           },
@@ -262,6 +470,9 @@
           },
           "status": {
             "type": "string"
+          },
+          "unrestricted": {
+            "type": "boolean"
           },
           "use_case": {
             "type": "string"
@@ -498,6 +709,18 @@
             },
             "type": "array"
           },
+          "pending_token_requests": {
+            "items": {
+              "$ref": "#/components/schemas/TokenRequest"
+            },
+            "type": "array"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "token_policy": {
             "additionalProperties": true,
             "properties": {
@@ -508,6 +731,45 @@
                 "type": "number"
               }
             },
+            "type": "object"
+          },
+          "use_cases": {
+            "items": {
+              "additionalProperties": true,
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "you": {
+            "additionalProperties": true,
+            "properties": {
+              "may_administer": {
+                "type": "boolean"
+              },
+              "may_approve": {
+                "type": "boolean"
+              },
+              "member": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "member",
+              "may_administer",
+              "may_approve"
+            ],
             "type": "object"
           }
         },
@@ -1009,6 +1271,70 @@
         ],
         "type": "object"
       },
+      "TokenIssuedOrRequested": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/IssuedToken"
+          },
+          {
+            "additionalProperties": true,
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "note": {
+                "type": "string"
+              },
+              "status": {
+                "enum": [
+                  "pending"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "status",
+              "id",
+              "name"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "TokenRequest": {
+        "additionalProperties": true,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "requested_at": {
+            "type": "string"
+          },
+          "requested_by": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
       "UseCase": {
         "additionalProperties": true,
         "properties": {
@@ -1179,6 +1505,33 @@
           "approver": {
             "type": "boolean"
           },
+          "effective": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "properties": {
+                "data_access": {
+                  "enum": [
+                    "none",
+                    "scoped",
+                    "unrestricted"
+                  ],
+                  "type": "string"
+                },
+                "permissions": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "permissions",
+                "data_access"
+              ],
+              "type": "object"
+            },
+            "type": "object"
+          },
           "kind": {
             "enum": [
               "person",
@@ -1203,6 +1556,9 @@
             ],
             "type": "string"
           },
+          "tenant_admin": {
+            "type": "boolean"
+          },
           "token": {
             "enum": [
               "active",
@@ -1217,6 +1573,9 @@
               "string",
               "null"
             ]
+          },
+          "token_issued_by": {
+            "type": "string"
           },
           "use_cases": {
             "additionalProperties": {
@@ -1665,6 +2024,102 @@
         "x-autology-permission": "member of the tenant"
       }
     },
+    "/platform/v1/workspaces/{ws}/access-review": {
+      "get": {
+        "operationId": "getWorkspacesWsAccessReview",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ws",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessReview"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Missing or invalid token"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Permission or checkpoint refused"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not found or not visible"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Every business-data grant, its origin and whether a person still has to review it (sprint B)",
+        "x-autology-permission": "workspace admin or approver"
+      }
+    },
     "/platform/v1/workspaces/{ws}/grants": {
       "post": {
         "operationId": "postWorkspacesWsGrants",
@@ -1796,7 +2251,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ReleaseDecision"
+                "$ref": "#/components/schemas/GrantDecision"
               }
             }
           },
@@ -2199,6 +2654,120 @@
         "x-autology-permission": "workspace admin (person)"
       }
     },
+    "/platform/v1/workspaces/{ws}/members/{name}/confirm-grant": {
+      "post": {
+        "operationId": "postWorkspacesWsMembersNameConfirmGrant",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ws",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantConfirmation"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessReview"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Missing or invalid token"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Permission or checkpoint refused"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not found or not visible"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Record that an existing grant was reviewed and kept",
+        "x-autology-permission": "approver (person, not the member concerned)"
+      }
+    },
     "/platform/v1/workspaces/{ws}/members/{name}/remove": {
       "post": {
         "operationId": "postWorkspacesWsMembersNameRemove",
@@ -2577,7 +3146,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/IssuedToken"
+                  "$ref": "#/components/schemas/TokenIssuedOrRequested"
                 }
               }
             },
@@ -2651,7 +3220,7 @@
             }
           }
         },
-        "summary": "Replace a member's token; the new one is returned once",
+        "summary": "Replace a member's token: returned once (200), or, for a member who holds business data, a request that another person with authority fulfils (202)",
         "x-autology-permission": "workspace admin (person)"
       }
     },
@@ -2759,6 +3328,234 @@
         },
         "summary": "Replace your own token before it expires; the new one is returned once (GAP-030)",
         "x-autology-permission": "member (person, workspace-level)"
+      }
+    },
+    "/platform/v1/workspaces/{ws}/token-requests/{id}/approve": {
+      "post": {
+        "operationId": "postWorkspacesWsTokenRequestsIdApprove",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ws",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReleaseDecision"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssuedToken"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Missing or invalid token"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Permission or checkpoint refused"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not found or not visible"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Issue the requested token for a member who holds business data; returned once, to the approver only",
+        "x-autology-permission": "approver (person, not the requester)"
+      }
+    },
+    "/platform/v1/workspaces/{ws}/token-requests/{id}/withdraw": {
+      "post": {
+        "operationId": "postWorkspacesWsTokenRequestsIdWithdraw",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ws",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReleaseDecision"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Members"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Missing or invalid token"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Permission or checkpoint refused"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not found or not visible"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Withdraw a pending token request",
+        "x-autology-permission": "workspace admin (person)"
       }
     },
     "/platform/v1/workspaces/{ws}/use-cases": {

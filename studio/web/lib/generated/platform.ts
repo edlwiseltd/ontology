@@ -89,6 +89,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/platform/v1/workspaces/{ws}/access-review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every business-data grant, its origin and whether a person still has to review it (sprint B) */
+        get: operations["getWorkspacesWsAccessReview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/platform/v1/workspaces/{ws}/grants": {
         parameters: {
             query?: never;
@@ -158,6 +175,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/platform/v1/workspaces/{ws}/members/{name}/confirm-grant": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record that an existing grant was reviewed and kept */
+        post: operations["postWorkspacesWsMembersNameConfirmGrant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/platform/v1/workspaces/{ws}/members/{name}/remove": {
         parameters: {
             query?: never;
@@ -218,7 +252,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Replace a member's token; the new one is returned once */
+        /** Replace a member's token: returned once (200), or, for a member who holds business data, a request that another person with authority fulfils (202) */
         post: operations["postWorkspacesWsMembersNameToken"];
         delete?: never;
         options?: never;
@@ -237,6 +271,40 @@ export interface paths {
         put?: never;
         /** Replace your own token before it expires; the new one is returned once (GAP-030) */
         post: operations["postWorkspacesWsMyToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/v1/workspaces/{ws}/token-requests/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Issue the requested token for a member who holds business data; returned once, to the approver only */
+        post: operations["postWorkspacesWsTokenRequestsIdApprove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/v1/workspaces/{ws}/token-requests/{id}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Withdraw a pending token request */
+        post: operations["postWorkspacesWsTokenRequestsIdWithdraw"];
         delete?: never;
         options?: never;
         head?: never;
@@ -453,6 +521,49 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AccessReview: {
+            generated_at?: string;
+            how_to_resolve?: string;
+            items: components["schemas"]["AccessReviewItem"][];
+            summary: {
+                administrators_with_data_access?: number;
+                grants: number;
+                needs_review: number;
+                unrestricted: number;
+            } & {
+                [key: string]: unknown;
+            };
+            unrestricted_means?: string[];
+            workspace: string;
+        } & {
+            [key: string]: unknown;
+        };
+        AccessReviewItem: {
+            administrator?: boolean;
+            approved_by?: string | null;
+            /** @enum {string} */
+            data_access: "scoped" | "unrestricted";
+            granted_by?: string;
+            kind?: string;
+            member: string;
+            needs_review: boolean;
+            /** @enum {string} */
+            origin: "configuration" | "migration" | "grant";
+            permissions: string[];
+            review?: ({
+                at: string;
+                by: string;
+                reason: string;
+            } & {
+                [key: string]: unknown;
+            }) | null;
+            reviewer_roles?: string[];
+            roles?: string[];
+            since?: string | null;
+            use_case: string;
+        } & {
+            [key: string]: unknown;
+        };
         ActivationResult: components["schemas"]["Release"] & ({
             /** @enum {string} */
             event: "activated" | "rolled_back";
@@ -511,6 +622,13 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        GrantConfirmation: {
+            reason: string;
+            unrestricted?: boolean;
+            use_case: string;
+        } & {
+            [key: string]: unknown;
+        };
         GrantCreate: {
             member: string;
             permissions: string[];
@@ -520,11 +638,20 @@ export interface components {
             run_as?: {
                 [key: string]: unknown;
             };
+            unrestricted?: boolean;
             use_case: string;
         } & {
             [key: string]: unknown;
         };
+        GrantDecision: {
+            reason: string;
+            unrestricted?: boolean;
+        } & {
+            [key: string]: unknown;
+        };
         GrantProposal: {
+            /** @enum {string} */
+            data_access?: "none" | "scoped" | "unrestricted";
             grant: components["schemas"]["Grant"];
             id: string;
             member: string;
@@ -532,6 +659,7 @@ export interface components {
             proposed_by?: string;
             reason?: string;
             status?: string;
+            unrestricted?: boolean;
             use_case: string;
         } & {
             [key: string]: unknown;
@@ -603,9 +731,24 @@ export interface components {
             integrity_problem?: string | null;
             members: components["schemas"]["WorkspaceMember"][];
             pending_grants: components["schemas"]["GrantProposal"][];
+            pending_token_requests?: components["schemas"]["TokenRequest"][];
+            permissions?: string[];
             token_policy?: {
                 person_days?: number;
                 service_days?: number;
+            } & {
+                [key: string]: unknown;
+            };
+            use_cases?: ({
+                id: string;
+                name: string;
+            } & {
+                [key: string]: unknown;
+            })[];
+            you?: {
+                may_administer: boolean;
+                may_approve: boolean;
+                member: string;
             } & {
                 [key: string]: unknown;
             };
@@ -753,6 +896,26 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        TokenIssuedOrRequested: components["schemas"]["IssuedToken"] | ({
+            id: string;
+            name: string;
+            note?: string;
+            /** @enum {string} */
+            status: "pending";
+        } & {
+            [key: string]: unknown;
+        });
+        TokenRequest: {
+            id: string;
+            name: string;
+            note?: string;
+            reason?: string;
+            requested_at?: string;
+            requested_by?: string;
+            status?: string;
+        } & {
+            [key: string]: unknown;
+        };
         UseCase: {
             configuration?: string;
             /** @enum {string} */
@@ -796,6 +959,15 @@ export interface components {
         };
         WorkspaceMember: {
             approver?: boolean;
+            effective?: {
+                [key: string]: {
+                    /** @enum {string} */
+                    data_access: "none" | "scoped" | "unrestricted";
+                    permissions: string[];
+                } & {
+                    [key: string]: unknown;
+                };
+            };
             /** @enum {string} */
             kind: "person" | "service";
             name: string;
@@ -803,9 +975,11 @@ export interface components {
             scope?: "workspace" | "tenant";
             /** @enum {string} */
             source: "configuration" | "api";
+            tenant_admin?: boolean;
             /** @enum {string} */
             token?: "active" | "expired" | "revoked" | "none";
             token_expires_at?: string | null;
+            token_issued_by?: string;
             use_cases: {
                 [key: string]: components["schemas"]["Grant"];
             };
@@ -1167,6 +1341,83 @@ export interface operations {
             };
         };
     };
+    getWorkspacesWsAccessReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessReview"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Permission or checkpoint refused */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found or not visible */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict: state, stage or revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     postWorkspacesWsGrants: {
         parameters: {
             query?: never;
@@ -1260,7 +1511,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ReleaseDecision"];
+                "application/json": components["schemas"]["GrantDecision"];
             };
         };
         responses: {
@@ -1511,6 +1762,88 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IssuedToken"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Permission or checkpoint refused */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found or not visible */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict: state, stage or revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    postWorkspacesWsMembersNameConfirmGrant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrantConfirmation"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessReview"];
                 };
             };
             /** @description Invalid request */
@@ -1838,7 +2171,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["IssuedToken"];
+                    "application/json": components["schemas"]["TokenIssuedOrRequested"];
                 };
             };
             /** @description Invalid request */
@@ -1920,6 +2253,170 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IssuedToken"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Permission or checkpoint refused */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found or not visible */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict: state, stage or revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    postWorkspacesWsTokenRequestsIdApprove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReleaseDecision"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssuedToken"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Permission or checkpoint refused */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found or not visible */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict: state, stage or revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    postWorkspacesWsTokenRequestsIdWithdraw: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReleaseDecision"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Members"];
                 };
             };
             /** @description Invalid request */

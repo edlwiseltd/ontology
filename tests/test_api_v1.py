@@ -196,6 +196,17 @@ class SchemaConformanceTests(V1Base):  # V5
                    f"{ws}/members/v1-zoe/revoke-token", {"reason": "v1"}, 200),
                   (("POST", "/platform/workspaces/{ws}/members/{name}/remove"), "POST", f"{ws}/members/v1-zoe/remove",
                    {"reason": "v1"}, 200)]
+        # sprint B: access review, confirmation, and a token for a member with data issued by a second person
+        calls2 += [(("GET", "/platform/workspaces/{ws}/access-review"), "GET", f"{ws}/access-review", None, 200),
+                   (("POST", "/platform/workspaces/{ws}/members/{name}/confirm-grant"), "POST",
+                    f"{ws}/members/hana/confirm-grant", {"use_case": "claims", "reason": "v1"}, 200, "acme-maria")]
+        _, _, r1 = self.raw("POST", f"{ws}/members/hana/token", "acme-ada", {"reason": "v1"})
+        _, _, r2 = self.raw("POST", f"{ws}/members/ivan/token", "acme-ada", {"reason": "v1"})
+        self.assertEqual(errors(r1, PLATFORM_SCHEMAS["TokenIssuedOrRequested"], PLATFORM_SCHEMAS), [])
+        calls2 += [(("POST", "/platform/workspaces/{ws}/token-requests/{id}/withdraw"), "POST",
+                    f"{ws}/token-requests/{r1['id']}/withdraw", {"reason": "v1"}, 200),
+                   (("POST", "/platform/workspaces/{ws}/token-requests/{id}/approve"), "POST",
+                    f"{ws}/token-requests/{r2['id']}/approve", {"reason": "v1"}, 200, "acme-maria")]
         _, _, yan = self.raw("POST", f"{ws}/members", "acme-ada", {"name": "v1-yan", "reason": "v1"})
         calls2.append((("POST", "/platform/workspaces/{ws}/my-token"), "POST", f"{ws}/my-token", {"reason": "v1"}, 200,
                        yan["token"]))  # GAP-030: a person replaces her own token

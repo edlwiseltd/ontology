@@ -17,6 +17,11 @@ The members a workspace has at any moment are the configuration's, with the log 
   needs no second person).
 * ``token_revoked``: a workspace administrator makes a member's token stop working at once, without removing the
   member or their grants; the member has no credential until an administrator issues a new token (GAP-030).
+* ``token_requested`` -> ``token_rotated`` | ``token_request_withdrawn``: a new token for a member who holds
+  business-data access is requested by an administrator and issued by **another** person with authority, who is
+  the only one to see it; so no single administrator can take over a member's access by re-keying them;
+* ``grant_confirmed``: a person with authority, not the member concerned, reviewed an existing grant (for example
+  one created by the IAM-3 migration) and kept it, with a reason.
 
 Every change reaches the use cases' engines before the next request (no restart). If the log does not verify, the
 workspace falls back to its configured administrators only (fail closed) until an operator repairs it.
@@ -40,7 +45,10 @@ EVENTS = ("member_added", "member_removed", "token_rotated", "grant_proposed", "
           # IAM-3: the data access an administrator had implicitly, converted once into explicit, revocable grants
           "grant_migrated", "privileges_separated",
           # GAP-030: a member's token refused from now on, until an administrator issues a new one
-          "token_revoked")
+          "token_revoked",
+          # R2 security sprint B: a person with authority looked at an existing grant and kept it; a new token for
+          # a member who holds business data is requested by one person and issued by another
+          "grant_confirmed", "token_requested", "token_request_withdrawn")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS admin_events (
@@ -156,13 +164,31 @@ class AdminLog:
 
 
 def pending_grants(events: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
-    """Grant proposals not yet approved or withdrawn, by id."""
+    """Grant proposals not yet approved or withdrawn, by id. Removing a member ends the proposals made for them:
+    a later member with the same name never inherits one."""
     out: Dict[str, Dict[str, Any]] = {}
     for e in events:
         if e["event"] == "grant_proposed":
             out[e["data"]["id"]] = {**e["data"], "proposed_by": e["by"], "proposed_at": e["at"], "reason": e["reason"]}
         elif e["event"] in ("grant_approved", "grant_withdrawn"):
             out.pop(e["data"]["id"], None)
+        elif e["event"] == "member_removed":
+            out = {k: v for k, v in out.items() if v["member"] != e["data"]["name"]}
+    return out
+
+
+def pending_token_requests(events: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    """Requests for a member's new token that nobody has issued or withdrawn yet, by id."""
+    out: Dict[str, Dict[str, Any]] = {}
+    for e in events:
+        d = e["data"]
+        if e["event"] == "token_requested":
+            out[d["id"]] = {"id": d["id"], "name": d["name"], "requested_by": e["by"], "requested_at": e["at"],
+                            "reason": e["reason"]}
+        elif e["event"] == "token_request_withdrawn" or (e["event"] == "token_rotated" and d.get("request")):
+            out.pop(d.get("request") or d.get("id"), None)
+        elif e["event"] == "member_removed":
+            out = {k: v for k, v in out.items() if v["name"] != d["name"]}
     return out
 
 

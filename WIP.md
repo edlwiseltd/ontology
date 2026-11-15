@@ -22,8 +22,8 @@
 
 | Increment | Status | Evidence |
 |---|---|---|
-| A — GAP-030: token lifetimes, revocation, rotation, rate limits, timeouts | Done | `tests/test_gap030_security.py` (27 tests); see the implementation log |
-| B — IAM administrative security | Next | |
+| A — GAP-030: token lifetimes, revocation, rotation, rate limits, timeouts | Done, `940c04f`, CI run 78 | `tests/test_gap030_security.py` (27 tests); see the implementation log |
+| B — IAM administrative security | Done | `tests/test_iamb_admin_hardening.py` (12 tests); GAP-062, GAP-063 found and fixed |
 | C — Backup, restore and release activation | Pending | |
 | D — Studio tenant and membership administration | Pending | |
 
@@ -36,6 +36,7 @@
 | Counsel's answers L1–L9 (D19) | GAP-031 closure; distribution stays blocked |
 | Review the migrated administrator grants (IAM-3) in each existing workspace | Revoke those not needed |
 | D22b–e; authorisation for IAM-2, IAM-4, IAM-5, IAM-6 | Not started, by instruction |
+| D24: keep the engine's unrestricted `admin` permission as an acknowledged, reviewed grant? D25: company sign-in for people | See the decision register; migrated administrator grants wait for confirm / narrow / revoke in each workspace's access review |
 | D23: confirm default token lifetimes (90 d people, 365 d services) and rate limits | Existing tokens expire one lifetime after the upgrade: plan re-keying |
 | Next increment authorisation | Readiness (REL-3), AI-1 once D7/D10 are configured |
 

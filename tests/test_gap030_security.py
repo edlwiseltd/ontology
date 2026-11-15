@@ -176,8 +176,11 @@ class TokenLifetimeTests(SecurityBase):
         for path in ("/platform/v1/me", f"{ENGINE}/me"):
             self.assertEqual(self.call("GET", path, zoe)[0], 401)
         self.assertEqual(self.call("POST", f"{WS}/members/zoe/revoke-token", body={"reason": "again"})[0], 409)
-        status, out = self.call("POST", f"{WS}/members/zoe/token", body={"reason": "new laptop"})
-        self.assertEqual(status, 200)
+        # zoe holds business data: her new token is requested by one person and issued by another (sprint B)
+        status, asked = self.call("POST", f"{WS}/members/zoe/token", body={"reason": "new laptop"})
+        self.assertEqual(status, 202, asked)
+        status, out = self.call("POST", f"{WS}/token-requests/{asked['id']}/approve", "acme-maria", {"reason": "ok"})
+        self.assertEqual(status, 200, out)
         self.assertEqual(self.engine(out["token"])[1]["permissions"], ["read"])  # same rights, nothing more
         self.start()
         self.assertEqual(self.call("GET", "/platform/v1/me", zoe)[0], 401)

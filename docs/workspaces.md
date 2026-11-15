@@ -143,6 +143,57 @@ administrative role never bypasses row, field, workspace or use-case rules.
   they started, approve their own release or their own grant.
 - If the administration log does not verify, administrators keep the administrative role only.
 
+### What the engine's `admin` permission means, and how it is given
+
+`admin` on a use case is **unrestricted access to that use case's business data**. It is the one exception to least
+privilege that remains, and it is never implied by a role. Someone who holds it:
+
+- reads every record and field (row and field rules do not apply), every run, review, notification and
+  reconciliation item;
+- starts and resumes runs with all of the agent's roles, and free-form cases outside simulation;
+- decides reviews whatever reviewer role they ask for (still never for a run they started, never as a service
+  identity);
+- writes records directly, edits and commits any scenario, reinstates agents, runs the scheduler and reporting;
+- never reaches another use case, workspace or tenant, and never changes members, grants, stages or releases.
+
+So it is given deliberately: a proposal that contains `admin` is refused unless it carries `"unrestricted": true`,
+and so is its approval; both persons acknowledge it, and the access review shows it. Prefer `read`, `run`,
+`review`, `audit`, `ingest`, `reconcile` with roles: those obey every rule.
+
+### Access review
+
+`GET /platform/workspaces/<ws>/access-review` (administrators and approvers) lists every business-data grant: the
+member, the use case, permissions and roles, `data_access` (`scoped` or `unrestricted`), where it comes from
+(`configuration`, `migration`, or a `grant` with its proposer and approver), and `needs_review`. A grant needs
+review when no person decided it with full knowledge: every grant created by the IAM-3 migration, and every
+unrestricted grant that was not acknowledged twice (for example one written in the configuration). Three ways to
+resolve one, each recorded:
+
+- **confirm** it: `POST .../members/<name>/confirm-grant` with `use_case`, a reason, and `"unrestricted": true`
+  when it is unrestricted; by a person with authority (administrator or named approver) who is **not** the member
+  concerned. A confirmation is about the grant as it is: if the grant changes, it no longer applies;
+- **replace** it with a narrower one: propose a grant for the same member and use case; once another person
+  approves it, it takes the place of the old one;
+- **revoke** it: `POST .../members/<name>/revoke`, at once.
+
+Nothing is revoked automatically: the migrated grants keep working until a person decides, and the report shows how
+many still wait.
+
+### Who has seen a member's token
+
+Whoever issues a token sees it once. The members view shows `token_issued_by` for each member (`configuration`, the
+administrator who issued it, or `self` after the member replaced it with `my-token`).
+
+- A new token for a member **who holds business data** is not issued by one person: `POST .../members/<name>/token`
+  answers `202` with a request id, and another person with authority (not the requester) issues the token with
+  `POST .../token-requests/<id>/approve` and is the only one to see it. An administrator alone can therefore not
+  take over a member's access by re-keying them. A request can be withdrawn; removing the member ends it.
+- A member without business data is re-keyed at once, as before. Removing a member also ends the grant proposals
+  made for them: a later member with the same name inherits nothing.
+- What remains: the person who issues a token could keep a copy, and a new member's first token is issued by one
+  administrator before any grant is approved. Company sign-in (OIDC) avoids both, because nobody issues a secret;
+  it is the recommended sign-in for people.
+
 **Limits.** These are application controls: whoever can read the data directory, backups or the audit key is
 outside them (file permissions, encryption and key custody are infrastructure controls). Platform operators have no
 application identity, so they have no application permission on customer data either; governed exceptional access

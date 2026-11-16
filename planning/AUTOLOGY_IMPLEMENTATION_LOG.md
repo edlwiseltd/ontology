@@ -800,4 +800,8 @@ contract files, and each commit is kept consistent.
 |---|---|---|---|
 | A — agents and simulated tools from Studio | `2de9666` | [96](https://github.com/edlwiseltd/ontology/actions/runs/43782756110) | success |
 | B — configuration inside the release | `f20e06d` | [97](https://github.com/edlwiseltd/ontology/actions/runs/43785482615) | success |
-| GAP-066 fix; C, D, E, F | see the sprint report | see the sprint report | reported there once the run has finished |
+| GAP-066 fix | `f220c92` | [98](https://github.com/edlwiseltd/ontology/actions/runs/43790388093) | success (pushed with the next commit; the run is on `137d8c0`) |
+| C, D, E, F | `137d8c0` | [98](https://github.com/edlwiseltd/ontology/actions/runs/43790388093) | success (five jobs) |
+
+Summary for the owner: [activation sprint report](AUTOLOGY_ACTIVATION_SPRINT_REPORT.md). The commit that records run 98 is
+documentation only.

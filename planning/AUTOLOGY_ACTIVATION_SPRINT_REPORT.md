@@ -36,8 +36,8 @@ the browser checks), **Partial**, **Blocked**, **Not started**.
 | Start (verified: tree clean, in sync, CI run 95 success; 862 tests, 95.88 %, 28 Studio unit tests, 73 browser checks as reported) | `d86ca23` (documentation on top of `b67853e`, the baseline named in the directive) |
 | A | `2de9666` |
 | B | `f20e06d` |
-| Store-lock fix (GAP-066) | the commit before the last code commit |
-| C, D, E, F | the last code commit (hash and CI run in §A4, added once the run finished) |
+| Store-lock fix (GAP-066) | `f220c92` |
+| C, D, E, F (end of code changes) | `137d8c0`, CI run 98 success; followed by the documentation-only commit that records this run |
 
 Baseline check: the reported figures held. Gaps confirmed in the code before any design: agents and tools came
 only from files; a release restored the model only; no run could be cancelled; readiness measured the running
@@ -89,7 +89,8 @@ the way and are part of the record:
 |---|---|---|---|
 | A | `2de9666` | [96](https://github.com/edlwiseltd/ontology/actions/runs/43782756110) | success |
 | B | `f20e06d` | [97](https://github.com/edlwiseltd/ontology/actions/runs/43785482615) | success |
-| GAP-066 fix; C, D, E, F | CI_COMMIT | CI_RUN | CI_RESULT |
+| GAP-066 fix | `f220c92` | [98](https://github.com/edlwiseltd/ontology/actions/runs/43790388093) | success (pushed together with the next commit: the run is on `137d8c0`, which contains both) |
+| C, D, E, F | `137d8c0` | [98](https://github.com/edlwiseltd/ontology/actions/runs/43790388093) | success (five jobs: tests on two Python versions, package, studio, quality) |
 
 ## B. Product evidence
 

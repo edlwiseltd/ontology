@@ -293,7 +293,14 @@ class Store:
         class _Tx:
             def __enter__(self):
                 store._lock.acquire()
-                store._db.execute("BEGIN IMMEDIATE")
+                try:
+                    store._db.execute("BEGIN IMMEDIATE")
+                except BaseException:
+                    # a transaction that cannot start (the store was closed, the file is locked) must not keep
+                    # the store's lock: __exit__ is not called when __enter__ raises, and a lock left held by a
+                    # thread that then ends blocks every other thread for good (GAP-066)
+                    store._lock.release()
+                    raise
                 return store._db
 
             def __exit__(self, exc_type, exc, tb):
@@ -855,6 +862,15 @@ class Store:
         with self._tx() as db:
             db.execute("UPDATE reviews SET status='pending', decision=NULL, decided_at=NULL, decided_by=NULL "
                        "WHERE review_id=?", (review_id,))
+
+    def close_reviews(self, run_id: str, by: str, reason: str) -> int:
+        """Close the pending reviews of a run that was cancelled: there is nothing left to decide. Not a decision
+        by a reviewer, and recorded as what it is."""
+        closing = {"approved": False, "reviewer": by, "comment": reason, "cancelled": True}
+        with self._tx() as db:
+            done = db.execute("UPDATE reviews SET status='cancelled', decision=?, decided_at=?, decided_by=? "
+                              "WHERE run_id=? AND status='pending'", (json.dumps(closing), _now(), by, run_id))
+            return int(done.rowcount)
 
     def decide_review(self, review_id: str, approved: bool, reviewer: str, comment: str = "") -> Dict[str, Any]:
         """Record a decision on a pending review exactly once."""

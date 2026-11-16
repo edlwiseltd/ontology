@@ -44,7 +44,7 @@ mode. The same `server.json` can therefore back a use case in several workspaces
 | `GET /platform/workspaces/<ws>/use-cases/<uc>/releases/<n>` | a member granted it, or a release approver | One release; administrators and release approvers also get its snapshot |
 | `POST .../releases/<n>/approve` | a person with release authority, not the proposer | `{"reason"}`: approve, bound to the release's fingerprint |
 | `POST .../releases/<n>/revoke` | the approver or a workspace administrator | `{"reason"}`: withdraw an approval before activation |
-| `POST .../<uc>/publish-draft` | a person with release authority who did not save the revision | `{"revision", "reason"}`: make a saved, valid draft revision the use case's model and reload; it needs a release to run |
+| `POST .../<uc>/publish-draft` | a person with release authority who did not save the revision | `{"revision", "reason"}`: make a saved, valid draft revision the use case's model, with the agents and simulated tools configured in the same revision (checked against the model first), and reload; it needs a release to run |
 | `POST .../releases/<n>/restore` | a workspace administrator (a person) | `{"reason"}`: put an **approved** release's model back and reload; activate that release afterwards to roll back |
 | `POST .../<uc>/reload` | a workspace administrator (a person) | `{"reason"}`: reload the engine from its files without a restart; refused, with nothing changed, if they do not load. Not an activation |
 | `GET /platform/workspaces/<ws>/members` | a workspace administrator or approver | Members (configured or added through the API), their grants, pending grant proposals, the administration history |

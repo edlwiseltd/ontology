@@ -915,6 +915,12 @@
           {
             "additionalProperties": true,
             "properties": {
+              "published_agents": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
               "published_revision": {
                 "type": "integer"
               }
@@ -1289,6 +1295,9 @@
           "at": {
             "type": "string"
           },
+          "components": {
+            "$ref": "#/components/schemas/ReleaseComponents"
+          },
           "fingerprint": {
             "type": "string"
           },
@@ -1319,6 +1328,32 @@
               "superseded"
             ],
             "type": "string"
+          },
+          "verification": {
+            "additionalProperties": true,
+            "properties": {
+              "by": {
+                "type": "string"
+              },
+              "coherent": {
+                "type": "boolean"
+              },
+              "fingerprint_matches": {
+                "type": "boolean"
+              },
+              "problems": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "fingerprint_matches",
+              "coherent",
+              "problems"
+            ],
+            "type": "object"
           }
         },
         "required": [
@@ -1329,6 +1364,179 @@
           "note",
           "at",
           "status"
+        ],
+        "type": "object"
+      },
+      "ReleaseComponents": {
+        "additionalProperties": true,
+        "properties": {
+          "actions": {
+            "additionalProperties": true,
+            "properties": {
+              "count": {
+                "type": "integer"
+              },
+              "fingerprint": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "count",
+              "fingerprint"
+            ],
+            "type": "object"
+          },
+          "agents": {
+            "additionalProperties": true,
+            "properties": {
+              "fingerprint": {
+                "type": "string"
+              },
+              "managed": {
+                "enum": [
+                  "studio",
+                  "files",
+                  "none"
+                ],
+                "type": "string"
+              },
+              "names": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "names",
+              "fingerprint",
+              "managed"
+            ],
+            "type": "object"
+          },
+          "governance": {
+            "additionalProperties": true,
+            "properties": {
+              "fingerprint": {
+                "type": "string"
+              },
+              "settings": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "settings",
+              "fingerprint"
+            ],
+            "type": "object"
+          },
+          "model": {
+            "additionalProperties": true,
+            "properties": {
+              "entities": {
+                "type": "integer"
+              },
+              "fingerprint": {
+                "type": "string"
+              },
+              "ref": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "fingerprint",
+              "entities"
+            ],
+            "type": "object"
+          },
+          "rules": {
+            "additionalProperties": true,
+            "properties": {
+              "count": {
+                "type": "integer"
+              },
+              "fingerprint": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "count",
+              "fingerprint"
+            ],
+            "type": "object"
+          },
+          "tools": {
+            "additionalProperties": true,
+            "properties": {
+              "all_simulated": {
+                "type": "boolean"
+              },
+              "count": {
+                "type": "integer"
+              },
+              "fingerprint": {
+                "type": "string"
+              },
+              "other": {
+                "type": "integer"
+              },
+              "simulated": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "count",
+              "simulated",
+              "other",
+              "all_simulated",
+              "fingerprint"
+            ],
+            "type": "object"
+          },
+          "workflows": {
+            "additionalProperties": true,
+            "properties": {
+              "automations": {
+                "type": "integer"
+              },
+              "case_templates": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "fingerprint": {
+                "type": "string"
+              },
+              "goals": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "case_templates",
+              "goals",
+              "fingerprint"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "model",
+          "rules",
+          "actions",
+          "workflows",
+          "agents",
+          "tools",
+          "governance"
         ],
         "type": "object"
       },

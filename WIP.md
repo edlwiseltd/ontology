@@ -75,7 +75,7 @@
 | Increment | Status | Evidence |
 |---|---|---|
 | A — agents and simulated tools from Studio | Done (drafts only; releases carry them from B) | `tests/test_act1_solution_configuration.py` (10); 33 Studio unit tests; 81/81 browser checks; see the implementation log |
-| B — executable configuration inside the release | In progress | — |
-| C — persistent governed simulation from Studio | Pending | — |
+| B — executable configuration inside the release | Done | `tests/test_act2_release_configuration.py` (12); 884 tests, 95.82 %; 82/82 browser checks |
+| C — persistent governed simulation from Studio | In progress | — |
 | D — readiness for draft, proposed and active release | Pending | — |
 | E, F — end-to-end journey and reference demonstration | Pending | — |

@@ -48,7 +48,9 @@ EVENTS = ("member_added", "member_removed", "token_rotated", "grant_proposed", "
           "token_revoked",
           # R2 security sprint B: a person with authority looked at an existing grant and kept it; a new token for
           # a member who holds business data is requested by one person and issued by another
-          "grant_confirmed", "token_requested", "token_request_withdrawn")
+          "grant_confirmed", "token_requested", "token_request_withdrawn",
+          # activation sprint B: an activation or rollback that was refused leaves evidence too
+          "release_activation_refused")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS admin_events (

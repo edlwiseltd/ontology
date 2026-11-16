@@ -172,7 +172,14 @@ try {
   await ada.waitForSelector("[data-testid=active-release]");
   check("the administrator activates the approved release",
         (await ada.textContent("[data-testid=active-release]")).trim() === "1");
-  await ada.screenshot({ path: `${OUT}/desktop-releases.png` });
+  await ada.click("[data-testid=inspect-1]");
+  await ada.waitForSelector("[data-testid=release-contents]");
+  check("a release names its parts and the engine's verdict on its coherence",
+        (await ada.textContent("[data-testid=release-verification]")).includes("Coherent") &&
+        (await ada.textContent("[data-testid=release-agents]")).includes("configured by an operator") &&
+        (await ada.locator("[data-testid=release-contents] tbody tr").count()) === 7,
+        await ada.textContent("[data-testid=release-tools]"));
+  await ada.screenshot({ path: `${OUT}/desktop-releases.png`, fullPage: true });
   await maria.close();
   // publishing a saved draft makes it the use case's model (through the platform; nothing written to shared files)
   await ada.click(".uc-list button:has-text('Water')");  // the Releases tab stays selected

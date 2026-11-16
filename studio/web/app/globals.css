@@ -174,3 +174,12 @@ button.danger-inline { color: var(--bad); border-color: var(--bad); } .context s
 .react-flow__node.flow-tool { border-style: dashed; }
 .react-flow__node.status-refused { border-color: var(--bad, #c33); }
 @media (max-width: 900px) { .agents-body { grid-template-columns: 1fr; } .agents table { display: block; overflow-x: auto; } }
+
+/* -- stored simulation runs -------------------------------------------------------------------------------- */
+.runs { display: flex; flex-direction: column; gap: var(--gap); }
+.runs-body { display: grid; grid-template-columns: minmax(220px, 300px) 1fr; gap: var(--gap); align-items: start; }
+.runs .timeline { padding-left: 20px; } .runs .timeline li { margin-bottom: 6px; }
+.runs .audit { max-height: 260px; overflow: auto; padding-left: 28px; }
+.runs pre { max-height: 240px; overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+.runs details { border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; margin-top: 8px; }
+@media (max-width: 900px) { .runs-body { grid-template-columns: 1fr; } }

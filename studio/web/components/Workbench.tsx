@@ -9,9 +9,10 @@ import DesignView from "./DesignView";
 import OnboardingView from "./OnboardingView";
 import OntologyView from "./OntologyView";
 import ReleasesView from "./ReleasesView";
+import RunsView from "./RunsView";
 import StageOverview, { LABELS } from "./StageOverview";
 
-type View = "overview" | "onboarding" | "model" | "design" | "agents" | "releases";
+type View = "overview" | "onboarding" | "model" | "design" | "agents" | "releases" | "runs";
 type Status = "signed-out" | "loading" | "ready" | "unavailable";
 
 export default function Workbench() {
@@ -223,6 +224,7 @@ export default function Workbench() {
               <button role="tab" aria-selected={view === "design"} onClick={() => setView("design")}>Design (draft)</button>
               <button role="tab" aria-selected={view === "agents"} onClick={() => setView("agents")}>Agents &amp; tools</button>
               <button role="tab" aria-selected={view === "releases"} onClick={() => setView("releases")}>Releases</button>
+              <button role="tab" aria-selected={view === "runs"} onClick={() => setView("runs")}>Simulation runs</button>
             </div>
             {view === "overview" && <StageOverview workspace={me.workspace.id} useCase={detail} admin={me.workspace_admin}
                                                    onChanged={refresh} />}
@@ -233,6 +235,7 @@ export default function Workbench() {
                                                       admin={me.workspace_admin} />}
             {view === "design" && <DesignView key={detail.id} path={detail.path} admin={me.workspace_admin} />}
             {view === "agents" && <AgentsView key={detail.id} path={detail.path} admin={me.workspace_admin} />}
+            {view === "runs" && <RunsView key={`${detail.id}-${detail.effective_stage}`} workspace={me.workspace.id} useCase={detail} onChanged={refresh} />}
             {view === "releases" && <ReleasesView key={detail.id} workspace={me.workspace.id} useCase={detail}
                                                   member={me.member} admin={me.workspace_admin} onChanged={refresh} />}
           </>

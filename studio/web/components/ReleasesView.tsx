@@ -22,7 +22,13 @@ export default function ReleasesView({ workspace, useCase, member, admin, onChan
   const [draftRevision, setDraftRevision] = useState<number>(0);
   const [draftAuthor, setDraftAuthor] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [inspected, setInspected] = useState<Release | null>(null);
   const me = `${member}@${workspace}`;
+
+  const inspect = async (n: number) => {
+    setError("");
+    try { setInspected(await api.release(workspace, useCase.id, n)); } catch (e) { setError((e as Error).message); }
+  };
 
   const load = useCallback(async () => {
     setError("");
@@ -36,7 +42,7 @@ export default function ReleasesView({ workspace, useCase, member, admin, onChan
     } catch (e) { setError((e as Error).message); }
   }, [workspace, useCase.id, useCase.path, admin]);
 
-  useEffect(() => { setState(null); setMessage(""); load(); }, [load]);
+  useEffect(() => { setState(null); setMessage(""); setInspected(null); load(); }, [load]);
 
   async function act(what: string, call: () => Promise<unknown>) {
     setBusy(true); setError(""); setMessage("");
@@ -55,7 +61,7 @@ export default function ReleasesView({ workspace, useCase, member, admin, onChan
   const running = state.running_fingerprint;
   const needReason = !reason.trim();
   const actions = (r: Release) => {
-    const out = [];
+    const out = [<button key="i" className="small" data-testid={`inspect-${r.number}`} onClick={() => inspect(r.number)}>Contents</button>];
     if (state.may_approve && r.status === "proposed" && r.proposed_by !== me)
       out.push(<button key="a" className="small" disabled={busy || needReason}
                        onClick={() => act(`Release ${r.number} approved`, () => api.releaseAction(workspace, useCase.id, r.number, "approve", reason))}>Approve</button>);
@@ -115,8 +121,8 @@ export default function ReleasesView({ workspace, useCase, member, admin, onChan
           <h3>Publish a Studio draft</h3>
           {draftRevision > 0 ? (
             <>
-              <p className="muted small">Makes saved draft revision {draftRevision} this use case&apos;s model. Nothing runs on it
-                until a release of it is approved by another person, activated, and the use case is simulated again.</p>
+              <p className="muted small">Makes saved draft revision {draftRevision} this use case&apos;s model, with its agents
+                and simulated tools. Nothing runs on it until a release of it is approved by another person and activated.</p>
               {draftAuthor === member && <p className="warn small" data-testid="publish-needs-another">
                 You saved this revision: another person with release authority must publish it (the platform refuses the
                 author).</p>}
@@ -150,6 +156,39 @@ export default function ReleasesView({ workspace, useCase, member, admin, onChan
           </table>
         )}
       </div>
+
+      {inspected?.components && (
+        <div className="card" data-testid="release-contents">
+          <h3>Release {inspected.number} contains</h3>
+          <p className={inspected.verification?.coherent ? "ok small" : "error small"} role="status" data-testid="release-verification">
+            {inspected.verification?.coherent
+              ? "Coherent: the model, the agents and the tools refer to one another correctly, and the snapshot matches its fingerprint."
+              : `Not coherent, so it cannot be activated: ${(inspected.verification?.problems ?? []).join("; ")}`}
+            {inspected.verification && !inspected.verification.fingerprint_matches && " The snapshot does not match its fingerprint."}
+            <span className="source"> · verified by the engine from the release&apos;s own snapshot</span></p>
+          <table className="releases" aria-label={`Parts of release ${inspected.number}`}>
+            <thead><tr><th scope="col">Part</th><th scope="col">Content</th><th scope="col">Fingerprint</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">Business model</th><td>{inspected.components.model.ref ?? "—"} · {inspected.components.model.entities} entities</td>
+                <td><code>{inspected.components.model.fingerprint}</code></td></tr>
+              <tr><th scope="row">Rules</th><td>{inspected.components.rules.count}</td><td><code>{inspected.components.rules.fingerprint}</code></td></tr>
+              <tr><th scope="row">Action definitions</th><td>{inspected.components.actions.count}</td><td><code>{inspected.components.actions.fingerprint}</code></td></tr>
+              <tr><th scope="row">Workflows</th><td>goals {inspected.components.workflows.goals.join(", ") || "none"} · case templates{" "}
+                {inspected.components.workflows.case_templates.join(", ") || "none"}</td><td><code>{inspected.components.workflows.fingerprint}</code></td></tr>
+              <tr><th scope="row">Agents</th><td data-testid="release-agents">{inspected.components.agents.names.join(", ") || "none"}{" "}
+                <span className="badge">{inspected.components.agents.managed === "studio" ? "configured in Studio"
+                  : inspected.components.agents.managed === "files" ? "configured by an operator" : "none"}</span></td>
+                <td><code>{inspected.components.agents.fingerprint}</code></td></tr>
+              <tr><th scope="row">Tools</th><td data-testid="release-tools">{inspected.components.tools.count} declared ·{" "}
+                {inspected.components.tools.all_simulated ? "all simulated: no other system is contacted"
+                  : `${inspected.components.tools.simulated} simulated, ${inspected.components.tools.other} other (governed by the stage)`}</td>
+                <td><code>{inspected.components.tools.fingerprint}</code></td></tr>
+              <tr><th scope="row">Governing settings</th><td>{inspected.components.governance.settings.join(", ") || "defaults"}</td>
+                <td><code>{inspected.components.governance.fingerprint}</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <div className="card">
         <h3>History</h3>

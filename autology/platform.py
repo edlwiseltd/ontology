@@ -51,7 +51,7 @@ from .audit import audit_key, workspace_key
 from . import readiness
 from .lifecycle import Check, Lifecycle, LifecycleError, STAGES
 from .administration import AdminError, AdminLog, new_grant_id, pending_grants, pending_token_requests
-from .releases import ReleaseError, ReleaseRegistry
+from .releases import ReleaseError, ReleaseRegistry, fingerprint_of
 from .server import ApiExchange, AutologyService, PERMISSIONS, hash_token, read_body
 from .store import Store
 from .tenancy import Tenancy, TenancyError
@@ -74,6 +74,28 @@ UNRESTRICTED_MEANS = (
     "stages or releases (those are administrative roles, which in turn read no data)",
 )
 ONTOLOGY_OVERRIDE = "ontology.json"  # in <data_dir>/<ws>/<uc>/: this use case's own ontology (published or restored)
+# beside it: the agents, simulated tools and sample records configured in Studio (published or restored with the
+# model, never apart from it: one release covers both)
+SOLUTION_OVERRIDE = "solution.json"
+_KEEP = object()
+
+
+def _is_document(value: Any) -> bool:
+    """A model document as a release keeps it (an empty model has a name and nothing else yet)."""
+    return isinstance(value, dict) and ("entities" in value or "name" in value)
+
+
+def _put(path: Path, content: Any) -> None:
+    """Write ``content`` (JSON-ready, or raw bytes) to ``path`` through a temporary file; ``None`` removes it."""
+    if content is None:
+        path.unlink(missing_ok=True)
+        return
+    tmp = path.with_suffix(".tmp")
+    if isinstance(content, bytes):
+        tmp.write_bytes(content)
+    else:
+        tmp.write_text(json.dumps(content, indent=1, ensure_ascii=False), encoding="utf-8")
+    tmp.replace(path)
 NOT_FOUND = json.dumps({"error": "not found"}).encode()
 
 
@@ -657,6 +679,9 @@ class Platform:
         override = home / ONTOLOGY_OVERRIDE
         if override.is_file():  # a Studio draft published to this use case, or a release's ontology restored
             config["ontology"] = str(override)
+        managed = home / SOLUTION_OVERRIDE
+        if managed.is_file():  # its agents and simulated tools, published or restored the same way
+            self._apply_solution(config, config_path.parent, managed, f"workspace {ws.id} use case {uc_id}")
         config.pop("oidc", None)  # a use case's own sign-in setting never applies: the workspace's does
         if ws.oidc:
             config["oidc"] = dict(ws.oidc)
@@ -685,6 +710,26 @@ class Platform:
         gate = ws.gates.setdefault(uc_id, Gate())
         service.background_guard = (gate.enter, gate.leave)  # the scheduler never ticks while the engine is switched
         return uc
+
+    @staticmethod
+    def _apply_solution(config: Dict[str, Any], base: Path, path: Path, where: str) -> None:
+        """Put a Studio-managed configuration into an engine's configuration: compiled by the engine's own rules
+        against the model it will run with, or the use case does not load."""
+        from . import solution as solutions
+
+        if config.get("agents"):  # an operator's agents are never replaced silently
+            raise PlatformError(f"{where}: its files configure agents and an agent configuration from Studio is "
+                                "published too; remove one of the two")
+        try:
+            managed = json.loads(path.read_text(encoding="utf-8"))
+            document = json.loads((base / config["ontology"]).read_text(encoding="utf-8"))
+            compiled = solutions.compile_solution(managed, document)
+        except (OSError, ValueError) as exc:  # unreadable, not JSON, or not valid for this model (SolutionError)
+            raise PlatformError(f"{where}: the published agent and tool configuration does not fit the model: "
+                                f"{exc}") from None
+        config["agents"], config["solution"] = compiled["agents"], managed
+        if compiled["data"] and not config.get("data"):
+            config["data"] = compiled["data"]  # synthetic sample records: seeded only into an empty store
 
     # -- requests --------------------------------------------------------------------------------------------
     def members_for(self, authorization: Optional[str]) -> Dict[str, Member]:
@@ -852,22 +897,23 @@ class Platform:
         return uc
 
     def _write_override(self, ws: Workspace, uc: UseCase, document: Dict[str, Any], member: Member, reason: str,
-                        event: str, data: Dict[str, Any]) -> UseCase:
-        """Write this use case's own ontology and reload its engine; if the result does not load, the previous file
-        (or its absence) is put back and nothing changes."""
-        path = self.data_dir / ws.id / uc.id / ONTOLOGY_OVERRIDE
+                        event: str, data: Dict[str, Any], solution: Any = _KEEP) -> UseCase:
+        """Write this use case's own ontology (and, when given, its agent and tool configuration; ``None`` removes
+        it) and reload its engine; if the result does not load, the previous files (or their absence) are put back
+        and nothing changes. The two are written and reloaded as one step: never one without the other."""
+        home = self.data_dir / ws.id / uc.id
+        files = [(home / ONTOLOGY_OVERRIDE, document)]
+        if solution is not _KEEP:
+            files.append((home / SOLUTION_OVERRIDE, solution))
         with self._switching(ws, uc.id):  # alone on the engine from the first byte written to the reload
-            previous = path.read_bytes() if path.is_file() else None
-            tmp = path.with_suffix(".tmp")
-            tmp.write_text(json.dumps(document, indent=1, ensure_ascii=False), encoding="utf-8")
-            tmp.replace(path)
+            previous = [(path, path.read_bytes() if path.is_file() else None) for path, _ in files]
             try:
+                for path, content in files:
+                    _put(path, content)
                 fresh = self.reload_use_case(ws, uc, member, reason)
-            except LifecycleError:
-                if previous is None:
-                    path.unlink()
-                else:
-                    path.write_bytes(previous)
+            except BaseException:
+                for path, raw in previous:
+                    _put(path, raw)
                 raise
             self.admin.append(ws.id, event, f"{member.name}@{ws.id}", reason,
                               {**data, "use_case": uc.id, "configuration": fresh.service.configuration_fingerprint})
@@ -877,6 +923,7 @@ class Platform:
         """Make a saved, valid Studio draft this use case's ontology (STU-6). Publishing changes the configuration:
         with an active release, nothing runs until a release of the new configuration is approved by another
         person and activated."""
+        from . import solution as solutions
         from .modeling import validate
 
         if isinstance(revision, bool) or not isinstance(revision, int) or revision < 1:
@@ -892,16 +939,31 @@ class Platform:
         verdict = validate(row["document"])
         if not verdict["valid"]:
             raise LifecycleError(409, "the draft is not valid: " + "; ".join(p["message"] for p in verdict["problems"]))
-        fresh = self._write_override(ws, uc, row["document"], member, reason, "draft_published", {"revision": revision})
-        return {**self.use_case_view(fresh, member, detail=True), "published_revision": revision}
+        # the agents and simulated tools of the draft are published with its model, and checked against it first:
+        # a configuration that refers to something the model no longer has is never put in place
+        managed: Any = row.get("solution")
+        if uc.service.configuring.managed == "files":
+            managed = _KEEP  # an operator's agents: Studio never touches them
+        elif managed is not None:
+            problems, _ = solutions.check(managed, row["document"])
+            if problems:
+                raise LifecycleError(409, "the draft's agent and tool configuration does not fit its model: "
+                                     + "; ".join(f"{p['path']}: {p['message']}" for p in problems[:5]))
+        data: Dict[str, Any] = {"revision": revision}
+        if isinstance(managed, dict):
+            data["agents"] = sorted(managed.get("agents") or {})
+        fresh = self._write_override(ws, uc, row["document"], member, reason, "draft_published", data, managed)
+        return {**self.use_case_view(fresh, member, detail=True), "published_revision": revision,
+                "published_agents": sorted(fresh.service.agents)}
 
     def restore_release(self, ws: Workspace, uc: UseCase, member: Member, number: int, reason: str) -> Dict[str, Any]:
-        """Put a release's ontology back as this use case's ontology and reload (a rollback of the model). The
-        release can then be activated if everything else it covers is unchanged too."""
+        """Put a release's ontology, and the agent and tool configuration it was released with, back as this use
+        case's own and reload (a rollback of the model and its agents together). The release can then be activated
+        if everything else it covers is unchanged too."""
         snapshot = self.releases.snapshot(ws.id, uc.id, number)
         if snapshot is None:
             raise ReleaseError(404, f"no release {number}")
-        if not isinstance(snapshot.get("ontology"), dict) or "entities" not in snapshot["ontology"]:
+        if not _is_document(snapshot.get("ontology")):
             raise ReleaseError(409, f"release {number} has no ontology document to restore")
         release = self.releases.release(ws.id, uc.id, number)
         if not release["approved_by"] and release["status"] not in ("active", "superseded"):
@@ -909,7 +971,7 @@ class Platform:
             raise ReleaseError(409, f"release {number} was never approved: its model cannot be restored; have the "
                                     "release approved first, or publish the model as a draft")
         fresh = self._write_override(ws, uc, snapshot["ontology"], member, reason, "release_restored",
-                                     {"release": number})
+                                     {"release": number}, (snapshot.get("settings") or {}).get("solution"))
         release = self.releases.release(ws.id, uc.id, number)
         return {**self.use_case_view(fresh, member, detail=True),
                 "matches_release": release["fingerprint"] == fresh.service.configuration_fingerprint}
@@ -965,6 +1027,22 @@ class Platform:
 
     def activate_release(self, ws: Workspace, uc: UseCase, member: Member, number: int,
                          reason: str) -> Dict[str, Any]:
+        """Activate (or roll back to) a release; a refusal of an existing release is recorded in the workspace's
+        administration log, as the activation itself is recorded in the release history."""
+        try:
+            return self._activate_release(ws, uc, member, number, reason)
+        except ReleaseError as exc:
+            if exc.status in (409, 500):
+                try:
+                    self.admin.append(ws.id, "release_activation_refused", f"{member.name}@{ws.id}",
+                                      (reason or "").strip()[:500] or "no reason given",
+                                      {"release": number, "use_case": uc.id, "refusal": str(exc)[:600]})
+                except AdminError:  # the refusal stands whether or not it could be recorded
+                    log.exception("could not record the refused activation of release %s of %s/%s", number, ws.id, uc.id)
+            raise
+
+    def _activate_release(self, ws: Workspace, uc: UseCase, member: Member, number: int,
+                          reason: str) -> Dict[str, Any]:
         """Make an approved release what runs, in one coordinated step (REL-1a; R2 reliability sprint C).
 
         No restart and no separate reload: if the engine does not already run the release's configuration, the
@@ -974,6 +1052,8 @@ class Platform:
         step fails, the model and the engine that ran before are put back and the previous release stays active
         (fail closed). Activating an older release is a rollback, the same way. The approval history is never
         rewritten: activation only appends."""
+        from . import solution as solutions
+
         who = f"{member.name}@{ws.id}"
         reason = (reason or "").strip()
         if not (1 <= len(reason) <= 500):
@@ -994,16 +1074,23 @@ class Platform:
             previous = st["active"]
             kind = "rolled_back" if previous and previous["number"] > number else "activated"
             before = uc.service.configuration_fingerprint
+            snapshot = self.releases.snapshot(ws.id, uc.id, number) or {}
+            # the release must be coherent in itself (model, agents, tools refer to one another correctly) before
+            # anything is touched: a release that could not execute is never brought into force
+            incoherent = solutions.release_problems(snapshot)
+            if incoherent:
+                raise ReleaseError(409, f"release {number} cannot be activated, nothing was changed: "
+                                   + "; ".join(incoherent[:5]))
             path = self.data_dir / ws.id / uc.id / ONTOLOGY_OVERRIDE
+            agents_path = self.data_dir / ws.id / uc.id / SOLUTION_OVERRIDE
             model_before = path.read_bytes() if path.is_file() else None
+            agents_before = agents_path.read_bytes() if agents_path.is_file() else None
             switched = False
 
             def put_back() -> None:
-                """The model and the engine that ran before the attempt."""
-                if model_before is None:
-                    path.unlink(missing_ok=True)
-                else:
-                    path.write_bytes(model_before)
+                """The model, the agent configuration and the engine that ran before the attempt."""
+                _put(path, model_before)
+                _put(agents_path, agents_before)
                 if switched:
                     current = ws.use_cases[uc.id]
                     try:
@@ -1016,12 +1103,11 @@ class Platform:
             fresh = uc
             try:
                 if target["fingerprint"] != before:
-                    snapshot = self.releases.snapshot(ws.id, uc.id, number) or {}
                     document = snapshot.get("ontology")
-                    if isinstance(document, dict) and "entities" in document:
-                        tmp = path.with_suffix(".tmp")
-                        tmp.write_text(json.dumps(document, indent=1, ensure_ascii=False), encoding="utf-8")
-                        tmp.replace(path)
+                    if _is_document(document):
+                        _put(path, document)
+                    # the release's own agents and simulated tools come back with its model (none: none)
+                    _put(agents_path, (snapshot.get("settings") or {}).get("solution"))
                     try:
                         candidate = str(self._load_use_case(ws, uc.id, uc.spec, self._base_dir, validate_only=True))
                     except (PlatformError, ValueError, OSError) as exc:
@@ -1604,9 +1690,18 @@ class Platform:
         except ValueError:
             return 404, None
         if len(parts) == 8 and method == "GET":
+            from . import solution as solutions
+
             item = self.releases.release(ws.id, uc.id, number)
+            snapshot = self.releases.snapshot(ws.id, uc.id, number)
+            # what the release contains, part by part, and whether it is coherent: fingerprints and counts only
+            problems = solutions.release_problems(snapshot)
+            item = {**item, "components": solutions.release_components(snapshot),
+                    "verification": {"fingerprint_matches": fingerprint_of(snapshot or {}) == item["fingerprint"],
+                                     "coherent": not problems, "problems": problems,
+                                     "by": "the engine, from the release's own snapshot"}}
             if member.workspace_admin or self.may_approve_releases(ws, member):  # the full snapshot: reviewers only
-                item = {**item, "snapshot": self.releases.snapshot(ws.id, uc.id, number)}
+                item = {**item, "snapshot": snapshot}
             return 200, item
         if len(parts) != 9 or method != "POST" or parts[8] not in ("approve", "revoke", "activate", "restore"):
             return 404, None

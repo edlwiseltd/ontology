@@ -278,6 +278,92 @@ def compile_solution(solution: Any, document: Any) -> Dict[str, Any]:
     return compiled
 
 
+# -- a release as a whole ---------------------------------------------------------------------------------------
+def _part(container: Any, key: str) -> Mapping[str, Any]:
+    value = container.get(key) if isinstance(container, Mapping) else None
+    return value if isinstance(value, Mapping) else {}
+
+
+def release_problems(snapshot: Any) -> List[str]:
+    """Why the configuration in a release snapshot could not execute coherently. Computed from the snapshot alone,
+    so anyone holding a release can verify it; the platform refuses to activate a release that has any.
+
+    A release is coherent when its model loads, every agent pursues goals of that model and has tools that serve
+    its actions, a Studio-managed configuration compiles to exactly the agents in the release, and a model that
+    has work to do (goals and actions) has an agent to do it."""
+    if not isinstance(snapshot, Mapping) or not isinstance(snapshot.get("ontology"), Mapping):
+        return ["the release has no model document"]
+    try:
+        onto = Ontology.from_dict(dict(snapshot["ontology"]))
+    except OntologyError as exc:
+        return [f"the release's model does not validate: {exc}"]
+    settings, agents, declared = _part(snapshot, "settings"), _part(_part(snapshot, "settings"), "agents"), _part(snapshot, "tools")
+    out: List[str] = []
+    managed = settings.get("solution")
+    if managed is not None:
+        problems, compiled = check(managed, snapshot["ontology"])
+        out += [f"agent and tool configuration, {p['path'] or 'configuration'}: {p['message']}" for p in problems]
+        if compiled is not None and compiled["agents"] != agents:
+            out.append("the agents in the release are not the ones its agent and tool configuration compiles to")
+    if not agents and onto.goals and onto.actions:
+        out.append("the model has goals and actions but no agent is configured: nothing could run")
+    capabilities = {a.capability for a in onto.actions.values()}
+    for name, spec in sorted(agents.items()):
+        if not isinstance(spec, Mapping):
+            out.append(f"agent {name}: not a configuration")
+            continue
+        for goal in spec.get("goals") or []:
+            if goal not in onto.goals:
+                out.append(f"agent {name} pursues the goal {goal!r}, which the release's model does not have")
+        tools = declared.get(name)
+        if not isinstance(tools, Mapping) or "unreadable" in tools:
+            out.append(f"agent {name} has no readable tool declaration")
+            continue
+        if tools.get("registries"):  # tools built by code: their capabilities are known only when loaded
+            continue
+        served = {t.get("capability") for t in tools.get("tools") or [] if isinstance(t, Mapping)}
+        if not served:
+            out.append(f"agent {name} has no tool: it could perform no action")
+        elif capabilities and not served & capabilities:
+            out.append(f"none of agent {name}'s tools serves an action of the release's model")
+    return out
+
+
+def release_components(snapshot: Any) -> Dict[str, Any]:
+    """What a release contains, part by part, each with its own fingerprint: the model, its rules, its action
+    definitions, its workflows (case templates and automations), the agents, the tool declarations and the
+    governing settings. Two releases share a part exactly when the part's fingerprint is the same."""
+    import hashlib
+    import json
+
+    def mark(value: Any) -> str:
+        text = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str)
+        return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+
+    snap: Mapping[str, Any] = snapshot if isinstance(snapshot, Mapping) else {}
+    doc, settings, tools = _part(snap, "ontology"), _part(snap, "settings"), _part(snap, "tools")
+    agents = _part(settings, "agents")
+    listed = [t for d in tools.values() if isinstance(d, Mapping) for t in d.get("tools") or [] if isinstance(t, Mapping)]
+    code: int = sum([len(d.get("registries") or []) for d in tools.values() if isinstance(d, Mapping)])
+    simulated = [t for t in listed if t.get("type") == "table"]
+    workflows = {k: doc.get(k) for k in ("case_templates", "automations", "goals") if doc.get(k)}
+    other = {k: v for k, v in settings.items() if k not in ("agents", "solution")}
+    return {
+        "model": {"ref": snap.get("ontology_ref"), "fingerprint": str(snap.get("ontology_fingerprint") or "")[:16],
+                  "entities": len(doc.get("entities") or {})},
+        "rules": {"count": len(doc.get("rules") or []), "fingerprint": mark(doc.get("rules") or [])},
+        "actions": {"count": len(doc.get("actions") or {}), "fingerprint": mark(doc.get("actions") or {})},
+        "workflows": {"case_templates": sorted(doc.get("case_templates") or {}), "goals": sorted(doc.get("goals") or {}),
+                      "automations": len(doc.get("automations") or []), "fingerprint": mark(workflows)},
+        "agents": {"names": sorted(agents), "fingerprint": mark(agents),
+                   "managed": "studio" if settings.get("solution") is not None else ("files" if agents else "none")},
+        "tools": {"count": len(listed) + code, "simulated": len(simulated), "other": len(listed) - len(simulated) + code,
+                  "all_simulated": bool(listed) and len(simulated) == len(listed) and not code,
+                  "fingerprint": mark(tools)},
+        "governance": {"settings": sorted(other), "fingerprint": mark(other)},
+    }
+
+
 # -- what each agent may do, in the model's own terms -----------------------------------------------------------
 def effective_permissions(solution: Any, document: Any) -> Dict[str, List[Dict[str, Any]]]:
     """For each agent and each action of the model: whether the agent can perform it, and under which conditions.

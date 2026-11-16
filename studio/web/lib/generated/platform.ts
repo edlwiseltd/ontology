@@ -814,6 +814,7 @@ export interface components {
             [key: string]: unknown;
         };
         Published: components["schemas"]["UseCase"] & ({
+            published_agents?: string[];
             published_revision: number;
         } & {
             [key: string]: unknown;
@@ -912,6 +913,7 @@ export interface components {
             approved_at?: string | null;
             approved_by?: string | null;
             at: string;
+            components?: components["schemas"]["ReleaseComponents"];
             fingerprint: string;
             id: string;
             note: string;
@@ -923,6 +925,68 @@ export interface components {
             };
             /** @enum {string} */
             status: "proposed" | "approved" | "active" | "superseded";
+            verification?: {
+                by?: string;
+                coherent: boolean;
+                fingerprint_matches: boolean;
+                problems: string[];
+            } & {
+                [key: string]: unknown;
+            };
+        } & {
+            [key: string]: unknown;
+        };
+        ReleaseComponents: {
+            actions: {
+                count: number;
+                fingerprint: string;
+            } & {
+                [key: string]: unknown;
+            };
+            agents: {
+                fingerprint: string;
+                /** @enum {string} */
+                managed: "studio" | "files" | "none";
+                names: string[];
+            } & {
+                [key: string]: unknown;
+            };
+            governance: {
+                fingerprint: string;
+                settings: string[];
+            } & {
+                [key: string]: unknown;
+            };
+            model: {
+                entities: number;
+                fingerprint: string;
+                ref?: string | null;
+            } & {
+                [key: string]: unknown;
+            };
+            rules: {
+                count: number;
+                fingerprint: string;
+            } & {
+                [key: string]: unknown;
+            };
+            tools: {
+                all_simulated: boolean;
+                count: number;
+                fingerprint: string;
+                other: number;
+                simulated: number;
+            } & {
+                [key: string]: unknown;
+            };
+            workflows: {
+                automations?: number;
+                case_templates: string[];
+                fingerprint: string;
+                goals: string[];
+            } & {
+                [key: string]: unknown;
+            };
         } & {
             [key: string]: unknown;
         };

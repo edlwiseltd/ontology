@@ -6,6 +6,7 @@ import type { AccessReview, ActivationResult, ApiErrorBody, CheckResult, Draft, 
   IssuedToken, Me, Members, ModelDocument, MoveResult, OntologySummary, Proposal, ProposalList, Published, Readiness,
   Release, ReleaseState, Restored, Solution, SolutionDraft, Stage, Template, TenantView, TokenIssuedOrRequested,
   UseCase, ValidationResult } from "./types";
+import type { EngineMe, ObjectRow, ReviewView, RunAudit, RunRow, RunView } from "./runs";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string, public data: Record<string, unknown> = {}) {
@@ -114,6 +115,8 @@ export const api = {
     request<ValidationResult>("POST", `${path}/api/v1/model/validate`, { document }),
   // releases (REL-1a, STU-6): the platform decides who may propose, approve and activate
   releases: (w: string, uc: string) => request<ReleaseState>("GET", `${ws(w)}/${encodeURIComponent(uc)}/releases`),
+  // one release: what it contains, part by part, and the engine's verdict on its coherence
+  release: (w: string, uc: string, n: number) => request<Release>("GET", `${ws(w)}/${encodeURIComponent(uc)}/releases/${n}`),
   proposeRelease: (w: string, uc: string, note: string) =>
     request<Release>("POST", `${ws(w)}/${encodeURIComponent(uc)}/releases`, { note }),
   releaseAction: (w: string, uc: string, n: number, action: "approve" | "revoke", reason: string) =>
@@ -140,6 +143,25 @@ export const configuration = {
     request<SolutionDraft>("POST", `${path}/api/v1/solution/suggest`, proposal ? { proposal } : {}),
   save: (path: string, solution: Solution | null, expected_revision: number, note: string) =>
     request<SolutionDraft>("POST", `${path}/api/v1/solution/draft`, { solution, expected_revision, note }),
+};
+
+// Stored simulation runs: the engine's own run, review and audit routes. Starting needs `run`, deciding a review
+// needs `review` and the reviewer role, the audit chain needs `audit`; the engine refuses everything else.
+export const runs = {
+  me: (path: string) => request<EngineMe>("GET", `${path}/api/v1/me`),
+  objects: (path: string, type: string) =>
+    request<{ items: ObjectRow[] }>("GET", `${path}/api/v1/objects?type=${enc(type)}&limit=100`),
+  list: (path: string) => request<{ items: RunRow[] }>("GET", `${path}/api/v1/runs?limit=50`),
+  get: (path: string, id: string) => request<RunView>("GET", `${path}/api/v1/runs/${enc(id)}`),
+  start: (path: string, body: { case_template: string; root: string; agent?: string; goal?: string }) =>
+    request<RunView>("POST", `${path}/api/v1/runs`, body),
+  audit: (path: string, id: string) => request<RunAudit>("GET", `${path}/api/v1/runs/${enc(id)}/audit`),
+  reviews: (path: string) => request<{ items: ReviewView[] }>("GET", `${path}/api/v1/reviews?status=pending`),
+  decide: (path: string, review: string, approved: boolean, comment: string) =>
+    request<RunView>("POST", `${path}/api/v1/reviews/${enc(review)}/decision`, { approved, comment }),
+  resume: (path: string, id: string) => request<RunView>("POST", `${path}/api/v1/runs/${enc(id)}/resume`, { force: true }),
+  cancel: (path: string, id: string, reason: string) =>
+    request<RunView>("POST", `${path}/api/v1/runs/${enc(id)}/cancel`, { reason }),
 };
 
 export interface SimulatedDecision { action: string; approved: boolean; as?: string }

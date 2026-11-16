@@ -688,3 +688,31 @@ Evidence (local): `tests/test_act1_solution_configuration.py` 10 OK; full suite 
 skipped locally), **95.79 %** lines (15,313 statements, 645 missed; `solution.py` 91.5 %, `configuring.py` 91.4 %);
 ruff clean; mypy 198 (= baseline); engine class 1,714 lines, 138 methods (ratchet lowered from 1,721). Studio:
 typecheck clean, **33 unit tests**, build, **81/81 browser checks**.
+
+## 16 November 2026 — Activation sprint, increment B: the executable configuration is part of the release
+
+**Acceptance criteria (B).** The eight of the directive: a release is consistent and verifiable (1); a draft never
+alters an active release (2); references are validated before activation (3); approvals and separation of duties
+hold (4); activation is all or nothing (5); a rollback restores a coherent configuration (6); missing or
+incompatible agent or tool settings block activation (7); activation, refusal and rollback leave evidence (8).
+
+| Story | Change | Tests | Behaviour change |
+|---|---|---|---|
+| One release, two parts | Publishing a draft now writes the model **and** the agent configuration of the same revision into the use case's own folder (`ontology.json`, `solution.json`), as one step that is undone if the result does not load. The engine compiles the configuration against the model it will run with (`Platform._apply_solution`); the release snapshot therefore contains the model, the compiled agents, the tool declarations and the configuration as edited. No second deployment mechanism: the existing release registry, approval and activation are reused | R1, R2 | `publish-draft` answers `published_agents` |
+| Validation before anything is put in place | A configuration that no longer fits its model is not published (409, with the references that fail). `solution.release_problems` reads a release snapshot alone: the model loads, every agent pursues goals of that model and has tools serving its actions, a Studio configuration compiles to exactly the agents in the release, and a model with goals and actions has an agent. Activation is refused while any of these fails | R3 | **New refusal at activation** (was: such a release could be activated and nothing could run) |
+| Verifiable contents | `GET .../releases/<n>` adds `components` (model, rules, action definitions, workflows, agents, tools, governing settings: counts, names and a fingerprint each) and `verification` (snapshot matches its fingerprint; coherent or the problems). Members without release authority see these, never the snapshot | R1 | Two added fields |
+| All or nothing; rollback | Activation and rollback put the release's model and agents back together (a release with no agent removes them); on any failure both files and the engine that ran are put back. A release of an empty model can now be restored (its document has no `entities` key) | R5, R6 | Fix for empty-model releases |
+| Evidence | Activations and rollbacks were already in the signed release history; a **refused** activation of an existing release is now recorded in the workspace's signed administration log (`release_activation_refused`, with who, the reason given and the refusal). `draft_published` names the agents published | R7 | New administration event |
+| Boundaries | An operator's agents (files) are never replaced: a Studio configuration beside them stops the use case from loading (fail closed), and publishing leaves them untouched. Sample records are synthetic and seeded only into an empty store | R6, R8 | — |
+| Studio | Releases tab: **Contents** per release (the seven parts, who configured the agents, whether every tool is simulated, the engine's verdict); the publish text names the agents | 1 browser check | — |
+
+**Honest scope.** The check that tools serve the model's actions is static: tools built by code (an operator's
+registries) are known only when loaded and are not judged. Sample records are loaded when a published
+configuration is first loaded into an empty store, which can be before its release is approved; they are data,
+not configuration, and nothing runs on them until a release is active.
+Evidence (local): `tests/test_act2_release_configuration.py` 12 OK; full suite **884 OK** (2 PostgreSQL tests
+skipped locally), **95.82 %** lines (15,428 statements, 645 missed); ruff clean; mypy 198 (= baseline). Studio:
+typecheck clean, 38 unit tests, build, **82/82 browser checks**. *A first full run of this increment stopped
+making progress and was terminated (a request thread waiting for a lock; the test could not be identified from the
+output). The same code then passed a second full run under a stall watchdog, and four repeated runs of the
+activation tests; the cause is not established and the watchdog stays in use.*

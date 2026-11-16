@@ -977,3 +977,28 @@ documentation were re-run.
 |---|---|---|
 | `50517f4` | [run 103](https://github.com/edlwiseltd/ontology/actions/runs/43964624621) | Success (the starting point) |
 | `28d0356` | [run 104](https://github.com/edlwiseltd/ontology/actions/runs/43969239343) | **Success**, all five jobs: Python 3.10 and 3.13 with PostgreSQL (953 tests, none skipped, the adapter tests included; coverage gate 95 % passed), `package`, `studio` (41 unit tests, 119 browser checks), `quality` |
+
+## 16 November 2026, 22:49 UTC — First real execution attempted: stopped at the credential check (no call made)
+
+Directive: "First real Claude API execution". Verified before anything else: branch
+`claude/autology-ontology-agent-4ajjer`, tree clean, head `54b5e2e` (the directive names `28d0356`; the commit after
+it is documentation, CI run 105 green; run 104 green on `28d0356`); the authorisation `D7D10-2026-11-16-EVAL` in
+the decision register; `deploy/evaluation_setup.py`; `docs/ai-provider-activation.md`.
+
+`python deploy/evaluation_setup.py --check` → **`EVALUATION_AI_KEY`: NOT set** (exit 1). The cloud environment
+`ontology`, which this session runs in, lists no environment variable. **No deployment was generated, no policy
+was proposed, no request was sent to the provider, nothing was spent.** No other credential was looked for.
+
+Checked against the provider's published documentation instead (reading public pages; no key involved):
+
+| Prerequisite | Result |
+|---|---|
+| The model identifier | `claude-opus-5-5` is the provider's current API identifier for that model (models overview page); dateless identifiers are pinned snapshots, so the answer is expected under the same name |
+| The registered price | 4 USD per million input tokens, 20 USD output: equal to `PRICES` |
+| A discrepancy, on the safe side | The provider bills cache **reads** on this model at 5 % of the input price; `CACHE_READ_FACTOR` is 0.1 (10 %). Autology would record slightly **more** than is billed for cached input. Left as it is until real usage shows cache tokens: an estimate that errs upward does not weaken the ceiling |
+| The answer's schema | The provider allows 24 optional properties per request; the architect's contract has 18. It also applies an internal complexity limit that only a real request reveals ("Schema is too complex for compilation", a 400 that costs nothing) |
+| Not checkable without the key | That the account may use the model, and that the request is accepted. The canary settles both |
+
+Next, unchanged: the owner adds `EVALUATION_AI_KEY` to the environment `ontology` and starts a new session; that
+session runs [report §7](AUTOLOGY_CLAUDE_ACTIVATION_REPORT.md) and then exactly one canary call before anything else.
+

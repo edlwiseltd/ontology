@@ -112,3 +112,8 @@ Report: [planning/AUTOLOGY_ARCHITECT_SPRINT_REPORT.md](planning/AUTOLOGY_ARCHITE
 **No request has been sent to a provider.** Report:
 [planning/AUTOLOGY_CLAUDE_ACTIVATION_REPORT.md](planning/AUTOLOGY_CLAUDE_ACTIVATION_REPORT.md).
 
+**16 Nov, 22:49 UTC:** first real execution attempted and stopped at the credential check: `EVALUATION_AI_KEY` is
+not set in the environment `ontology`. No call was made. The model identifier and its price were confirmed against
+the provider's published documentation (implementation log). A session that has the variable starts with
+`python deploy/evaluation_setup.py --check`, then one canary call, then the five cases.
+

@@ -716,3 +716,88 @@ typecheck clean, 38 unit tests, build, **82/82 browser checks**. *A first full r
 making progress and was terminated (a request thread waiting for a lock; the test could not be identified from the
 output). The same code then passed a second full run under a stall watchdog, and four repeated runs of the
 activation tests; the cause is not established and the watchdog stays in use.*
+
+## 16 November 2026 — Activation sprint, increment C: persistent, governed simulation
+
+**Acceptance criteria (C).** The ten-step journey of the directive ends in runs stored by the engine's existing
+run lifecycle, on the active release, in a non-production stage, with autonomous and reviewed paths, cancellation,
+failure, restart, replay protection and audit evidence. No second simulation engine.
+
+| Story | Change | Tests | Behaviour change |
+|---|---|---|---|
+| A proposal can carry what a stored run needs | The proposal contract gains an optional `case_templates` section (how a run reads its case from the records); the sandbox architect, the blueprint path, `architect.apply` and Studio accept the item kind `case_template`. The service-request template gains a case template, a starting agent configuration and synthetic records | P1; `test_arc1_architect_api.py` (counts 17 → 18) | Additive contract change |
+| Reference template | `autology/blueprints/supplier_disruption.json`: Supplier, Delivery, Alternative; five actions; a review above a cost threshold, a review on every change of supplier, a prohibition for exclusive suppliers; five guided questions; one agent with five simulated tools (one fails on purpose for records that carry a synthetic outage switch); twelve synthetic records. A template, not engine code | P1–P7 | New template |
+| Cancellation | `POST /api/v1/runs/{id}/cancel` (`RunService.cancel_run`, `WorkAgent.cancel`): a run waiting for a review, a retry or a resume is stopped with a reason by someone who holds `run` and may see it. What it did stays done; `run.cancelled` and a final `run.end` join the signed chain; its pending review is closed as cancelled (not as a reviewer's decision). `cancelled` is a final status: the record is free for a new run | P6 | New route; new status `cancelled` |
+| The run says what it ran on | The run view adds `configuration` (the fingerprint of the release it started on), `agent`, `started_by`, per step `tool` and `environment`, and `simulated` (every tool used answers from a table) | P1, P3, P11 | Added fields |
+| Studio | Tab **Simulation runs** (`RunsView.tsx`, `lib/runs.ts`): start a stored run from a case template and a record; list; timeline with policy verdicts, tools and their environment; the release the run ran on; pending review with approve/refuse for an authorised reviewer only; cancel with a reason; resume; stored records; decision trace from the signed audit chain; clear states for "no run permission", "Draft", "no audit permission" | 5 unit tests; browser checks (see E, F) | New tab |
+
+What already existed and is now proven for a Studio-designed solution, unchanged: stage gates (Draft refuses
+runs, Production is refused), reviews decided once by a person who is not the requester, one open run per record,
+retries of a failing tool, runs surviving a restart, the signed audit chain.
+
+**Defect found by this increment's verification (GAP-066, pre-existing).** A full run stopped making progress
+twice. The second time the stacks were captured: an engine closed again after a failed activation tried to give
+up its writer lease on a closed store; `Store._tx` had taken the store's lock, failed to begin and never released
+it, so the next thread to close that store waited forever. It showed only now and then because thread
+identifiers are usually reused, which made the lock look re-entrant. Fixed (`store.py`: the lock is released when
+a transaction cannot start); `tests/test_gap066_store_lock.py` (2 tests, both fail without the fix).
+Evidence (local): `tests/test_act3_persistent_simulation.py` 8 OK; full suite on a snapshot of this increment
+**894 OK** (2 PostgreSQL tests skipped locally), **95.86 %** lines (15,481 statements, 641 missed); ruff clean;
+mypy 198 (= baseline).
+
+## 16 November 2026 — Activation sprint, increment D: readiness of a draft, a waiting release and what runs
+
+**Acceptance criteria (D).** Studio shows a readiness assessment for the draft, a proposed release and the active
+release; each names its target and configuration version; REL-2 and REL-3 are reused, nothing is calculated in
+the frontend; the six dimensions keep their evidence; differences between draft and active are listed; the
+weights stay provisional (D26); a score never bypasses a gate; promotion semantics are unchanged.
+
+| Story | Change | Tests | Behaviour change |
+|---|---|---|---|
+| One calculation, three subjects | `GET .../readiness?target=&of=active|draft|release:<n>` (`Platform.readiness_of`). `active` is the report as before. A draft or a release that is not active is loaded into a **throwaway engine** (the deployed files with that model and that agent configuration, in memory, with today's members: `Platform._probing`) and measured by the same `readiness.report`. It has no runs or records, so execution evidence is reported missing, never borrowed from what runs; "not released" (or "not approved", "not active") is the reason the release condition fails | D1–D3 | New query parameter; default unchanged |
+| Named subject | Every report carries `subject`: kind, label, draft revision or release number, the configuration fingerprint assessed, the model reference, how it was evaluated, and for a release whether the deployed files reproduce it | D1–D3 | Added field |
+| Differences | `compared_with` (`readiness.differences`): each condition whose standing differs from what runs (holds, does not hold, not verified, not applicable), and both scores per dimension. Computed from two reports of the same function | D2 | Added field |
+| Unchanged semantics | No stage, release or file changes; no probe is left behind; promotion to Pilot is still decided at the move by the mandatory conditions; Production is still refused; the weights are still labelled as not approved | D4, D5 | None |
+| Who may ask | What runs: any member of the use case, as before. A draft or a waiting release: people who configure or release the use case. A named release approver without a grant still sees a use case's releases only | D6; `test_rel1a_releases.py` unchanged | — |
+| Studio | Onboarding step 9: choose what to assess; the subject line; the six dimensions; blockers; the list of differences | browser checks | — |
+
+Evidence (local): `tests/test_act4_readiness_subjects.py` 5 OK; `test_rel2_rel3_readiness.py` unchanged, 10 OK.
+
+## 16 November 2026 — Activation sprint, increments E and F: one flow in Studio, and the reference demonstration
+
+| Story | Change | Tests |
+|---|---|---|
+| One flow | The **Onboarding** tab is nine steps: Describe → Questions → Review → Confirm → Agents & tools → Dry run → Release → Stored runs → Readiness. Steps 5, 7, 8 embed the same components as the tabs (`AgentsView`, `ReleasesView` with `StageOverview`, `RunsView`): nothing was built for one scenario | browser checks |
+| A second person in Studio | A release approver has, by design, no access to a use case she holds no grant on, beyond its releases. Studio now gives her that and no more: **Review releases** opens a use case's releases by its identifier; the platform tells whoever may publish the saved draft's revision number and author (never its content), and tells each member whether they hold release authority. No visibility was widened: the use case's outline, its readiness and its engine stay 404 for her | `test_act2_release_configuration.py` (R4, R8 extended); browser checks |
+| Reference demonstration | [docs/solution-demo.md](../docs/solution-demo.md): supplier disruption, four people, five sample deliveries covering an autonomous action, an approved action, a policy refusal, a cancellation and an injected failure, then readiness of what runs and of a changed draft | section 6 of `e2e/run.mjs`: 29 checks |
+| Layout | The tab bar wraps on narrow screens (it has seven tabs now); the runs and agents panels have no horizontal page scroll on a phone | browser checks |
+
+**Honest scope.** The architect is the sandbox test double: two templates, nothing outside their vocabulary. Every
+tool is simulated. Grants for the demonstration are requested and approved through the Access screen in the
+written walkthrough; the scripted version makes those two calls through the API because the Access screen is
+checked separately. No timing with real users was measured (the scripted demonstration takes about 5 seconds).
+Section 10 of the directive: [per-workspace provider configuration and spending control](AUTOLOGY_AI_PROVIDER_WORKSPACE_CONFIGURATION_DESIGN.md)
+is a design only; nothing was implemented and no provider was contacted.
+
+### Verification of increments C to F together, and what was found on the way
+
+| Run | Tree | Result |
+|---|---|---|
+| Full suite, increment C (with the GAP-066 fix), on a snapshot copy | C | 894 OK, 95.86 % |
+| Full suite, C + D + E + F | everything but the last correction | 899 OK, **1 error**: with a use case made unavailable by a failed activation, the new `draft` field of the release list read a closed store. Found by the existing test `test_if_nothing_loads_the_use_case_serves_nothing_until_reloaded`; corrected (an unavailable use case offers no draft); the activation tests then passed three times in a row |
+| **Full suite, final tree** | C + D + E + F | **900 OK** (2 PostgreSQL tests skipped locally), **95.87 %** lines (15,560 statements, 642 missed; `solution.py` 93.0 %, `configuring.py` 98.8 %, `readiness.py` 99.4 %, `runs.py` 94.6 %, `platform.py` 94.8 %) |
+
+ruff clean; mypy 198 (= baseline, not raised); engine class 1,714 lines and 138 methods (ratchet not raised; the
+new behaviour lives in `configuring.py`, `solution.py`, `runs.py`, `platform.py`). Studio: typecheck clean,
+**38 unit tests**, build, **111/111 browser checks** (29 are the reference demonstration). The local full runs
+were made on snapshot copies of the tree under a stall watchdog, so that work could continue; the figures above
+are those runs, not estimates. C to F are committed together after the store-lock fix: they share the API
+contract files, and each commit is kept consistent.
+
+### CI evidence for the activation sprint
+
+| Increment | Commit | CI run | Result |
+|---|---|---|---|
+| A — agents and simulated tools from Studio | `2de9666` | [96](https://github.com/edlwiseltd/ontology/actions/runs/43782756110) | success |
+| B — configuration inside the release | `f20e06d` | [97](https://github.com/edlwiseltd/ontology/actions/runs/43785482615) | success |
+| GAP-066 fix; C, D, E, F | see the sprint report | see the sprint report | reported there once the run has finished |

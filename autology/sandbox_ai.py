@@ -49,7 +49,8 @@ def _request_data(prompt: str) -> Dict[str, Any]:
 
 def answer(data: Mapping[str, Any]) -> Dict[str, Any]:
     """The proposal for one architect request (see the module docstring)."""
-    empty: Dict[str, Any] = {key: [] for key in ("entities", "relationships", "actions", "rules", "goals", "questions",
+    empty: Dict[str, Any] = {key: [] for key in ("entities", "relationships", "actions", "rules", "goals",
+                                                 "case_templates", "questions",
                                                  "assumptions", "unknowns", "roles", "agents", "integrations")}
     template = _matching(data["brief"])
     if template is None:
@@ -64,7 +65,8 @@ def answer(data: Mapping[str, Any]) -> Dict[str, Any]:
     have = data.get("current_model") or {}
     known = {"entity": set(have.get("entities") or {}), "action": set(have.get("actions") or []),
              "rule": set(have.get("rules") or []), "goal": set(have.get("goals") or []),
-             "relationship": set(have.get("relationships") or [])}
+             "relationship": set(have.get("relationships") or []),
+             "case_template": set(have.get("case_templates") or [])}
     out = dict(empty)
     out.update({key: [] for key in empty})
     for item in template["items"]:
@@ -95,6 +97,12 @@ def answer(data: Mapping[str, Any]) -> Dict[str, Any]:
         elif kind == "goal":
             out["goals"].append({"name": name, "description": value.get("description", ""), "target": value["target"],
                                  **evidence})
+        elif kind == "case_template":
+            out["case_templates"].append({"name": name, "description": value.get("description", ""),
+                                          "root": value["root"],
+                                          "entities": [{"entity": entity, "path": path}
+                                                       for entity, path in (value.get("entities") or {}).items()],
+                                          **evidence})
     out["questions"] = [{"id": p, "question": specs[p]["question"], "why": specs[p]["why"]} for p in still_open]
     out["assumptions"] = [{"statement": text, "sources": ["brief"], "confidence": 0.6}
                           for text in template.get("assumptions") or []]

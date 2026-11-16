@@ -181,6 +181,7 @@ def propose(brief: str, document: Optional[Dict[str, Any]] = None) -> Dict[str, 
                  if isinstance(r, dict)}
     have_rules = {r.get("id") for r in document.get("rules") or [] if isinstance(r, dict)}
     have_goals = set(document.get("goals") or {})
+    have_templates = set(document.get("case_templates") or {})
     best, matched = match(brief)
     if best is None:
         return {"generator": "blueprint", "ai": False, "items": [],
@@ -195,7 +196,8 @@ def propose(brief: str, document: Optional[Dict[str, Any]] = None) -> Dict[str, 
                    or (item["kind"] == "action" and item["name"] in have_actions)
                    or (item["kind"] == "relationship" and (v["from"], v["to"], v["type"]) in have_rels)
                    or (item["kind"] == "rule" and v.get("id") in have_rules)
-                   or (item["kind"] == "goal" and item["name"] in have_goals))
+                   or (item["kind"] == "goal" and item["name"] in have_goals)
+                   or (item["kind"] == "case_template" and item["name"] in have_templates))
         if already:
             continue
         items.append({"id": f"{best['id']}:{key[0]}:{key[1]}", "kind": item["kind"], "name": item.get("name"),

@@ -229,6 +229,7 @@ provider when `oidc` is configured: see [`integrations.md`](integrations.md)), e
 | `GET /api/runs/{id}` | read | Steps, status, escalation, the caller's view of the state, audit verification |
 | `GET /api/runs/{id}/audit` | audit | Raw audit entries |
 | `POST /api/runs/{id}/resume` | run | Resume a deferred or paused run (`{"force": true}` skips the retry window) |
+| `POST /api/runs/{id}/cancel` | run | `{"reason"}`: stop a run that is waiting for a review, a retry or a resume. What it did stays done; the cancellation joins its audit chain and its pending review is closed. A run that is acting, or whose external call is unresolved, is refused (409) |
 | `GET /api/reviews?status=pending` | review | Reviews the caller may decide |
 | `GET /api/reviews/{id}` | read | One review, for admins, its reviewers and the run's starter only |
 | `POST /api/reviews/{id}/decision` | review | `{"approved": true/false, "comment": "..."}`. Resumes the run, and can be decided once only |

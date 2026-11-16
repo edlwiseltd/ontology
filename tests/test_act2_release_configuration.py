@@ -342,6 +342,26 @@ class BoundaryTests(ReleaseBase):
         self.assertEqual(self.c.call("GET", f"{ENGINE}/solution/draft", "nw-nadia")[0], 404)
         self.assertEqual(self.c.call("POST", f"{UC}/releases/{number}/activate", "nw-nadia", {"reason": "x"})[0], 404)
 
+    def test_a_release_approver_works_from_the_identifier_and_sees_nothing_else(self):  # R4, R8
+        me = {token: self.c.call("GET", "/platform/v1/me", token)[1].get("release_approver")
+              for token in ("acme-ada", "acme-maria", "acme-hana")}
+        self.assertEqual(me, {"acme-ada": True, "acme-maria": True, "acme-hana": False})
+        self.assertIsNone(self.call("GET", f"{UC}/releases", "acme-maria")[1]["draft"])  # nothing saved yet
+        revision = self.draft(proposed_model(), good())
+        status, state = self.call("GET", f"{UC}/releases", "acme-maria")  # maria has no grant on this use case
+        self.assertEqual((status, state["draft"], state["may_approve"], state["may_propose"]),
+                         (200, {"revision": revision, "author": "ada"}, True, False))
+        self.assertNotIn("document", str(state["draft"]))  # the revision to name, never the draft itself
+        for path in (UC, f"{UC}/readiness?target=pilot", f"{ENGINE}/solution/draft", f"{ENGINE}/model/draft"):
+            self.assertEqual(self.call("GET", path, "acme-maria")[0], 404, path)  # releases only, as before
+        listed = [u["id"] for u in self.call("GET", f"{WS}/use-cases", "acme-maria")[1]["items"]]
+        self.assertNotIn("desk", listed)
+        self.assertEqual(self.publish(revision)[0], 200)  # which is all she needs to publish it
+        # a member with no release authority gets no draft information, and no access where she has no grant
+        self.assertNotIn("draft", self.call("GET", f"{WS}/use-cases/claims/releases", "acme-hana")[1])
+        self.assertEqual(self.call("GET", f"{UC}/releases", "acme-hana")[0], 404)
+        self.assertEqual(self.c.call("GET", f"{UC}/releases", "nw-nadia")[0], 404)
+
 
 if __name__ == "__main__":
     import unittest

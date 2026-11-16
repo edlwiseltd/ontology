@@ -1,5 +1,9 @@
 # Rapid onboarding demonstration (sandbox only)
 
+> **Since the activation sprint (16 November 2026)** the Onboarding tab continues past the draft: agents and
+> simulated tools, release, stored simulation runs and readiness of the draft. The complete journey, with a
+> second template, is in [solution-demo.md](solution-demo.md). This page describes the first six steps.
+
 One vertical slice of the onboarding experience, on synthetic data:
 
 **business description → guided questions → solution proposal → visual review → engine validation → simulation →
@@ -36,7 +40,7 @@ browser checks: `cd studio/web && npm run build && e2e/run.sh` (17 of its checks
 3. Open it and choose the **Onboarding** tab.
 4. **Describe**: keep the sample text or write your own (it must speak of requests, approval, a manager, a team or
    fulfilment for the template to apply; anything else gets a question back, not a guess). **Propose a solution**.
-5. **Questions**: four questions come back (approval threshold, approver role, handling role, fulfilment system).
+5. **Questions**: four questions come back for this template (approval threshold, approver role, handling role, fulfilment system).
    Answer some or all, then **Update the proposal with my answers**: a new revision of the same proposal is
    stored; the earlier one is kept.
 6. **Review**: the graph shows the proposed entities and relationships with a dashed outline and the word
@@ -46,10 +50,10 @@ browser checks: `cd studio/web && npm run build && e2e/run.sh` (17 of its checks
    what you do not want. **Validate my selection with the engine**.
 7. **Confirm**: the engine's strict loader answers. **Save … as a draft** stores the accepted items as a draft
    revision and records your review against the proposal. The draft is not active.
-8. **Simulate**: **Run the simulation**. The engine's planner and rules run one synthetic case of the draft with
+8. **Dry run** (step 6 of the screen; *Simulate the draft* leads there): **Run the simulation**. The engine's planner and rules run one synthetic case of the draft with
    stub tools. It stops where the model asks for a person; **Approve as … (simulated)** continues it. The audit
    trace of the simulation is shown. Nothing is stored and nothing outside the engine is called.
-9. **Readiness**: **Assess readiness for a pilot** shows the score per dimension with its calculation, the missing
+9. **Readiness** (step 9 of the screen): **Assess readiness for a pilot** shows the score per dimension with its calculation, the missing
    evidence and the blockers. For a new use case the blockers are the honest ones: no goal in what runs, no
    approved release, no stored run.
 
@@ -62,9 +66,9 @@ browser checks: `cd studio/web && npm run build && e2e/run.sh` (17 of its checks
 | Visual review: entities, relationships, workflow, rules, permissions; proposed against confirmed | Works |
 | Engine validation of the selection; save as a draft; review recorded with provenance | Works |
 | Simulate the draft with a simulated approval; audit trace | Works; a dry run with stub tools, not a stored run |
-| Readiness report with blockers | Works; it describes what runs now, not the draft |
-| Publish the draft, approve and activate a release | Works in the **Releases** tab; it needs a second person, by design, and is not part of this screen |
-| Run the published model as a stored simulation run | Not available for a model proposed this way yet: the use case has no configured agent or tools. An administrator adds them to the use case's configuration files (manual) |
+| Readiness report with blockers | Works for what runs now, for the saved draft and for a release that is not active; each report names its subject |
+| Publish the draft, approve and activate a release | Works in step 7 of the same screen (and in the **Releases** tab); it needs a second person, by design |
+| Run the published model as a stored simulation run | Works: agents and simulated tools are configured in step 5, released with the model, and runs are started in step 8 by a member who holds `run` |
 | A description outside the template's vocabulary | Gets a clarification question only. A language model is needed for more (blocked on D7/D10) |
 | Documents as input, industry packs, integrations to real systems | Not available |
 

@@ -374,6 +374,32 @@ def report(service: Any, target: str = "pilot", context: Optional[Mapping[str, A
             "production": {"authorised": False, "reason": REFUSED_STAGES["production"]}}
 
 
+def _standing(condition: Mapping[str, Any]) -> str:
+    if not condition["applicable"]:
+        return "not applicable"
+    if not condition["measured"]:
+        return "not verified"
+    return "holds" if condition["passed"] else "does not hold"
+
+
+def differences(active: Mapping[str, Any], other: Mapping[str, Any]) -> Dict[str, Any]:
+    """What differs between two reports of this module (what runs, and another configuration of the same use
+    case): each condition whose standing is not the same, and each dimension's two scores. Nothing is
+    recalculated: both reports were computed by :func:`report`."""
+    def flat(rep: Mapping[str, Any]) -> Dict[str, Dict[str, Any]]:
+        return {c["id"]: c for d in rep["dimensions"] for c in d["conditions"]}
+
+    now, then = flat(active), flat(other)
+    changed = [{"id": key, "dimension": c["dimension"], "title": c["title"],
+                "active": _standing(now[key]) if key in now else "not evaluated", "subject": _standing(c),
+                "detail": c["detail"], "blocking": c["blocking"]}
+               for key, c in then.items() if key not in now or _standing(now[key]) != _standing(c)]
+    scores = {d["id"]: d["score"] for d in active["dimensions"]}
+    return {"differences": changed,
+            "dimensions": [{"id": d["id"], "title": d["title"], "active": scores.get(d["id"]), "subject": d["score"]}
+                           for d in other["dimensions"]]}
+
+
 def gate_checks(service: Any, target: str, context: Optional[Mapping[str, Any]] = None,
                 skip: Sequence[str] = ()) -> List[Check]:
     """The mandatory conditions of ``target`` as stage checks, for the promotion itself (those in ``skip`` are

@@ -327,6 +327,32 @@ class RunService:
         e._changed(changed)
         return e._summary(result, run_id, user, receipt=True)
 
+    def cancel_run(self, user: User, run_id: str, body: Dict[str, Any]) -> Dict[str, Any]:
+        """Stop a run that is waiting for a review, a retry or a resume. Stopping is always allowed to someone who
+        may run and may see the run, whatever the stage; a run that is acting, or whose external call is unresolved,
+        is not cut. What the run did stays done; the cancellation and its reason join the audit chain, and the
+        review it was waiting for is closed."""
+        from .agent import CANCELLABLE
+
+        e = self.engine
+        e.require(user, "run")
+        reason = str((body or {}).get("reason") or "").strip()
+        if not 1 <= len(reason) <= 500:
+            raise ApiError(400, "give a reason (1 to 500 characters)")
+        cfg = e._agent_for(run_id)
+        if "admin" not in user.permissions and not e.views.can_see_run(user, e.store.load_run(run_id)):
+            raise ApiError(404, f"no run {run_id!r}")
+        with cfg.lock:
+            stored = e.store.load_run(run_id)
+            if stored.status not in CANCELLABLE:
+                raise ApiError(409, f"run {run_id} is {stored.status}: only a run that is waiting "
+                                    f"({', '.join(CANCELLABLE)}) can be cancelled")
+            result = cfg.agent.cancel(stored, user.name, reason)
+            _, changed = e._store_result(result, cfg.name, run_id)
+            e.store.close_reviews(run_id, user.name, reason)
+        e._changed(changed)
+        return e._summary(result, run_id, user, receipt=True)
+
     def recover(self) -> List[Dict[str, Any]]:
         """Continue runs left behind by a crash or a failed save (at start-up and on every tick).
 

@@ -15,7 +15,7 @@ describe("run helpers", () => {
   });
 
   it("says which tool acted and that it was simulated", () => {
-    expect(stepLine({ index: 0, action: "fulfil", verdict: "allow", outcome: "done", executed_by: "agent.fulfil",
+    expect(stepLine({ index: 0, action: "fulfil", verdict: "allow", outcome: "done", executed_by: "agent", tool: "agent.fulfil",
                       reviewer: "maria", environment: "simulated" })).toBe("allow → done · agent.fulfil (simulated) · decided by maria");
     expect(stepLine({ index: 1, action: "x", verdict: "deny", outcome: null, executed_by: null, reviewer: null })).toBe("deny · no tool");
   });
@@ -37,18 +37,27 @@ describe("run helpers", () => {
     expect(mayDecide(null, review, { started_by: "hana" })).toBe(false);
   });
 
-  it("turns the audit chain into a readable decision trace, in order", () => {
+  it("turns the audit chain into a readable decision trace, in order, leaving the plumbing in the chain", () => {
     const rows = trace([
-      { seq: 0, timestamp: "t0", event: "run.start", data: { goal: "closed" }, hash: "h0" },
-      { seq: 1, timestamp: "t1", event: "governance.decision", data: { action: "approve", verdict: "review", reasons: ["R1"] }, hash: "h1" },
-      { seq: 2, timestamp: "t2", event: "review.decision", data: { action: "approve", approved: false, reviewer: "maria" }, hash: "h2" },
-      { seq: 3, timestamp: "t3", event: "run.cancelled", data: { by: "hana", reason: "duplicate" }, hash: "h3" },
-      { seq: 4, timestamp: "t4", event: "run.end", data: { status: "cancelled" }, hash: "h4" },
+      { seq: 0, timestamp: "t0", event: "run.start", data: { acting_as: "hana", agent: "a", goal: "g", ontology: "m@1" }, hash: "h0" },
+      { seq: 1, timestamp: "t1", event: "plan", data: { plan: ["assess", "expedite"] }, hash: "h1" },
+      { seq: 2, timestamp: "t2", event: "decision", data: { action: "expedite", verdict: "review", rules: ["R1"] }, hash: "h2" },
+      { seq: 3, timestamp: "t3", event: "step.intent", data: { key: "abc" }, hash: "h3" },
+      { seq: 4, timestamp: "t4", event: "review.requested", data: { action: "expedite", roles: ["manager"], reasons: ["costly"] }, hash: "h4" },
+      { seq: 5, timestamp: "t5", event: "review.decision", data: { action: "expedite", approved: false, reviewer: "maria", comment: "no" }, hash: "h5" },
+      { seq: 6, timestamp: "t6", event: "tool.error", data: { action: "compare", tool: "a.compare", attempt: 2, error: "down" }, hash: "h6" },
+      { seq: 7, timestamp: "t7", event: "step", data: { action: "assess", tool: "a.assess", outcome: "done", message: "ok (simulated)" }, hash: "h7" },
+      { seq: 8, timestamp: "t8", event: "run.cancelled", data: { by: "hana", reason: "duplicate" }, hash: "h8" },
+      { seq: 9, timestamp: "t9", event: "run.end", data: { status: "cancelled", escalation: { reason: "cancelled by hana: duplicate" } }, hash: "h9" },
     ]);
-    expect(rows.map((r) => r.seq)).toEqual([0, 1, 2, 3, 4]);
-    expect(rows[1].detail).toBe('approve: review (["R1"])');
-    expect(rows[2].detail).toBe("approve: declined by maria");
-    expect(rows[3].detail).toBe("by hana: duplicate");
-    expect(rows[4].detail).toBe("status cancelled");
+    expect(rows.map((r) => r.seq)).toEqual([0, 1, 2, 4, 5, 6, 7, 8, 9]);
+    expect(rows.map((r) => r.label)).toEqual(["run started", "plan", "policy check", "review requested", "review decided", "tool failed",
+                                              "action executed", "run cancelled", "run stopped"]);
+    expect(rows[1].detail).toBe("assess → expedite");
+    expect(rows[2].detail).toBe("expedite: review (rules R1)");
+    expect(rows[4].detail).toBe("expedite: refused by maria — no");
+    expect(rows[5].detail).toBe("compare via a.compare, attempt 2: down");
+    expect(rows[6].detail).toBe("assess via a.assess → done: ok (simulated)");
+    expect(rows[8].detail).toBe("status cancelled — cancelled by hana: duplicate");
   });
 });

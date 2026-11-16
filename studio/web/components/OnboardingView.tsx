@@ -1,9 +1,10 @@
 "use client";
 
-// Guided onboarding: business description → questions → proposal → visual review → engine validation →
-// simulation → readiness. Studio only asks and shows. The engine validates every proposed item, stores each
-// proposal revision, decides what a simulation may do and computes readiness; nothing here is applied to what
-// runs, and no language model is involved until the owner approves a provider (the sandbox architect answers).
+// Guided onboarding, one flow: business description → questions → visual review → engine validation → agents and
+// simulated tools → dry run → release → stored simulation runs → readiness and audit. Studio only asks and shows.
+// The engine validates every proposed item and every configuration, stores each revision, decides what runs and
+// who may decide, and computes readiness; the platform governs releases. No language model is involved until the
+// owner approves a provider (the sandbox architect answers), and every tool is simulated.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Background, Controls, ReactFlow, type Edge, type Node } from "@xyflow/react";
@@ -13,12 +14,19 @@ import { ontologyToGraph } from "@/lib/graph";
 import { documentToSummary } from "@/lib/model";
 import { accessLines, countByKind, generatorLabel, itemLabel, preview, SAMPLE_BRIEF, standing, withProvenance,
          workflow } from "@/lib/onboarding";
-import type { ArchitectStatus, Draft, DraftSimulation, ModelDocument, Proposal, Readiness, UseCase,
+import type { ArchitectStatus, Draft, DraftSimulation, ModelDocument, Proposal, Readiness, ReleaseState, UseCase,
               Validation } from "@/lib/types";
+import AgentsView from "./AgentsView";
+import ReleasesView from "./ReleasesView";
+import RunsView from "./RunsView";
+import StageOverview from "./StageOverview";
 
-const STEPS = ["Describe", "Questions", "Review", "Confirm", "Simulate", "Readiness"] as const;
+const STEPS = ["Describe", "Questions", "Review", "Confirm", "Agents & tools", "Dry run", "Release", "Stored runs",
+               "Readiness"] as const;
+const [AGENTS, DRY_RUN, RELEASE, RUNS, READINESS] = [4, 5, 6, 7, 8];
 
-export default function OnboardingView({ workspace, useCase, admin }: { workspace: string; useCase: UseCase; admin: boolean }) {
+export default function OnboardingView({ workspace, useCase, admin, member, onChanged }: {
+  workspace: string; useCase: UseCase; admin: boolean; member: string; onChanged: () => void }) {
   const path = useCase.path;
   const [step, setStep] = useState(0);
   const [status, setStatus] = useState<ArchitectStatus | null>(null);
@@ -32,6 +40,9 @@ export default function OnboardingView({ workspace, useCase, admin }: { workspac
   const [decisions, setDecisions] = useState<SimulatedDecision[]>([]);
   const [simulation, setSimulation] = useState<DraftSimulation | null>(null);
   const [readiness, setReadiness] = useState<Readiness | null>(null);
+  const [subject, setSubject] = useState("active");
+  const [releases, setReleases] = useState<ReleaseState | null>(null);
+  const [stored, setStored] = useState<string | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -45,7 +56,7 @@ export default function OnboardingView({ workspace, useCase, admin }: { workspac
   useEffect(() => {
     void run(async () => {
       const [listed, d] = await Promise.all([architect.list(path), api.draft(path)]);
-      setStatus(listed.architect); setDraft(d);
+      setStatus(listed.architect); setDraft(d); setStored(listed.items[0]?.id);
     });
   }, [path, run]);
 
@@ -102,7 +113,14 @@ export default function OnboardingView({ workspace, useCase, admin }: { workspac
     setSimulation(await architect.simulate(path, confirmed, next));
   });
 
-  const assess = () => run(async () => { setReadiness(await api.readiness(workspace, useCase.id, "pilot")); });
+  const assess = () => run(async () => { setReadiness(await api.readiness(workspace, useCase.id, "pilot", subject)); });
+
+  // what readiness can be assessed for: the saved draft, a release waiting to be activated, what runs now
+  useEffect(() => {
+    if (step !== READINESS) return;
+    void run(async () => { const [rel, d] = await Promise.all([api.releases(workspace, useCase.id), api.draft(path)]); setReleases(rel); setDraft(d); });
+  }, [step, run, workspace, useCase.id, path]);
+  const waiting = (releases?.items ?? []).filter((r) => r.status === "proposed" || r.status === "approved").slice(-1)[0];
 
   const counts = countByKind(proposal?.items ?? []);
   const hasModel = Object.keys(confirmed.entities ?? {}).length > 0;
@@ -269,15 +287,31 @@ export default function OnboardingView({ workspace, useCase, admin }: { workspac
               <span className="muted small">A draft is not active. It becomes what runs only through a release that another person approves.</span>
             </div>
           )}
-          {saved && <button type="button" onClick={() => setStep(4)}>Simulate the draft</button>}
+          {saved && <div className="row">
+            <button type="button" className="primary" onClick={() => setStep(AGENTS)}>Configure agents and tools</button>
+            <button type="button" onClick={() => setStep(DRY_RUN)}>Simulate the draft</button></div>}
         </section>
       )}
 
-      {step === 4 && (
+      {step === AGENTS && (
+        <section aria-labelledby="ob-agents">
+          <h3 id="ob-agents">5. Agents and simulated tools</h3>
+          <p className="muted small">Who does the work the model describes, and with which simulated tools. Start from the suggestion,
+            adjust it, and save it into the draft: the engine validates every change.</p>
+          <AgentsView key={useCase.id} path={path} admin={admin} proposal={proposal?.id ?? stored}
+                      onSaved={() => { void api.draft(path).then(setDraft); }} />
+          <div className="row">
+            <button type="button" onClick={() => setStep(DRY_RUN)}>Dry run of the draft</button>
+            <button type="button" className="primary" onClick={() => setStep(RELEASE)}>Go to release</button>
+          </div>
+        </section>
+      )}
+
+      {step === DRY_RUN && (
         <section aria-labelledby="ob-simulate">
-          <h3 id="ob-simulate">5. Simulate the draft</h3>
+          <h3 id="ob-simulate">6. Dry run of the draft</h3>
           <p className="muted small">The engine's planner and rules run one synthetic case of the draft with stub tools.
-            Nothing is stored and no other system is called.</p>
+            Nothing is stored and no other system is called. A stored run comes after the release.</p>
           <div className="row">
             <button type="button" className="primary" disabled={busy || !admin || !hasModel} onClick={() => simulate([])}>
               {simulation ? "Simulate again from the start" : "Run the simulation"}</button>
@@ -326,15 +360,46 @@ export default function OnboardingView({ workspace, useCase, admin }: { workspac
         </section>
       )}
 
-      {step === 5 && (
+      {step === RELEASE && (
+        <section aria-labelledby="ob-release">
+          <h3 id="ob-release">7. Release and activation</h3>
+          <p className="muted small">A draft becomes what runs in four governed steps, never by one person alone: another person publishes
+            the draft; a release of it is proposed; another person approves it; an administrator activates it. Then the use case is
+            moved to Simulation.</p>
+          <ReleasesView workspace={workspace} useCase={useCase} member={member} admin={admin} onChanged={onChanged} />
+          <StageOverview workspace={workspace} useCase={useCase} admin={admin} onChanged={onChanged} />
+          <div className="row"><button type="button" className="primary" onClick={() => setStep(RUNS)}>Go to stored runs</button></div>
+        </section>
+      )}
+
+      {step === RUNS && (
+        <section aria-labelledby="ob-runs">
+          <h3 id="ob-runs">8. Stored simulation runs</h3>
+          <RunsView key={`${useCase.id}-${useCase.effective_stage}`} workspace={workspace} useCase={useCase} onChanged={onChanged} />
+          <div className="row"><button type="button" onClick={() => setStep(READINESS)}>Go to readiness</button></div>
+        </section>
+      )}
+
+      {step === READINESS && (
         <section aria-labelledby="ob-readiness">
-          <h3 id="ob-readiness">6. Readiness</h3>
-          <p className="muted small">Readiness describes what runs now ({useCase.ontology}), not your draft. A draft becomes
-            what runs through Releases, approved by another person; then it is simulated as a stored run.</p>
-          <div className="row"><button type="button" className="primary" disabled={busy} onClick={assess}>
-            {readiness ? "Assess again" : "Assess readiness for a pilot"}</button></div>
+          <h3 id="ob-readiness">9. Readiness and audit</h3>
+          <p className="muted small">Readiness is computed by the engine for one configuration at a time: what runs now, the saved draft,
+            or a release waiting to be activated. A draft or a waiting release has no runs of its own, so its execution evidence is missing.</p>
+          <div className="row">
+            <label htmlFor="rd-subject">Assess</label>
+            <select id="rd-subject" value={subject} onChange={(e) => { setSubject(e.target.value); setReadiness(null); }}>
+              <option value="active">what runs now{releases?.active ? ` (release ${releases.active.number})` : ""}</option>
+              {(draft?.revision ?? 0) > 0 && <option value="draft">the saved draft (revision {draft!.revision})</option>}
+              {waiting && <option value={`release:${waiting.number}`}>release {waiting.number} ({waiting.status}, not active)</option>}
+            </select>
+            <button type="button" className="primary" disabled={busy} onClick={assess}>
+              {readiness ? "Assess again" : "Assess readiness for a pilot"}</button>
+          </div>
           {readiness && (
             <div data-testid="readiness">
+              {readiness.subject && <p className="small" data-testid="readiness-subject">
+                <span className="badge">{readiness.subject.label}</span> configuration <code>{readiness.subject.configuration.slice(0, 12)}</code>
+                {" "}· model {readiness.subject.model} · <span className="muted">{readiness.subject.evaluated}</span></p>}
               <p><strong data-testid="readiness-score">{readiness.score.overall ?? "—"}</strong> / 100{" "}
                 <span className={`pill ${readiness.promotion.allowed ? "okpill" : "badpill"}`} data-testid="promotion">
                   {readiness.promotion.allowed ? "promotion allowed" : "promotion blocked"}</span>{" "}
@@ -352,6 +417,18 @@ export default function OnboardingView({ workspace, useCase, admin }: { workspac
                   <div className="muted">{b.reason}. Next: {b.action}</div></li>)}
                 {!readiness.gates.blockers.length && <li className="ok">No mandatory condition is failing.</li>}
               </ul>
+              {readiness.compared_with && (
+                <>
+                  <h4>Differences against what runs now ({readiness.compared_with.differences.length})</h4>
+                  <p className="muted small">Running: score {readiness.compared_with.score ?? "—"}, configuration{" "}
+                    <code>{readiness.compared_with.configuration.slice(0, 12)}</code>.</p>
+                  <ul className="small" data-testid="readiness-differences">
+                    {readiness.compared_with.differences.map((d) => <li key={d.id}><strong>{d.title}</strong>: {d.active} now → {d.subject} here
+                      <div className="muted">{d.detail}</div></li>)}
+                    {!readiness.compared_with.differences.length && <li className="muted">No condition differs.</li>}
+                  </ul>
+                </>
+              )}
               <p className="notice small" data-testid="production">Production: not authorised. {readiness.production.reason}.</p>
             </div>
           )}

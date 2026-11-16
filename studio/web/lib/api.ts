@@ -6,6 +6,7 @@ import type { AccessReview, ActivationResult, ApiErrorBody, CheckResult, Draft, 
   IssuedToken, Me, Members, ModelDocument, MoveResult, OntologySummary, Proposal, ProposalList, Published, Readiness,
   Release, ReleaseState, Restored, Solution, SolutionDraft, Stage, Template, TenantView, TokenIssuedOrRequested,
   UseCase, ValidationResult } from "./types";
+// (run shapes are hand-typed in lib/runs.ts: the engine's run routes answer open objects)
 import type { EngineMe, ObjectRow, ReviewView, RunAudit, RunRow, RunView } from "./runs";
 
 export class ApiError extends Error {
@@ -129,8 +130,9 @@ export const api = {
     request<Published>("POST", `${ws(w)}/${encodeURIComponent(uc)}/publish-draft`, { revision, reason }),
   propose: (path: string, brief: string, document: ModelDocument) =>
     request<Proposal>("POST", `${path}/api/v1/architect/proposals`, { brief, document }),
-  readiness: (w: string, uc: string, target: "pilot" | "production") =>
-    request<Readiness>("GET", `${ws(w)}/${encodeURIComponent(uc)}/readiness?target=${target}`),
+  // readiness of one configuration: what runs ("active"), the saved draft ("draft") or a release ("release:<n>")
+  readiness: (w: string, uc: string, target: "pilot" | "production", of: string = "active") =>
+    request<Readiness>("GET", `${ws(w)}/${encodeURIComponent(uc)}/readiness?target=${target}&of=${enc(of)}`),
 };
 
 // The executable configuration of a draft (agents, simulated tools, sample records). The engine validates,

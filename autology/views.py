@@ -101,8 +101,18 @@ class ViewPolicy:
             return None
         refs = self.restricted_refs(user, result.state)
         esc = result.escalation
+        agent = next((r["agent"] for r in self.svc.store.list_runs(limit=10 ** 9) if r["run_id"] == run_id), None)
+        cfg = self.svc.agents.get(agent)
+        environments = {t.name: t.environment for t in cfg.agent.tools} if cfg is not None else {}
+        used = [environments.get(s.tool) for s in result.steps if s.tool]
         out = {"run_id": run_id, "case_id": result.case_id, "goal": result.goal, "status": result.status,
+               "agent": agent, "started_by": self.svc.store.run_starter(run_id),
+               # the configuration the run started on: the fingerprint of the release that was active then
+               "configuration": getattr(result.run, "configuration", "") if result.run is not None else "",
+               # every tool the run used answers from a table inside Autology: no other system was contacted
+               "simulated": bool(used) and all(env == "simulated" for env in used),
                "steps": [{"index": s.index, "action": s.action, "verdict": s.verdict, "outcome": s.outcome,
+                          "tool": s.tool, "environment": environments.get(s.tool) if s.tool else None,
                           "executed_by": s.executed_by, "reviewer": s.reviewer,
                           "message": REDACTED if self._touches(s.action, refs) else self.scrub(s.message, refs),
                           "explanation": self.scrub(s.explanation, refs)} for s in result.steps],

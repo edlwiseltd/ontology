@@ -76,6 +76,12 @@
 |---|---|---|
 | A — agents and simulated tools from Studio | Done (drafts only; releases carry them from B) | `tests/test_act1_solution_configuration.py` (10); 33 Studio unit tests; 81/81 browser checks; see the implementation log |
 | B — executable configuration inside the release | Done | `tests/test_act2_release_configuration.py` (12); 884 tests, 95.82 %; 82/82 browser checks |
-| C — persistent governed simulation from Studio | In progress | — |
-| D — readiness for draft, proposed and active release | Pending | — |
-| E, F — end-to-end journey and reference demonstration | Pending | — |
+| C — persistent governed simulation from Studio | Done | `tests/test_act3_persistent_simulation.py` (8); run cancellation; template `supplier_disruption.json`; GAP-066 found and fixed (`tests/test_gap066_store_lock.py`) |
+| D — readiness for draft, proposed and active release | Done (weights provisional, D26) | `tests/test_act4_readiness_subjects.py` (5) |
+| E, F — end-to-end journey and reference demonstration | Done, sandbox architect and simulated tools only | nine-step Onboarding flow; [docs/solution-demo.md](docs/solution-demo.md); 111/111 browser checks (29 are the demonstration) |
+| Section 10 — real provider preparation | Design only; nothing implemented, no provider contacted | [planning/AUTOLOGY_AI_PROVIDER_WORKSPACE_CONFIGURATION_DESIGN.md](planning/AUTOLOGY_AI_PROVIDER_WORKSPACE_CONFIGURATION_DESIGN.md) |
+
+**Still blocked on the owner:** D24 (`operate`), D7/D10 (a real AI provider), D26 (readiness weights and mandatory
+sets). D27 lists the engineering defaults applied in this sprint for confirmation. **Not done:** Production
+execution, real connectors, any language model, timing with real users, independent security review.
+Report: [planning/AUTOLOGY_ACTIVATION_SPRINT_REPORT.md](planning/AUTOLOGY_ACTIVATION_SPRINT_REPORT.md).

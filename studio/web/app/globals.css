@@ -50,7 +50,7 @@ input, select, textarea { width: 100%; margin: 2px 0 10px; } label { font-size: 
 .uc-list button { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 8px; text-align: left; margin-bottom: 6px; }
 .uc-list button[aria-current="true"] { border-color: var(--accent); }
 .main { grid-area: main; padding: 12px 16px; min-width: 0; } .empty { margin-top: 40px; text-align: center; }
-.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 12px; }
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 12px; }
 .tabs button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; }
 .tabs button[aria-selected="true"] { border-bottom-color: var(--accent); color: var(--accent); font-weight: 600; }
 .overview { max-width: 900px; }
@@ -183,3 +183,10 @@ button.danger-inline { color: var(--bad); border-color: var(--bad); } .context s
 .runs pre { max-height: 240px; overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
 .runs details { border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; margin-top: 8px; }
 @media (max-width: 900px) { .runs-body { grid-template-columns: 1fr; } }
+.runs .row, .agents .row { flex-wrap: wrap; }
+.runs select, .runs input, .agents select, .agents input { max-width: 100%; }
+.runs-body > *, .agents-body > * { min-width: 0; }
+.runs pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.runs .timeline, .runs .audit, .runs p, .runs .uc-list button { overflow-wrap: anywhere; }
+.runs .pill, .agents .pill { white-space: nowrap; }
+.runs .uc-list button { gap: 8px; }

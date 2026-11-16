@@ -132,6 +132,9 @@ class ConsoleApprover:
         return ReviewDecision(answer in ("y", "yes"), "console", answer)
 
 
+CANCELLABLE = ("awaiting_review", "deferred", "paused")  # a waiting run; one that is acting is never cut
+
+
 # -- results ----------------------------------------------------------------
 @dataclass
 class StepRecord:
@@ -186,7 +189,7 @@ class RunState:
 
 @dataclass
 class RunResult:
-    status: str  # completed | blocked | escalated | deferred | paused | suspended | awaiting_review
+    status: str  # completed | blocked | escalated | deferred | paused | suspended | awaiting_review | cancelled
     #            | uncertain | pending_confirmation (an external call a person must reconcile)
     goal: str
     case_id: str
@@ -692,6 +695,27 @@ class WorkAgent:
         return bool(entry and entry.hash == stored.get("audit_hash") and entry.event == "review.decision"
                     and entry.data.get("action") == action and entry.data.get("approved") == stored.get("approved")
                     and entry.data.get("reviewer") == stored.get("reviewer"))
+
+    def cancel(self, previous: RunResult, by: str, reason: str) -> RunResult:
+        """End a run that is waiting (for a person, a retry or a resume) because someone authorised asked. Nothing
+        it did is undone and nothing further happens. The cancellation is written to the run's audit chain, so the
+        record of what the run did, and of who stopped it and why, stays whole."""
+        if previous.run is None or previous.status not in CANCELLABLE:
+            raise ValueError(f"a run that is {previous.status} cannot be cancelled: only a run that is waiting "
+                             f"({', '.join(CANCELLABLE)}) can")
+        run, audit = previous.run, previous.audit
+        problem = self._tampering(previous)
+        if problem:  # stopped all the same, and the record says the stored run did not match its chain
+            self._log(audit, "integrity.violation", case=run.case_id, reason=problem)
+        pending = run.pending_review or {}
+        self._log(audit, "run.cancelled", case=run.case_id, by=by, reason=reason, was=previous.status,
+                  pending_action=pending.get("action"))
+        run.pending_review = None
+        escalation = Escalation(f"cancelled by {by}: {reason}", "operations", pending.get("action"))
+        self._log(audit, "run.end", case=run.case_id, status="cancelled", escalation=escalation.__dict__,
+                  state=run.state.snapshot(), costs=dict(run.costs), resume_at=None)
+        return RunResult("cancelled", run.goal, run.case_id, run.steps, run.state, audit, escalation,
+                         run.violations, dict(run.costs), None, run)
 
     def _tampering(self, previous: RunResult) -> Optional[str]:
         """Why the stored, resumable run cannot be trusted, or None."""

@@ -48,7 +48,7 @@ SIDE_EFFECTS = ("none", "idempotent", "non_idempotent")
 MAX_ITEMS = 40  # per kind
 MAX_TEXT = 500
 SECTIONS = (("entity", "entities"), ("relationship", "relationships"), ("action", "actions"), ("rule", "rules"),
-            ("goal", "goals"))
+            ("goal", "goals"), ("case_template", "case_templates"))
 
 S: Dict[str, Any] = {"type": "string"}
 
@@ -76,6 +76,10 @@ SCHEMA: Dict[str, Any] = _obj({
                         "action": S, "reviewer": S, "field": S, "entity": S, "roles": _arr(S), "step": S,
                         "before": S, **EVIDENCE}, optional=RULE_PARAMS)),
     "goals": _arr(_obj({"name": S, "description": S, "target": S, **EVIDENCE})),
+    # how a run reads its case from the records: the root entity and the path to each linked one ("self", a
+    # relationship, or "^relationship" against its direction). Optional: a proposal may leave it out
+    "case_templates": _arr(_obj({"name": S, "description": S, "root": S,
+                                 "entities": _arr(_obj({"entity": S, "path": S})), **EVIDENCE})),
     "questions": _arr(_obj({"id": S, "question": S, "why": S})),
     "assumptions": _arr(_obj({"statement": S, "sources": _arr(S), "confidence": {"type": "number"}})),
     "unknowns": _arr(S),
@@ -83,7 +87,7 @@ SCHEMA: Dict[str, Any] = _obj({
     "roles": _arr(_obj({"name": S, "description": S})),
     "agents": _arr(_obj({"name": S, "description": S, "actions": _arr(S)})),
     "integrations": _arr(_obj({"capability": S, "system": S, "description": S})),
-})
+}, optional=("case_templates",))
 
 SYSTEM = """You are the AI Architect of Autology, a platform where a business model (an ontology) governs what \
 agents may do. From a business brief you propose additions to the model: entities with their properties and \
@@ -115,7 +119,8 @@ def outline(document: Mapping[str, Any]) -> Dict[str, Any]:
                               for r in document.get("relationships") or [] if isinstance(r, Mapping)],
             "actions": sorted(document.get("actions") or {}),
             "rules": [r.get("id") for r in document.get("rules") or [] if isinstance(r, Mapping)],
-            "goals": sorted(document.get("goals") or {})}
+            "goals": sorted(document.get("goals") or {}),
+            "case_templates": sorted(document.get("case_templates") or {})}
 
 
 def _clip(value: Any) -> str:
@@ -140,6 +145,9 @@ def _value(kind: str, raw: Mapping[str, Any]) -> Tuple[Optional[str], Dict[str, 
     if kind == "rule":
         return raw["id"], {"id": raw["id"], "type": raw["type"], "description": _clip(raw["description"]),
                            **{k: raw[k] for k in RULE_PARAMS if k in raw}}
+    if kind == "case_template":
+        return raw["name"], {"description": _clip(raw["description"]), "root": raw["root"],
+                             "entities": {e["entity"]: e["path"] for e in raw["entities"]}}
     return raw["name"], {"description": _clip(raw["description"]), "target": raw["target"]}
 
 
@@ -149,7 +157,8 @@ def _existing(kind: str, document: Mapping[str, Any]) -> set:
                 if isinstance(r, Mapping)}
     if kind == "rule":
         return {r.get("id") for r in document.get("rules") or [] if isinstance(r, Mapping)}
-    return set(document.get({"entity": "entities", "action": "actions", "goal": "goals"}[kind]) or {})
+    return set(document.get({"entity": "entities", "action": "actions", "goal": "goals",
+                             "case_template": "case_templates"}[kind]) or {})
 
 
 def _items(data: Mapping[str, Any], document: Mapping[str, Any], known_sources: Iterable[str],
@@ -158,7 +167,7 @@ def _items(data: Mapping[str, Any], document: Mapping[str, Any], known_sources: 
     known, items, rejected = set(known_sources), [], []
     for kind, section in SECTIONS:
         taken = _existing(kind, document)
-        for position, raw in enumerate(data[section]):
+        for position, raw in enumerate(data.get(section) or []):
             name, value = _value(kind, raw)
             key: Any = (value["from"], value["to"], value["type"]) if kind == "relationship" else name
             label = name or f"{value['from']}-{value['type']}-{value['to']}"
@@ -198,7 +207,8 @@ def apply(document: Mapping[str, Any], items: Iterable[Mapping[str, Any]]) -> Di
         if item["kind"] in ("relationship", "rule"):
             out.setdefault("relationships" if item["kind"] == "relationship" else "rules", []).append(value)
         else:
-            section = {"entity": "entities", "action": "actions", "goal": "goals"}[item["kind"]]
+            section = {"entity": "entities", "action": "actions", "goal": "goals",
+                       "case_template": "case_templates"}[item["kind"]]
             out.setdefault(section, {})[item["name"]] = value
     return out
 

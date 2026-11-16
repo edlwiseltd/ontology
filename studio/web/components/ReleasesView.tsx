@@ -33,14 +33,13 @@ export default function ReleasesView({ workspace, useCase, member, admin, onChan
   const load = useCallback(async () => {
     setError("");
     try {
-      setState(await api.releases(workspace, useCase.id));
-      if (admin) {
-        const draft = await api.draft(useCase.path);
-        setDraftRevision(draft.revision);
-        setDraftAuthor(draft.author ?? null);
-      }
+      const rel = await api.releases(workspace, useCase.id);
+      setState(rel);
+      // the platform tells whoever may publish which draft revision is saved and who saved it
+      setDraftRevision(rel.draft?.revision ?? 0);
+      setDraftAuthor(rel.draft?.author ?? null);
     } catch (e) { setError((e as Error).message); }
-  }, [workspace, useCase.id, useCase.path, admin]);
+  }, [workspace, useCase.id]);
 
   useEffect(() => { setState(null); setMessage(""); setInspected(null); load(); }, [load]);
 
@@ -82,7 +81,10 @@ export default function ReleasesView({ workspace, useCase, member, admin, onChan
 
   return (
     <section aria-labelledby="rel-title" className="overview">
-      <h2 id="rel-title">Releases</h2>
+      <div className="row spread">
+        <h2 id="rel-title">Releases</h2>
+        <button type="button" className="small" disabled={busy} onClick={() => void load()} data-testid="refresh-releases">Refresh</button>
+      </div>
       <p className="muted small">
         Running configuration <code data-testid="running">{running.slice(0, 12)}</code> ·{" "}
         {state.active ? <>active release <strong data-testid="active-release">{state.active.number}</strong></> : "no active release"}
@@ -116,8 +118,8 @@ export default function ReleasesView({ workspace, useCase, member, admin, onChan
         </form>
       )}
 
-      {admin && (
-        <div className="card">
+      {(admin || state.may_approve) && (
+        <div className="card" data-testid="publish-card">
           <h3>Publish a Studio draft</h3>
           {draftRevision > 0 ? (
             <>
@@ -126,12 +128,12 @@ export default function ReleasesView({ workspace, useCase, member, admin, onChan
               {draftAuthor === member && <p className="warn small" data-testid="publish-needs-another">
                 You saved this revision: another person with release authority must publish it (the platform refuses the
                 author).</p>}
-              <button type="button" disabled={busy || needReason || draftAuthor === member}
+              <button type="button" disabled={busy || needReason || draftAuthor === member} data-testid="publish-draft"
                       onClick={() => act(`Draft revision ${draftRevision} published: propose a release of it`,
                                          () => api.publishDraft(workspace, useCase.id, draftRevision, reason))}>
                 Publish draft revision {draftRevision}</button>
             </>
-          ) : <p className="muted small">No saved draft yet (Design tab).</p>}
+          ) : <p className="muted small">No saved draft yet (Onboarding or Design tab).</p>}
         </div>
       )}
 

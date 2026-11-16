@@ -152,7 +152,7 @@ export default function RunsView({ workspace, useCase, onChanged }: { workspace:
             <>
               <p className="small">
                 <span className={`pill ${statusClass(run.status)}`} data-testid="run-status">{run.status}</span>{" "}
-                {STATUS_TEXT[run.status] ?? ""} · goal <code>{run.goal}</code> · case <code>{run.case_id}</code>
+                {STATUS_TEXT[run.status] && STATUS_TEXT[run.status] !== run.status ? `${STATUS_TEXT[run.status]} · ` : ""}goal <code>{run.goal}</code> · case <code>{run.case_id}</code>
                 {run.started_by ? ` · started by ${run.started_by}` : ""}
                 <br /><span data-testid="run-release">{number !== null ? `Release ${number}` : "No release matches"} · configuration <code>{(run.configuration ?? "").slice(0, 12) || "—"}</code></span>
                 {" · "}<span data-testid="run-effects">{run.simulated ? "simulated effects only: no other system was contacted" : "effects: see each step"}</span>
@@ -212,7 +212,7 @@ export default function RunsView({ workspace, useCase, onChanged }: { workspace:
                   <>
                     <p className="small" data-testid="audit-verified">{audit.entries.length} signed entries; the chain {audit.verified ? "verifies" : "DOES NOT VERIFY"}.</p>
                     <ol className="small audit" data-testid="audit-trace">
-                      {events.map((e) => <li key={e.seq}><code>{e.label}</code> {e.detail}</li>)}
+                      {events.map((e) => <li key={e.seq}><strong>{e.label}</strong> {e.detail}</li>)}
                     </ol>
                   </>
                 ) : <p className="muted small" data-testid="audit-denied">The audit chain is shown to people with the <code>audit</code> permission.</p>}

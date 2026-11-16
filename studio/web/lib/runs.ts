@@ -3,6 +3,7 @@
 // does. A run on simulated tools is never presented as proof that a real system changed.
 
 export interface RunStep { index: number; action: string; verdict: string; outcome: string | null; executed_by: string | null;
+  tool?: string | null;
   reviewer: string | null; message?: string | null; explanation?: string | null; environment?: string | null }
 export interface RunEscalation { reason: string; to: string; action: string | null; details: string[] }
 export interface RunView { run_id: string; case_id: string; goal: string; status: string; steps: RunStep[];
@@ -33,7 +34,7 @@ export const statusClass = (status: string): string =>
 
 /** What a step did, in one line: who or what executed it, and that a simulated tool reached nothing. */
 export function stepLine(s: RunStep): string {
-  const by = s.executed_by ? `${s.executed_by}${s.environment ? ` (${s.environment})` : ""}` : "no tool";
+  const by = s.tool ? `${s.tool}${s.environment ? ` (${s.environment})` : ""}` : "no tool";
   const decided = s.reviewer ? ` · decided by ${s.reviewer}` : "";
   return `${s.verdict}${s.outcome ? ` → ${s.outcome}` : ""} · ${by}${decided}`;
 }
@@ -50,18 +51,28 @@ export function mayDecide(me: EngineMe | null, review: ReviewView, run: Pick<Run
   return me.permissions.includes("admin") || (me.reviewer_roles ?? []).some((r) => review.reviewers.includes(r));
 }
 
-/** Audit events grouped for a decision trace: what was checked, decided, executed, in order. */
+const text = (v: unknown): string => (v === null || v === undefined ? "" : Array.isArray(v) ? v.join(", ") : typeof v === "string" ? v : JSON.stringify(v));
+
+// the entries of the signed chain that tell the story; the others (idempotency keys, raw tool calls) stay in the chain
+const TRACE: Record<string, (d: Record<string, unknown>) => [string, string]> = {
+  "run.start": (d) => ["run started", `${text(d.acting_as)} started ${text(d.agent)} for ${text(d.goal)} on ${text(d.ontology)}`],
+  "run.resume": (d) => ["run resumed", `after ${text(d.previous_status)}`],
+  "plan": (d) => ["plan", (d.plan as string[] | undefined ?? []).join(" → ")],
+  "decision": (d) => ["policy check", `${text(d.action)}: ${text(d.verdict)}${(d.rules as string[] | undefined)?.length ? ` (rules ${text(d.rules)})` : ""}`],
+  "governance.deny": (d) => ["refused by policy", `${text(d.action)}: ${text(d.reasons ?? d.reason)}`],
+  "review.requested": (d) => ["review requested", `${text(d.action)} → ${text(d.roles)}: ${text(d.reasons)}`],
+  "review.decision": (d) => ["review decided", `${text(d.action)}: ${d.approved ? "approved" : "refused"} by ${text(d.reviewer)}${d.comment ? ` — ${text(d.comment)}` : ""}`],
+  "step": (d) => ["action executed", `${text(d.action)} via ${text(d.tool)} → ${text(d.outcome)}${d.message ? `: ${text(d.message)}` : ""}`],
+  "tool.error": (d) => ["tool failed", `${text(d.action)} via ${text(d.tool)}, attempt ${text(d.attempt)}: ${text(d.error)}`],
+  "run.cancelled": (d) => ["run cancelled", `by ${text(d.by)}: ${text(d.reason)}`],
+  "integrity.violation": (d) => ["integrity violation", text(d.reason)],
+  "run.end": (d) => ["run stopped", `status ${text(d.status)}${(d.escalation as { reason?: string } | null)?.reason ? ` — ${(d.escalation as { reason: string }).reason}` : ""}`],
+};
+
+/** The audit chain as a decision trace, in order: what was planned, checked, decided and executed. */
 export function trace(entries: AuditEntry[]): { seq: number; at: string; label: string; detail: string }[] {
-  const text = (v: unknown) => (v === null || v === undefined ? "" : typeof v === "string" ? v : JSON.stringify(v));
-  return entries.map((e) => {
-    const d = e.data ?? {};
-    const detail = e.event === "governance.decision" ? `${text(d.action)}: ${text(d.verdict)}${d.reasons ? ` (${text(d.reasons)})` : ""}`
-      : e.event === "review.requested" ? `${text(d.action)} → ${text(d.reviewers)}`
-      : e.event === "review.decision" ? `${text(d.action)}: ${d.approved ? "approved" : "declined"} by ${text(d.reviewer)}`
-      : e.event === "run.cancelled" ? `by ${text(d.by)}: ${text(d.reason)}`
-      : e.event === "run.end" ? `status ${text(d.status)}`
-      : e.event.startsWith("tool.") || e.event === "action.executed" ? `${text(d.action)}${d.tool ? ` via ${text(d.tool)}` : ""}${d.outcome ? ` → ${text(d.outcome)}` : ""}${d.error ? ` — ${text(d.error)}` : ""}`
-      : text(d.action ?? d.goal ?? d.reason ?? "");
-    return { seq: e.seq, at: e.timestamp, label: e.event, detail };
+  return entries.filter((e) => e.event in TRACE).map((e) => {
+    const [label, detail] = TRACE[e.event](e.data ?? {});
+    return { seq: e.seq, at: e.timestamp, label, detail };
   });
 }

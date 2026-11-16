@@ -38,13 +38,15 @@ import json
 import logging
 import os
 import re
+import shutil
+import tempfile
 import threading
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 from . import credentials, limits
 from .audit import audit_key, workspace_key
@@ -662,7 +664,7 @@ class Platform:
                 uc.service.set_users(self.users_for(ws, uc.id))
 
     def _load_use_case(self, ws: Workspace, uc_id: str, spec: Dict[str, Any], base_dir: Path,
-                       validate_only: bool = False) -> UseCase:
+                       validate_only: bool = False, candidate: Optional[Path] = None) -> UseCase:
         config_path = (base_dir / spec["config"]).resolve()
         config = json.loads(config_path.read_text(encoding="utf-8"))
         # integration credentials are environment variables of the platform process: a use case may name only its
@@ -676,10 +678,13 @@ class Platform:
         home.mkdir(parents=True, exist_ok=True)
         # the platform decides where the data lives and who the users are, never the use case's own config
         config["store"] = str(home / "autology.db")
-        override = home / ONTOLOGY_OVERRIDE
+        # where this use case's own model and agent configuration are read from: its data folder, or, for a
+        # configuration that is not in place (a draft, a release's snapshot: see _probing), another folder
+        own = candidate if candidate is not None else home
+        override = own / ONTOLOGY_OVERRIDE
         if override.is_file():  # a Studio draft published to this use case, or a release's ontology restored
             config["ontology"] = str(override)
-        managed = home / SOLUTION_OVERRIDE
+        managed = own / SOLUTION_OVERRIDE
         if managed.is_file():  # its agents and simulated tools, published or restored the same way
             self._apply_solution(config, config_path.parent, managed, f"workspace {ws.id} use case {uc_id}")
         config.pop("oidc", None)  # a use case's own sign-in setting never applies: the workspace's does
@@ -697,6 +702,8 @@ class Platform:
         if validate_only:  # build a throwaway engine on an in-memory store: proves the files load, touches nothing
             config.update({"store": ":memory:", "secrets_file": str(home / ".validate-secrets.json")})
             probe = AutologyService(config, config_path.parent)
+            if candidate is not None:
+                return probe  # type: ignore[return-value]  # the caller reads it, then closes it (_probing)
             fingerprint = probe.configuration_fingerprint
             probe.close()
             return fingerprint  # type: ignore[return-value]
@@ -710,6 +717,93 @@ class Platform:
         gate = ws.gates.setdefault(uc_id, Gate())
         service.background_guard = (gate.enter, gate.leave)  # the scheduler never ticks while the engine is switched
         return uc
+
+    @contextmanager
+    def _probing(self, ws: Workspace, uc: UseCase, document: Dict[str, Any], managed: Any):
+        """A throwaway engine for a configuration that is not in place: the use case's deployed files with this
+        model and this agent configuration, on an in-memory store, with the members as they are now. It has no
+        runs and no records of its own, starts nothing in the background and leaves nothing behind."""
+        scratch = Path(tempfile.mkdtemp(prefix="autology-probe-"))
+        probe: Any = None
+        try:
+            _put(scratch / ONTOLOGY_OVERRIDE, document)
+            if managed is not None:
+                _put(scratch / SOLUTION_OVERRIDE, managed)
+            probe = self._load_use_case(ws, uc.id, uc.spec, self._base_dir, validate_only=True, candidate=scratch)
+            yield probe
+        finally:
+            if probe is not None:
+                probe.close()
+            shutil.rmtree(scratch, ignore_errors=True)
+
+    def readiness_of(self, ws: Workspace, uc: UseCase, member: Member, target: str, of: str) -> Dict[str, Any]:
+        """The readiness report (REL-2, REL-3) of one configuration of a use case, named in ``subject``: what runs
+        (``active``), the saved draft (``draft``) or a release (``release:<n>``). The same conditions and the same
+        calculation in every case; a configuration that does not run is measured on a throwaway engine, so its
+        execution evidence is missing rather than borrowed, and the answer lists what differs from what runs."""
+        if target not in readiness.TARGETS:
+            raise LifecycleError(400, f"target: one of {', '.join(readiness.TARGETS)}")
+        stage = {"stage": self.stage_of(uc)["stage"], "effective_stage": self.effective_stage(uc)}
+        rel = self.release_of(uc)
+        running = readiness.report(uc.service, target, self._readiness_context(uc))
+        fingerprint = uc.service.configuration_fingerprint
+        if of.startswith("release:") and of[8:].isdigit() and rel["active"] and not rel["drift"] \
+                and rel["active"]["number"] == int(of[8:]):
+            of = "active"  # the active release, asked for by its number, is what runs
+        if of == "active":
+            active = rel["active"] if rel["active"] and not rel["drift"] else None
+            subject = {"kind": "active", "revision": None, "release": active["number"] if active else None,
+                       "label": f"what runs now: release {active['number']}" if active else
+                                "what runs now: not covered by an active release",
+                       "configuration": fingerprint, "model": uc.service.ontology.ref,
+                       "evaluated": "the running engine, with its runs, records and members"}
+            return {**running, **stage, "subject": subject, "compared_with": None}
+        # a draft or a waiting release is design work: shown to the people who design and release
+        if not (member.workspace_admin or self.may_approve_releases(ws, member)
+                or "configure" in (member.grant(uc.id) or {}).get("permissions", [])):
+            raise LifecycleError(403, "the readiness of a draft or of a release that is not active is shown to "
+                                      "people who configure or release this use case")
+        if of == "draft":
+            row = uc.service.store.draft()
+            if row is None:
+                raise LifecycleError(404, "no draft is saved for this use case")
+            document, managed = row["document"], row.get("solution")
+            if uc.service.configuring.managed == "files":
+                managed = None  # an operator's agents apply: Studio does not configure them
+            subject = {"kind": "draft", "revision": row["revision"], "release": None,
+                       "label": f"draft revision {row['revision']} (not released)"}
+            why = ("a draft is not a release: publish it, propose a release of it, have it approved by another "
+                   "person and activate it")
+        elif of.startswith("release:") and of[8:].isdigit():
+            number = int(of[8:])
+            item = self.releases.release(ws.id, uc.id, number)
+            snapshot = self.releases.snapshot(ws.id, uc.id, number) or {}
+            if not _is_document(snapshot.get("ontology")):
+                raise LifecycleError(409, f"release {number} has no model document to assess")
+            document, managed = snapshot["ontology"], (snapshot.get("settings") or {}).get("solution")
+            subject = {"kind": "release", "revision": None, "release": number,
+                       "label": f"release {number} ({item['status']}, not what runs)"}
+            why = (f"release {number} is approved by {item['approved_by']} but is not active: activate it"
+                   if item["approved_by"] else
+                   f"release {number} is not approved: another person with release authority must approve it")
+        else:
+            raise LifecycleError(400, "of: active, draft or release:<number>")
+        try:
+            with self._probing(ws, uc, document, managed) as probe:
+                context = self._readiness_context(uc, [Check("approved_release_active", False, why)])
+                found = readiness.report(probe, target, context)
+                subject.update({"configuration": probe.configuration_fingerprint, "model": probe.ontology.ref})
+        except (PlatformError, ValueError, OSError) as exc:
+            raise LifecycleError(409, f"{subject['label']} cannot be assessed, it does not load: {exc}") from None
+        subject["evaluated"] = ("a throwaway engine built from this configuration: it has no runs or records of "
+                                "its own, so its execution evidence is missing")
+        if subject["kind"] == "release":
+            subject["matches_release"] = subject["configuration"] == item["fingerprint"]
+        return {**found, **stage, "subject": subject,
+                "compared_with": {"kind": "active", "configuration": fingerprint,
+                                  "same_configuration": subject["configuration"] == fingerprint,
+                                  "score": running["score"]["overall"],
+                                  **readiness.differences(running, found)}}
 
     @staticmethod
     def _apply_solution(config: Dict[str, Any], base: Path, path: Path, where: str) -> None:
@@ -777,6 +871,8 @@ class Platform:
         memberships = members or {ws.id: member}
         return {"workspace": {"id": ws.id, "name": ws.name}, "member": member.name, "kind": member.kind,
                 "workspace_admin": member.workspace_admin,
+                # what the caller may do with releases here (their own authority, nothing about anyone else)
+                "release_approver": self.may_approve_releases(ws, member),
                 "token_expires_at": credentials.iso(member.expires_at),
                 "tenant": {"id": tenant.id, "name": tenant.name}, "tenant_admin": member.tenant_admin,
                 # every workspace the identity explicitly belongs to; choose one with /platform/me?workspace=<id>
@@ -1265,11 +1361,9 @@ class Platform:
             return 200, self.lifecycle.move(ws.id, uc.id, uc.service, target, member.name, "", dry_run=True,
                                             extra_checks=self._stage_checks(uc))
         if action == "readiness" and method == "GET":
-            target = dict(p.split("=", 1) for p in query.split("&") if "=" in p).get("target", "pilot")
-            if target not in readiness.TARGETS:
-                raise LifecycleError(400, f"target: one of {', '.join(readiness.TARGETS)}")
-            out = readiness.report(uc.service, target, self._readiness_context(uc))
-            return 200, {**out, "stage": self.stage_of(uc)["stage"], "effective_stage": self.effective_stage(uc)}
+            params = dict(p.split("=", 1) for p in query.split("&") if "=" in p)
+            return 200, self.readiness_of(ws, uc, member, params.get("target", "pilot"),
+                                          unquote(params.get("of", "active")))
         if action == "stage" and method == "POST":
             if not member.workspace_admin:
                 raise LifecycleError(403, "workspace administrators only")
@@ -1673,8 +1767,14 @@ class Platform:
         if len(parts) == 7:
             if method == "GET":
                 rel = self.release_of(uc)
-                return 200, {**rel, "may_propose": member.workspace_admin and member.kind == "person",
-                             "may_approve": self.may_approve_releases(ws, member)}
+                may_propose = member.workspace_admin and member.kind == "person"
+                may_approve = self.may_approve_releases(ws, member)
+                out = {**rel, "may_propose": may_propose, "may_approve": may_approve}
+                if may_propose or may_approve:  # who may publish needs the revision to name, and who saved it
+                    # a use case that serves nothing (its engine could not be loaded) has no draft to offer now
+                    row = None if uc.unavailable else uc.service.store.draft()
+                    out["draft"] = {"revision": row["revision"], "author": row["author"]} if row else None
+                return 200, out
             if method == "POST":
                 if not member.workspace_admin:
                     raise LifecycleError(403, "workspace administrators only")

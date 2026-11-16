@@ -78,7 +78,7 @@ log = logging.getLogger("autology.server")
 # administrative role.
 PERMISSIONS = frozenset({"read", "run", "review", "audit", "ingest", "reconcile", "configure", "admin"})
 PRINCIPAL_KINDS = ("person", "service")  # who an API identity is: a signed-in person, or a machine (D11, F-02)
-FINAL_STATUSES = frozenset({"completed", "blocked", "escalated", "suspended"})
+FINAL_STATUSES = frozenset({"completed", "blocked", "escalated", "suspended", "cancelled"})
 MAX_BODY = 1_000_000
 STATIC = Path(__file__).resolve().parent / "static"
 
@@ -2128,6 +2128,8 @@ class ApiExchange:
                     return self._send(200, service.run_trace(user, parts[1]))
                 if method == "POST" and parts[2] == "write-back":
                     return self._send(200, service.retry_write_back(user, parts[1]))
+                if method == "POST" and parts[2] == "cancel":
+                    return self._send(200, service.runs.cancel_run(user, parts[1], body))
                 if method == "POST" and parts[2] == "resume":
                     return self._send(200, service.resume_run(user, parts[1], bool(body.get("force")),
                                                               body.get("justification")))

@@ -387,7 +387,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Readiness report: mandatory gates and evidence-based scorecard for a target stage */
+        /** Readiness report of what runs, of the saved draft or of a release: mandatory gates and evidence-based scorecard for a target stage */
         get: operations["getWorkspacesWsUseCasesUcReadiness"];
         put?: never;
         post?: never;
@@ -724,6 +724,7 @@ export interface components {
             /** @enum {string} */
             kind?: "person" | "service";
             member: string;
+            release_approver?: boolean;
             tenant?: {
                 id: string;
                 name: string;
@@ -820,6 +821,33 @@ export interface components {
             [key: string]: unknown;
         });
         Readiness: {
+            compared_with: null | ({
+                configuration: string;
+                differences: ({
+                    active: string;
+                    blocking: boolean;
+                    detail: string;
+                    dimension: string;
+                    id: string;
+                    subject: string;
+                    title: string;
+                } & {
+                    [key: string]: unknown;
+                })[];
+                dimensions: ({
+                    active: number | null;
+                    id: string;
+                    subject: number | null;
+                    title: string;
+                } & {
+                    [key: string]: unknown;
+                })[];
+                kind: string;
+                same_configuration: boolean;
+                score: number | null;
+            } & {
+                [key: string]: unknown;
+            });
             configuration: {
                 fingerprint: string;
                 ontology: string;
@@ -871,6 +899,19 @@ export interface components {
             };
             /** @enum {string} */
             stage: "draft" | "simulation" | "pilot" | "production";
+            subject: {
+                configuration: string;
+                evaluated: string;
+                /** @enum {string} */
+                kind: "active" | "draft" | "release";
+                label: string;
+                matches_release?: boolean;
+                model: string;
+                release: number | null;
+                revision: number | null;
+            } & {
+                [key: string]: unknown;
+            };
             /** @enum {string} */
             target: "draft" | "simulation" | "pilot" | "production";
         } & {
@@ -1015,6 +1056,12 @@ export interface components {
         };
         ReleaseState: {
             active?: components["schemas"]["Release"] | null;
+            draft?: null | ({
+                author?: string | null;
+                revision: number;
+            } & {
+                [key: string]: unknown;
+            });
             drift: boolean;
             history: components["schemas"]["ReleaseEvent"][];
             integrity_problem?: string | null;
@@ -3293,6 +3340,7 @@ export interface operations {
         parameters: {
             query?: {
                 target?: string;
+                of?: string;
             };
             header?: never;
             path: {

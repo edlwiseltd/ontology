@@ -618,6 +618,9 @@
           "member": {
             "type": "string"
           },
+          "release_approver": {
+            "type": "boolean"
+          },
           "tenant": {
             "additionalProperties": true,
             "properties": {
@@ -935,6 +938,114 @@
       "Readiness": {
         "additionalProperties": true,
         "properties": {
+          "compared_with": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "additionalProperties": true,
+                "properties": {
+                  "configuration": {
+                    "type": "string"
+                  },
+                  "differences": {
+                    "items": {
+                      "additionalProperties": true,
+                      "properties": {
+                        "active": {
+                          "type": "string"
+                        },
+                        "blocking": {
+                          "type": "boolean"
+                        },
+                        "detail": {
+                          "type": "string"
+                        },
+                        "dimension": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "subject": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "dimension",
+                        "title",
+                        "active",
+                        "subject",
+                        "detail",
+                        "blocking"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "dimensions": {
+                    "items": {
+                      "additionalProperties": true,
+                      "properties": {
+                        "active": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "subject": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "title": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "title",
+                        "active",
+                        "subject"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "kind": {
+                    "type": "string"
+                  },
+                  "same_configuration": {
+                    "type": "boolean"
+                  },
+                  "score": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "kind",
+                  "configuration",
+                  "same_configuration",
+                  "score",
+                  "differences",
+                  "dimensions"
+                ],
+                "type": "object"
+              }
+            ]
+          },
           "configuration": {
             "additionalProperties": true,
             "properties": {
@@ -1096,6 +1207,56 @@
             ],
             "type": "string"
           },
+          "subject": {
+            "additionalProperties": true,
+            "properties": {
+              "configuration": {
+                "type": "string"
+              },
+              "evaluated": {
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "active",
+                  "draft",
+                  "release"
+                ],
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "matches_release": {
+                "type": "boolean"
+              },
+              "model": {
+                "type": "string"
+              },
+              "release": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "revision": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "kind",
+              "label",
+              "revision",
+              "release",
+              "configuration",
+              "model",
+              "evaluated"
+            ],
+            "type": "object"
+          },
           "target": {
             "enum": [
               "draft",
@@ -1116,7 +1277,9 @@
           "score",
           "dimensions",
           "promotion",
-          "production"
+          "production",
+          "subject",
+          "compared_with"
         ],
         "type": "object"
       },
@@ -1624,6 +1787,31 @@
               },
               {
                 "type": "null"
+              }
+            ]
+          },
+          "draft": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "additionalProperties": true,
+                "properties": {
+                  "author": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "revision": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "revision"
+                ],
+                "type": "object"
               }
             ]
           },
@@ -5115,6 +5303,14 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "of",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -5213,7 +5409,7 @@
             }
           }
         },
-        "summary": "Readiness report: mandatory gates and evidence-based scorecard for a target stage",
+        "summary": "Readiness report of what runs, of the saved draft or of a release: mandatory gates and evidence-based scorecard for a target stage",
         "x-autology-permission": "granted member"
       }
     },

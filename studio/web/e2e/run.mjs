@@ -355,6 +355,7 @@ try {
   await approver.waitForFunction(() => sessionStorage.getItem("autology-studio-token") !== "acme-maria");
   const oldToken = await approver.evaluate(async () => (await fetch("/platform/v1/me", { headers: { Authorization: "Bearer acme-maria" } })).status);
   const newToken = await call(approver, "GET", "/platform/v1/me");
+  const mariaToken = await approver.evaluate(() => sessionStorage.getItem("autology-studio-token"));  // hers from now on
   check("access: replacing one's own token ends the old one and Studio continues with the new one", oldToken === 401 && newToken === 200, `${oldToken}, ${newToken}`);
   check("no page errors (access)", errors.length === 0, errors.join("; "));
   await zoe.close(); await approver.close(); await adm.close();
@@ -425,7 +426,7 @@ try {
              accepted: one.decisions[0]?.accepted.length };
   });
   check("onboarding: the proposal keeps its revisions, provenance and the person's review",
-        onb_stored.revisions === 2 && onb_stored.ai === false && onb_stored.decisions === 1 && onb_stored.by === "ada" && onb_stored.accepted === 17,
+        onb_stored.revisions === 2 && onb_stored.ai === false && onb_stored.decisions === 1 && onb_stored.by === "ada" && onb_stored.accepted === 18,
         JSON.stringify(onb_stored));
   await onb.click("text=Simulate the draft");
   await onb.click("text=Run the simulation");
@@ -537,6 +538,274 @@ try {
   await hanaOnb.close();
   check("no page errors (onboarding)", errors.length === 0, errors.join("; "));
   await onb.close();
+
+  // 6. reference demonstration, end to end in Studio: description → questions → model → agents and simulated tools →
+  //    release (two people) → Simulation → stored runs (autonomous, approved, refused, cancelled, failed) → readiness
+  const asPerson = (token, method, path, body) => demo.evaluate(async ([t, m, u, b]) => {
+    const r = await fetch(u, { method: m, headers: { Authorization: "Bearer " + t, "Content-Type": "application/json" },
+                               body: b ? JSON.stringify(b) : undefined });
+    return { status: r.status, body: await r.json().catch(() => ({})) };
+  }, [token, method, path, body]);
+  async function enter(token, viewport = { width: 1280, height: 900 }) {
+    const p = await browser.newPage({ viewport });
+    p.on("pageerror", (e) => errors.push(String(e)));
+    await p.goto(STUDIO);
+    await p.fill("#token", token);
+    await p.click("form button[type=submit]");
+    await p.waitForSelector(".uc-list button");
+    return p;
+  }
+  const DUC = "/platform/v1/workspaces/acme/use-cases/supply";
+  const DENG = "/w/acme/u/supply/api/v1";
+  const demo_started = Date.now();
+  const demo = await enter("acme-ada");
+  await demo.click("text=New");
+  await demo.waitForSelector("#c-template option", { state: "attached" });
+  await demo.selectOption("#c-template", "blank-solution");
+  await demo.fill("#c-id", "supply");
+  await demo.fill("#c-name", "Supplier disruption");
+  await demo.click("text=Create in Draft");
+  await demo.waitForSelector(".uc-list button:has-text('Supplier disruption')");
+  await demo.click(".uc-list button:has-text('Supplier disruption')");
+  await demo.click("role=tab[name='Onboarding']");
+  await demo.waitForSelector("[data-testid=sandbox-notice]");
+  check("demo: the flow has nine steps, from the description to readiness",
+        (await demo.locator(".steps li").count()) === 9 && (await demo.textContent(".steps")).includes("Stored runs"));
+  await demo.fill("#ob-brief", "A critical supplier has delayed a delivery. Evaluate the operational impact, compare available alternatives and select an authorized response.");
+  await demo.click("text=Propose a solution");
+  await demo.waitForSelector("[data-testid=generator]");
+  check("demo: the description is recognised and five questions are asked", (await demo.locator(".question").count()) === 5,
+        `${await demo.locator(".question").count()} questions`);
+  await demo.fill("#q-major_delay_days", "5");
+  await demo.fill("#q-expedite_approval_cost", "5000");
+  await demo.fill("#q-approver_role", "operations manager");
+  await demo.fill("#q-planner_role", "supply planner");
+  await demo.fill("#q-order_system", "ERP sandbox");
+  await demo.click("text=Update the proposal with my answers");
+  await demo.waitForSelector("[data-testid=onboarding-canvas] .react-flow__node");
+  await demo.waitForSelector("[data-testid=workflow] tbody tr");
+  const demoAccess = await demo.textContent("[data-testid=access-lines]");
+  check("demo: business objects, relationships, decision rules and the prohibition are proposed",
+        (await demo.locator("[data-testid=onboarding-canvas] .react-flow__node.proposed").count()) === 3 &&
+        (await demo.locator("[data-testid=onboarding-canvas] .react-flow__edge").count()) === 2 &&
+        demoAccess.includes("switch_supplier is prohibited when Supplier.exclusive == True") &&
+        demoAccess.includes("expedite_shipment needs a decision by operations_manager when Delivery.expedite_cost >= 5000") &&
+        (await demo.textContent("[data-testid=proposed-items]")).includes("delivery_case"));
+  await demo.click("text=Validate my selection with the engine");
+  await demo.waitForSelector("[data-testid=engine-validation]");
+  await demo.click("button:has-text('as a draft')");
+  await demo.waitForSelector("[data-testid=saved]");
+  await demo.click("text=Configure agents and tools");
+  await demo.waitForSelector("[data-testid=suggest-config]");
+  await demo.click("[data-testid=suggest-config]");
+  await demo.waitForSelector("[data-testid=tool-table] tbody tr");
+  await demo.waitForFunction(() => document.querySelector("[data-testid=config-state]").textContent.includes("Unsaved · validated"));
+  const permSwitch = await demo.textContent("[data-testid=perm-switch_supplier]");
+  check("demo: the template's agent, simulated tools and sample records are suggested and validated by the engine",
+        (await demo.textContent("[data-testid=config-message]")).includes("template supplier-disruption") &&
+        (await demo.textContent("[data-testid=agent-list]")).includes("disruption_agent") &&
+        (await demo.textContent("[data-testid=sample-data]")).includes("12 synthetic sample record"));
+  check("demo: effective permissions show the autonomous, the reviewed and the prohibited action",
+        (await demo.textContent("[data-testid=perm-accept_delay]")).includes("acts on its own") &&
+        (await demo.textContent("[data-testid=perm-expedite_shipment]")).includes("operations_manager when Delivery.expedite_cost >= 5000") &&
+        permSwitch.includes("a person decides") && permSwitch.includes("prohibited when Supplier.exclusive == True"), permSwitch);
+  await demo.screenshot({ path: `${OUT}/demo-agents.png`, fullPage: true });
+  await demo.click("[data-testid=save-config]");
+  await demo.waitForSelector("[data-testid=config-message]");
+  await demo.waitForFunction(() => document.querySelector("[data-testid=config-message]")?.textContent.includes("does not run"));
+  const demoRevision = (await asPerson("acme-ada", "GET", `${DENG}/solution/draft`)).body.revision;
+  // release: never one person alone. Maria (release approver) publishes and approves; Ada proposes and activates
+  await demo.click("text=Go to release");
+  await demo.waitForSelector("[data-testid=publish-needs-another]");
+  check("demo: the author cannot publish her own draft; Studio says who must",
+        (await demo.textContent("[data-testid=publish-needs-another]")).includes("another person"));
+  // the second person works in her own Studio session: she has release authority and no other access to this use case
+  const approver2 = await enter(mariaToken);
+  await approver2.fill("#review-uc", "supply");
+  await approver2.click("[data-testid=open-review]");
+  await approver2.waitForSelector("[data-testid=publish-draft]");
+  const outline = await approver2.evaluate(async () => (await fetch("/platform/v1/workspaces/acme/use-cases/supply", {
+    headers: { Authorization: "Bearer " + sessionStorage.getItem("autology-studio-token") } })).status);
+  check("demo: a release approver opens the releases of a use case by its identifier and sees nothing else of it",
+        (await approver2.textContent("[data-testid=publish-card]")).includes(`draft revision ${demoRevision}`) && outline === 404 &&
+        (await approver2.locator(".uc-list button:has-text('Supplier disruption')").count()) === 0, `detail HTTP ${outline}`);
+  await approver2.fill("#rel-reason", "e2e: reviewed the model and the agent");
+  await approver2.click("[data-testid=publish-draft]");
+  await approver2.waitForFunction(() => [...document.querySelectorAll("[role=status]")].some((el) => el.textContent.includes("published")));
+  const published_agents = (await asPerson("acme-ada", "GET", `${DENG}/solution/draft`)).body.active;
+  check("demo: another person publishes the model with its agent and tools, in Studio", published_agents.managed === "studio" &&
+        JSON.stringify(published_agents.agents) === '["disruption_agent"]', JSON.stringify(published_agents.agents));
+  await demo.click(".steps button:has-text('Confirm')");
+  await demo.click(".steps button:has-text('Release')");
+  await demo.waitForSelector("#rel-note");
+  await demo.fill("#rel-note", "supplier disruption: model, agent and simulated tools");
+  await demo.click("text=Propose release");
+  await demo.waitForSelector(".releases tr[data-status=proposed]");
+  await approver2.click("[data-testid=refresh-releases]");
+  await approver2.waitForSelector(".releases tr[data-status=proposed]");
+  await approver2.click("[data-testid=inspect-1]");
+  await approver2.waitForSelector("[data-testid=release-contents]");
+  await approver2.fill("#rel-reason", "e2e: contents checked");
+  await approver2.click(".releases button:has-text('Approve')");
+  await approver2.waitForSelector(".releases tr[data-status=approved]");
+  check("demo: another person inspects the release's contents and approves it, in Studio; she is offered no activation",
+        (await approver2.textContent("[data-testid=release-verification]")).includes("Coherent") &&
+        (await approver2.locator("[data-testid=activate]").count()) === 0);
+  await approver2.close();
+  await demo.click(".steps button:has-text('Confirm')");
+  await demo.click(".steps button:has-text('Release')");
+  await demo.waitForSelector(".releases tr[data-status=approved]");
+  await demo.click("[data-testid=inspect-1]");
+  await demo.waitForSelector("[data-testid=release-contents]");
+  check("demo: the release contains the executable configuration, all simulated, and is coherent",
+        (await demo.textContent("[data-testid=release-verification]")).includes("Coherent") &&
+        (await demo.textContent("[data-testid=release-agents]")).includes("disruption_agent") &&
+        (await demo.textContent("[data-testid=release-agents]")).includes("configured in Studio") &&
+        (await demo.textContent("[data-testid=release-tools]")).includes("all simulated"));
+  await demo.fill("#rel-reason", "e2e: activate the reviewed release");
+  await demo.click("[data-testid=activate]");
+  await demo.waitForSelector("[data-testid=active-release]");
+  await demo.selectOption("#move-to", "simulation");
+  await demo.fill("#move-reason", "e2e: rehearse the solution");
+  await demo.click("text=Record the move");
+  await demo.waitForFunction(() => document.querySelector(".uc-list button[aria-current=true]")?.textContent.includes("Simulation"));
+  check("demo: the release is active and the use case is in Simulation",
+        (await demo.textContent("[data-testid=active-release]")).trim() === "1");
+  await demo.screenshot({ path: `${OUT}/demo-release.png`, fullPage: true });
+  // members get what the simulation needs from two people (the Access screen does the same; checked above)
+  for (const [member, grant] of [["hana", { permissions: ["read", "run", "audit"], roles: ["supply_planner"] }],
+                                 ["lena", { permissions: ["read", "review"], reviewer_roles: ["operations_manager"] }]]) {
+    const g = await asPerson("acme-ada", "POST", "/platform/v1/workspaces/acme/grants", { member, use_case: "supply", reason: "e2e: simulation", ...grant });
+    const ok = await asPerson(mariaToken, "POST", `/platform/v1/workspaces/acme/grants/${g.body.id}/approve`, { reason: "e2e: checked" });
+    if (g.status !== 201 || ok.status !== 200) check(`demo: grant for ${member}`, false, `${g.status} ${ok.status}`);
+  }
+  // an administrator has no run permission: a clear state, not an error
+  await demo.click(".steps button:has-text('Stored runs')");
+  await demo.waitForSelector("[data-testid=runs-denied]");
+  check("demo: an administrator without the run permission sees why she cannot start a run",
+        (await demo.textContent("[data-testid=runs-denied]")).includes("do not have permission"));
+  // the planner starts stored runs
+  const planner = await enter("acme-hana");
+  await planner.click(".uc-list button:has-text('Supplier disruption')");
+  await planner.click("role=tab[name='Simulation runs']");
+  await planner.waitForSelector("#run-root option", { state: "attached" });
+  check("demo: the runs screen says the tools are simulated and prove nothing about a real system",
+        (await planner.textContent("[data-testid=runs-notice]")).includes("not proof") &&
+        (await planner.locator("#run-root option").count()) === 5);
+  async function startRun(root, status) {
+    await planner.selectOption("#run-root", root);
+    await planner.click("[data-testid=start-run]");
+    await planner.waitForFunction(([r, st]) => document.querySelector("[data-testid=run-detail]")?.textContent.includes(`case ${r}`) &&
+      document.querySelector("[data-testid=run-status]")?.textContent === st, [root, status]);
+  }
+  await startRun("DEL-1001", "completed");
+  const autoSteps = await planner.textContent("[data-testid=run-steps]");
+  check("demo: an authorised action runs on its own, as a stored run on release 1 with simulated effects",
+        (await planner.locator("[data-testid=run-steps] li").count()) === 3 && autoSteps.includes("accept_delay") &&
+        autoSteps.includes("(simulated)") && !autoSteps.includes("decided by") &&
+        (await planner.textContent("[data-testid=run-release]")).includes("Release 1") &&
+        (await planner.textContent("[data-testid=run-effects]")).includes("no other system was contacted") &&
+        (await planner.locator("[data-testid=pending-review-card]").count()) === 0);
+  await planner.evaluate(() => { for (const d of document.querySelectorAll(".runs details")) d.open = true; });
+  await planner.waitForSelector("[data-testid=audit-trace] li");
+  const traceText = await planner.textContent("[data-testid=audit-trace]");
+  check("demo: the decision trace shows the plan, each policy check and each executed action, from a chain that verifies",
+        traceText.includes("policy check") && traceText.includes("action executed") && traceText.includes("plan") &&
+        (await planner.textContent("[data-testid=audit-verified]")).includes("the chain verifies"));
+  check("demo: the stored state shows the simulated effect on the record",
+        (await planner.textContent("[data-testid=run-state]")).includes("delay_accepted"));
+  await planner.screenshot({ path: `${OUT}/demo-run-autonomous.png`, fullPage: true });
+  await startRun("DEL-1003", "escalated");
+  check("demo: a prohibited action is refused by policy before anything is done",
+        (await planner.textContent("[data-testid=run-escalation]")).includes("switch_supplier: prohibited") &&
+        (await planner.locator("[data-testid=run-steps] li strong").count()) === 0);
+  await planner.screenshot({ path: `${OUT}/demo-run-refused.png`, fullPage: true });
+  await startRun("DEL-1004", "escalated");
+  check("demo: an injected failure is retried and reported, never hidden",
+        (await planner.textContent("[data-testid=run-escalation]")).includes("failed 3 times") &&
+        (await planner.textContent("[data-testid=run-escalation]")).includes("simulated outage"));
+  await startRun("DEL-1002", "awaiting_review");
+  check("demo: a costly response waits for a person, and the requester is offered no decision",
+        (await planner.textContent("[data-testid=pending-review-card]")).includes("A person must decide") &&
+        (await planner.locator("[data-testid=approve-review]").count()) === 0 &&
+        (await planner.textContent("[data-testid=review-not-yours]")).length > 0);
+  await planner.fill("#cancel-reason", "e2e: the order was withdrawn");
+  await planner.click("[data-testid=cancel-run]");
+  await planner.waitForFunction(() => document.querySelector("[data-testid=run-status]")?.textContent === "cancelled");
+  await planner.evaluate(() => { for (const d of document.querySelectorAll(".runs details")) d.open = true; });
+  await planner.waitForSelector("[data-testid=audit-trace] li");
+  check("demo: a waiting run is cancelled with a reason, and the cancellation is in the audit chain",
+        (await planner.textContent("[data-testid=runs-message]")).includes("cancelled") &&
+        (await planner.textContent("[data-testid=audit-trace]")).includes("run cancelled by hana: e2e: the order was withdrawn") &&
+        (await planner.textContent("[data-testid=audit-verified]")).includes("the chain verifies"));
+  await startRun("DEL-1002", "awaiting_review");
+  const waitingRun = (await planner.textContent("#run-detail")).replace("Run ", "").trim();
+  // the reviewer decides in her own session
+  const reviewer = await enter("acme-lena");
+  await reviewer.click(".uc-list button:has-text('Supplier disruption')");
+  await reviewer.click("role=tab[name='Simulation runs']");
+  await reviewer.waitForSelector("[data-testid=runs-denied]");
+  await reviewer.waitForSelector(`[data-testid=run-list] button:has-text('${waitingRun}')`);
+  await reviewer.click(`[data-testid=run-list] button:has-text('${waitingRun}')`);
+  await reviewer.waitForSelector("[data-testid=approve-review]");
+  check("demo: the reviewer sees the request, its rule and the facts, and cannot start runs herself",
+        (await reviewer.textContent("[data-testid=pending-review-card]")).includes("R-EXPEDITE-APPROVAL") &&
+        (await reviewer.textContent("[data-testid=runs-denied]")).includes("do not have permission") &&
+        (await reviewer.textContent("[data-testid=audit-denied]")).includes("audit"));
+  await reviewer.fill("#rv-comment", "e2e: the line would stop");
+  await reviewer.click("[data-testid=approve-review]");
+  await reviewer.waitForFunction(() => document.querySelector("[data-testid=run-status]")?.textContent === "completed");
+  const approvedSteps = await reviewer.textContent("[data-testid=run-steps]");
+  check("demo: an authorised person approves and the run completes with the approved, simulated action",
+        approvedSteps.includes("expedite_shipment") && approvedSteps.includes("decided by lena") && approvedSteps.includes("(simulated)"));
+  await reviewer.screenshot({ path: `${OUT}/demo-run-approved.png`, fullPage: true });
+  await reviewer.close();
+  const stored = (await asPerson("acme-hana", "GET", `${DENG}/runs`)).body.items.map((r) => r.status).sort();
+  check("demo: the execution history is stored by the engine (five runs, each with its end state)",
+        JSON.stringify(stored) === JSON.stringify(["cancelled", "completed", "completed", "escalated", "escalated"]), stored.join());
+  await planner.setViewportSize({ width: 390, height: 844 });
+  const overflowRuns = await planner.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
+  const wide = overflowRuns ? await planner.evaluate(() => [...document.querySelectorAll("body *")]
+    .filter((el) => el.getBoundingClientRect().right > window.innerWidth + 1).slice(0, 6)
+    .map((el) => `${el.tagName.toLowerCase()}.${el.className}#${el.id}:${Math.round(el.getBoundingClientRect().right)}`).join(" | ")) : "";
+  check("demo: the runs screen has no horizontal page scroll on a phone", !overflowRuns, wide);
+  await planner.close();
+  // readiness: what runs, then a changed draft, each named with its configuration, and their differences
+  await demo.click(".steps button:has-text('Readiness')");
+  await demo.waitForSelector("#rd-subject");
+  await demo.click("text=Assess readiness for a pilot");
+  await demo.waitForSelector("[data-testid=readiness-subject]");
+  const activeSubject = await demo.textContent("[data-testid=readiness-subject]");
+  const activeScore = await demo.textContent("[data-testid=readiness-score]");
+  check("demo: readiness of what runs names the active release and its configuration, with provisional weights",
+        activeSubject.includes("release 1") && (await demo.locator("[data-testid=dimensions] tbody tr").count()) === 6 &&
+        (await demo.textContent("[data-testid=weights-status]")).includes("not approved by the owner"), activeSubject.trim().slice(0, 80));
+  await demo.click(".steps button:has-text('Agents & tools')");
+  await demo.waitForSelector("[data-testid=autonomy]");
+  await demo.click("text=Supervised: a person also decides");
+  await demo.waitForFunction(() => document.querySelector("[data-testid=config-state]").textContent.includes("Unsaved · validated"));
+  await demo.click("[data-testid=save-config]");
+  await demo.waitForFunction(() => document.querySelector("[data-testid=config-message]")?.textContent.includes("does not run"));
+  check("demo: a changed draft is shown as different from what runs, and what runs is untouched",
+        (await demo.textContent("[data-testid=config-changes]")).includes("changed") &&
+        (await asPerson("acme-hana", "GET", `${DENG}/runs`)).status === 200 &&
+        (await asPerson("acme-ada", "GET", `${DUC}`)).body.effective_stage === "simulation");
+  await demo.click(".steps button:has-text('Readiness')");
+  await demo.waitForSelector("#rd-subject option[value=draft]", { state: "attached" });
+  await demo.selectOption("#rd-subject", "draft");
+  await demo.click("text=Assess readiness for a pilot");
+  await demo.waitForSelector("[data-testid=readiness-differences]");
+  const draftSubject = await demo.textContent("[data-testid=readiness-subject]");
+  const differences = await demo.textContent("[data-testid=readiness-differences]");
+  check("demo: readiness of the draft names the draft revision, lacks execution evidence and lists the differences",
+        draftSubject.includes("draft revision") && (await demo.textContent("[data-testid=promotion]")) === "promotion blocked" &&
+        (await demo.locator("[data-testid=readiness-differences] li").count()) >= 1 && differences.includes("now →"),
+        `active ${activeScore}, draft ${await demo.textContent("[data-testid=readiness-score]")}`);
+  check("demo: production stays unavailable whatever the score", (await demo.textContent("[data-testid=production]")).includes("not authorised"));
+  await demo.screenshot({ path: `${OUT}/demo-readiness.png`, fullPage: true });
+  check("no page errors (demonstration)", errors.length === 0, errors.join("; "));
+  console.log(`INFO reference demonstration (scripted, sandbox, simulated tools): ${((Date.now() - demo_started) / 1000).toFixed(1)} s`);
+  await demo.close();
 
   // 3. mobile
   const ctx = await browser.newContext({ ...pw.devices["iPhone 13"] });

@@ -29,7 +29,8 @@ export default function Workbench() {
   const [creating, setCreating] = useState<Template[] | null>(null);
   const [createError, setCreateError] = useState("");
   const [theme, setTheme] = useState<"auto" | "light" | "dark">("auto");
-  const [area, setArea] = useState<"use-cases" | "access">("use-cases");
+  const [area, setArea] = useState<"use-cases" | "access" | "review">("use-cases");
+  const [reviewing, setReviewing] = useState("");  // a use case a release approver opens by its identifier
 
   // The use case the person chose last. Answers that arrive for an earlier choice (a refresh started before they
   // clicked another use case) are dropped, so a late answer never puts another use case's detail on screen.
@@ -147,6 +148,7 @@ export default function Workbench() {
             </>
           ) : <span data-testid="workspace-name">{me.workspace.name}</span>}
           {area === "access" ? <><span aria-hidden="true">›</span><span>Access</span></>
+            : area === "review" ? <><span aria-hidden="true">›</span><span>Release review</span></>
             : detail && <><span aria-hidden="true">›</span><span>{detail.name}</span>
             <span className={`stage stage-${detail.effective_stage}`}>{LABELS[detail.stage]}</span></>}
         </div>
@@ -204,6 +206,20 @@ export default function Workbench() {
             </button>
           </li>
         </ul>
+        {me.release_approver && (
+          <form className="card" aria-labelledby="review-title" onSubmit={(ev) => {
+            ev.preventDefault();
+            const id = String(new FormData(ev.currentTarget).get("uc") ?? "").trim();
+            if (id) { setReviewing(id); setArea("review"); }
+          }}>
+            <h3 id="review-title">Review releases</h3>
+            <p className="muted small">You have release authority. Open the releases of a use case by its identifier, including one
+              you have no other access to: you see its releases and nothing else.</p>
+            <label htmlFor="review-uc">Use case identifier</label>
+            <input id="review-uc" name="uc" required pattern="[a-z0-9][a-z0-9\-]{0,62}" />
+            <button type="submit" data-testid="open-review">Open its releases</button>
+          </form>
+        )}
         <h2 className="section">Coming next</h2>
         <ul className="planned small muted" aria-label="Planned areas">
           <li>AI Architect with a language model — blocked on D7/D10 (a sandbox architect and blueprints work today)</li>
@@ -215,6 +231,14 @@ export default function Workbench() {
         {area === "access" ? (
           <AccessView key={me.workspace.id} me={me}
                       onOwnToken={(token) => { setToken(token); void load(me.workspace.id); }} />
+        ) : area === "review" ? (
+          // only what the platform lets a release approver see: the releases of the use case she named
+          <div data-testid="release-review">
+            <p className="notice small" role="note">Releases of <code>{reviewing}</code>. The platform decides what you may see and do here.</p>
+            <ReleasesView key={`review-${reviewing}`} workspace={me.workspace.id} member={me.member} admin={me.workspace_admin}
+                          useCase={{ id: reviewing, name: reviewing, path: `/w/${me.workspace.id}/u/${reviewing}` } as UseCase}
+                          onChanged={refresh} />
+          </div>
         ) : !detail ? <p className="muted empty">Choose a use case.</p> : (
           <>
             <div role="tablist" aria-label="Views" className="tabs">
@@ -232,7 +256,7 @@ export default function Workbench() {
               : ontology ? <OntologyView ontology={ontology} selected={entity} onSelect={setEntity} />
               : <p className="muted" aria-busy="true">Loading the model…</p>)}
             {view === "onboarding" && <OnboardingView key={detail.id} workspace={me.workspace.id} useCase={detail}
-                                                      admin={me.workspace_admin} />}
+                                                      admin={me.workspace_admin} member={me.member} onChanged={refresh} />}
             {view === "design" && <DesignView key={detail.id} path={detail.path} admin={me.workspace_admin} />}
             {view === "agents" && <AgentsView key={detail.id} path={detail.path} admin={me.workspace_admin} />}
             {view === "runs" && <RunsView key={`${detail.id}-${detail.effective_stage}`} workspace={me.workspace.id} useCase={detail} onChanged={refresh} />}

@@ -232,7 +232,8 @@ class WorkAgent:
                  max_steps: Optional[int] = None, max_repeats: int = 3, max_inline_wait: float = 5.0,
                  clock: Callable[[], float] = time.time, sleep: Callable[[float], None] = time.sleep,
                  observer: Optional[Observer] = None, journal=None, audit_key: Any = None,
-                 model_discretion: str = "governed", model_may_choose: Sequence[str] = ()):
+                 model_discretion: str = "governed", model_may_choose: Sequence[str] = (),
+                 autonomy: Optional[Mapping[str, Any]] = None):
         if on_ontology_update not in ("continue", "pause"):
             raise ValueError("on_ontology_update must be 'continue' or 'pause'")
         from .integrity import DISCRETION
@@ -242,6 +243,15 @@ class WorkAgent:
         # what a model reasoner may decide beyond the deterministic plan (autology.integrity, GAP-045)
         self.model_discretion = model_discretion
         self.model_may_choose = frozenset(model_may_choose)
+        # The agent's own autonomy policy. It can only add reviews to what the model's rules ask for:
+        # {"mode": "policy"} (the rules decide; default) or {"mode": "supervised", "reviewer": role,
+        # "actions": [...]} (those actions, or every action that acts outside Autology, wait for that role).
+        autonomy = dict(autonomy or {"mode": "policy"})
+        if autonomy.get("mode") not in ("policy", "supervised") or (
+                autonomy["mode"] == "supervised" and not isinstance(autonomy.get("reviewer"), str)):
+            raise ValueError(f"agent {name}: autonomy is {{\"mode\": \"policy\"}} or {{\"mode\": \"supervised\", "
+                             "\"reviewer\": role}")
+        self.autonomy = autonomy
         self.principal = Principal(name, roles)
         self.ontology = ontology
         self.tools = tools
@@ -355,12 +365,27 @@ class WorkAgent:
         """Evaluate for this agent, else find a delegate that is allowed to act."""
         decision = self.governance.evaluate(action, state, self.principal)
         if decision.allowed:
-            return self, decision
+            return self, self._supervised(decision)
         for member in self.delegates:
             member_decision = self.governance.evaluate(action, state, member.principal)
             if member_decision.allowed:
-                return member, member_decision
+                return member, self._supervised(member_decision)
         return None, decision
+
+    def _supervised(self, decision: Decision) -> Decision:
+        """The decision under this agent's autonomy policy: a supervised agent's allowed action waits for its
+        reviewer role, like a review the rules ask for. A policy never turns a review or a refusal into less."""
+        if self.autonomy["mode"] != "supervised" or decision.verdict is not Verdict.ALLOW:
+            return decision
+        name = decision.action.partition("@")[0]
+        chosen = self.autonomy.get("actions")
+        action = self.ontology.actions.get(name)
+        if (name not in chosen) if chosen is not None else (action is None or action.side_effect == "none"):
+            return decision
+        reviewer = str(self.autonomy["reviewer"])
+        return Decision(Verdict.REVIEW, decision.action,
+                        [f"{self.name} is supervised: {reviewer} decides {name} (the agent's autonomy policy)"],
+                        ["AUTONOMY"], (reviewer,), list(decision.satisfied), dict(decision.facts))
 
     def _validate_result(self, action: GroundAction, result: ToolResult, state: WorldState,
                          executor: "WorkAgent") -> Optional[str]:

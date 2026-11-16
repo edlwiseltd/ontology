@@ -127,7 +127,9 @@ def _pilot_checks(service: Any, entered_simulation: Optional[Dict[str, Any]]) ->
     checks.append(Check("engine_simulation_mode_off", not service.simulation,
                         "the engine's simulation mode (automatic approvals, free-form cases) is on" if service.simulation
                         else "the engine's simulation mode (automatic approvals, free-form cases) is off"))
-    needed = sorted({str(r.params.get("reviewer")) for r in o.rules if r.kind == "human_review"})
+    needed = sorted({str(r.params.get("reviewer")) for r in o.rules if r.kind == "human_review"}
+                    | {str(c.agent.autonomy["reviewer"]) for c in service.agents.values()
+                       if c.agent.autonomy.get("mode") == "supervised"})
     held = set().union(*[u.reviewer_roles for u in service.users]) if service.users else set()
     missing = [r for r in needed if r not in held]
     checks.append(Check("reviewers_assigned", not missing,

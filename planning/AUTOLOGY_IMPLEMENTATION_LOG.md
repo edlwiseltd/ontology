@@ -661,3 +661,30 @@ suite 862 OK (2 PostgreSQL tests skipped locally), 95.88 % lines (14,938 stateme
 Summary for the owner: [R2 closure sprint report](AUTOLOGY_R2_CLOSURE_SPRINT_REPORT.md). The commit that adds it is
 documentation only; its own run is reported with the report.
 
+## 16 November 2026 — Activation sprint, baseline and increment A: agents and simulated tools from Studio
+
+**Baseline verified before any change.** HEAD `d86ca23` (documentation on top of `b67853e`), tree clean and in
+sync, CI run 95 success; 862 tests, 95.88 %, 28 Studio unit tests, 73 browser checks as reported. Gaps confirmed
+in the code, not assumed: agents and tools came only from files an operator wrote; a release restored the model
+only; a stored run needs records, a case template and a member with `run`; no run can be cancelled; readiness
+measures the running engine only.
+
+**Acceptance criteria (A).** An administrator of a use case can create, edit and withdraw an agent configuration
+as a draft; choose tools only from a limited approved catalogue; see what each agent may do; get the engine's
+validation before saving; and review the differences against what runs. No step grants authority, changes what
+runs or enables an external action.
+
+| Story | Change | Tests | Behaviour change |
+|---|---|---|---|
+| Solution model | `autology/solution.py` (pure): a configuration is agents (purpose, responsibilities, roles, goals, autonomy policy, one catalogue tool per permitted action) and synthetic sample records. `check` validates it against a model document and compiles it to the engine's existing agent configuration; `effective_permissions` reads, per agent and action, whether it is autonomous, conditional, needs a person, is refused or not assigned, with the rules that say so; `changes` compares a draft with what runs | S1, S2, S5 | New module |
+| Approved catalogue | Three tools, all simulated and compiled to decision tables (complete, decision table, fail on purpose). Connectors, custom code and model reasoners are listed as unavailable with the reason and cannot be assigned | S1, S2 | — |
+| Autonomy policy | `policy` leaves the decision to the model's rules; `supervised` adds a review by a named role (`WorkAgent._supervised`). It can only narrow: a review the rules require is never removed, a refusal is never lifted | S6 (run-time) | New optional agent setting `autonomy`; absent = unchanged |
+| API | `GET/POST /api/v1/solution/draft`, `POST /api/v1/solution/validate`, `POST /api/v1/solution/suggest`, `GET /api/v1/tools/catalog` (`autology/configuring.py`, a sixth ARC-0 service). The configuration is stored in the same draft revisions as the model (schema 17, one added column), so the two are published together. Reading needs `read` or `configure`, saving `configure`. An invalid configuration is never stored. A use case whose agents an operator wrote in files is read-only here | S3, S4, S7–S9, `test_api_v1.py`, `test_mig1_migrations.py` | Five routes; schema 16 → 17 (additive) |
+| Studio | Tab **Agents & tools** (`AgentsView.tsx`, `lib/solution.ts`): agent list, purpose, responsibilities, roles, goals, autonomy, a tool per action with its setting, the engine's verdict per action, a graph of agents → actions → tools, validation messages, changes against what runs; states draft / validated / unsaved / running are told apart; unavailable capabilities are shown and disabled; read-only for members without `configure` | 5 unit tests, 8 browser checks | New tab |
+
+**What it does not do yet.** A saved configuration does not run: releases do not carry it until increment B.
+Decision-table rows that write fields can be kept but not edited in the panel (only condition and outcome).
+Evidence (local): `tests/test_act1_solution_configuration.py` 10 OK; full suite **872 OK** (2 PostgreSQL tests
+skipped locally), **95.79 %** lines (15,313 statements, 645 missed; `solution.py` 91.5 %, `configuring.py` 91.4 %);
+ruff clean; mypy 198 (= baseline); engine class 1,714 lines, 138 methods (ratchet lowered from 1,721). Studio:
+typecheck clean, **33 unit tests**, build, **81/81 browser checks**.

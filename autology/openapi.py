@@ -86,6 +86,13 @@ ROUTES: List[Tuple[str, str, str, str, Tuple[str, ...]]] = [
     ("POST", "/api/model/validate", "read or configure", "Validate a model document with the engine's strict loader", ()),
     ("POST", "/api/model/draft/simulate", "configure",
      "Dry run of a model document with stub tools: nothing stored, nothing called outside the engine", ()),
+    ("GET", "/api/solution/draft", "read or configure",
+     "The draft's executable configuration (agents, simulated tools, sample records), validated, with what runs", ()),
+    ("POST", "/api/solution/draft", "configure", "Save the configuration part of the draft (or withdraw it)", ()),
+    ("POST", "/api/solution/validate", "read or configure",
+     "Validate a configuration against the draft's model and explain each agent's effective permissions", ()),
+    ("POST", "/api/solution/suggest", "configure", "A starting configuration for the draft's model (nothing saved)", ()),
+    ("GET", "/api/tools/catalog", "read or configure", "The approved tool catalogue: simulated tools, and what is unavailable", ()),
     ("POST", "/api/architect/proposals", "configure",
      "Provisional additions for a business brief: from approved blueprints (default), or through the AI gateway "
      "(generator model), stored as a revision", ()),
@@ -200,6 +207,37 @@ SCHEMAS: Dict[str, Any] = {
                                               "request_id": S, "matched_terms": {"type": "array", "items": S}},
                                              ("generator", "ai"))},
                          ("id", "kind", "value", "rationale", "status", "provenance")),
+    "CatalogEntry": _obj({"id": S, "name": S, "environment": S, "available": B, "description": S,
+                          "parameters": {"type": "array", "items": S}},
+                         ("id", "name", "environment", "available", "description")),
+    "ToolCatalog": _obj({"items": {"type": "array", "items": REF("CatalogEntry")}, "note": S}, ("items", "note")),
+    "AgentPermission": _obj({
+        "action": S, "status": {"type": "string", "enum": ["autonomous", "conditional", "review_required", "refused",
+                                                           "not_assigned"]},
+        "tool": NS, "simulated": B, "side_effect": S, "refused": {"type": "array", "items": S},
+        "conditions": {"type": "array", "items": S},
+        "reviews": {"type": "array", "items": _obj({"reviewer": NS, "when": NS, "rule": S}, ("reviewer", "when", "rule"))}},
+        ("action", "status", "tool", "simulated", "side_effect", "refused", "conditions", "reviews")),
+    "SolutionDraft": _obj({
+        "revision": I, "author": NS, "at": NS, "note": S, "solution": {"type": ["object", "null"]},
+        "state": {"type": "string", "enum": ["none", "invalid", "validated"]},
+        "validation": _obj({"valid": B, "by": S, "problems": {"type": "array", "items": _obj(
+            {"path": S, "message": S}, ("path", "message"))}}, ("valid", "problems", "by")),
+        "permissions": {"type": "object", "additionalProperties": {"type": "array", "items": REF("AgentPermission")}},
+        "simulated_tools": {"type": "array", "items": S},
+        "active": _obj({"managed": {"type": "string", "enum": ["studio", "files", "none"]},
+                        "agents": {"type": "array", "items": S}, "solution": {"type": ["object", "null"]},
+                        "configuration": S, "editable": B, "note": S},
+                       ("managed", "agents", "solution", "configuration", "editable", "note")),
+        "changes": {"type": "array", "items": _obj(
+            {"kind": S, "name": S, "change": {"type": "string", "enum": ["added", "removed", "changed"]},
+             "fields": {"type": "array", "items": S}}, ("kind", "name", "change", "fields"))},
+        "catalog": {"type": "array", "items": REF("CatalogEntry")}, "source": S, "saved": B},
+        ("revision", "solution", "state", "validation", "permissions", "simulated_tools", "active", "changes",
+         "catalog")),
+    "SolutionSave": _obj({"solution": {"type": ["object", "null"]}, "expected_revision": {"type": "integer", "minimum": 0},
+                          "note": S}, ("solution", "expected_revision")),
+    "SolutionCheck": _obj({"solution": {"type": ["object", "null"]}, "document": ANY, "proposal": S}),
     "DraftSimulation": _obj({
         "simulated": B, "persisted": B, "notice": S, "requested_by": S,
         "model": _obj({"ref": S, "fingerprint": S}, ("ref", "fingerprint")), "goal": S,
@@ -290,11 +328,16 @@ RESPONSES = {("GET", "/api/health"): "Health", ("GET", "/api/me"): "Me", ("GET",
              ("GET", "/api/architect/proposals"): "ProposalList",
              ("GET", "/api/architect/proposals/{id}"): "Proposal",
              ("POST", "/api/architect/proposals/{id}/decision"): "Proposal",
-             ("POST", "/api/model/draft/simulate"): "DraftSimulation"}
+             ("POST", "/api/model/draft/simulate"): "DraftSimulation",
+             ("GET", "/api/solution/draft"): "SolutionDraft", ("POST", "/api/solution/draft"): "SolutionDraft",
+             ("POST", "/api/solution/validate"): "SolutionDraft", ("POST", "/api/solution/suggest"): "SolutionDraft",
+             ("GET", "/api/tools/catalog"): "ToolCatalog"}
 REQUESTS = {("POST", "/api/model/draft"): "DraftSave", ("POST", "/api/model/validate"): "ValidateRequest",
             ("POST", "/api/architect/proposals"): "ProposalRequest", ("POST", "/api/objects"): "ObjectWrite",
             ("POST", "/api/architect/proposals/{id}/decision"): "ProposalDecisionRequest",
-            ("POST", "/api/model/draft/simulate"): "DraftSimulationRequest"}
+            ("POST", "/api/model/draft/simulate"): "DraftSimulationRequest",
+            ("POST", "/api/solution/draft"): "SolutionSave", ("POST", "/api/solution/validate"): "SolutionCheck",
+            ("POST", "/api/solution/suggest"): "SolutionCheck"}
 
 
 def _operation_id(method: str, path: str) -> str:

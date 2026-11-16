@@ -48,7 +48,7 @@ import time
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any, Callable, Dict, FrozenSet, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, FrozenSet, List, Optional, Tuple
 from urllib.parse import parse_qs, urlparse
 
 from .agent import DeferredApprover, WorkAgent
@@ -62,6 +62,14 @@ from .ontology import Ontology, OntologyError, type_ok
 from .openapi import page_window, versioned_response
 from .readiness import checked_weights
 from .store import Store, StoreError, StoreJournal
+
+if TYPE_CHECKING:  # the services import this module: these names are for the type checker only
+    from .architecting import ArchitectService
+    from .configuring import ConfigurationService
+    from .ingestion import IngestionService
+    from .notifications import NotificationService
+    from .reviews import ReviewService
+    from .runs import RunService
 
 log = logging.getLogger("autology.server")
 # "configure" is the administrative permission (IAM-3, D22a): design the model, change the assistant's settings.
@@ -132,6 +140,27 @@ class AgentConfig:
     lock: threading.Lock = field(default_factory=threading.Lock)
 
 
+def _services(engine: "AutologyService", config: Dict[str, Any]) -> Tuple[
+        "NotificationService", "IngestionService", "RunService", "ReviewService", "ArchitectService",
+        "ConfigurationService"]:
+    """ARC-0: responsibilities taken out of the engine class, one at a time. Each service works through the
+    engine it belongs to (its store, its rules, its permission checks): there is still one authority, the engine."""
+    from .architecting import ArchitectService
+    from .configuring import ConfigurationService
+    from .ingestion import IngestionService
+    from .notifications import NotificationService
+    from .reviews import ReviewService
+    from .runs import RunService
+
+    return (NotificationService(engine), IngestionService(engine), RunService(engine), ReviewService(engine),
+            ArchitectService(engine, config), ConfigurationService(engine, config))
+
+
+def _tools(spec: Dict[str, Any], rel: Callable[[str], str]) -> Any:
+    """An agent's tools: a file an operator wrote, or the declaration itself (a Studio-managed configuration)."""
+    return spec["tools"] if isinstance(spec["tools"], dict) else rel(spec["tools"])
+
+
 class AutologyService:
     """The API's behaviour, independent of HTTP (so it can be tested and embedded directly)."""
 
@@ -161,7 +190,8 @@ class AutologyService:
             except StoreError as exc:
                 raise ValueError(str(exc)) from None
         if config.get("data") and self.store.count_instances() == 0:
-            data = json.loads(Path(rel(config["data"])).read_text(encoding="utf-8"))
+            data = config["data"] if isinstance(config["data"], dict) else json.loads(
+                Path(rel(config["data"])).read_text(encoding="utf-8"))
             self.store.save_graph(KnowledgeGraph.from_dict(self.ontology, data))
         self.quarantined: List[Dict[str, Any]] = []  # stored records that no longer validate (audit GAP-010)
         self.graph = self.store.load_graph(self.ontology, quarantine=self.quarantined)
@@ -193,7 +223,7 @@ class AutologyService:
         self.agents: Dict[str, AgentConfig] = {}
         self.model_findings: List[str] = []  # discretion a model has that no person reviews (GAP-045)
         for name, spec in (config.get("agents") or {}).items():
-            delegates = [WorkAgent(d["name"], self.ontology, load_tools(rel(d["tools"])), roles=d.get("roles", []),
+            delegates = [WorkAgent(d["name"], self.ontology, load_tools(_tools(d, rel)), roles=d.get("roles", []),
                                    audit_key=self.audit_key)
                          for d in spec.get("delegates", [])]
             approver_spec = spec.get("approver", "inbox")
@@ -205,7 +235,7 @@ class AutologyService:
             may_choose = spec.get("model_may_choose") or []
             if not isinstance(may_choose, list) or not all(isinstance(a, str) for a in may_choose):
                 raise ValueError(f"agent {name}: model_may_choose must be a list of action names")
-            agent = WorkAgent(name, self.ontology, load_tools(rel(spec["tools"])), roles=spec.get("roles", []),
+            agent = WorkAgent(name, self.ontology, load_tools(_tools(spec, rel)), roles=spec.get("roles", []),
                               delegates=delegates, approver=approver,
                               reasoner=load_reasoner(spec.get("reasoner"), (str(base),)),
                               journal=StoreJournal(self.store, name),  # external calls survive a crash
@@ -213,7 +243,7 @@ class AutologyService:
                               # what a model reasoner may decide beyond the plan (GAP-045): governing settings,
                               # so they are part of the configuration fingerprint and of every release
                               model_discretion=spec.get("model_discretion", "governed"),
-                              model_may_choose=may_choose)
+                              model_may_choose=may_choose, autonomy=spec.get("autonomy"))
             if spec.get("reasoner") not in (None, "planner"):
                 from .integrity import model_findings
 
@@ -246,16 +276,8 @@ class AutologyService:
         for cfg_agent in self.agents.values():
             for member in [cfg_agent.agent] + cfg_agent.agent.delegates:
                 member.configuration = self.configuration_fingerprint
-        # ARC-0: responsibilities taken out of this class, one at a time. Each service works through the engine it
-        # belongs to (its store, its rules, its permission checks): there is still one authority, this one.
-        from .architecting import ArchitectService
-        from .ingestion import IngestionService
-        from .notifications import NotificationService
-        from .reviews import ReviewService
-        from .runs import RunService
-
-        self.notifications, self.ingestion = NotificationService(self), IngestionService(self)
-        self.runs, self.reviews, self.architect = RunService(self), ReviewService(self), ArchitectService(self, config)
+        (self.notifications, self.ingestion, self.runs, self.reviews, self.architect,
+         self.configuring) = _services(self, config)  # ARC-0: one service per responsibility taken out
         self._init_security(config, base)
         self.users: List[User] = self.parse_users(config.get("users", []))
         # identities automations run as (D4): explicit, least privilege, limited to named agents
@@ -2027,6 +2049,15 @@ class ApiExchange:
                 return self._send(200, service.validate_model(user, body))
             if parts == ["model", "draft", "simulate"] and method == "POST":
                 return self._send(200, service.architect.simulate_draft(user, body))
+            if parts == ["solution", "draft"] and method in ("GET", "POST"):
+                return self._send(200, service.configuring.solution_draft(user) if method == "GET"
+                                  else service.configuring.save_solution_draft(user, body))
+            if parts == ["solution", "validate"] and method == "POST":
+                return self._send(200, service.configuring.validate_solution(user, body))
+            if parts == ["solution", "suggest"] and method == "POST":
+                return self._send(200, service.configuring.suggest_solution(user, body))
+            if parts == ["tools", "catalog"] and method == "GET":
+                return self._send(200, service.configuring.tool_catalog(user))
             if parts == ["architect", "proposals"] and method in ("GET", "POST"):
                 return self._send(200, service.architect_proposals(user, body) if method == "POST"
                                   else service.architect.list_proposals(user))

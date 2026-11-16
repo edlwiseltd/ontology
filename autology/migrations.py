@@ -135,6 +135,12 @@ def _v16(store: Any, db: Any) -> None:
     """New tables only: architect proposals and their review decisions."""
 
 
+def _v17(store: Any, db: Any) -> None:
+    """A draft carries the executable configuration next to the model."""
+    if "solution" not in columns(db, "model_drafts"):
+        db.execute("ALTER TABLE model_drafts ADD COLUMN solution TEXT")
+
+
 MIGRATIONS: List[Tuple[int, str, Callable[[Any, Any], None]]] = [
     (4, "who started each run", _v4),
     (5, "write-back snapshots and conflicts; automation failure counts", _v5),
@@ -145,6 +151,7 @@ MIGRATIONS: List[Tuple[int, str, Callable[[Any, Any], None]]] = [
     (14, "record revisions and seals", _v14),
     (15, "model drafts and later tables", _v15),
     (16, "architect proposals and review decisions", _v16),
+    (17, "executable configuration in model drafts", _v17),
 ]
 
 

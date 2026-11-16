@@ -455,6 +455,55 @@ try {
         typeof runsAfter === "object" && (await onb.textContent(".uc-list button:has-text('Service desk')")).includes("Draft"));
   await onb.screenshot({ path: `${OUT}/desktop-onboarding-readiness.png`, fullPage: true });
   console.log(`INFO onboarding journey (scripted, sandbox): ${((Date.now() - onb_started) / 1000).toFixed(1)} s`);
+  // 5b. agents and simulated tools of the draft (the engine validates; nothing saved here runs)
+  await onb.click("role=tab[name='Agents & tools']");
+  await onb.waitForSelector("[data-testid=config-state]");
+  check("agents: a draft without configuration says so, and that nothing runs",
+        (await onb.textContent("[data-testid=config-state]")).includes("No configuration") &&
+        (await onb.textContent("[data-testid=config-active]")).includes("no agent") &&
+        (await onb.textContent("[data-testid=simulated-notice]")).includes("contacts no other system"));
+  const unavailableText = await onb.textContent("[data-testid=unavailable-tools]");
+  check("agents: connectors and model reasoners are shown as unavailable, with the reason",
+        unavailableText.includes("Connector to another system") && unavailableText.includes("D7, D10") &&
+        (await onb.locator("[data-testid=unavailable-tools] .badge").count()) === 3);
+  await onb.click("[data-testid=suggest-config]");
+  await onb.waitForSelector("[data-testid=tool-table] tbody tr");
+  await onb.waitForFunction(() => document.querySelector("[data-testid=config-state]").textContent.includes("Unsaved · validated"));
+  const permApprove = await onb.textContent("[data-testid=perm-approve_request]");
+  check("agents: a starting configuration is validated by the engine and shows what the agent may do",
+        (await onb.textContent("[data-testid=config-validation]")).includes("Valid (the engine") &&
+        permApprove.includes("department_head when Request.amount >= 5000") &&
+        (await onb.locator("[data-testid=agents-canvas] .react-flow__node.flow-tool").count()) >= 3, permApprove);
+  // an unavailable tool cannot be chosen; an unknown goal reference is refused by the engine before any save
+  const disabledOptions = await onb.locator("#tool-approve_request option[disabled]").count();
+  const refusedSave = await call(onb, "POST", "/w/acme/u/service-desk/api/v1/solution/draft", { expected_revision: 1, solution: {
+    agents: { rogue: { roles: [], goals: ["request_closed"], autonomy: { mode: "policy" }, tools: [{ action: "approve_request", tool: "connector.http" }] } } } });
+  check("agents: an unavailable capability cannot be selected, and the engine refuses it if sent anyway",
+        disabledOptions === 3 && refusedSave === 400, `${disabledOptions} disabled, HTTP ${refusedSave}`);
+  await onb.selectOption("#tool-fulfil_request", "");
+  await onb.waitForFunction(() => document.querySelector("[data-testid=perm-fulfil_request]").textContent.includes("not assigned"));
+  check("agents: removing a tool withdraws the permission, as the engine reports it",
+        (await onb.textContent("[data-testid=perm-fulfil_request]")).includes("not assigned"));
+  await onb.selectOption("#tool-fulfil_request", "simulated.succeed");
+  await onb.waitForFunction(() => !document.querySelector("[data-testid=perm-fulfil_request]").textContent.includes("not assigned"));
+  await onb.click("text=Supervised: a person also decides");
+  await onb.waitForFunction(() => document.querySelector("[data-testid=perm-fulfil_request]").textContent.includes("agent autonomy"));
+  check("agents: a supervised autonomy policy adds reviews; it is shown per action",
+        (await onb.textContent("[data-testid=perm-fulfil_request]")).includes("a person decides"));
+  await onb.click("text=The model's rules decide");
+  await onb.waitForFunction(() => !document.querySelector("[data-testid=perm-fulfil_request]").textContent.includes("agent autonomy"));
+  await onb.screenshot({ path: `${OUT}/desktop-agents.png`, fullPage: true });
+  await onb.click("[data-testid=save-config]");
+  await onb.waitForSelector("[data-testid=config-message]");
+  const cfgAfter = await onb.evaluate(async () => {
+    const h = { Authorization: "Bearer " + sessionStorage.getItem("autology-studio-token") };
+    const d = await (await fetch("/w/acme/u/service-desk/api/v1/solution/draft", { headers: h })).json();
+    return { state: d.state, agents: Object.keys(d.solution.agents), running: d.active.agents, managed: d.active.managed, changes: d.changes.length };
+  });
+  check("agents: the configuration is saved as a validated draft; nothing that runs changed",
+        (await onb.textContent("[data-testid=config-message]")).includes("does not run") && cfgAfter.state === "validated" &&
+        cfgAfter.agents.length === 1 && cfgAfter.running.length === 0 && cfgAfter.managed === "none" && cfgAfter.changes >= 1 &&
+        (await onb.textContent("[data-testid=config-changes]")).includes("added"), JSON.stringify(cfgAfter));
   // a member who may not configure sees the screen but cannot ask, and the engine refuses her the calls
   const hanaOnb = await browser.newPage({ viewport: { width: 1280, height: 860 } });
   hanaOnb.on("pageerror", (e) => errors.push(String(e)));
@@ -465,6 +514,14 @@ try {
   await hanaOnb.click(".uc-list button:has-text('Motor claims')");
   await hanaOnb.click("role=tab[name='Onboarding']");
   await hanaOnb.waitForSelector("[data-testid=onboarding]");
+  await hanaOnb.click("role=tab[name='Agents & tools']");
+  await hanaOnb.waitForSelector("[data-testid=config-readonly]");
+  const hanaSave = await call(hanaOnb, "POST", "/w/acme/u/claims/api/v1/solution/draft", { expected_revision: 0, solution: null });
+  check("agents: a member without the configure permission reads the configuration and cannot change it",
+        (await hanaOnb.textContent("[data-testid=config-denied]")).includes("Only someone who may configure") &&
+        (await hanaOnb.textContent("[data-testid=config-readonly]")).includes("configured by an operator in files") &&
+        (await hanaOnb.locator("[data-testid=save-config]").count()) === 0 && hanaSave === 403, `HTTP ${hanaSave}`);
+  await hanaOnb.click("role=tab[name='Onboarding']");
   const refusals = [await call(hanaOnb, "POST", "/w/acme/u/claims/api/v1/architect/proposals", { generator: "model", brief: "service requests approved by a manager" }),
                     await call(hanaOnb, "POST", "/w/acme/u/claims/api/v1/model/draft/simulate", {}),
                     await call(hanaOnb, "GET", "/w/acme/u/service-desk/api/v1/architect/proposals")];

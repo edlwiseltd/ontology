@@ -1,6 +1,6 @@
 # Work in progress — Autology
 
-*Updated 15 November 2026 (R2 closure sprint). Branch `claude/autology-ontology-agent-4ajjer`.*
+*Updated 16 November 2026 (activation sprint). Branch `claude/autology-ontology-agent-4ajjer`.*
 
 ## Done in this directive
 
@@ -69,3 +69,13 @@
 - No commercial distribution.
 - No confidential data sent to an external AI provider without approved configuration.
 - No self-approval of releases.
+
+## Activation sprint: solution activation, persistent simulation, onboarding (16 November 2026)
+
+| Increment | Status | Evidence |
+|---|---|---|
+| A — agents and simulated tools from Studio | Done (drafts only; releases carry them from B) | `tests/test_act1_solution_configuration.py` (10); 33 Studio unit tests; 81/81 browser checks; see the implementation log |
+| B — executable configuration inside the release | In progress | — |
+| C — persistent governed simulation from Studio | Pending | — |
+| D — readiness for draft, proposed and active release | Pending | — |
+| E, F — end-to-end journey and reference demonstration | Pending | — |

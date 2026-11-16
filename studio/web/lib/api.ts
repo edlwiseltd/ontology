@@ -4,8 +4,8 @@
 
 import type { AccessReview, ActivationResult, ApiErrorBody, CheckResult, Draft, DraftSimulation, GrantProposal,
   IssuedToken, Me, Members, ModelDocument, MoveResult, OntologySummary, Proposal, ProposalList, Published, Readiness,
-  Release, ReleaseState, Restored, Stage, Template, TenantView, TokenIssuedOrRequested, UseCase,
-  ValidationResult } from "./types";
+  Release, ReleaseState, Restored, Solution, SolutionDraft, Stage, Template, TenantView, TokenIssuedOrRequested,
+  UseCase, ValidationResult } from "./types";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string, public data: Record<string, unknown> = {}) {
@@ -128,6 +128,18 @@ export const api = {
     request<Proposal>("POST", `${path}/api/v1/architect/proposals`, { brief, document }),
   readiness: (w: string, uc: string, target: "pilot" | "production") =>
     request<Readiness>("GET", `${ws(w)}/${encodeURIComponent(uc)}/readiness?target=${target}`),
+};
+
+// The executable configuration of a draft (agents, simulated tools, sample records). The engine validates,
+// compiles and stores it; saving changes nothing that runs.
+export const configuration = {
+  draft: (path: string) => request<SolutionDraft>("GET", `${path}/api/v1/solution/draft`),
+  validate: (path: string, solution: Solution | null) =>
+    request<SolutionDraft>("POST", `${path}/api/v1/solution/validate`, { solution }),
+  suggest: (path: string, proposal?: string) =>
+    request<SolutionDraft>("POST", `${path}/api/v1/solution/suggest`, proposal ? { proposal } : {}),
+  save: (path: string, solution: Solution | null, expected_revision: number, note: string) =>
+    request<SolutionDraft>("POST", `${path}/api/v1/solution/draft`, { solution, expected_revision, note }),
 };
 
 export interface SimulatedDecision { action: string; approved: boolean; as?: string }

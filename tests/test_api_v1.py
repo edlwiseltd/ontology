@@ -155,6 +155,18 @@ class SchemaConformanceTests(V1Base):  # V5
                     "rules": [{"id": "R-BIG", "type": "human_review", "action": "finish", "reviewer": "lead",
                                "when": "Task.size >= 5", "description": "A lead decides big tasks"}],
                     "goals": {"done": {"description": "x", "target": "Task.status == 'done'"}}}})})
+        # the executable configuration (agents, simulated tools): on a use case Studio manages
+        status, _, made = self.raw("POST", "/platform/v1/workspaces/acme/use-cases",
+                                   body={"id": "v1-blank", "name": "V1 blank", "template": "blank-solution"})
+        self.assertEqual(status, 201, made)
+        blank = "/w/acme/u/v1-blank/api/v1"
+        calls.update({
+            ("GET", "/api/solution/draft"): ("GET", f"{blank}/solution/draft", None),
+            ("POST", "/api/solution/draft"): ("POST", f"{blank}/solution/draft", {"solution": {"agents": {}},
+                                                                               "expected_revision": 0}),
+            ("POST", "/api/solution/validate"): ("POST", f"{blank}/solution/validate", {"solution": {"agents": {}}}),
+            ("POST", "/api/solution/suggest"): ("POST", f"{blank}/solution/suggest", {}),
+            ("GET", "/api/tools/catalog"): ("GET", f"{blank}/tools/catalog", None)})
         self.assertEqual(set(calls), set(RESPONSES))  # every typed engine response is exercised
         for key, (method, path, body) in calls.items():
             with self.subTest(route=key):

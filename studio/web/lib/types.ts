@@ -54,4 +54,15 @@ export type ProposalList = E["ProposalList"];
 export type ArchitectStatus = ProposalList["architect"];
 export type DraftSimulation = E["DraftSimulation"];
 export type Readiness = P["Readiness"];
+// the executable configuration (agents, simulated tools, sample records) of a draft: the engine validates it
+export interface ToolAssignment { action: string; tool: string; outcome?: string; message?: string; error?: string;
+  when?: string; rows?: { when?: string; outcome?: string; updates?: Record<string, Record<string, unknown>>; message?: string }[] }
+export interface AgentSpec { purpose?: string; responsibilities?: string[]; roles: string[]; goals: string[];
+  autonomy: { mode: "policy" | "supervised"; reviewer?: string; actions?: string[] }; tools: ToolAssignment[] }
+export interface Solution { agents: Record<string, AgentSpec>;
+  sample_data?: { instances: Record<string, unknown>[]; links: [string, string, string][] } }
+export type SolutionDraft = Omit<Known<E["SolutionDraft"]>, "solution" | "active"> & {
+  solution: Solution | null; active: Omit<Known<E["SolutionDraft"]["active"]>, "solution"> & { solution: Solution | null } };
+export type AgentPermission = E["AgentPermission"];
+export type CatalogEntry = E["CatalogEntry"];
 export type ReadinessDimension = P["ReadinessDimension"];

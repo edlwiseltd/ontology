@@ -4,13 +4,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api, getToken, setToken } from "@/lib/api";
 import type { Me, OntologySummary, Template, UseCase } from "@/lib/types";
 import AccessView from "./AccessView";
+import AgentsView from "./AgentsView";
 import DesignView from "./DesignView";
 import OnboardingView from "./OnboardingView";
 import OntologyView from "./OntologyView";
 import ReleasesView from "./ReleasesView";
 import StageOverview, { LABELS } from "./StageOverview";
 
-type View = "overview" | "onboarding" | "model" | "design" | "releases";
+type View = "overview" | "onboarding" | "model" | "design" | "agents" | "releases";
 type Status = "signed-out" | "loading" | "ready" | "unavailable";
 
 export default function Workbench() {
@@ -205,7 +206,7 @@ export default function Workbench() {
         <h2 className="section">Coming next</h2>
         <ul className="planned small muted" aria-label="Planned areas">
           <li>AI Architect with a language model — blocked on D7/D10 (a sandbox architect and blueprints work today)</li>
-          <li>Processes, organisation, agents — planned</li>
+          <li>Processes, organisation — planned</li>
         </ul>
       </nav>
 
@@ -220,6 +221,7 @@ export default function Workbench() {
               <button role="tab" aria-selected={view === "onboarding"} onClick={() => setView("onboarding")}>Onboarding</button>
               <button role="tab" aria-selected={view === "model"} onClick={() => setView("model")}>Active model</button>
               <button role="tab" aria-selected={view === "design"} onClick={() => setView("design")}>Design (draft)</button>
+              <button role="tab" aria-selected={view === "agents"} onClick={() => setView("agents")}>Agents &amp; tools</button>
               <button role="tab" aria-selected={view === "releases"} onClick={() => setView("releases")}>Releases</button>
             </div>
             {view === "overview" && <StageOverview workspace={me.workspace.id} useCase={detail} admin={me.workspace_admin}
@@ -230,6 +232,7 @@ export default function Workbench() {
             {view === "onboarding" && <OnboardingView key={detail.id} workspace={me.workspace.id} useCase={detail}
                                                       admin={me.workspace_admin} />}
             {view === "design" && <DesignView key={detail.id} path={detail.path} admin={me.workspace_admin} />}
+            {view === "agents" && <AgentsView key={detail.id} path={detail.path} admin={me.workspace_admin} />}
             {view === "releases" && <ReleasesView key={detail.id} workspace={me.workspace.id} useCase={detail}
                                                   member={me.member} admin={me.workspace_admin} onChanged={refresh} />}
           </>

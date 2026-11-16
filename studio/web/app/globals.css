@@ -154,3 +154,23 @@ button.danger-inline { color: var(--bad); border-color: var(--bad); } .context s
 .onboarding details { border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
 .onboarding .audit { max-height: 220px; overflow: auto; }
 @media (max-width: 900px) { .review-grid { grid-template-columns: 1fr; } .onboarding table { display: block; overflow-x: auto; } }
+
+/* -- agents and simulated tools (draft configuration) ---------------------------------------------------- */
+.agents { display: flex; flex-direction: column; gap: var(--gap); }
+.agents-body { display: grid; grid-template-columns: minmax(200px, 260px) 1fr; gap: var(--gap); align-items: start; }
+.agents-edit input:not([type=checkbox]):not([type=radio]), .agents-edit textarea { width: 100%; }
+.agents-edit table input:not([type=checkbox]) { min-width: 140px; }
+.agents fieldset { border: 1px solid var(--line); border-radius: 8px; margin: 8px 0; padding: 6px 10px; }
+.agents .check { display: block; font-weight: 400; margin: 2px 0; }
+.agents table { width: 100%; border-collapse: collapse; }
+.agents table th, .agents table td { text-align: left; vertical-align: top; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+.agents .rows { margin: 0; padding-left: 18px; }
+.agents-canvas { height: 240px; }
+.pill.status-autonomous { border-color: var(--ok, #2a7); }
+.pill.status-review_required, .pill.status-conditional { border-color: var(--accent); }
+.pill.status-refused { border-color: var(--bad, #c33); }
+.pill.status-not_assigned { opacity: .7; }
+.react-flow__node.flow-agent { border-width: 2px; font-weight: 600; }
+.react-flow__node.flow-tool { border-style: dashed; }
+.react-flow__node.status-refused { border-color: var(--bad, #c33); }
+@media (max-width: 900px) { .agents-body { grid-template-columns: 1fr; } .agents table { display: block; overflow-x: auto; } }

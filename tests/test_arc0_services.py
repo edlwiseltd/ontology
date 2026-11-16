@@ -21,6 +21,7 @@ from pathlib import Path
 
 import autology
 from autology.architecting import ArchitectService
+from autology.configuring import ConfigurationService
 from autology.ingestion import IngestionService
 from autology.mcp import McpServer
 from autology.notifications import NotificationService
@@ -40,11 +41,11 @@ MOVED = {"notifications": ["_not_for_notifications", "_hidden_from_roles", "_not
          "reviews": ["list_reviews", "get_review", "decide", "_live_changes", "_continue_after_review"],
          "architect": ["architect_proposals"]}
 SERVICES = {"notifications": NotificationService, "ingestion": IngestionService, "runs": RunService,
-            "reviews": ReviewService, "architect": ArchitectService}
+            "reviews": ReviewService, "architect": ArchitectService, "configuring": ConfigurationService}
 SERVICE_MODULES = {"notifications": "notifications", "ingestion": "ingestion", "runs": "runs", "reviews": "reviews",
-                   "architect": "architecting"}
+                   "architect": "architecting", "configuring": "configuring"}
 AUTHORITY = ("require", "require_any", "require_person", "checkpoint", "visible", "field_hidden", "authenticate")
-MAX_LINES, MAX_METHODS = 1721, 138  # lower these when more is extracted; never raise them
+MAX_LINES, MAX_METHODS = 1714, 138  # lower these when more is extracted; never raise them
 
 
 class ServiceExtractionTests(unittest.TestCase):

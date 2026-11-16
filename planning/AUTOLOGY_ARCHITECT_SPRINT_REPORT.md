@@ -38,7 +38,7 @@ double**, **Partial**, **Blocked**, **Not started**.
 | | Revision |
 |---|---|
 | Start (verified: tree clean, in sync, CI run 99 success; 900 tests, 95.87 %, 38 Studio unit tests, 111 browser checks as reported) | `77b8ff6` (documentation on top of `137d8c0`) |
-| End | END_COMMIT |
+| End (code) | `70a060c` (`04d961f` increments A to E; `70a060c` the packaging test and wheel check, see 1.3) |
 
 Increments A to E share one code commit: B was started on the same files as A before A's full run had finished,
 so they could not be separated cleanly afterwards; A and A+B each had their own full run on a snapshot (below).
@@ -83,7 +83,16 @@ run is as above. Local full runs are made on snapshot copies under a stall watch
 
 | Commit | CI run | Result |
 |---|---|---|
-| CI_COMMIT | CI_RUN | CI_RESULT |
+| `04d961f` | [run 100](https://github.com/edlwiseltd/ontology/actions/runs/43833641595) | **Failed.** `package`, `studio` and `quality` passed; both Python jobs ran 932 tests and failed one: `test_delivery.PackagingTests.test_versions_and_package_data_agree` |
+| `70a060c` | [run 101](https://github.com/edlwiseltd/ontology/actions/runs/43835240772) | **Success**, all five jobs: Python 3.10 and 3.13 with PostgreSQL (932 tests, none skipped; coverage on 3.13: 16,272 statements, 670 missed, 95.88 %), `package` (wheel with the five cases and the self-check, both images), `studio` (40 unit tests, 118 browser checks), `quality` |
+
+**What failed in run 100, and why the local run did not catch it.** The packaging test pins the exact
+package-data line of `pyproject.toml`. The five evaluation cases were added to that line (so that
+`architect-eval` works from an installed wheel, not only from a checkout) *after* the last full local run, and
+only the tests of the files thought to be affected were re-run. The claim "932 OK on the final tree" was
+therefore true of the tree one edit earlier, not of the commit. No product behaviour was wrong; the process was.
+`70a060c` updates the test, and the wheel check in CI now installs the wheel, counts the five cases and runs
+`architect-eval --self-check` from the installed copy (verified locally the same way before pushing).
 
 ## 2. AI capability
 

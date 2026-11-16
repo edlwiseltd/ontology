@@ -883,3 +883,17 @@ GAP-052 stays open.
 
 ruff clean; mypy 198 (= baseline, not raised); engine class 1,714 lines and 138 methods (ratchet not raised).
 Studio: typecheck clean, **40 unit tests**, build, **118/118 browser checks**.
+
+### CI
+
+| Commit | Run | Result |
+|---|---|---|
+| `04d961f` | [100](https://github.com/edlwiseltd/ontology/actions/runs/43833641595) | **Failed**: both Python jobs, 932 tests, one failure (`test_delivery.PackagingTests.test_versions_and_package_data_agree`); `package`, `studio`, `quality` passed |
+| `70a060c` | [101](https://github.com/edlwiseltd/ontology/actions/runs/43835240772) | **Success**, all five jobs: Python 3.10 and 3.13 with PostgreSQL (932 tests, none skipped; coverage on 3.13: 16,272 statements, 670 missed, 95.88 %), `package` (wheel with the five cases and the self-check, both images), `studio` (40 unit tests, 118 browser checks), `quality` |
+
+Cause of run 100: `pyproject.toml` gained `evaluation/*.json` in its package-data line after the last full local
+run, and the packaging test pins that line. Only the tests believed to be affected were re-run before the commit,
+so the local "final tree" result was for the tree one edit earlier. Correction (`70a060c`): the test expects the
+cases; the CI wheel check counts the five cases in the installed wheel and runs `architect-eval --self-check`
+from it. Lesson kept for the next increments: any edit after the last full run means another full run, or the
+commit says which run it rests on.

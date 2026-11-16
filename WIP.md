@@ -107,7 +107,7 @@ Report: [planning/AUTOLOGY_ARCHITECT_SPRINT_REPORT.md](planning/AUTOLOGY_ARCHITE
 | 2 — Anthropic adapter against the provider's SDK, offline | Done; four latent defects found and fixed (GAP-068 to GAP-071); **not** verified against the provider | `tests/test_claude2_anthropic_adapter.py` (9) |
 | 3 — spending around a real call | Done, tested with doubles | `tests/test_claude3_evaluation_deployment.py` (S1) |
 | 4 — evaluation deployment and operator's guide | Done; waits for the decision and the key | `deploy/evaluation_setup.py`; [docs/ai-provider-activation.md](docs/ai-provider-activation.md) |
-| 5 — five cases with a real model, ground-handling brief, Studio journey | **Blocked**: D7/D10 not one complete decision; key not installed | — |
+| 5 — five cases with a real model, ground-handling brief, Studio journey | **Blocked on the key only**: the owner's decision is recorded (`D7D10-2026-11-16-EVAL`: workspace `evaluation`, `claude-opus-5-5`, synthetic data, 10 USD a month, 1 USD a request, until 23 Nov 2026); `EVALUATION_AI_KEY` is not in the environment | [report §7](planning/AUTOLOGY_CLAUDE_ACTIVATION_REPORT.md) has the exact commands for the session that has the key |
 
 **No request has been sent to a provider.** Report:
 [planning/AUTOLOGY_CLAUDE_ACTIVATION_REPORT.md](planning/AUTOLOGY_CLAUDE_ACTIVATION_REPORT.md).

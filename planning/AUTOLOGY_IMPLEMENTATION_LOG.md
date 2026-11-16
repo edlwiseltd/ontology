@@ -902,9 +902,8 @@ commit says which run it rests on.
 
 Directive: "Activate Anthropic Claude API, validate the real AI architect and demonstrate intelligent onboarding".
 Start: `50517f4` (the directive names `70a060c`; the two commits in between are documentation and the record of
-the owner's first authorisation, CI run 102 green on `54a4840`). **No request was sent to a provider**: the
-authorisation is not one complete decision yet (see the decision register) and no key is present in the
-engineering environment. Increments 1 to 4 are what could be done safely before that.
+the owner's first authorisation, CI run 102 green on `54a4840`). **No request was sent to a provider**: no key is present in the
+engineering environment (the owner's decision was completed at the end of the sprint; see the decision register). Increments 1 to 4 are what could be done safely before that.
 
 ### 1 — the model is pinned in the use case and the release
 
@@ -956,8 +955,10 @@ key; the evaluation command never falls back to a test double. Operator's guide:
 
 ### 5 — real evaluation, unfamiliar case, Studio journey: blocked
 
-Ready for external evaluation. Blocked by: the owner's decision as one explicit statement (workspace, ceiling,
-per-request ceiling, expiry, retention terms read) and the key installed in the platform's environment.
+Ready for external evaluation. The owner's decision was recorded after the engineering work, as one statement
+(authorisation `D7D10-2026-11-16-EVAL`: workspace `evaluation`, `claude-opus-5-5`, synthetic data, 10 USD a
+month, 1 USD a request, one call at a time, until 23 November 2026). Blocked by one thing: the key is not in the
+platform's environment.
 
 ### Verification
 
@@ -970,3 +971,9 @@ per-request ceiling, expiry, retention terms read) and the key installed in the 
 Edits after the full run were documentation only (this log, the registers, `docs/`); the tests that read the
 documentation were re-run.
 
+### CI
+
+| Commit | Run | Result |
+|---|---|---|
+| `50517f4` | [run 103](https://github.com/edlwiseltd/ontology/actions/runs/43964624621) | Success (the starting point) |
+| `28d0356` | [run 104](https://github.com/edlwiseltd/ontology/actions/runs/43969239343) | **Success**, all five jobs: Python 3.10 and 3.13 with PostgreSQL (953 tests, none skipped, the adapter tests included; coverage gate 95 % passed), `package`, `studio` (41 unit tests, 119 browser checks), `quality` |

@@ -2,10 +2,10 @@
 // them to the platform. The token stays in this browser tab (sessionStorage) and is sent as a bearer token, so
 // there is no cookie to forge. UI-side checks are advisory: every rule is enforced by the platform and the engine.
 
-import type { AccessReview, ActivationResult, ApiErrorBody, CheckResult, Draft, DraftSimulation, GrantProposal,
+import type { AccessReview, ActivationResult, AiView, ApiErrorBody, CheckResult, Draft, DraftSimulation, GrantProposal,
   IssuedToken, Me, Members, ModelDocument, MoveResult, OntologySummary, Proposal, ProposalList, Published, Readiness,
-  Release, ReleaseState, Restored, Solution, SolutionDraft, Stage, Template, TenantView, TokenIssuedOrRequested,
-  UseCase, ValidationResult } from "./types";
+  RecoveryDrill, Release, ReleaseState, Restored, SampleData, Solution, SolutionDraft, Stage, Template, TenantView,
+  TokenIssuedOrRequested, UseCase, ValidationResult } from "./types";
 // (run shapes are hand-typed in lib/runs.ts: the engine's run routes answer open objects)
 import type { EngineMe, ObjectRow, ReviewView, RunAudit, RunRow, RunView } from "./runs";
 
@@ -130,6 +130,14 @@ export const api = {
     request<Published>("POST", `${ws(w)}/${encodeURIComponent(uc)}/publish-draft`, { revision, reason }),
   propose: (path: string, brief: string, document: ModelDocument) =>
     request<Proposal>("POST", `${path}/api/v1/architect/proposals`, { brief, document }),
+  // the workspace's AI provider policy, the owner's authorisation and spending (read-only here)
+  aiView: (w: string) => request<AiView>("GET", `${adm(w)}/ai`),
+  // sample records: loaded only on an administrator's explicit, recorded request; a release never loads data
+  sampleData: (w: string, uc: string) => request<SampleData>("GET", `${ws(w)}/${encodeURIComponent(uc)}/sample-data`),
+  loadSampleData: (w: string, uc: string, reason: string) =>
+    request<SampleData>("POST", `${ws(w)}/${encodeURIComponent(uc)}/sample-data`, { reason }),
+  // a recovery rehearsal (backup, verify, restore into a scratch folder, load): evidence for readiness
+  recoveryDrill: (w: string, reason: string) => request<RecoveryDrill>("POST", `${adm(w)}/recovery-drill`, { reason }),
   // readiness of one configuration: what runs ("active"), the saved draft ("draft") or a release ("release:<n>")
   readiness: (w: string, uc: string, target: "pilot" | "production", of: string = "active") =>
     request<Readiness>("GET", `${ws(w)}/${encodeURIComponent(uc)}/readiness?target=${target}&of=${enc(of)}`),
@@ -174,8 +182,10 @@ export const architect = {
   list: (path: string) => request<ProposalList>("GET", `${path}/api/v1/architect/proposals`),
   propose: (path: string, brief: string, document: ModelDocument) =>
     request<Proposal>("POST", `${path}/api/v1/architect/proposals`, { generator: "model", brief, document }),
-  revise: (path: string, id: string, answers: { id: string; answer: string }[], document: ModelDocument) =>
-    request<Proposal>("POST", `${path}/api/v1/architect/proposals`, { generator: "model", revises: id, answers, document }),
+  // answers to its questions and, optionally, what the person wants changed, in words (data for the architect)
+  revise: (path: string, id: string, answers: { id: string; answer: string }[], document: ModelDocument, feedback = "") =>
+    request<Proposal>("POST", `${path}/api/v1/architect/proposals`,
+                      { generator: "model", revises: id, answers, document, ...(feedback.trim() ? { feedback } : {}) }),
   decide: (path: string, id: string, revision: number, accepted: string[], rejected: string[], note: string) =>
     request<Proposal>("POST", `${path}/api/v1/architect/proposals/${enc(id)}/decision`,
                       { revision, accepted, rejected, note }),

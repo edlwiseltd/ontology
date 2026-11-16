@@ -24,7 +24,7 @@ autology = "autology.__main__:main"
 packages = ["autology"]
 
 [tool.setuptools.package-data]
-autology = ["static/*", "console_static/*", "blueprints/*.json"]
+autology = ["static/*", "console_static/*", "blueprints/*.json", "evaluation/*.json"]
 
 [tool.ruff]
 line-length = 120

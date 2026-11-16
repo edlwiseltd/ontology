@@ -41,7 +41,7 @@ from .audit import GENESIS, AuditLog
 from .graph import KnowledgeGraph
 from .ontology import Ontology, OntologyError
 
-SCHEMA_VERSION = 17
+SCHEMA_VERSION = 18
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -123,6 +123,8 @@ CREATE TABLE IF NOT EXISTS proposals (
 CREATE TABLE IF NOT EXISTS run_sources (
     run_id TEXT PRIMARY KEY, template TEXT NOT NULL, root TEXT NOT NULL, sources TEXT NOT NULL,
     write_back INTEGER NOT NULL, base TEXT, conflicts TEXT, wb_version TEXT, wb_state TEXT);
+CREATE TABLE IF NOT EXISTS sample_records (
+    instance_id TEXT PRIMARY KEY, loaded_by TEXT NOT NULL, loaded_at TEXT NOT NULL, configuration TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS model_drafts (
     revision INTEGER PRIMARY KEY, document TEXT NOT NULL, author TEXT NOT NULL, note TEXT NOT NULL, at TEXT NOT NULL,
     solution TEXT);
@@ -862,6 +864,16 @@ class Store:
         with self._tx() as db:
             db.execute("UPDATE reviews SET status='pending', decision=NULL, decided_at=NULL, decided_by=NULL "
                        "WHERE review_id=?", (review_id,))
+
+    # -- synthetic sample records: which records were loaded as samples, by whom, for which configuration -------
+    def mark_samples(self, instance_ids: Iterable[str], by: str, configuration: str) -> None:
+        now = _now()
+        with self._tx() as db:
+            for iid in instance_ids:
+                db.execute("INSERT OR IGNORE INTO sample_records VALUES (?, ?, ?, ?)", (iid, by, now, configuration))
+
+    def sample_records(self) -> Dict[str, Dict[str, Any]]:
+        return {r["instance_id"]: dict(r) for r in self._query("SELECT * FROM sample_records ORDER BY instance_id")}
 
     def close_reviews(self, run_id: str, by: str, reason: str) -> int:
         """Close the pending reviews of a run that was cancelled: there is nothing left to decide. Not a decision

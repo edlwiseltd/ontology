@@ -15,7 +15,7 @@ no operator did, so it can never silently replace one.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional
 
 from . import solution as solutions
 from .server import ApiError, User
@@ -74,6 +74,62 @@ class ConfigurationService:
                 "note": "every available tool is simulated: it is compiled to a decision table and reaches no "
                         "other system"}
 
+    # -- synthetic sample records -------------------------------------------------------------------------
+    def sample_status(self) -> Dict[str, Any]:
+        """The sample records of the configuration that runs, and which of them were loaded. A configuration
+        never loads its samples by itself: a person asks (the platform checks who, and that an approved release
+        is what runs)."""
+        e = self.engine
+        wanted = [str(i.get("id")) for i in ((self.active or {}).get("sample_data") or {}).get("instances") or []]
+        marked = e.store.sample_records()
+        with e.graph_lock:
+            present = set(e.graph._instances)
+        return {"available": len(wanted), "loaded": sorted(i for i in wanted if i in marked),
+                "already_present": sorted(i for i in wanted if i in present and i not in marked),
+                "records_marked_as_samples": len(marked),
+                "note": "synthetic records for rehearsal; loaded only on request, never by a release"}
+
+    def load_samples(self, by: str) -> Dict[str, Any]:
+        """Load the running configuration's sample records that are not there yet. A record that exists is never
+        overwritten; each loaded record is marked as a sample with who loaded it and for which configuration."""
+        from .graph import KnowledgeGraph
+        from .integrity import record_refusal
+        from .ontology import OntologyError
+        from .store import ABSENT
+
+        e = self.engine
+        data = (self.active or {}).get("sample_data") or {}
+        if not data.get("instances"):
+            raise ApiError(409, "the configuration that runs has no sample records")
+        try:
+            candidate = KnowledgeGraph.from_dict(e.ontology, {"instances": [dict(i) for i in data["instances"]],
+                                                              "links": [tuple(link) for link in data.get("links") or []]})
+        except (OntologyError, KeyError, TypeError, ValueError) as exc:
+            raise ApiError(409, f"the sample records do not fit the model that runs: {exc}") from None
+        loaded: List[str] = []
+        skipped: List[str] = []
+        links = 0
+        with e.graph_lock:
+            for inst in candidate.instances():
+                if inst.id in e.graph._instances:
+                    skipped.append(inst.id)
+                    continue
+                refused = record_refusal(e.ontology, e.graph, inst.type, inst.id, inst.attributes, ())
+                if refused:  # a decision-critical fact has a named writer: a sample loader is not one
+                    raise ApiError(403, f"{refused}; no sample record was loaded after {len(loaded)}")
+                e.revisions[inst.id] = e.store.upsert_instance(inst.type, inst.id, inst.attributes, ABSENT)
+                e.graph._instances[inst.id] = inst
+                loaded.append(inst.id)
+            fresh = set(loaded)
+            for source, kind, target in candidate._links:
+                if (source in fresh or target in fresh) and source in e.graph._instances and target in e.graph._instances:
+                    e.graph.link(source, kind, target)
+                    e.store.add_link(source, kind, target)
+                    links += 1
+            e.store.mark_samples(loaded, by, e.configuration_fingerprint)
+        e._changed(loaded)
+        return {"loaded": loaded, "skipped": skipped, "links": links, "configuration": e.configuration_fingerprint}
+
     # -- checking and saving ----------------------------------------------------------------------------
     def validate_solution(self, user: User, body: Dict[str, Any]) -> Dict[str, Any]:
         e = self.engine
@@ -111,6 +167,11 @@ class ConfigurationService:
                 candidate = fill(template["solution"], values)
                 if not solutions.check(candidate, document)[0]:  # only if it fits the model as it is now
                     suggested, source = candidate, f"template {template['id']}"
+            if suggested is None:  # no template: the agents the architect described, as a draft for a person
+                candidate = solutions.from_descriptions(document, (rows[-1]["result"].get("suggestions") or {})
+                                                        .get("agents") or [])
+                if candidate["agents"] and not solutions.check(candidate, document)[0]:
+                    suggested, source = candidate, "architect descriptions"
         if suggested is None:
             suggested = solutions.suggest(document, sample_case(onto, document))
         return {**self._view({**draft, "document": document}, suggested), "source": source, "saved": False}

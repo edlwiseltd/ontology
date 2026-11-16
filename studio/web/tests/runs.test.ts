@@ -17,7 +17,8 @@ describe("run helpers", () => {
   it("says which tool acted and that it was simulated", () => {
     expect(stepLine({ index: 0, action: "fulfil", verdict: "allow", outcome: "done", executed_by: "agent", tool: "agent.fulfil",
                       reviewer: "maria", environment: "simulated" })).toBe("allow → done · agent.fulfil (simulated) · decided by maria");
-    expect(stepLine({ index: 1, action: "x", verdict: "deny", outcome: null, executed_by: null, reviewer: null })).toBe("deny · no tool");
+    expect(stepLine({ index: 1, action: "x", verdict: "deny", outcome: null, executed_by: null, reviewer: null, tool: null,
+                      environment: null })).toBe("deny · no tool");
   });
 
   it("links a run to the release whose configuration it ran on", () => {

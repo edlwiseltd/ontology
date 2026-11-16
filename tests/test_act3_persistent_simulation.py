@@ -48,6 +48,9 @@ class SimulationBase(ReleaseBase):
         self.assertEqual((status, suggested["source"], suggested["state"]), (200, "template supplier-disruption", "validated"))
         self.configuration = suggested["solution"]
         self.release = self.released(None, self.configuration)
+        self.assertEqual(self.desk.store.count_instances(), 0)  # a release brings no data with it
+        status, out = self.call("POST", f"{UC}/sample-data", body={"reason": "records to rehearse with"})
+        self.assertEqual((status, len(out["just_loaded"])), (200, 12), out)
         self.fingerprint = self.call("GET", f"{UC}/releases/{self.release}")[1]["fingerprint"]
         self.zoe = self.add("zoe")
         self.bot = self.add("pipeline", kind="service")
@@ -226,7 +229,10 @@ class CancellationAndFailureTests(SimulationBase):
         closed = self.desk.store.get_review(review_id)
         self.assertEqual((closed["status"], closed["decision"]["cancelled"], closed["decided_by"]), ("cancelled", True, "hana"))
         self.assertEqual(self.record("DEL-1002")["response"], "")  # nothing further happened
-        self.assertEqual(self.call("POST", cancel, "acme-hana", {"reason": "again"})[0], 409)  # only a waiting run
+        status, again = self.call("POST", cancel, "acme-hana", {"reason": "again"})  # idempotent: the same run
+        self.assertEqual((status, again["status"], again["escalation"]["reason"]),
+                         (200, "cancelled", "cancelled by hana: the order was withdrawn"))
+        self.assertEqual(len([e for e in self.events(run["run_id"]) if e["event"] == "run.cancelled"]), 1)
         status, again = self.begin("DEL-1002")  # the record is free for a new run
         self.assertEqual((status, again["status"]), (200, "awaiting_review"), again)
         done = self.begin("DEL-1001")[1]

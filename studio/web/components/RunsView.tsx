@@ -9,6 +9,7 @@ import { api, runs as engine, ApiError } from "@/lib/api";
 import { cancellable, mayDecide, releaseOf, resumable, statusClass, stepLine, trace, STATUS_TEXT } from "@/lib/runs";
 import type { EngineMe, ObjectRow, ReviewView, RunAudit, RunRow, RunView } from "@/lib/runs";
 import type { OntologySummary, ReleaseState, UseCase } from "@/lib/types";
+import SampleRecords from "./SampleRecords";
 
 type Templates = Record<string, { root: string; entities: string[] }>;
 
@@ -108,6 +109,7 @@ export default function RunsView({ workspace, useCase, onChanged }: { workspace:
       {error && <p className="error" role="alert" data-testid="runs-error">{error}</p>}
       {message && <p className="ok small" role="status" data-testid="runs-message">{message}</p>}
 
+      <SampleRecords workspace={workspace} useCaseId={useCase.id} onLoaded={() => setTemplate((t) => t)} />
       <section className="card" aria-labelledby="run-start">
         <h3 id="run-start">Start a simulation run</h3>
         {!can("run") ? <p className="muted small" data-testid="runs-denied">You do not have permission to start runs on this use case.
@@ -160,12 +162,12 @@ export default function RunsView({ workspace, useCase, onChanged }: { workspace:
               </p>
               <h4>Timeline</h4>
               <ol className="timeline" data-testid="run-steps">
-                {run.steps.map((s) => (
+                {(run.steps ?? []).map((s) => (
                   <li key={s.index}><strong>{s.action}</strong> <span className="muted">{stepLine(s)}</span>
                     {s.explanation && <div className="muted small">{s.explanation}</div>}
                     {s.message && <div className="small">{s.message}</div>}</li>
                 ))}
-                {!run.steps.length && <li className="muted">No action was performed.</li>}
+                {!(run.steps ?? []).length && <li className="muted">No action was performed.</li>}
               </ol>
               {run.escalation && <p className="warn small" role="status" data-testid="run-escalation">
                 {run.escalation.reason}{run.escalation.action ? ` (${run.escalation.action})` : ""}

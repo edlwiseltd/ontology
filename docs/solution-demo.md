@@ -46,15 +46,16 @@ The **Onboarding** tab is one flow of nine steps. Each step can also be reached 
 |---|---|---|---|---|
 | — | Create the use case | Ada | **New** → template *Blank solution (guided onboarding)* → identifier `supply` → **Create in Draft**; open it; **Onboarding** | An empty model, stage Draft |
 | 1 | Describe | Ada | Paste the description above → **Propose a solution** | A stored proposal, labelled *Sandbox architect · test double · not a language model* |
-| 2 | Questions | Ada | Answer the five questions (major delay in days, cost above which a person approves expediting, approver role, planner role, order system) → **Update the proposal with my answers** | A new revision of the proposal; the earlier one is kept |
-| 3 | Review | Ada | Read the graph (Supplier, Delivery, Alternative), the workflow, the rules; untick what you do not want → **Validate my selection with the engine** | Proposed items drawn dashed; the prohibition "switch_supplier is prohibited when Supplier.exclusive == True" among the rules |
+| 2 | Questions | Ada | Read *What the architect understood* (the sandbox says it matched a template). Answer the five questions (major delay in days, cost above which a person approves expediting, approver role, planner role, order system) → **Update the proposal with my answers** | A new revision of the proposal; the earlier one is kept |
+| 3 | Review | Ada | Read the graph (Supplier, Delivery, Alternative), the workflow, the rules; each element says whether it is *from your description* or *inferred*; optionally **Ask for a revised proposal** in your own words; untick what you do not want → **Validate my selection with the engine** | Proposed items drawn dashed; the prohibition "switch_supplier is prohibited when Supplier.exclusive == True" among the rules |
 | 4 | Confirm | Ada | **Save … as a draft** → **Configure agents and tools** | "Draft revision n saved. It is not active" |
 | 5 | Agents & tools | Ada | **Suggest a starting configuration** → look at each action's verdict → adjust if you wish → **Save the draft configuration** | One agent, five simulated tools, twelve synthetic records; per action: *acts on its own*, *depends on the case*, *a person decides*, with the rule that says so; connectors and model reasoners listed as unavailable |
 | 6 | Dry run (optional) | Ada | **Run the simulation** | One synthetic case with stub tools; nothing stored |
 | 7 | Release | Maria, then Ada, Maria, Ada | Maria (Releases tab of the use case, or the API): **Publish draft revision n**. Ada: **Propose release**. Maria: **Approve**. Ada: **Contents** to inspect, then **Activate**; then *Change stage* → **Simulation** → **Record the move** | The author cannot publish, the proposer cannot approve. *Contents* lists model, rules, actions, workflows, agents (*configured in Studio*), tools (*all simulated*), settings, each with a fingerprint, and the engine's verdict *Coherent* |
+| — | Load the sample records | Ada | Step 7, card *Sample records*: type a reason → **Load the sample records** | A release brings no data with it. The twelve synthetic records are loaded only now, on Ada's recorded request, and marked as samples |
 | — | Give access | Ada, then Maria | **Access** → *Request grant*: Hana on `supply` with `read`, `run`, `audit` and role `supply_planner`; Lena with `read`, `review` and reviewer role `operations_manager`. Maria approves both | A grant never takes effect on one person's say-so |
 | 8 | Stored runs | Hana, Lena | Hana, tab **Simulation runs**: start a run per record (table below). Lena opens the waiting run and decides | Timeline, policy checks, simulated effects, the stored records, the signed audit chain |
-| 9 | Readiness | Ada | **Readiness**: assess *what runs now*; change the agent to *Supervised* in step 5 and save; assess *the saved draft* | Each report names its subject and configuration; the draft lacks execution evidence and a release; the differences are listed |
+| 9 | Readiness | Ada | **Readiness**: assess *what runs now*; **Rehearse a recovery now** (a reason is required); change the agent to *Supervised* in step 5 and save; assess *the saved draft* | Each report names its subject and configuration; recovery evidence is missing until a rehearsal succeeds, then recorded for the configuration that runs; the draft lacks execution evidence and a release; the differences are listed |
 
 ### The five sample deliveries
 
@@ -90,6 +91,8 @@ still there, and a waiting one continues after its review).
   editable there.
 * Readiness of a draft or of a waiting release is measured on a throwaway engine: it has no runs, so execution
   evidence is reported as missing. That is intended.
-* A run whose agent is no longer configured cannot be cancelled from the API (409).
+* The architect is still the sandbox: onboarding says so, and says that it matched a template by its words rather
+  understood your text. A workspace reaches a real provider only with an approved policy that the owner's
+  authorisation covers; none exists.
 * No timing with real users has been measured. The scripted journey takes about five seconds; that says nothing
   about a person.

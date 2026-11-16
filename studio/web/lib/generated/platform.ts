@@ -106,6 +106,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/platform/v1/workspaces/{ws}/ai": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The workspace's AI provider policy, the owner's authorisation, spending and each use case's provider state */
+        get: operations["getWorkspacesWsAi"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/v1/workspaces/{ws}/ai/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Disable the AI provider policy in force (one person may always take access away) */
+        post: operations["postWorkspacesWsAiDisable"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/v1/workspaces/{ws}/ai/policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Propose an AI provider policy (never a key: a reference to it); another person approves */
+        post: operations["postWorkspacesWsAiPolicy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/v1/workspaces/{ws}/ai/policy/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve a proposed AI provider policy */
+        post: operations["postWorkspacesWsAiPolicyIdApprove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/v1/workspaces/{ws}/ai/policy/{id}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Withdraw a proposed AI provider policy */
+        post: operations["postWorkspacesWsAiPolicyIdWithdraw"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/platform/v1/workspaces/{ws}/grants": {
         parameters: {
             query?: never;
@@ -271,6 +356,23 @@ export interface paths {
         put?: never;
         /** Replace your own token before it expires; the new one is returned once (GAP-030) */
         post: operations["postWorkspacesWsMyToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/v1/workspaces/{ws}/recovery-drill": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rehearse a recovery (backup, verify, restore into a scratch folder, load) and record the evidence */
+        post: operations["postWorkspacesWsRecoveryDrill"];
         delete?: never;
         options?: never;
         head?: never;
@@ -517,6 +619,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/platform/v1/workspaces/{ws}/use-cases/{uc}/sample-data": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The synthetic sample records of the active release and which are loaded */
+        get: operations["getWorkspacesWsUseCasesUcSampleData"];
+        put?: never;
+        /** Load the active release's synthetic sample records (explicit, recorded; never automatic) */
+        post: operations["postWorkspacesWsUseCasesUcSampleData"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/platform/v1/workspaces/{ws}/use-cases/{uc}/stage": {
         parameters: {
             query?: never;
@@ -623,6 +743,86 @@ export interface components {
             event: string;
             reason: string;
             seq: number;
+        } & {
+            [key: string]: unknown;
+        };
+        AiPolicy: {
+            budget: {
+                currency: string;
+                per_period: number;
+                per_request: number;
+                /** @enum {string} */
+                period: "day" | "month";
+            } & {
+                [key: string]: unknown;
+            };
+            credential?: null | ({
+                note?: string;
+                ref: string;
+            } & {
+                [key: string]: unknown;
+            });
+            data_classes: string[];
+            evaluation: {
+                reference?: string;
+                status: string;
+            } & {
+                [key: string]: unknown;
+            };
+            expires?: string | null;
+            limits: {
+                concurrency: number;
+                max_attempts: number;
+                max_input_tokens: number;
+                max_output_tokens: number;
+                timeout_seconds: number;
+            } & {
+                [key: string]: unknown;
+            };
+            model: string;
+            priced?: boolean;
+            provider: string;
+            purposes: string[];
+            retention: {
+                prompts: string;
+                usage_days: number;
+            } & {
+                [key: string]: unknown;
+            };
+        } & {
+            [key: string]: unknown;
+        };
+        AiView: {
+            adapters_installed?: string[];
+            approved_at?: string | null;
+            approved_by?: string | null;
+            owner_authorisation: {
+                decision?: string | null;
+                expires?: string | null;
+                note?: string;
+                present: boolean;
+            } & {
+                [key: string]: unknown;
+            };
+            pending: ({
+                id: string;
+                policy: components["schemas"]["AiPolicy"];
+                proposed_at?: string;
+                proposed_by: string;
+                reason?: string;
+            } & {
+                [key: string]: unknown;
+            })[];
+            policy: null | components["schemas"]["AiPolicy"];
+            proposed?: string;
+            proposed_by?: string | null;
+            reason: string;
+            remaining_usd?: number | null;
+            /** @enum {string} */
+            state: "none" | "sandbox" | "authorised" | "not_authorised" | "unavailable";
+            transmits_externally: boolean;
+            usage?: null | Record<string, never>;
+            use_cases: Record<string, never>[];
         } & {
             [key: string]: unknown;
         };
@@ -949,6 +1149,25 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        RecoveryDrill: {
+            at: string;
+            bytes?: number;
+            counts: Record<string, never>;
+            files?: number;
+            recorded: boolean;
+            seconds?: number;
+            steps: string[];
+            use_cases: {
+                [key: string]: {
+                    configuration: string;
+                    reproduces_what_runs: boolean;
+                } & {
+                    [key: string]: unknown;
+                };
+            };
+        } & {
+            [key: string]: unknown;
+        };
         Release: {
             activated_at?: string | null;
             approved_at?: string | null;
@@ -1080,6 +1299,21 @@ export interface components {
         Revocation: {
             reason: string;
             use_case: string;
+        } & {
+            [key: string]: unknown;
+        };
+        SampleData: {
+            already_present: string[];
+            available: number;
+            just_loaded?: string[];
+            loadable: boolean;
+            loaded: string[];
+            may_load: boolean;
+            note?: string;
+            records_marked_as_samples?: number;
+            refusal: string | null;
+            release: number | null;
+            skipped?: string[];
         } & {
             [key: string]: unknown;
         };
@@ -1631,6 +1865,467 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AccessReview"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Permission or checkpoint refused */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found or not visible */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict: state, stage or revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getWorkspacesWsAi: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiView"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Permission or checkpoint refused */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found or not visible */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict: state, stage or revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    postWorkspacesWsAiDisable: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiView"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Permission or checkpoint refused */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found or not visible */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict: state, stage or revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    postWorkspacesWsAiPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiView"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Permission or checkpoint refused */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found or not visible */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict: state, stage or revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    postWorkspacesWsAiPolicyIdApprove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiView"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Permission or checkpoint refused */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found or not visible */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict: state, stage or revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    postWorkspacesWsAiPolicyIdWithdraw: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiView"];
                 };
             };
             /** @description Invalid request */
@@ -2635,6 +3330,99 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IssuedToken"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Permission or checkpoint refused */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found or not visible */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict: state, stage or revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    postWorkspacesWsRecoveryDrill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryDrill"];
                 };
             };
             /** @description Invalid request */
@@ -4091,6 +4879,188 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UseCase"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Permission or checkpoint refused */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found or not visible */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict: state, stage or revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getWorkspacesWsUseCasesUcSampleData: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws: string;
+                uc: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SampleData"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Missing or invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Permission or checkpoint refused */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found or not visible */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict: state, stage or revision */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests: retry after the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds) */
+            503: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    postWorkspacesWsUseCasesUcSampleData: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ws: string;
+                uc: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SampleData"];
                 };
             };
             /** @description Invalid request */

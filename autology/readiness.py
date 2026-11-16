@@ -292,7 +292,8 @@ def conditions(service: Any, context: Optional[Mapping[str, Any]] = None) -> Lis
     out.append(Condition("recovery_evidence", "operations", "A verified backup exists and a restore was rehearsed",
                          None if not recovery else _yes(bool(recovery.get("verified"))), 1,
                          "no recovery evidence is recorded for this use case" if not recovery else
-                         str(recovery.get("detail") or "recorded"), PRODUCTION, [],
+                         str(recovery.get("detail") or "recorded"), PRODUCTION,
+                         list((recovery or {}).get("evidence") or []),
                          None if recovery else "a recorded platform backup verification and restore drill",
                          "Take a platform backup, verify it, rehearse a restore, and record the result"))
     return out

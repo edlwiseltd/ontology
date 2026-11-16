@@ -805,3 +805,81 @@ contract files, and each commit is kept consistent.
 
 Summary for the owner: [activation sprint report](AUTOLOGY_ACTIVATION_SPRINT_REPORT.md). The commit that records run 98 is
 documentation only.
+
+## 16 November 2026 — Architect sprint: real AI architect (prepared), provider governance, novel-case evaluation
+
+**Baseline verified before any change.** HEAD `77b8ff6` (documentation on `137d8c0`), tree clean, in sync, CI run
+99 success; 900 tests, 95.87 %, 38 Studio unit tests, 111 browser checks as reported. D7/D10 read in the decision
+register: "approved in principle", with no workspace, provider, model, data class, budget, key custody or
+evaluator named. **So no provider was contacted in this sprint, and increment F stops at "ready for external
+evaluation".** Everything below was verified with test doubles and synthetic data.
+
+### A — operational integrity
+
+| Story | Change | Tests | Behaviour change |
+|---|---|---|---|
+| A1 cancellation without the agent | `agent.cancel_stored` needs no agent; `RunService.cancel_run` finds the run by itself, takes one lock per engine (and the agent's, if it still exists), and answers an already-cancelled run with that run. The run keeps its agent name and the configuration it started on | I1 (after a release renamed the agent; after restarts; six concurrent requests record one cancellation) | A cancelled run cancelled again: 200 with the same run (was 409) |
+| A2 sample records | A release no longer loads anything. `POST .../use-cases/<uc>/sample-data` (a workspace administrator, a person, with a reason) loads the active release's samples that are not there yet: only when an approved release is active and is what runs, only in Draft or Simulation; an existing record is never overwritten; each loaded record is marked (`sample_records`, schema 18); the act is in the administration log | I2 | **A published or activated configuration brings no records** (before: loaded on first load into an empty store) |
+| A3 typed contracts | Eight run and review routes answer typed, versioned shapes (`Run`, `RunList`, `RunAudit`, `Review`, `ReviewList`) with request bodies; Studio's run types are generated from them, which found three places where its hand-written types had drifted | `test_api_v1.py` (every typed route exercised) | Contract only. Still open objects: resume, trace, outcomes, write-back |
+| A4 recovery evidence | `POST .../workspaces/<ws>/recovery-drill`: a consistent backup is taken, verified, restored into a scratch folder, and each use case is loaded from the restored files on a throwaway engine; evidence is recorded in the administration log only if every step succeeded. Readiness reports it for the configuration it covered and says "rehearse again" when the configuration changed | I3 | The `recovery_evidence` condition can now hold; nothing is assumed |
+
+**Defect found by the first rehearsal (GAP-067).** The restored configuration did not reproduce what ran: backups
+did not include `solution.json` (the agents published with a model, added in the previous sprint). Fixed in the
+backup inventory; the rehearsal test fails without the fix.
+
+### B — AI provider policy per workspace, and spending control
+
+Implemented from the design ([status table](AUTOLOGY_AI_PROVIDER_WORKSPACE_CONFIGURATION_DESIGN.md), §9) without
+settling any of its open points. Three things must all hold before a request leaves: a workspace policy approved
+by a second person; the owner's authorisation covering it (a block of the platform's deployment file: it cannot
+be created through the API, and none exists); and room in the budget (a durable ledger, reserved before the call
+in the same transaction that checks the ceilings). `tests/test_arch2_ai_provider_governance.py` (14 tests, G1–G6)
+uses a counting provider double with a registered price: nothing by default; a key is never accepted, stored or
+echoed; an approved policy without the owner's authorisation calls nothing; per-request and per-period ceilings;
+five parallel requests against a limit of two; a duplicate request id never charged twice; an uncertain outcome
+stays charged; an unpriced model and an unavailable ledger send nothing; the ledger survives a restart; another
+workspace sees and spends nothing.
+
+### C — the architect on unfamiliar briefs (pipeline around a model; no model was run)
+
+The answer contract gains, all optional: the architect's `understanding`, a `basis` per element (supplied or
+inferred), `contradictions`, and a `revision_request` that travels as data. The engine checks "supplied" as far as
+it can (something given must be cited, an answer included) and treats the rest as inferred. The agents an
+architect describes become a draft configuration only through `solution.from_descriptions` and the usual
+validation: existing actions only, simulated tools only, only the roles the rules ask for. The sandbox architect
+now says plainly that it matched a template by its vocabulary and understood nothing.
+`tests/test_arch3_architect_and_evaluation.py` C1–C5, with a scripted provider double.
+
+### D — novel-case evaluation
+
+Five synthetic cases, thirteen deterministic measures, thresholds fixed in code before any model is evaluated
+([protocol §6.1](AUTOLOGY_AI_PROVIDER_EVALUATION_PROTOCOL.md)). Measured so far: the hand-written reference
+answers meet all thirteen (a check of the scorers); the sandbox architect, which picks a template for four of the
+five briefs by shared words, fails seven (entity recall 0.0, contradiction recognition 0.0). Degraded and hostile
+answers fail the measure they should (E3). `python -m autology architect-eval`.
+
+### E — Studio
+
+Onboarding names who answers (sandbox, authorised provider with its model, provider unavailable with the reason)
+and turns a gateway refusal into "budget exceeded" or "data transmission not authorised"; shows what the architect
+understood, which elements are from the description and which are inferred, and the statements that do not fit
+together; a revision can be asked for in words. Sample records are loaded by an explicit button; a recovery can
+be rehearsed from the readiness step; the Access screen shows the workspace's AI provider (read-only).
+
+### F — genuine provider evaluation: blocked
+
+**Ready for external evaluation — blocked by D7/D10.** No decision names a workspace, provider, exact model, data
+classification, credential custody, budget, concurrency, retention or evaluator. Nothing was configured or called.
+GAP-052 stays open.
+
+### Verification
+
+| Run | Tree | Result |
+|---|---|---|
+| Full suite, increment A (snapshot) | A | 908 OK, 95.84 % |
+| Full suite, A + B (snapshot) | A, B | 922 OK, 95.77 % |
+| Full suite, A to E, first attempt | A to E | 926 OK, **5 failures and 1 error**, all in `test_arch2_ai_provider_governance.py`: its fixture built an answer from every property of the architect's contract, and increment C added optional properties that are not lists. The fixture was corrected (it now fills the required properties only); no product code changed |
+| **Full suite, final tree** | A to E | **932 OK** (2 PostgreSQL tests skipped locally), **95.79 %** lines (16,272 statements, 685 missed; `ai_policy.py` 90.5 %, `architect_eval.py` 100 %, `architecting.py` 98.2 %, `configuring.py` 96.1 %) |
+
+ruff clean; mypy 198 (= baseline, not raised); engine class 1,714 lines and 138 methods (ratchet not raised).
+Studio: typecheck clean, **40 unit tests**, build, **118/118 browser checks**.

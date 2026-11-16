@@ -451,6 +451,30 @@ def suggest(document: Any, sample: Optional[Mapping[str, Mapping[str, Any]]] = N
     return out
 
 
+def from_descriptions(document: Any, described: Any) -> Dict[str, Any]:
+    """A starting configuration from the agents an architect *described* (name, description, actions). The
+    descriptions are untrusted text: only names and actions that exist in the model are kept, each agent holds
+    just the roles the model's access rules ask for on its own actions, every tool is the plain simulated one,
+    and the result is still validated before anyone can save it. It grants nothing: it is a draft for a person."""
+    onto = Ontology.from_dict(dict(document))
+    agents: Dict[str, Any] = {}
+    for item in described if isinstance(described, list) else []:
+        if not isinstance(item, Mapping) or len(agents) >= MAX_AGENTS:
+            continue
+        name = re.sub(r"[^A-Za-z0-9_]+", "_", str(item.get("name") or "")).strip("_").lower()[:48]
+        actions = [a for a in dict.fromkeys(item.get("actions") or []) if isinstance(a, str) and a in onto.actions]
+        if not NAME.match(name) or name in agents or not actions or not onto.goals:
+            continue
+        written = {f for a in actions for f in set(onto.actions[a].writes) | set(_effects(onto.actions[a]))}
+        roles = sorted({role for rule in onto.rules for role in rule.params.get("roles", [])
+                        if (rule.kind == "action_access" and rule.params["action"] in actions)
+                        or (rule.kind == "write_access" and rule.params["field"] in written)})
+        agents[name] = {"purpose": str(item.get("description") or "")[:MAX_TEXT], "responsibilities": [],
+                        "roles": roles, "goals": sorted(onto.goals), "autonomy": {"mode": "policy"},
+                        "tools": [{"action": a, "tool": "simulated.succeed"} for a in actions]}
+    return {"agents": agents}
+
+
 def changes(active: Any, draft: Any) -> List[Dict[str, Any]]:
     """What differs between two solutions (the running one and a draft), for review before release."""
     a = dict((active or {}).get("agents") or {}) if isinstance(active, Mapping) else {}

@@ -76,7 +76,9 @@ def answer(data: Mapping[str, Any]) -> Dict[str, Any]:
             continue  # the current model has it already: a proposal only adds
         guessed = [p for p in item.get("uses") or [] if p in still_open]
         evidence = {"rationale": item["rationale"] + (f" (assuming {', '.join(guessed)})" if guessed else ""),
-                    "sources": ["brief"], "confidence": 0.5 if guessed else 0.8}
+                    "sources": ["brief"], "confidence": 0.5 if guessed else 0.8,
+                    # a template element is the template's, not the brief's: inferred, never "supplied"
+                    "basis": "inferred"}
         if kind == "entity":
             out["entities"].append({"name": name, "description": value.get("description", ""),
                                     "states": list(value.get("states") or []),
@@ -112,6 +114,13 @@ def answer(data: Mapping[str, Any]) -> Dict[str, Any]:
                                                               if values[p] in ("", None)]
     for section in ("roles", "agents", "integrations"):
         out[section] = fill(template.get(section) or [], values)
+    # said plainly: a template was recognised by its vocabulary; nothing was understood
+    out["understanding"] = {
+        "summary": f"Your description uses words of the approved template \"{template['name']}\". What follows is "
+                   "that template, adjusted by your answers. It is not a reading of your text: the sandbox "
+                   "architect is not a language model.",
+        "outcome": str(template.get("description") or "")[:500],
+        "actors": [str(r.get("name")) for r in out["roles"]], "out_of_scope": []}
     return out
 
 

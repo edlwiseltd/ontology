@@ -303,6 +303,19 @@ def _build_parser() -> argparse.ArgumentParser:
     oa.add_argument("which", nargs="?", choices=["engine", "platform"], default="engine")
     oa.add_argument("--write", metavar="DIR", nargs="?", const="studio/web/api",
                     help="write engine.openapi.json and platform.openapi.json into DIR (default studio/web/api)")
+    ae = sub.add_parser("architect-eval", help="evaluate the architect on five synthetic cases it has no template "
+                                               "for (deterministic measures against fixed thresholds)")
+    mode = ae.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--self-check", action="store_true",
+                      help="score the hand-written reference answers: checks the evaluation, not a model")
+    mode.add_argument("--sandbox", action="store_true",
+                      help="run the sandbox architect (a template test double): expected not to meet the thresholds")
+    mode.add_argument("--platform", metavar="PLATFORM.json",
+                      help="run the provider a workspace is authorised to use (needs --workspace and --use-case)")
+    ae.add_argument("--workspace")
+    ae.add_argument("--use-case")
+    ae.add_argument("--repeats", type=int, default=2)
+    ae.add_argument("--json", action="store_true", help="print the full report as JSON")
     return parser
 
 
@@ -406,6 +419,51 @@ def _cmd_recovery(args) -> int:
     if what == "backup" and not out["keyed"]:
         print("  note: AUTOLOGY_AUDIT_KEY is not set: the manifest is hashed, not signed", file=sys.stderr)
     return 0
+
+
+def _cmd_architect_eval(args) -> int:
+    """Exit code 0: every threshold met; 1: not met; 2: the evaluation could not run (not authorised)."""
+    from . import architect, architect_eval
+
+    closing = None
+    if args.self_check:
+        ask = architect_eval.reference_proposal
+    elif args.sandbox:
+        from .ai import ModelGateway, WorkspaceAI
+        from .sandbox_ai import MODEL, SandboxArchitect
+
+        gateway = ModelGateway({"sandbox": SandboxArchitect()}, {"evaluation": WorkspaceAI("sandbox", MODEL, ("synthetic",))})
+
+        def ask(case):
+            return architect.propose(gateway, "evaluation", case["brief"], data_classes=("synthetic",))
+    else:
+        from .platform import Platform
+
+        if not args.workspace or not args.use_case:
+            print("--platform needs --workspace and --use-case", file=sys.stderr)
+            return 2
+        pf = Platform.from_file(args.platform)
+        closing = pf.close
+        ws = pf.workspaces.get(args.workspace)
+        uc = ws.use_cases.get(args.use_case) if ws else None
+        service = uc.service.architect if uc else None
+        status = service.status() if service else {"state": "none", "reason": "no such workspace or use case"}
+        if status["state"] != "authorised":
+            # never a quiet fallback to a test double: the real evaluation either runs on an authorised provider or not at all
+            print(f"Ready for external evaluation, blocked: {status.get('reason') or status['state']} (owner decisions "
+                  "D7 and D10; see planning/AUTOLOGY_AI_PROVIDER_EVALUATION_PROTOCOL.md)", file=sys.stderr)
+            pf.close()
+            return 2
+
+        def ask(case):
+            return architect.propose(service.gateway, service.workspace, case["brief"], data_classes=("synthetic",))
+    try:
+        result = architect_eval.evaluate(ask, repeats=args.repeats)
+    finally:
+        if closing is not None:
+            closing()
+    print(json.dumps(result, indent=1) if args.json else architect_eval.render(result))
+    return 0 if result["all_thresholds_met"] else 1
 
 
 def _cmd_backup(args) -> int:
@@ -533,6 +591,8 @@ def main(argv=None) -> int:
         return 0
     if args.command == "tenancy":
         return _cmd_tenancy(args)
+    if args.command == "architect-eval":
+        return _cmd_architect_eval(args)
     if args.command == "openapi":
         from .openapi import platform_spec, spec
 

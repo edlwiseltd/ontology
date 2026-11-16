@@ -21,7 +21,7 @@ when the engine starts. Every permission is asked of the engine this service bel
 from __future__ import annotations
 
 import uuid
-from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple
 
 from . import architect
 from .ai import DATA_CLASSES, ModelGateway, ProviderError, WorkspaceAI
@@ -33,31 +33,56 @@ if TYPE_CHECKING:
     from .server import AutologyService
 
 APPROVED_PROVIDERS = ("sandbox",)  # extended only by an owner decision (D7, D10)
-STATUS = {"not_configured": 409, "not_allowed": 409, "invalid_request": 400, "in_progress": 409, "auth": 502,
+STATUS = {"not_configured": 409, "not_allowed": 409, "budget_exceeded": 409, "invalid_request": 400,
+          "in_progress": 409, "auth": 502,
           "rate_limited": 503, "unavailable": 503, "timeout": 504, "cancelled": 503, "refused": 502, "truncated": 502,
           "tool_request": 502, "invalid_response": 502, "failed": 502}
 
 
-def build_gateway(spec: Any, workspace: str) -> Optional[ModelGateway]:
-    """The engine's AI gateway from its ``ai`` configuration, or None when there is none."""
+def build_gateway(spec: Any, workspace: str, grant: Optional[Mapping[str, Any]] = None
+                  ) -> Tuple[Optional[ModelGateway], str]:
+    """``(gateway, why not)``: the engine's AI gateway from its ``ai`` configuration, or None with the reason.
+
+    The sandbox test double needs nothing else. Any other provider is reachable only with a ``grant`` from the
+    platform: the workspace's approved policy, covered by the owner's authorisation, with an adapter and a budget
+    (:mod:`autology.ai_policy`). An engine on its own can never configure one: it has no grant to show."""
     if spec is None:
-        return None
+        return None, "this use case's configuration names no AI provider"
     if not isinstance(spec, Mapping) or set(spec) - {"provider", "data_classes"} or "provider" not in spec:
         raise ValueError("ai: {\"provider\": ..., \"data_classes\": [...]} (data_classes is optional)")
-    if spec["provider"] not in APPROVED_PROVIDERS:
-        raise ValueError(f"ai.provider {spec['provider']!r} is not approved: only {list(APPROVED_PROVIDERS)} may be "
-                         "configured until the owner approves a provider and its data (decisions D7, D10)")
     classes = tuple(spec.get("data_classes") or ("synthetic", "model_design"))
     if set(classes) - set(DATA_CLASSES):
         raise ValueError(f"ai.data_classes: taken from {list(DATA_CLASSES)}")
-    return ModelGateway({"sandbox": SandboxArchitect()}, {workspace: WorkspaceAI("sandbox", MODEL, classes)})
+    policy = (grant or {}).get("policy")
+    if spec["provider"] in APPROVED_PROVIDERS:
+        config = WorkspaceAI("sandbox", MODEL, classes)
+        budget = None
+        if policy is not None and policy["provider"] == "sandbox":  # a workspace may bound even the test double
+            config = WorkspaceAI("sandbox", MODEL, tuple(c for c in classes if c in policy["data_classes"]) or classes,
+                                 policy["limits"]["max_attempts"], policy["limits"]["timeout_seconds"],
+                                 policy["limits"]["max_output_tokens"])
+            budget = grant.get("budget") if grant else None
+        return ModelGateway({"sandbox": SandboxArchitect()}, {workspace: config}, budget=budget), ""
+    if grant is None:
+        raise ValueError(f"ai.provider {spec['provider']!r} is not approved: only {list(APPROVED_PROVIDERS)} may be "
+                         "configured until the owner approves a provider and its data (decisions D7, D10)")
+    if policy is None or policy["provider"] != spec["provider"] or grant.get("adapter") is None:
+        return None, str(grant.get("refused") or f"the workspace has no approved, authorised policy for "
+                                                 f"{spec['provider']}")
+    allowed = tuple(c for c in classes if c in policy["data_classes"])
+    if not allowed:
+        return None, "the workspace's AI policy allows none of the data classes this use case would send"
+    config = WorkspaceAI(policy["provider"], policy["model"], allowed, policy["limits"]["max_attempts"],
+                         policy["limits"]["timeout_seconds"], policy["limits"]["max_output_tokens"])
+    return ModelGateway({policy["provider"]: grant["adapter"]}, {workspace: config}, budget=grant["budget"]), ""
 
 
 class ArchitectService:
     def __init__(self, engine: "AutologyService", config: Mapping[str, Any]):
         self.engine = engine
         self.workspace = "engine"  # one gateway per engine: nothing is shared between use cases
-        self.gateway = build_gateway(config.get("ai"), self.workspace)
+        self.wanted = config.get("ai")  # what the use case's (governing) configuration asks for
+        self.gateway, self.unavailable = build_gateway(self.wanted, self.workspace, config.get("ai_grant"))
 
     # -- asking -----------------------------------------------------------------------------------------
     def architect_proposals(self, user: User, body: Dict[str, Any]) -> Dict[str, Any]:
@@ -79,11 +104,15 @@ class ArchitectService:
         if generator == "blueprint":
             return propose(brief, base)
         if self.gateway is None:
-            raise ApiError(409, "no AI provider is configured for this use case (owner decisions D7 and D10); the "
-                                "blueprint generator is available")
+            raise ApiError(409, f"no AI provider is available to this use case: {self.unavailable} (a real "
+                                "provider needs the owner's decisions D7 and D10 and an approved workspace policy); "
+                                "the blueprint generator is available", {"kind": "not_configured"})
         answers = self._answers(previous, body.get("answers"))
+        feedback = body.get("feedback", "")
+        if not isinstance(feedback, str) or len(feedback) > 2000:
+            raise ApiError(400, "feedback: what to change in the proposal, up to 2000 characters")
         try:
-            result = architect.propose(self.gateway, self.workspace, brief, base, answers=answers)
+            result = architect.propose(self.gateway, self.workspace, brief, base, answers=answers, feedback=feedback)
         except architect.ArchitectError as exc:
             raise ApiError(400, str(exc)) from None
         except ProviderError as exc:
@@ -141,10 +170,23 @@ class ArchitectService:
     def status(self) -> Dict[str, Any]:
         """Whether this engine has an architect provider, and what kind (never a credential)."""
         if self.gateway is None:
-            return {"configured": False, "generators": ["blueprint"]}
-        caps = self.gateway.describe(self.workspace)["capabilities"]
+            wanted = self.wanted.get("provider") if isinstance(self.wanted, Mapping) else None
+            return {"configured": False, "generators": ["blueprint"], "wanted": wanted,
+                    # "none": nothing is asked for; "not_authorised": a provider is named but may not be reached
+                    "state": "not_authorised" if wanted else "none", "reason": self.unavailable}
+        described = self.gateway.describe(self.workspace)
+        caps = described["capabilities"]
         return {"configured": True, "generators": ["blueprint", "model"], "provider": caps["provider"],
-                "language_model": caps["language_model"], "verified_against": caps["verified_against"]}
+                "model": described["model"], "data_classes": described["data_classes"],
+                "language_model": caps["language_model"], "verified_against": caps["verified_against"],
+                # a test double is never called a model; a real provider is named with its model
+                "state": "authorised" if caps["language_model"] else "sandbox", "reason": "",
+                "bounded": self.gateway.budget is not None}
+
+    def attach(self, grant: Optional[Mapping[str, Any]]) -> None:
+        """Take the workspace's AI policy as it is now (the platform calls this when a policy is approved,
+        disabled or expires). The use case's own setting does not change: only whether it may be served."""
+        self.gateway, self.unavailable = build_gateway(self.wanted, self.workspace, grant)
 
     def get_proposal(self, user: User, pid: str, revision: Optional[int] = None) -> Dict[str, Any]:
         e = self.engine

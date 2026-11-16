@@ -141,6 +141,12 @@ def _v17(store: Any, db: Any) -> None:
         db.execute("ALTER TABLE model_drafts ADD COLUMN solution TEXT")
 
 
+def _v18(store: Any, db: Any) -> None:
+    """Which records were loaded as synthetic samples (explicitly, never by a release)."""
+    db.execute("CREATE TABLE IF NOT EXISTS sample_records (instance_id TEXT PRIMARY KEY, loaded_by TEXT NOT NULL, "
+               "loaded_at TEXT NOT NULL, configuration TEXT NOT NULL)")
+
+
 MIGRATIONS: List[Tuple[int, str, Callable[[Any, Any], None]]] = [
     (4, "who started each run", _v4),
     (5, "write-back snapshots and conflicts; automation failure counts", _v5),
@@ -152,6 +158,7 @@ MIGRATIONS: List[Tuple[int, str, Callable[[Any, Any], None]]] = [
     (15, "model drafts and later tables", _v15),
     (16, "architect proposals and review decisions", _v16),
     (17, "executable configuration in model drafts", _v17),
+    (18, "synthetic sample records are marked", _v18),
 ]
 
 

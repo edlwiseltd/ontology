@@ -4,6 +4,7 @@
 // screen, add a member, propose or approve a grant, confirm one, revoke, or issue a token. What is hidden or
 // disabled here is a convenience; the browser tests call the same routes directly and are refused by the platform.
 
+import AiProviderCard from "./AiProviderCard";
 import { useCallback, useEffect, useState } from "react";
 import { access, ApiError } from "@/lib/api";
 import { DATA_PERMISSIONS, UNRESTRICTED, accessLabel, approvalHint, roleOf, splitList, tokenLabel } from "@/lib/access";
@@ -323,6 +324,8 @@ export default function AccessView({ me, onOwnToken }: { me: Me; onOwnToken: (to
           </ul>
         )}
       </div>
+
+      <AiProviderCard workspace={me.workspace.id} />
 
       {review && (
         <div className="card">

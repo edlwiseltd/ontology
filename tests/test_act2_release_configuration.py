@@ -298,8 +298,7 @@ class ActivationAndRollbackTests(ReleaseBase):
         published = self.admin_events("draft_published")
         self.assertEqual([e["data"].get("agents") for e in published], [["request_handler"], ["request_handler", "second_agent"]])
 
-    def test_sample_records_come_with_the_configuration_and_only_into_an_empty_store(self):  # R6 (data is not configuration)
-        doc = proposed_model()
+    def test_a_release_brings_no_data_with_it(self):  # sample records: see test_arch1_operational_integrity
         cfg = good()
         cfg["sample_data"] = {"instances": [
             {"type": "Requester", "id": "EMP-1", "name": "Sam (synthetic)", "department": "Finance"},
@@ -307,14 +306,10 @@ class ActivationAndRollbackTests(ReleaseBase):
              "amount": 400, "priority": "normal"},
             {"type": "Team", "id": "TEAM-1", "status": "available", "name": "Service desk"}],
             "links": [["EMP-1", "submits", "REQ-1"], ["TEAM-1", "fulfils", "REQ-1"]]}
-        self.released(doc, cfg)
-        seeded = self.desk.store.count_instances()
-        self.assertEqual(seeded, len(cfg["sample_data"]["instances"]))
-        self.assertGreater(seeded, 0)
-        more = copy.deepcopy(cfg)
-        more["sample_data"]["instances"].append({**more["sample_data"]["instances"][0], "id": "EXTRA-1"})
-        self.released(None, more, "more samples")
-        self.assertEqual(self.desk.store.count_instances(), seeded)  # records people may have changed are never reloaded
+        self.released(proposed_model(), cfg)
+        self.assertEqual(self.desk.store.count_instances(), 0)
+        self.assertEqual(self.call("GET", f"{UC}/releases/1")[1]["snapshot"]["settings"]["solution"]["sample_data"],
+                         cfg["sample_data"])  # the samples are named in the release; loading them is another act
 
 
 class BoundaryTests(ReleaseBase):

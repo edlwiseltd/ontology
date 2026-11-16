@@ -1,11 +1,11 @@
 # Autology — AI provider configuration per workspace and spending control: design
 
-*16 November 2026 (activation sprint, section 10 of the directive). **Design only.** Nothing in this document is
-implemented, no provider was contacted, no credential exists in the repository or the environment, and the only
-provider an engine accepts remains the sandbox test double. Implementation waits for the owner's decisions D7 and
-D10. It complements the [evaluation protocol](AUTOLOGY_AI_PROVIDER_EVALUATION_PROTOCOL.md), which says how a real
-provider would then be evaluated, and the AI gateway of AI-1 (`autology/ai.py`), which stays the only path to a
-model.*
+*16 November 2026. Written as a design in the activation sprint; **implemented in the architect sprint** (same
+day) as far as it can be without an owner decision: see "Implementation status" at the end. No provider was
+contacted, no credential exists in the repository or the environment, and no owner authorisation is deployed
+anywhere, so the only thing that answers is still the sandbox test double. It complements the
+[evaluation protocol](AUTOLOGY_AI_PROVIDER_EVALUATION_PROTOCOL.md) and the AI gateway of AI-1 (`autology/ai.py`),
+which stays the only path to a model.*
 
 ## 1. What exists today (verified in the code)
 
@@ -102,3 +102,21 @@ that reports usage.
 3. Key custody: an environment variable on the platform host for the evaluation, or a secret manager first.
 4. Whether prompts and completions may be retained for evaluation, where, and for how long.
 5. Who may approve a workspace's provider policy (the same people as data grants, or a narrower group).
+
+## 9. Implementation status (architect sprint, 16 November 2026)
+
+| Part of this design | State | Where |
+|---|---|---|
+| Workspace policy: provider, model, data classes, purposes, limits, budget, credential reference, retention, evaluation status, expiry | Implemented, Tested | `autology/ai_policy.py` (`validate_policy`); stored in the workspace's signed administration log |
+| Two people: proposed by an administrator, approved by another person; one person may withdraw or disable | Implemented, Tested | `platform.py` (`_ai_routes`), events `ai_policy_*` |
+| The owner's authorisation, separate from the policy | Implemented, Tested | `"ai_authorisations"` in the platform's deployment file (`validate_authorisations`, `authorisation_for`): workspace, provider, exact model, data classes, monthly ceiling, expiry, decision reference. It cannot be set through the API. **None is deployed** |
+| Spending control: estimate before sending, per-request and per-period ceilings, concurrency, one reservation per request, uncertain outcomes stay charged, fail closed | Implemented, Tested | `ai_policy.SpendLedger`, `ai_policy.Budget`, `ModelGateway(budget=...)`; ledger `ai_ledger.db`, included in backups |
+| Keys are never configuration | Implemented, Tested | A policy holds `env:NAME` under the workspace's prefix; anything else is refused and never echoed |
+| Use case setting in the release | Unchanged | The use case's `"ai"` setting was already governing; the workspace's grant is not part of a release (`ai_grant` is non-governing) |
+| Studio | Read-only | Access screen card "AI provider"; onboarding names who answers. **No form** to propose a policy yet: the API is used |
+| Alerts at 50/80/100 % | Not implemented | — |
+| Requests-per-minute per policy | Not implemented | The platform's existing rate limits apply |
+| A secret manager for keys | **Blocked** (open point 3): only an environment-variable reference is accepted | — |
+| Endpoint for self-hosted or compatible providers | Not implemented: the policy has no endpoint field, so only an adapter that needs none can be installed (one is: exercised against a client double only) | — |
+
+The five open points of §8 are unchanged and still the owner's.

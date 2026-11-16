@@ -167,10 +167,26 @@ class SchemaConformanceTests(V1Base):  # V5
             ("POST", "/api/solution/validate"): ("POST", f"{blank}/solution/validate", {"solution": {"agents": {}}}),
             ("POST", "/api/solution/suggest"): ("POST", f"{blank}/solution/suggest", {}),
             ("GET", "/api/tools/catalog"): ("GET", f"{blank}/tools/catalog", None)})
+        # runs and reviews (typed since the architect sprint): two claims wait for an investigator
+        waiting = [self.raw("POST", f"{E}/v1/runs", "acme-hana", {"case_template": "claim_case", "root": root})[2]
+                   for root in ("CL-2", "CL-3")]
+        self.assertEqual([r["status"] for r in waiting], ["awaiting_review"] * 2, waiting)
+        review = self.raw("GET", f"{E}/v1/runs/{waiting[0]['run_id']}", "acme-ivan")[2]["pending_review"]
+        calls.update({
+            ("POST", "/api/runs"): ("POST", f"{E}/v1/runs", {"case_template": "claim_case", "root": "CL-1"}, "acme-hana"),
+            ("GET", "/api/runs"): ("GET", f"{E}/v1/runs?limit=5", None),
+            ("GET", "/api/runs/{id}"): ("GET", f"{E}/v1/runs/{waiting[1]['run_id']}", None),
+            ("GET", "/api/runs/{id}/audit"): ("GET", f"{E}/v1/runs/{waiting[1]['run_id']}/audit", None),
+            ("GET", "/api/reviews"): ("GET", f"{E}/v1/reviews", None, "acme-ivan"),
+            ("GET", "/api/reviews/{id}"): ("GET", f"{E}/v1/reviews/{review}", None, "acme-ivan"),
+            ("POST", "/api/reviews/{id}/decision"): ("POST", f"{E}/v1/reviews/{review}/decision",
+                                                     {"approved": True, "comment": "checked"}, "acme-ivan"),
+            ("POST", "/api/runs/{id}/cancel"): ("POST", f"{E}/v1/runs/{waiting[1]['run_id']}/cancel",
+                                                {"reason": "withdrawn"}, "acme-hana")})
         self.assertEqual(set(calls), set(RESPONSES))  # every typed engine response is exercised
-        for key, (method, path, body) in calls.items():
+        for key, (method, path, body, *who) in calls.items():
             with self.subTest(route=key):
-                status, _, out = self.raw(method, path, body=body)
+                status, _, out = self.raw(method, path, *who, body=body)
                 self.assertEqual(status, 200, out)
                 self.assertEqual(errors(out, SCHEMAS[RESPONSES[key]], SCHEMAS), [])
 
@@ -254,6 +270,48 @@ class SchemaConformanceTests(V1Base):  # V5
         calls2.append((("POST", "/platform/workspaces/{ws}/use-cases/{uc}/publish-draft"), "POST",
                        f"{base}/v1-case/publish-draft", {"revision": saved["revision"], "reason": "v1"}, 200,
                        "acme-maria"))  # never the author of the revision (IAM-3)
+        # architect sprint A: explicit sample records (on a released, Studio-configured use case) and a recovery
+        # rehearsal
+        from .test_act1_solution_configuration import good
+        from .test_onb1_draft_simulation import proposed_model
+
+        self.assertEqual(self.raw("POST", base, body={"id": "v1-samples", "name": "V1 samples",
+                                                      "template": "blank-solution"})[0], 201)
+        engine = "/w/acme/u/v1-samples/api/v1"
+        configuration = {**good(), "sample_data": {"instances": [
+            {"type": "Team", "id": "TEAM-1", "status": "available", "name": "Service desk (synthetic)"}], "links": []}}
+        self.assertEqual(self.raw("POST", f"{engine}/model/draft", body={
+            "document": proposed_model(), "expected_revision": 0, "note": "v1"})[0], 200)
+        self.assertEqual(self.raw("POST", f"{engine}/solution/draft", body={
+            "solution": configuration, "expected_revision": 1})[0], 200)
+        self.assertEqual(self.raw("POST", f"{base}/v1-samples/publish-draft", "acme-maria",
+                                  {"revision": 2, "reason": "v1"})[0], 200)
+        self.assertEqual(self.raw("POST", f"{base}/v1-samples/releases", body={"note": "v1"})[0], 201)
+        self.assertEqual(self.raw("POST", f"{base}/v1-samples/releases/1/approve", "acme-maria", {"reason": "v1"})[0], 200)
+        self.assertEqual(self.raw("POST", f"{base}/v1-samples/releases/1/activate", body={"reason": "v1"})[0], 200)
+        calls2 += [(("GET", "/platform/workspaces/{ws}/use-cases/{uc}/sample-data"), "GET",
+                    f"{base}/v1-samples/sample-data", None, 200),
+                   (("POST", "/platform/workspaces/{ws}/use-cases/{uc}/sample-data"), "POST",
+                    f"{base}/v1-samples/sample-data", {"reason": "v1"}, 200),
+                   (("POST", "/platform/workspaces/{ws}/recovery-drill"), "POST", f"{ws}/recovery-drill",
+                    {"reason": "v1"}, 200)]
+        # architect sprint B: the workspace's AI provider policy (the sandbox: nothing is ever contacted here)
+        sandbox = {"provider": "sandbox", "model": "sandbox-architect", "data_classes": ["synthetic"],
+                   "purposes": ["architect"],
+                   "limits": {"max_input_tokens": 20000, "max_output_tokens": 2000, "concurrency": 1,
+                              "timeout_seconds": 20, "max_attempts": 1},
+                   "budget": {"currency": "USD", "per_request": 0, "per_period": 0, "period": "month"},
+                   "retention": {"prompts": "none", "usage_days": 30}, "evaluation": {"status": "not_evaluated"}}
+        _, _, first = self.raw("POST", f"{ws}/ai/policy", "acme-ada", {"policy": sandbox, "reason": "v1"})
+        _, _, second = self.raw("POST", f"{ws}/ai/policy", "acme-ada", {"policy": sandbox, "reason": "v1"})
+        calls2 += [(("POST", "/platform/workspaces/{ws}/ai/policy"), "POST", f"{ws}/ai/policy",
+                    {"policy": sandbox, "reason": "v1"}, 201),
+                   (("POST", "/platform/workspaces/{ws}/ai/policy/{id}/approve"), "POST",
+                    f"{ws}/ai/policy/{first['proposed']}/approve", {"reason": "v1"}, 200, "acme-maria"),
+                   (("POST", "/platform/workspaces/{ws}/ai/policy/{id}/withdraw"), "POST",
+                    f"{ws}/ai/policy/{second['proposed']}/withdraw", {"reason": "v1"}, 200),
+                   (("GET", "/platform/workspaces/{ws}/ai"), "GET", f"{ws}/ai", None, 200),
+                   (("POST", "/platform/workspaces/{ws}/ai/disable"), "POST", f"{ws}/ai/disable", {"reason": "v1"}, 200)]
         for key, method, path, body, status, *who in calls2:
             with self.subTest(route=key, path=path):
                 got, _, out = self.raw(method, path, who[0] if who else "acme-ada", body)

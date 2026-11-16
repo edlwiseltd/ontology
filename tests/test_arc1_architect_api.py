@@ -201,7 +201,8 @@ class ArchitectApiTests(unittest.TestCase):
             self.ask(svc=none, user=clara)
         self.assertEqual(refused.exception.status, 409)
         self.assertIn("D7", str(refused.exception))
-        self.assertEqual(none.architect.list_proposals(clara)["architect"], {"configured": False, "generators": ["blueprint"]})
+        status = none.architect.list_proposals(clara)["architect"]
+        self.assertEqual((status["configured"], status["generators"], status["state"]), (False, ["blueprint"], "none"))
         self.assertEqual(none.architect_proposals(clara, {"brief": BRIEF})["generator"], "blueprint")  # still there
         strict = service(ai={"provider": "sandbox", "data_classes": ["synthetic"]})
         self.addCleanup(strict.close)

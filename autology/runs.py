@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 class RunService:
     def __init__(self, engine: "AutologyService"):
         self.engine = engine
+        self._cancelling = threading.RLock()
 
     def _summary(self, result, run_id: str, user: User, receipt: bool = False) -> Dict[str, Any]:
         """The run as this user may see it (see :mod:`autology.views`). A run over records the user may not
@@ -331,24 +332,37 @@ class RunService:
         """Stop a run that is waiting for a review, a retry or a resume. Stopping is always allowed to someone who
         may run and may see the run, whatever the stage; a run that is acting, or whose external call is unresolved,
         is not cut. What the run did stays done; the cancellation and its reason join the audit chain, and the
-        review it was waiting for is closed."""
-        from .agent import CANCELLABLE
+        review it was waiting for is closed.
+
+        It does not depend on today's configuration: a run whose agent was since removed or renamed is cancelled
+        the same way and keeps its own record of the agent and configuration it started on. Asking again for a
+        run that is already cancelled answers with that run and records nothing more (idempotent)."""
+        from .agent import CANCELLABLE, cancel_stored
 
         e = self.engine
         e.require(user, "run")
         reason = str((body or {}).get("reason") or "").strip()
         if not 1 <= len(reason) <= 500:
             raise ApiError(400, "give a reason (1 to 500 characters)")
-        cfg = e._agent_for(run_id)
-        if "admin" not in user.permissions and not e.views.can_see_run(user, e.store.load_run(run_id)):
-            raise ApiError(404, f"no run {run_id!r}")
-        with cfg.lock:
+        agent = str(next((r["agent"] for r in e.store.list_runs(limit=10 ** 9) if r["run_id"] == run_id), "") or "")
+        try:
             stored = e.store.load_run(run_id)
+        except KeyError:
+            raise ApiError(404, f"no run {run_id!r}") from None
+        if "admin" not in user.permissions and not e.views.can_see_run(user, stored):
+            raise ApiError(404, f"no run {run_id!r}")
+        cfg = e.agents.get(agent)
+        # one cancellation at a time per engine, and never while the run's agent (if it still exists) acts on it
+        with self._cancelling, (cfg.lock if cfg is not None else self._cancelling):
+            stored = e.store.load_run(run_id)
+            if stored.status == "cancelled":
+                return e._summary(stored, run_id, user, receipt=True)
             if stored.status not in CANCELLABLE:
                 raise ApiError(409, f"run {run_id} is {stored.status}: only a run that is waiting "
                                     f"({', '.join(CANCELLABLE)}) can be cancelled")
-            result = cfg.agent.cancel(stored, user.name, reason)
-            _, changed = e._store_result(result, cfg.name, run_id)
+            result = cfg.agent.cancel(stored, user.name, reason) if cfg is not None else \
+                cancel_stored(stored, user.name, reason)
+            _, changed = e._store_result(result, agent, run_id)
             e.store.close_reviews(run_id, user.name, reason)
         e._changed(changed)
         return e._summary(result, run_id, user, receipt=True)

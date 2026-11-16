@@ -66,3 +66,16 @@ export type SolutionDraft = Omit<Known<E["SolutionDraft"]>, "solution" | "active
 export type AgentPermission = E["AgentPermission"];
 export type CatalogEntry = E["CatalogEntry"];
 export type ReadinessDimension = P["ReadinessDimension"];
+// runs and reviews: typed by the engine's contract since the architect sprint (they were open objects before)
+export type RunStep = Known<E["RunStep"]>;
+export type Run = Omit<Known<E["Run"]>, "steps" | "state" | "escalation"> & {
+  steps?: RunStep[]; state?: Record<string, unknown>; escalation?: Known<NonNullable<E["Run"]["escalation"]>> | null };
+export type RunRow = Known<E["RunRow"]>;
+export type Review = Omit<Known<E["Review"]>, "request"> & { request: Known<E["Review"]["request"]> };
+export type AuditEntry = Omit<Known<E["AuditEntry"]>, "data"> & { data: Record<string, unknown> };
+export type RunAudit = Omit<Known<E["RunAudit"]>, "entries"> & { entries: AuditEntry[] };
+// explicit sample records and recovery rehearsals (platform)
+export type SampleData = Known<P["SampleData"]>;
+// the workspace's AI provider policy and spending (architect sprint B); never a key
+export type AiView = Omit<Known<P["AiView"]>, "policy"> & { policy: Known<P["AiPolicy"]> | null };
+export type RecoveryDrill = Known<P["RecoveryDrill"]>;

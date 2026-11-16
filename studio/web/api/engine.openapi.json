@@ -83,6 +83,39 @@
         ],
         "type": "object"
       },
+      "AuditEntry": {
+        "additionalProperties": true,
+        "properties": {
+          "data": {
+            "type": "object"
+          },
+          "event": {
+            "type": "string"
+          },
+          "hash": {
+            "type": "string"
+          },
+          "prev_hash": {
+            "type": "string"
+          },
+          "seq": {
+            "type": "integer"
+          },
+          "timestamp": {
+            "type": [
+              "string",
+              "number"
+            ]
+          }
+        },
+        "required": [
+          "seq",
+          "event",
+          "data",
+          "hash"
+        ],
+        "type": "object"
+      },
       "CatalogEntry": {
         "additionalProperties": true,
         "properties": {
@@ -961,6 +994,31 @@
           "brief": {
             "type": "string"
           },
+          "contradictions": {
+            "items": {
+              "additionalProperties": true,
+              "properties": {
+                "between": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "question": {
+                  "type": "string"
+                },
+                "statement": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "statement",
+                "between"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
           "cost_usd": {
             "type": "number"
           },
@@ -972,6 +1030,9 @@
               "$ref": "#/components/schemas/ProposalDecision"
             },
             "type": "array"
+          },
+          "feedback": {
+            "type": "string"
           },
           "generator": {
             "type": "string"
@@ -1097,6 +1158,41 @@
             ],
             "type": "object"
           },
+          "understanding": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "additionalProperties": true,
+                "properties": {
+                  "actors": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "out_of_scope": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "outcome": {
+                    "type": "string"
+                  },
+                  "summary": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "summary",
+                  "outcome"
+                ],
+                "type": "object"
+              }
+            ]
+          },
           "unknowns": {
             "items": {
               "type": "string"
@@ -1212,6 +1308,13 @@
             },
             "type": "array"
           },
+          "basis": {
+            "enum": [
+              "supplied",
+              "inferred"
+            ],
+            "type": "string"
+          },
           "confidence": {
             "type": "number"
           },
@@ -1284,6 +1387,12 @@
             ],
             "type": "string"
           },
+          "validation": {
+            "enum": [
+              "passed"
+            ],
+            "type": "string"
+          },
           "value": {}
         },
         "required": [
@@ -1302,8 +1411,17 @@
           "architect": {
             "additionalProperties": true,
             "properties": {
+              "bounded": {
+                "type": "boolean"
+              },
               "configured": {
                 "type": "boolean"
+              },
+              "data_classes": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
               },
               "generators": {
                 "items": {
@@ -1314,16 +1432,38 @@
               "language_model": {
                 "type": "boolean"
               },
+              "model": {
+                "type": "string"
+              },
               "provider": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "state": {
+                "enum": [
+                  "none",
+                  "sandbox",
+                  "authorised",
+                  "not_authorised"
+                ],
                 "type": "string"
               },
               "verified_against": {
                 "type": "string"
+              },
+              "wanted": {
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "required": [
               "configured",
-              "generators"
+              "generators",
+              "state"
             ],
             "type": "object"
           },
@@ -1433,6 +1573,10 @@
           "document": {
             "additionalProperties": true,
             "type": "object"
+          },
+          "feedback": {
+            "maxLength": 2000,
+            "type": "string"
           },
           "generator": {
             "enum": [
@@ -1554,6 +1698,519 @@
           "target",
           "kind",
           "cardinality"
+        ],
+        "type": "object"
+      },
+      "Review": {
+        "additionalProperties": true,
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "decided_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "decided_by": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "decision": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "additionalProperties": true,
+                "properties": {
+                  "approved": {
+                    "type": "boolean"
+                  },
+                  "cancelled": {
+                    "type": "boolean"
+                  },
+                  "comment": {
+                    "type": "string"
+                  },
+                  "reviewer": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "approved",
+                  "reviewer"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "request": {
+            "additionalProperties": true,
+            "properties": {
+              "action": {
+                "type": "string"
+              },
+              "binding": {
+                "type": "object"
+              },
+              "case_id": {
+                "type": "string"
+              },
+              "description": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "explanation": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "facts": {
+                "type": "object"
+              },
+              "history": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "reasons": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "reviewers": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "rule_ids": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "view": {
+                "type": "object"
+              }
+            },
+            "type": "object"
+          },
+          "review_id": {
+            "type": "string"
+          },
+          "reviewers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "approved",
+              "declined",
+              "cancelled"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "review_id",
+          "run_id",
+          "action",
+          "reviewers",
+          "status",
+          "request",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "ReviewDecision": {
+        "additionalProperties": true,
+        "properties": {
+          "approved": {
+            "type": "boolean"
+          },
+          "comment": {
+            "type": "string"
+          },
+          "justification": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "approved"
+        ],
+        "type": "object"
+      },
+      "ReviewList": {
+        "additionalProperties": true,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Review"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "Run": {
+        "additionalProperties": true,
+        "properties": {
+          "agent": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "audit_verified": {
+            "type": "boolean"
+          },
+          "case_id": {
+            "type": "string"
+          },
+          "configuration": {
+            "type": "string"
+          },
+          "costs": {
+            "type": "object"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "escalation": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "additionalProperties": true,
+                "properties": {
+                  "action": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "details": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "reason": {
+                    "type": "string"
+                  },
+                  "to": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "reason",
+                  "to",
+                  "action",
+                  "details"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "goal": {
+            "type": "string"
+          },
+          "hidden": {
+            "type": "boolean"
+          },
+          "outcomes": {
+            "items": {
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "pending_review": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "simulated": {
+            "type": "boolean"
+          },
+          "started_by": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state": {
+            "type": "object"
+          },
+          "status": {
+            "enum": [
+              "completed",
+              "blocked",
+              "escalated",
+              "deferred",
+              "paused",
+              "suspended",
+              "awaiting_review",
+              "cancelled",
+              "uncertain",
+              "pending_confirmation"
+            ],
+            "type": "string"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/RunStep"
+            },
+            "type": "array"
+          },
+          "write_back": {
+            "additionalProperties": true,
+            "properties": {
+              "conflicts": {
+                "type": "integer"
+              },
+              "state": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "state",
+              "conflicts"
+            ],
+            "type": "object"
+          },
+          "write_back_conflicts": {
+            "items": {
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "run_id",
+          "case_id",
+          "status"
+        ],
+        "type": "object"
+      },
+      "RunAudit": {
+        "additionalProperties": true,
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/AuditEntry"
+            },
+            "type": "array"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "verified": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "run_id",
+          "verified",
+          "entries"
+        ],
+        "type": "object"
+      },
+      "RunCancel": {
+        "additionalProperties": true,
+        "properties": {
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "type": "object"
+      },
+      "RunList": {
+        "additionalProperties": true,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RunRow"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "RunRow": {
+        "additionalProperties": true,
+        "properties": {
+          "agent": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "case_id": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "goal": {
+            "type": "string"
+          },
+          "ontology": {
+            "type": "string"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "started_by": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "case_id",
+          "goal",
+          "status",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "RunStart": {
+        "additionalProperties": true,
+        "properties": {
+          "agent": {
+            "type": "string"
+          },
+          "case": {
+            "type": "object"
+          },
+          "case_id": {
+            "type": "string"
+          },
+          "case_template": {
+            "type": "string"
+          },
+          "goal": {
+            "type": "string"
+          },
+          "justification": {
+            "type": "string"
+          },
+          "root": {
+            "type": "string"
+          },
+          "write_back": {
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "RunStep": {
+        "additionalProperties": true,
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "environment": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "executed_by": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "explanation": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "index": {
+            "type": "integer"
+          },
+          "message": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "outcome": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reviewer": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tool": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "verdict": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "index",
+          "action",
+          "verdict",
+          "outcome",
+          "tool",
+          "environment",
+          "executed_by",
+          "reviewer"
         ],
         "type": "object"
       },
@@ -6494,8 +7151,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object"
+                  "$ref": "#/components/schemas/ReviewList"
                 }
               }
             },
@@ -6608,8 +7264,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object"
+                  "$ref": "#/components/schemas/Review"
                 }
               }
             },
@@ -6721,20 +7376,18 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/ReviewDecision"
               }
             }
           },
-          "required": false
+          "required": true
         },
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object"
+                  "$ref": "#/components/schemas/Run"
                 }
               }
             },
@@ -6863,8 +7516,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object"
+                  "$ref": "#/components/schemas/RunList"
                 }
               }
             },
@@ -6964,20 +7616,18 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/RunStart"
               }
             }
           },
-          "required": false
+          "required": true
         },
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object"
+                  "$ref": "#/components/schemas/Run"
                 }
               }
             },
@@ -7090,8 +7740,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object"
+                  "$ref": "#/components/schemas/Run"
                 }
               }
             },
@@ -7204,8 +7853,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object"
+                  "$ref": "#/components/schemas/RunAudit"
                 }
               }
             },
@@ -7317,20 +7965,18 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/RunCancel"
               }
             }
           },
-          "required": false
+          "required": true
         },
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object"
+                  "$ref": "#/components/schemas/Run"
                 }
               }
             },

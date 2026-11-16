@@ -1,6 +1,6 @@
 # Work in progress — Autology
 
-*Updated 16 November 2026 (activation sprint). Branch `claude/autology-ontology-agent-4ajjer`.*
+*Updated 16 November 2026 (architect sprint). Branch `claude/autology-ontology-agent-4ajjer`.*
 
 ## Done in this directive
 
@@ -85,3 +85,16 @@
 sets). D27 lists the engineering defaults applied in this sprint for confirmation. **Not done:** Production
 execution, real connectors, any language model, timing with real users, independent security review.
 Report: [planning/AUTOLOGY_ACTIVATION_SPRINT_REPORT.md](planning/AUTOLOGY_ACTIVATION_SPRINT_REPORT.md).
+
+## Architect sprint: provider governance, architect on unfamiliar briefs, evaluation (16 November 2026)
+
+| Increment | Status | Evidence |
+|---|---|---|
+| A — operational integrity | Done | `tests/test_arch1_operational_integrity.py` (9); GAP-067 found by the first recovery rehearsal and fixed |
+| B — AI provider policy per workspace, spending ledger | Done **with test doubles**; no authorisation deployed, no provider contacted | `tests/test_arch2_ai_provider_governance.py` (14) |
+| C — architect contract for unfamiliar briefs | Done **with test doubles**; not demonstrated with a real model | `tests/test_arch3_architect_and_evaluation.py` (C1–C5) |
+| D — novel-case evaluation suite, thresholds fixed | Done; run on reference answers and on the sandbox only | same file (E1–E5); `python -m autology architect-eval --self-check` |
+| E — Studio onboarding | Done, demonstrated with the sandbox | 40 Studio unit tests; 118/118 browser checks |
+| F — genuine provider evaluation | **Blocked by D7/D10** (ready for external evaluation) | — |
+
+Report: [planning/AUTOLOGY_ARCHITECT_SPRINT_REPORT.md](planning/AUTOLOGY_ARCHITECT_SPRINT_REPORT.md).

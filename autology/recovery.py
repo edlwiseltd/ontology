@@ -59,9 +59,11 @@ from .audit import audit_key, workspace_key
 
 FORMAT = 1
 MANIFEST = "MANIFEST.json"
-REGISTRIES = ("tenancy.db", "admin.db", "releases.db", "lifecycle.db", "credentials.db")  # copied after the stores
+# copied after the stores (the AI spending ledger with them: what a workspace spent survives a restore)
+REGISTRIES = ("tenancy.db", "admin.db", "releases.db", "lifecycle.db", "credentials.db", "ai_ledger.db")
 ACCESS_LOG = "platform.db"
 STORE, MODEL, REPORTING, SECRETS = "autology.db", "ontology.json", "reporting.db", "secrets.json"
+AGENTS = "solution.json"  # agents and simulated tools configured in Studio, beside the model
 
 
 class RecoveryError(Exception):
@@ -108,7 +110,9 @@ def inventory(data_dir: Path, include_secrets: bool = False) -> Tuple[List[Dict[
     skipped: List[str] = []
     for ws in sorted(p for p in data_dir.iterdir() if p.is_dir() and not p.name.startswith(".")):
         for uc in sorted(p for p in ws.iterdir() if p.is_dir() and not p.name.startswith(".")):
-            for name, kind in ((STORE, "store"), (MODEL, "model"), (REPORTING, "reporting")):
+            # the store, then the use case's own configuration: its model and the agents and simulated tools
+            # published with it (one release covers both, so one backup must too: GAP-067)
+            for name, kind in ((STORE, "store"), (MODEL, "model"), (AGENTS, "agents"), (REPORTING, "reporting")):
                 if (uc / name).is_file():
                     items.append({"path": f"{ws.name}/{uc.name}/{name}", "kind": kind, "workspace": ws.name,
                                   "use_case": uc.name})

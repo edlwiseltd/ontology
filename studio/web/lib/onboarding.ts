@@ -3,7 +3,7 @@
 // decides validity, permission or readiness.
 
 import { applyItems } from "./model";
-import type { ModelDocument, Proposal, ProposalItem } from "./types";
+import type { ArchitectStatus, ModelDocument, Proposal, ProposalItem } from "./types";
 
 export const SAMPLE_BRIEF =
   "Employees send service requests. A manager must approve the expensive ones, then a team fulfils them and the requester is told.";
@@ -15,6 +15,32 @@ export function generatorLabel(p: Pick<Proposal, "ai" | "generator">): string {
   if (p.generator === "sandbox") return "Sandbox architect · test double · not a language model";
   if (p.generator === "blueprint") return "Approved blueprint · not AI";
   return p.ai ? "AI proposal · untrusted until accepted" : "Proposal · not AI";
+}
+
+/** Who answers when a proposal is asked for, said exactly: a test double is never called a model, and a provider
+ *  that may not be reached is said to be unreachable, with the reason the engine gives. */
+export function providerLabel(s: ArchitectStatus | null): { state: string; text: string; tone: "ok" | "warn" | "muted" } {
+  if (!s) return { state: "unknown", text: "Checking which architect answers…", tone: "muted" };
+  if (s.state === "sandbox") return { state: "sandbox", tone: "muted",
+    text: "Sandbox architect: a deterministic test double built on approved templates, not a language model; nothing leaves this platform." };
+  if (s.state === "authorised") return { state: "authorised", tone: "ok",
+    text: `Authorised provider: ${s.provider} (${s.model}). Your description is sent to it${s.bounded ? ", within the workspace's budget" : ""}; its answer is untrusted until you accept it.` };
+  if (s.state === "not_authorised") return { state: "not_authorised", tone: "warn",
+    text: `Provider unavailable: ${s.wanted ?? "a provider"} is named for this use case but may not be reached. ${s.reason ?? ""}` };
+  return { state: "none", text: "No architect provider for this use case: proposals are unavailable here.", tone: "muted" };
+}
+
+/** What a refusal of the AI gateway means for the person, by its kind. */
+export function refusalText(kind: unknown, message: string): string {
+  if (kind === "budget_exceeded") return `Budget exceeded: nothing was sent. ${message}`;
+  if (kind === "not_allowed") return `Data transmission not authorised by the workspace's AI policy: nothing was sent. ${message}`;
+  if (kind === "not_configured") return `Provider unavailable: ${message}`;
+  return message;
+}
+
+/** Where an element comes from, as the engine could establish it. */
+export function basisLabel(i: Pick<ProposalItem, "basis">): string {
+  return i.basis === "supplied" ? "from your description (cited)" : "inferred · needs your confirmation";
 }
 
 export function itemLabel(i: ProposalItem): string {

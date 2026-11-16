@@ -305,6 +305,304 @@
         ],
         "type": "object"
       },
+      "AiPolicy": {
+        "additionalProperties": true,
+        "properties": {
+          "budget": {
+            "additionalProperties": true,
+            "properties": {
+              "currency": {
+                "type": "string"
+              },
+              "per_period": {
+                "type": "number"
+              },
+              "per_request": {
+                "type": "number"
+              },
+              "period": {
+                "enum": [
+                  "day",
+                  "month"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "currency",
+              "per_request",
+              "per_period",
+              "period"
+            ],
+            "type": "object"
+          },
+          "credential": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "additionalProperties": true,
+                "properties": {
+                  "note": {
+                    "type": "string"
+                  },
+                  "ref": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "ref"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "data_classes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "evaluation": {
+            "additionalProperties": true,
+            "properties": {
+              "reference": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "status"
+            ],
+            "type": "object"
+          },
+          "expires": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "limits": {
+            "additionalProperties": true,
+            "properties": {
+              "concurrency": {
+                "type": "integer"
+              },
+              "max_attempts": {
+                "type": "integer"
+              },
+              "max_input_tokens": {
+                "type": "integer"
+              },
+              "max_output_tokens": {
+                "type": "integer"
+              },
+              "timeout_seconds": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "max_input_tokens",
+              "max_output_tokens",
+              "concurrency",
+              "timeout_seconds",
+              "max_attempts"
+            ],
+            "type": "object"
+          },
+          "model": {
+            "type": "string"
+          },
+          "priced": {
+            "type": "boolean"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "purposes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "retention": {
+            "additionalProperties": true,
+            "properties": {
+              "prompts": {
+                "type": "string"
+              },
+              "usage_days": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "prompts",
+              "usage_days"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "provider",
+          "model",
+          "data_classes",
+          "purposes",
+          "limits",
+          "budget",
+          "retention",
+          "evaluation"
+        ],
+        "type": "object"
+      },
+      "AiView": {
+        "additionalProperties": true,
+        "properties": {
+          "adapters_installed": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "approved_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "approved_by": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "owner_authorisation": {
+            "additionalProperties": true,
+            "properties": {
+              "decision": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "expires": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "note": {
+                "type": "string"
+              },
+              "present": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "present"
+            ],
+            "type": "object"
+          },
+          "pending": {
+            "items": {
+              "additionalProperties": true,
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "policy": {
+                  "$ref": "#/components/schemas/AiPolicy"
+                },
+                "proposed_at": {
+                  "type": "string"
+                },
+                "proposed_by": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "policy",
+                "proposed_by"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "policy": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AiPolicy"
+              }
+            ]
+          },
+          "proposed": {
+            "type": "string"
+          },
+          "proposed_by": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "remaining_usd": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "state": {
+            "enum": [
+              "none",
+              "sandbox",
+              "authorised",
+              "not_authorised",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "transmits_externally": {
+            "type": "boolean"
+          },
+          "usage": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object"
+              }
+            ]
+          },
+          "use_cases": {
+            "items": {
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "state",
+          "reason",
+          "transmits_externally",
+          "policy",
+          "owner_authorisation",
+          "pending",
+          "use_cases"
+        ],
+        "type": "object"
+      },
       "Check": {
         "additionalProperties": false,
         "properties": {
@@ -1434,6 +1732,62 @@
         ],
         "type": "object"
       },
+      "RecoveryDrill": {
+        "additionalProperties": true,
+        "properties": {
+          "at": {
+            "type": "string"
+          },
+          "bytes": {
+            "type": "integer"
+          },
+          "counts": {
+            "type": "object"
+          },
+          "files": {
+            "type": "integer"
+          },
+          "recorded": {
+            "type": "boolean"
+          },
+          "seconds": {
+            "type": "number"
+          },
+          "steps": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "use_cases": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "properties": {
+                "configuration": {
+                  "type": "string"
+                },
+                "reproduces_what_runs": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "configuration",
+                "reproduces_what_runs"
+              ],
+              "type": "object"
+            },
+            "type": "object"
+          }
+        },
+        "required": [
+          "recorded",
+          "at",
+          "use_cases",
+          "counts",
+          "steps"
+        ],
+        "type": "object"
+      },
       "Release": {
         "additionalProperties": true,
         "properties": {
@@ -1888,6 +2242,72 @@
         "required": [
           "use_case",
           "reason"
+        ],
+        "type": "object"
+      },
+      "SampleData": {
+        "additionalProperties": true,
+        "properties": {
+          "already_present": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "available": {
+            "type": "integer"
+          },
+          "just_loaded": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "loadable": {
+            "type": "boolean"
+          },
+          "loaded": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "may_load": {
+            "type": "boolean"
+          },
+          "note": {
+            "type": "string"
+          },
+          "records_marked_as_samples": {
+            "type": "integer"
+          },
+          "refusal": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "release": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "skipped": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "available",
+          "loaded",
+          "already_present",
+          "release",
+          "loadable",
+          "refusal",
+          "may_load"
         ],
         "type": "object"
       },
@@ -3000,6 +3420,631 @@
         },
         "summary": "Every business-data grant, its origin and whether a person still has to review it (sprint B)",
         "x-autology-permission": "workspace admin or approver"
+      }
+    },
+    "/platform/v1/workspaces/{ws}/ai": {
+      "get": {
+        "operationId": "getWorkspacesWsAi",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ws",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Missing or invalid token"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Permission or checkpoint refused"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not found or not visible"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        },
+        "summary": "The workspace's AI provider policy, the owner's authorisation, spending and each use case's provider state",
+        "x-autology-permission": "workspace admin or approver"
+      }
+    },
+    "/platform/v1/workspaces/{ws}/ai/disable": {
+      "post": {
+        "operationId": "postWorkspacesWsAiDisable",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ws",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Missing or invalid token"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Permission or checkpoint refused"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not found or not visible"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Disable the AI provider policy in force (one person may always take access away)",
+        "x-autology-permission": "workspace admin (person)"
+      }
+    },
+    "/platform/v1/workspaces/{ws}/ai/policy": {
+      "post": {
+        "operationId": "postWorkspacesWsAiPolicy",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ws",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Missing or invalid token"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Permission or checkpoint refused"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not found or not visible"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Propose an AI provider policy (never a key: a reference to it); another person approves",
+        "x-autology-permission": "workspace admin (person)"
+      }
+    },
+    "/platform/v1/workspaces/{ws}/ai/policy/{id}/approve": {
+      "post": {
+        "operationId": "postWorkspacesWsAiPolicyIdApprove",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ws",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Missing or invalid token"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Permission or checkpoint refused"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not found or not visible"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Approve a proposed AI provider policy",
+        "x-autology-permission": "approver (person, not the proposer)"
+      }
+    },
+    "/platform/v1/workspaces/{ws}/ai/policy/{id}/withdraw": {
+      "post": {
+        "operationId": "postWorkspacesWsAiPolicyIdWithdraw",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ws",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Missing or invalid token"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Permission or checkpoint refused"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not found or not visible"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Withdraw a proposed AI provider policy",
+        "x-autology-permission": "workspace admin (person)"
       }
     },
     "/platform/v1/workspaces/{ws}/grants": {
@@ -4397,6 +5442,130 @@
         },
         "summary": "Replace your own token before it expires; the new one is returned once (GAP-030)",
         "x-autology-permission": "member (person, workspace-level)"
+      }
+    },
+    "/platform/v1/workspaces/{ws}/recovery-drill": {
+      "post": {
+        "operationId": "postWorkspacesWsRecoveryDrill",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ws",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryDrill"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Missing or invalid token"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Permission or checkpoint refused"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not found or not visible"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Rehearse a recovery (backup, verify, restore into a scratch folder, load) and record the evidence",
+        "x-autology-permission": "workspace admin (person)"
       }
     },
     "/platform/v1/workspaces/{ws}/token-requests/{id}/approve": {
@@ -6476,6 +7645,257 @@
           }
         },
         "summary": "Reload the engine from its files without a restart; not an activation (ADM-2)",
+        "x-autology-permission": "workspace admin (person)"
+      }
+    },
+    "/platform/v1/workspaces/{ws}/use-cases/{uc}/sample-data": {
+      "get": {
+        "operationId": "getWorkspacesWsUseCasesUcSampleData",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ws",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "uc",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SampleData"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Missing or invalid token"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Permission or checkpoint refused"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not found or not visible"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        },
+        "summary": "The synthetic sample records of the active release and which are loaded",
+        "x-autology-permission": "granted member"
+      },
+      "post": {
+        "operationId": "postWorkspacesWsUseCasesUcSampleData",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ws",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "uc",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SampleData"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Missing or invalid token"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Permission or checkpoint refused"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not found or not visible"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict: state, stage or revision"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Too many requests: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The use case is being switched to another configuration, or is unavailable: retry after the Retry-After header (seconds)",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Load the active release's synthetic sample records (explicit, recorded; never automatic)",
         "x-autology-permission": "workspace admin (person)"
       }
     },

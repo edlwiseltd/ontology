@@ -50,7 +50,34 @@ EVENTS = ("member_added", "member_removed", "token_rotated", "grant_proposed", "
           # a member who holds business data is requested by one person and issued by another
           "grant_confirmed", "token_requested", "token_request_withdrawn",
           # activation sprint B: an activation or rollback that was refused leaves evidence too
-          "release_activation_refused")
+          "release_activation_refused",
+          # architect sprint A2: sample records are loaded by a person's explicit request, never by a release
+          "sample_data_loaded",
+          # architect sprint A4: a backup was taken, verified and restored into a scratch folder, and each use
+          # case's restored configuration was loaded: evidence, recorded only when every step succeeded
+          "recovery_rehearsed",
+          # architect sprint B: a workspace's AI provider policy is proposed by one person and approved by another;
+          # one person may always withdraw a proposal or disable a policy (taking access away needs no second)
+          "ai_policy_proposed", "ai_policy_approved", "ai_policy_withdrawn", "ai_policy_disabled")
+
+
+def ai_policy_state(events: List[Dict[str, Any]]) -> Tuple[Optional[Dict[str, Any]], Dict[str, Dict[str, Any]]]:
+    """``(approved policy in force or None, pending proposals by id)`` from a workspace's events."""
+    pending: Dict[str, Dict[str, Any]] = {}
+    current: Optional[Dict[str, Any]] = None
+    for e in events:
+        if e["event"] == "ai_policy_proposed":
+            pending[e["data"]["id"]] = {"id": e["data"]["id"], "policy": e["data"]["policy"], "proposed_by": e["by"],
+                                        "proposed_at": e["at"], "reason": e["reason"]}
+        elif e["event"] == "ai_policy_withdrawn":
+            pending.pop(e["data"]["id"], None)
+        elif e["event"] == "ai_policy_approved":
+            proposal = pending.pop(e["data"]["id"], None)
+            if proposal is not None:
+                current = {**proposal, "approved_by": e["by"], "approved_at": e["at"]}
+        elif e["event"] == "ai_policy_disabled":
+            current = None
+    return current, pending
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS admin_events (

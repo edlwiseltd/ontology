@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { accessLines, countByKind, generatorLabel, itemLabel, preview, standing, withProvenance,
-         workflow } from "../lib/onboarding";
+import { accessLines, basisLabel, countByKind, generatorLabel, itemLabel, preview, providerLabel, refusalText, standing,
+         withProvenance, workflow } from "../lib/onboarding";
 import type { ProposalItem } from "../lib/types";
 
 const item = (kind: ProposalItem["kind"], name: string | null, value: any): ProposalItem => ({
@@ -64,5 +64,30 @@ describe("onboarding helpers", () => {
     const doc = withProvenance(preview(CONFIRMED, ITEMS), { id: "P-1", revision: 2, generator: "sandbox", ai: false }, ITEMS.slice(0, 1));
     expect(doc["x-studio"].provenance).toEqual({ "entity:Request": { proposal: "P-1", revision: 2, generator: "sandbox", ai: false } });
     expect(doc.entities.Request).toBeDefined();
+  });
+
+  it("says exactly who answers, and never calls a test double a model", () => {
+    const base = { configured: true, generators: ["blueprint", "model"] };
+    const sandbox = providerLabel({ ...base, state: "sandbox", language_model: false });
+    expect([sandbox.state, sandbox.tone]).toEqual(["sandbox", "muted"]);
+    expect(sandbox.text).toMatch(/test double.*Not a language model.*nothing leaves/i);
+    const real = providerLabel({ ...base, state: "authorised", provider: "acme-ai", model: "m-1", language_model: true, bounded: true });
+    expect(real.text).toMatch(/Authorised provider: acme-ai \(m-1\).*sent to it, within the workspace's budget.*untrusted/);
+    const blocked = providerLabel({ configured: false, generators: ["blueprint"], state: "not_authorised", wanted: "acme-ai",
+                                    reason: "the owner has not authorised acme-ai" });
+    expect([blocked.state, blocked.tone]).toEqual(["not_authorised", "warn"]);
+    expect(blocked.text).toMatch(/Provider unavailable.*may not be reached.*owner has not authorised/);
+    expect(providerLabel({ configured: false, generators: ["blueprint"], state: "none" }).text).toMatch(/No architect provider/);
+    expect(providerLabel(null).state).toBe("unknown");
+  });
+
+  it("turns a refusal of the gateway into what happened, and tells facts from inferences", () => {
+    expect(refusalText("budget_exceeded", "the budget is 5 USD")).toMatch(/^Budget exceeded: nothing was sent\. the budget/);
+    expect(refusalText("not_allowed", "no personal data")).toMatch(/^Data transmission not authorised.*nothing was sent/);
+    expect(refusalText("not_configured", "no policy")).toMatch(/^Provider unavailable: no policy/);
+    expect(refusalText(undefined, "something else")).toBe("something else");
+    expect(basisLabel({ basis: "supplied" })).toMatch(/from your description/);
+    expect(basisLabel({ basis: "inferred" })).toMatch(/inferred.*needs your confirmation/);
+    expect(basisLabel({})).toMatch(/inferred/);  // nothing said: never presented as a fact
   });
 });

@@ -95,7 +95,7 @@ finish execution gates, release governance, workspace administration and the API
 5. Studio, which can start as soon as the API contract is fixed.
 6. The exit tests.
 
-### 3.5 R2 exit requirements (updated 16 November 2026, activation sprint)
+### 3.5 R2 exit requirements (updated 16 November 2026, architect sprint)
 
 | Requirement | State | What is missing |
 |---|---|---|
@@ -104,10 +104,10 @@ finish execution gates, release governance, workspace administration and the API
 | Releases with independent approval, activation and rollback | Met (REL-1a, STU-6, activation without restart). Since the activation sprint a release also carries the agents and simulated tools configured in Studio, names its parts with a fingerprint each, and is refused at activation when it could not execute | Suspended state; REL-4 full semantic diff |
 | Workspace and member administration | Met (ADM-1, ADM-2, Studio Access screen) | Roles and workspace administrators in configuration only; D24 (`operate`) awaits the owner |
 | Security prerequisites (GAP-030, SEC-A) | Met at repository level | Independent security review; D23 confirmation |
-| Migrations and recovery (MIG-1, OPS-1) | Met at repository level | Platform registries outside the migration mechanism; production-sized restore drill |
+| Migrations and recovery (MIG-1, OPS-1) | Met at repository level | Platform registries outside the migration mechanism; production-sized restore drill. Since the architect sprint a recovery rehearsal can be run and recorded per workspace, and readiness reports it for the configuration it covered |
 | Architecture (ARC-0) | Partial: notifications, ingestion, runs, reviews and the architect are services behind the engine (class 2,323 → 1,721 lines) | Reconciliation, scenarios, model design, assistant, dispatcher |
 | Readiness per use case (criterion 3, REL-2, REL-3) | Met at repository level: for what runs, for the saved draft and for a release that is not active, each named with its configuration, with the differences against what runs | Owner approval of weights and mandatory sets (D26); recorded recovery evidence per use case; sector controls |
-| AI Solution Architect (criteria 4, 5; ARC-1 to ARC-4) | Path demonstrated end to end in Studio with a sandbox test double: description, questions, stored revisions, visual review, engine validation, agents and simulated tools, governed release, **stored simulation runs**, readiness of draft and active (activation sprint; reference demonstration in [solution-demo](../docs/solution-demo.md)) | A real provider under D7/D10 (GAP-052); questions worded by a model; documents as input; BP-1 blueprints for the two named industries; anything outside the two templates' vocabulary |
+| AI Solution Architect (criteria 4, 5; ARC-1 to ARC-4) | Path demonstrated end to end in Studio with a sandbox test double: description, questions, stored revisions, visual review, engine validation, agents and simulated tools, governed release, **stored simulation runs**, readiness of draft and active (activation sprint; reference demonstration in [solution-demo](../docs/solution-demo.md)) | **A real provider under D7/D10 (GAP-052): everything around it is now built and tested with test doubles (workspace policy, spending ledger, contract for unfamiliar briefs, evaluation suite with thresholds); the evaluation itself is blocked until the owner names a workspace, provider, model, data classes, budget, key custody and evaluator**; questions worded by a model; documents as input; BP-1 blueprints for the two named industries; anything outside the two templates' vocabulary |
 | Agents and tools configured without files (activation sprint) | Met for simulated tools: configured in Studio, validated and compiled by the engine, released with the model | Connectors and sandbox tools from Studio (R4, Agent Factory); editing of decision-table writes; several agents sharing work is possible but not demonstrated |
 
 ## 4. R3: Structured enterprise onboarding

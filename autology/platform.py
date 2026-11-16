@@ -43,12 +43,13 @@ import tempfile
 import threading
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import unquote, urlsplit
 
-from . import credentials, limits
+from . import ai_policy, credentials, limits
 from .audit import audit_key, workspace_key
 from . import readiness
 from .lifecycle import Check, Lifecycle, LifecycleError, STAGES
@@ -105,6 +106,20 @@ _UNRESTRICTED_HELP = (
     'the "admin" permission is unrestricted access to this use case\'s business data: row and field rules do not '
     'apply to it. Grant narrower permissions where they are enough (read, run, review, audit, ingest, reconcile, '
     'with roles); to go ahead, send "unrestricted": true. The proposer and the approver each acknowledge it')
+
+
+def _anthropic_adapter(policy: Dict[str, Any], key: Optional[str]) -> Any:
+    import importlib
+
+    from .ai import AnthropicProvider
+
+    return AnthropicProvider(importlib.import_module("anthropic").Anthropic(api_key=key))
+
+
+# provider id -> adapter factory (policy, key). Having an adapter installed authorises nothing: a workspace reaches
+# a provider only with an approved policy that the owner's authorisation covers (see _ai_standing). The adapter
+# listed here has been exercised against a client double only: no call to the provider was ever made (GAP-052).
+PROVIDER_ADAPTERS: Dict[str, Any] = {"anthropic": _anthropic_adapter}
 
 
 class PlatformError(ValueError):
@@ -366,6 +381,14 @@ class Platform:
         except (credentials.CredentialError, limits.LimitError) as exc:
             raise PlatformError(str(exc)) from None
         self._security = {k: security[k] for k in ("run_seconds",) if k in security}
+        # the owner's authorisations to reach a real AI provider (decisions D7, D10): deployment configuration,
+        # never settable through the API. None is the normal state: only the sandbox test double answers then
+        try:
+            self.ai_authorisations = ai_policy.validate_authorisations(spec.get("ai_authorisations"),
+                                                                       spec.get("workspaces") or {})
+        except ValueError as exc:
+            raise PlatformError(str(exc)) from None
+        self.ai_ledger = ai_policy.SpendLedger(self.data_dir / "ai_ledger.db")
         self.workspaces: Dict[str, Workspace] = {}
         self.tenants: Dict[str, Tenant] = {}
         # token digest -> {workspace: Member}: one identity, with one Member per workspace it explicitly belongs to
@@ -373,6 +396,7 @@ class Platform:
         self._identities: Dict[str, Tuple[str, str]] = {}  # token digest -> (tenant, name): one identity, one tenant
         self._base_dir = base_dir
         self._lock = threading.RLock()
+        self._drilling = threading.Lock()  # one recovery rehearsal at a time
         self._stops: List[threading.Event] = []
         self.running = False
         # templates: configurations the operator approved; a workspace administrator may create use cases from
@@ -697,6 +721,10 @@ class Platform:
         config["secrets_file"] = str(self.data_dir / ws.id / "secrets.json")
         config["audit_scope"] = ws.id  # the workspace's own audit key, derived from the platform's (ISO-2)
         config["users"] = self.users_for(ws, uc_id)
+        if not validate_only:  # a throwaway engine never reaches a provider: it gets no grant at all
+            config["ai_grant"] = self._ai_grant(ws, uc_id)
+        elif isinstance(config.get("ai"), dict) and config["ai"].get("provider") != "sandbox":
+            config["ai_grant"] = {"refused": "a throwaway engine reaches no provider"}
         config["credentials_file"] = ""  # the platform supplies each token's expiry (one registry for all engines)
         config["security"] = dict(self._security)
         if validate_only:  # build a throwaway engine on an in-memory store: proves the files load, touches nothing
@@ -717,6 +745,221 @@ class Platform:
         gate = ws.gates.setdefault(uc_id, Gate())
         service.background_guard = (gate.enter, gate.leave)  # the scheduler never ticks while the engine is switched
         return uc
+
+    # -- AI provider governance (autology.ai_policy) ------------------------------------------------------
+    def _ai_policy(self, ws: Workspace) -> Tuple[Optional[Dict[str, Any]], Dict[str, Dict[str, Any]]]:
+        from .administration import ai_policy_state
+
+        events, problem = self.admin.events(ws.id)
+        return (None, {}) if problem else ai_policy_state(events)
+
+    def _ai_standing(self, ws: Workspace) -> Dict[str, Any]:
+        """Where the workspace stands: no policy, a policy that may be served, or one that may not and why."""
+        current, pending = self._ai_policy(ws)
+        if current is None:
+            return {"state": "none", "reason": "no AI provider policy is approved for this workspace",
+                    "policy": None, "authorisation": None, "current": None, "pending": pending}
+        policy = current["policy"]
+        expires = ai_policy._parse_date(policy["expires"]) if policy.get("expires") else None
+        authorisation, reason = ai_policy.authorisation_for(policy, ws.id, self.ai_authorisations)
+        state = "sandbox" if policy["provider"] in ai_policy.NO_AUTHORISATION_NEEDED else "authorised"
+        if expires is not None and datetime.now(timezone.utc) >= expires:
+            state, reason = "not_authorised", f"the workspace's policy expired on {policy['expires']}"
+        elif authorisation is None:
+            state = "not_authorised"
+        elif policy.get("credential") and not os.environ.get(policy["credential"]["ref"][4:]):
+            state, reason = "unavailable", ("the credential reference of the policy names nothing in the platform's "
+                                            "environment")
+        elif policy["provider"] not in PROVIDER_ADAPTERS and policy["provider"] not in ai_policy.NO_AUTHORISATION_NEEDED:
+            state, reason = "unavailable", f"no adapter is installed for the provider {policy['provider']}"
+        return {"state": state, "reason": reason, "policy": policy, "authorisation": authorisation,
+                "current": current, "pending": pending}
+
+    def _ai_grant(self, ws: Workspace, uc_id: str) -> Dict[str, Any]:
+        """What one use case's engine may use now: the policy with an adapter and a budget, or the refusal."""
+        standing = self._ai_standing(ws)
+        if standing["state"] not in ("sandbox", "authorised"):
+            return {"refused": standing["reason"]}
+        policy = standing["policy"]
+        budget = ai_policy.Budget(self.ai_ledger, ws.id, uc_id, policy)
+        if policy["provider"] in ai_policy.NO_AUTHORISATION_NEEDED:
+            return {"policy": policy, "budget": budget}
+        key = os.environ.get(policy["credential"]["ref"][4:])
+        try:
+            adapter = PROVIDER_ADAPTERS[policy["provider"]](policy, key)
+        except Exception as exc:  # an adapter that cannot be built serves nothing; the key is never in the message
+            return {"refused": f"the adapter for {policy['provider']} could not be prepared ({type(exc).__name__})"}
+        return {"policy": policy, "budget": budget, "adapter": adapter}
+
+    def _apply_ai(self, ws: Workspace) -> None:
+        """Give every engine of the workspace the policy as it stands now (after an approval or a disabling)."""
+        for uc in ws.use_cases.values():
+            uc.service.architect.attach(self._ai_grant(ws, uc.id))
+
+    def ai_view(self, ws: Workspace) -> Dict[str, Any]:
+        standing = self._ai_standing(ws)
+        policy = standing["policy"]
+        usage = self.ai_ledger.usage(ws.id, policy["budget"]["period"]) if policy else None
+        remaining = None
+        if policy and usage:
+            remaining = round(policy["budget"]["per_period"] - usage["spent_usd"] - usage["reserved_usd"], 6)
+        current = standing["current"] or {}
+        return {"state": standing["state"], "reason": standing["reason"],
+                # only an authorised real provider is ever sent anything outside this platform
+                "transmits_externally": standing["state"] == "authorised",
+                "policy": ai_policy.describe(policy),
+                "approved_by": current.get("approved_by"), "approved_at": current.get("approved_at"),
+                "proposed_by": current.get("proposed_by"),
+                "owner_authorisation": {"present": standing["authorisation"] is not None and standing["state"] != "none",
+                                        "decision": (standing["authorisation"] or {}).get("decision"),
+                                        "expires": (standing["authorisation"] or {}).get("expires"),
+                                        "note": "written by the operator from an owner decision; it cannot be set here"},
+                "pending": [{**p, "policy": ai_policy.describe(p["policy"])} for p in standing["pending"].values()],
+                "usage": usage, "remaining_usd": remaining,
+                "adapters_installed": sorted(PROVIDER_ADAPTERS),
+                "use_cases": [{"id": uc.id, **uc.service.architect.status()} for uc in ws.use_cases.values()]}
+
+    def _ai_routes(self, method: str, parts: List[str], ws: Workspace, member: Member, body: Dict[str, Any],
+                   reason: str) -> Tuple[int, Any]:
+        who = f"{member.name}@{ws.id}"
+        if len(parts) == 6 and parts[5] == "policy":  # propose
+            problems, policy = ai_policy.validate_policy(body.get("policy"), ws.env_prefix)
+            if problems:
+                raise AdminError(400, "the policy is not valid: " + "; ".join(problems))
+            pid = new_grant_id()
+            self.admin.append(ws.id, "ai_policy_proposed", who, reason, {"id": pid, "policy": policy})
+            return 201, {**self.ai_view(ws), "proposed": pid}
+        if len(parts) == 6 and parts[5] == "disable":
+            def check_policy(events):
+                from .administration import ai_policy_state
+
+                if ai_policy_state(events)[0] is None:
+                    raise AdminError(409, "no AI provider policy is in force")
+            self.admin.append(ws.id, "ai_policy_disabled", who, reason, {}, check_policy)
+            self._apply_ai(ws)
+            return 200, self.ai_view(ws)
+        if len(parts) == 8 and parts[5] == "policy" and parts[7] in ("approve", "withdraw"):
+            pid, verb = parts[6], parts[7]
+
+            def check(events):
+                from .administration import ai_policy_state
+
+                proposal = ai_policy_state(events)[1].get(pid)
+                if proposal is None:
+                    raise AdminError(404, f"no pending AI policy proposal {pid!r}")
+                if verb == "approve" and proposal["proposed_by"] == who:
+                    raise AdminError(403, "the proposer cannot approve their own AI policy: another person with "
+                                          "authority must")
+            self.admin.append(ws.id, f"ai_policy_{'approved' if verb == 'approve' else 'withdrawn'}", who, reason,
+                              {"id": pid}, check)
+            if verb == "approve":
+                self._apply_ai(ws)
+            return 200, self.ai_view(ws)
+        return 404, None
+
+    def recovery_drill(self, ws: Workspace, member: Member, reason: str) -> Dict[str, Any]:
+        """Rehearse a recovery and record the evidence (REL-2 "recovery_evidence"): take a consistent backup of
+        the platform's data, verify it completely, restore it into a scratch folder, and load each use case of
+        this workspace from the restored files on a throwaway engine. Nothing running is touched, nothing is
+        kept, and no stored run is continued. Evidence is recorded in the workspace's signed administration log
+        only when every step succeeded; a failed rehearsal records nothing and says what failed."""
+        from . import recovery
+
+        reason = (reason or "").strip()
+        if not (1 <= len(reason) <= 500):
+            raise LifecycleError(400, "give a reason (1 to 500 characters)")
+        if not self._drilling.acquire(blocking=False):
+            raise LifecycleError(409, "a recovery rehearsal is already running")
+        scratch = Path(tempfile.mkdtemp(prefix="autology-drill-"))
+        try:
+            try:
+                taken = recovery.backup(self.data_dir, scratch / "backup")
+                checked = recovery.verify(scratch / "backup")
+                restored = recovery.restore(scratch / "backup", scratch / "restored")
+            except recovery.RecoveryError as exc:
+                raise LifecycleError(409, f"the rehearsal failed, no evidence was recorded: {exc}") from None
+            use_cases: Dict[str, Any] = {}
+            for uc in ws.use_cases.values():
+                home = scratch / "restored" / ws.id / uc.id
+                try:
+                    probe: Any = self._load_use_case(ws, uc.id, uc.spec, self._base_dir, validate_only=True,
+                                                     candidate=home)
+                except (PlatformError, ValueError, OSError) as exc:
+                    raise LifecycleError(409, f"the rehearsal failed, no evidence was recorded: use case {uc.id} "
+                                              f"does not load from the restored files ({exc})") from None
+                try:
+                    restored_configuration = probe.configuration_fingerprint
+                finally:
+                    probe.close()
+                use_cases[uc.id] = {"configuration": restored_configuration,
+                                    "reproduces_what_runs": restored_configuration == uc.service.configuration_fingerprint}
+            data = {"use_cases": use_cases, "counts": checked["counts"], "files": taken["files"],
+                    "bytes": taken["bytes"], "steps": ["backup", "verify", "restore", "load"],
+                    "seconds": round(taken["seconds"] + restored["seconds"], 3)}
+            event = self.admin.append(ws.id, "recovery_rehearsed", f"{member.name}@{ws.id}", reason, data)
+            return {"recorded": True, "at": event["at"], **data}
+        finally:
+            shutil.rmtree(scratch, ignore_errors=True)
+            self._drilling.release()
+
+    def _recovery_evidence(self, uc: UseCase) -> Optional[Dict[str, Any]]:
+        """The last recorded recovery rehearsal that covered this use case, read against what runs now. Evidence
+        for another configuration is reported as such, never as evidence for this one."""
+        events, problem = self.admin.events(uc.workspace)
+        if problem:
+            return {"verified": False, "detail": problem, "evidence": []}
+        last = next((e for e in reversed(events) if e["event"] == "recovery_rehearsed"
+                     and uc.id in (e["data"].get("use_cases") or {})), None)
+        if last is None:
+            return None
+        mine = last["data"]["use_cases"][uc.id]
+        running = uc.service.configuration_fingerprint
+        current = mine["configuration"] == running and bool(mine.get("reproduces_what_runs"))
+        when = f"{last['at'][:19].replace('T', ' ')} UTC by {last['by']}"
+        detail = (f"a backup was verified and its restore rehearsed on {when}; the restored configuration "
+                  f"({running[:12]}) is what runs" if current else
+                  f"the last rehearsal ({when}) covered configuration {mine['configuration'][:12]}; the use case "
+                  f"now runs {running[:12]}: rehearse again")
+        return {"verified": current, "detail": detail,
+                "evidence": [f"administration log entry {last['seq']}: recovery rehearsed ({', '.join(last['data'].get('steps') or [])})"]}
+
+    def _sample_refusal(self, uc: UseCase) -> Optional[str]:
+        """Why sample records cannot be loaded into this use case now, or None."""
+        rel = self.release_of(uc)
+        if rel["integrity_problem"]:
+            return rel["integrity_problem"]
+        if not rel["active"] or rel["drift"]:
+            return ("sample records are loaded only when an approved release is active and is what runs: no "
+                    "unapproved configuration brings data with it")
+        stage = self.effective_stage(uc)
+        if stage not in ("draft", "simulation"):
+            return f"sample records are for rehearsal: they are not loaded into a use case in {stage}"
+        return None
+
+    def sample_data(self, ws: Workspace, uc: UseCase, member: Member) -> Dict[str, Any]:
+        status = uc.service.configuring.sample_status()
+        refusal = self._sample_refusal(uc)
+        active = self.release_of(uc)["active"]
+        return {**status, "release": active["number"] if active else None, "loadable": refusal is None
+                and status["available"] > len(status["loaded"]) + len(status["already_present"]),
+                "refusal": refusal,
+                "may_load": member.workspace_admin and member.kind == "person"}
+
+    def load_sample_data(self, ws: Workspace, uc: UseCase, member: Member, reason: str) -> Dict[str, Any]:
+        """Load the synthetic sample records of the active release, at a person's request (never automatically).
+        Recorded in the workspace's administration log with who, why, which release and how many records."""
+        reason = (reason or "").strip()
+        if not (1 <= len(reason) <= 500):
+            raise LifecycleError(400, "give a reason (1 to 500 characters)")
+        refusal = self._sample_refusal(uc)
+        if refusal:
+            raise LifecycleError(409, refusal)
+        active = self.release_of(uc)["active"]
+        out = uc.service.configuring.load_samples(f"{member.name}@{ws.id}")
+        self.admin.append(ws.id, "sample_data_loaded", f"{member.name}@{ws.id}", reason,
+                          {"use_case": uc.id, "release": active["number"], "configuration": out["configuration"],
+                           "loaded": len(out["loaded"]), "skipped": len(out["skipped"]), "links": out["links"]})
+        return {**self.sample_data(ws, uc, member), "just_loaded": out["loaded"], "skipped": out["skipped"]}
 
     @contextmanager
     def _probing(self, ws: Workspace, uc: UseCase, document: Dict[str, Any], managed: Any):
@@ -821,9 +1064,9 @@ class Platform:
         except (OSError, ValueError) as exc:  # unreadable, not JSON, or not valid for this model (SolutionError)
             raise PlatformError(f"{where}: the published agent and tool configuration does not fit the model: "
                                 f"{exc}") from None
+        # the sample records in the configuration are not loaded here: a release never brings data with it.
+        # A person loads them explicitly, once an approved release runs (load_sample_data)
         config["agents"], config["solution"] = compiled["agents"], managed
-        if compiled["data"] and not config.get("data"):
-            config["data"] = compiled["data"]  # synthetic sample records: seeded only into an empty store
 
     # -- requests --------------------------------------------------------------------------------------------
     def members_for(self, authorization: Optional[str]) -> Dict[str, Member]:
@@ -1309,7 +1552,7 @@ class Platform:
         if len(parts) == 5 and parts[2] == "workspaces" and parts[4] == "my-token" and method == "POST":
             return self._own_token(self.workspaces[member.workspace], member, raw_body, body_error)
         if len(parts) >= 5 and parts[2] == "workspaces" and parts[4] in ("members", "grants", "token-requests",
-                                                                         "access-review"):
+                                                                         "access-review", "recovery-drill", "ai"):
             ws = self.workspaces.get(parts[3]) if parts[3] == member.workspace else None
             if ws is None:
                 return 404, None  # another workspace, or none: the same answer
@@ -1373,6 +1616,16 @@ class Platform:
                                         f"{member.name}@{ws.id}", str(body.get("reason") or ""),
                                         extra_checks=self._stage_checks(uc))
             return 200, {**moved, "use_case": self.use_case_view(uc, member, detail=True)}
+        if action == "sample-data" and len(parts) == 7:
+            if method == "GET":
+                return 200, self.sample_data(ws, uc, member)
+            if method == "POST":
+                if not member.workspace_admin:
+                    raise LifecycleError(403, "workspace administrators only")
+                self._require_person(member, "load sample records")
+                body = self._json(raw_body, body_error)
+                return 200, self.load_sample_data(ws, uc, member, str(body.get("reason") or ""))
+            return 405, {"error": f"{method} is not supported here"}
         if action == "releases":
             return self._releases(method, parts, ws, uc, member, raw_body, body_error)
         if action == "publish-draft" and method == "POST" and len(parts) == 7:
@@ -1408,7 +1661,8 @@ class Platform:
         return {"entered_simulation": self.stage_of(uc)["entered_simulation"],
                 "release_checks": release if release is not None else self._release_checks(uc),
                 "unrestricted_needing_review": waiting,
-                "recovery": None}  # no backup verification or restore drill is recorded per use case yet
+                # the last recorded rehearsal that covered this use case, or None: evidence is never assumed
+                "recovery": self._recovery_evidence(uc)}
 
     @staticmethod
     def _require_person(member: Member, what: str) -> None:
@@ -1562,17 +1816,24 @@ class Platform:
             return 200, self.members_view(ws, member)
         if parts[4] == "access-review" and len(parts) == 5 and method == "GET":
             return 200, self.access_review(ws)
+        if parts[4] == "ai" and len(parts) == 5 and method == "GET":
+            return 200, self.ai_view(ws)
         if method != "POST":
             return 405, {"error": f"{method} is not supported here"}
         body = self._json(raw_body, body_error)
         reason = str(body.get("reason") or "")
         # what a named approver who is not an administrator may also do: the second person's part of a decision
-        second_person = len(parts) == 7 and ((parts[4] in ("grants", "token-requests") and parts[6] == "approve")
-                                             or (parts[4] == "members" and parts[6] == "confirm-grant"))
+        second_person = (len(parts) == 7 and ((parts[4] in ("grants", "token-requests") and parts[6] == "approve")
+                                              or (parts[4] == "members" and parts[6] == "confirm-grant"))) \
+            or (len(parts) == 8 and parts[4] == "ai" and parts[7] == "approve")
         admin_only = not second_person
         if admin_only and not member.workspace_admin:
             raise LifecycleError(403, "workspace administrators only")
         self._require_person(member, "administer the workspace")
+        if parts[4] == "recovery-drill" and len(parts) == 5:
+            return 200, self.recovery_drill(ws, member, reason)
+        if parts[4] == "ai":
+            return self._ai_routes(method, parts, ws, member, body, reason)
         if parts[4] == "members" and len(parts) == 5:  # add a member: the token is shown once, only its hash kept
             name, kind = str(body.get("name") or ""), body.get("kind", "person")
             if not re.fullmatch(r"[A-Za-z0-9_.@-]{1,64}", name):
@@ -2014,7 +2275,8 @@ class Platform:
         """Close every engine and registry (after the server stopped)."""
         for svc in self.services():
             svc.close()
-        for part in (self.lifecycle, self.releases, self.admin, self.tenancy, self.credentials, self.log):
+        for part in (self.lifecycle, self.releases, self.admin, self.tenancy, self.credentials, self.log,
+                     self.ai_ledger):
             part.close()
 
     def _log(self, member: Optional[Member], method: str, path: str, status: int) -> None:

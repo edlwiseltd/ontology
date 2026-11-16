@@ -12,13 +12,14 @@ import "@xyflow/react/dist/style.css";
 import { api, architect, ApiError, type SimulatedDecision } from "@/lib/api";
 import { ontologyToGraph } from "@/lib/graph";
 import { documentToSummary } from "@/lib/model";
-import { accessLines, countByKind, generatorLabel, itemLabel, preview, SAMPLE_BRIEF, standing, withProvenance,
-         workflow } from "@/lib/onboarding";
+import { accessLines, basisLabel, countByKind, generatorLabel, itemLabel, preview, providerLabel, refusalText,
+         SAMPLE_BRIEF, standing, withProvenance, workflow } from "@/lib/onboarding";
 import type { ArchitectStatus, Draft, DraftSimulation, ModelDocument, Proposal, Readiness, ReleaseState, UseCase,
               Validation } from "@/lib/types";
 import AgentsView from "./AgentsView";
 import ReleasesView from "./ReleasesView";
 import RunsView from "./RunsView";
+import SampleRecords from "./SampleRecords";
 import StageOverview from "./StageOverview";
 
 const STEPS = ["Describe", "Questions", "Review", "Confirm", "Agents & tools", "Dry run", "Release", "Stored runs",
@@ -41,6 +42,9 @@ export default function OnboardingView({ workspace, useCase, admin, member, onCh
   const [simulation, setSimulation] = useState<DraftSimulation | null>(null);
   const [readiness, setReadiness] = useState<Readiness | null>(null);
   const [subject, setSubject] = useState("active");
+  const [drillReason, setDrillReason] = useState("");
+  const [feedback, setFeedback] = useState("");
+  const [drill, setDrill] = useState("");
   const [releases, setReleases] = useState<ReleaseState | null>(null);
   const [stored, setStored] = useState<string | undefined>(undefined);
   const [busy, setBusy] = useState(false);
@@ -49,7 +53,7 @@ export default function OnboardingView({ workspace, useCase, admin, member, onCh
   const run = useCallback(async (work: () => Promise<void>) => {
     setBusy(true); setError("");
     try { await work(); }
-    catch (e) { setError(e instanceof ApiError ? e.message : (e as Error).message); }
+    catch (e) { setError(e instanceof ApiError ? refusalText(e.data.kind, e.message) : (e as Error).message); }
     finally { setBusy(false); }
   }, []);
 
@@ -87,7 +91,8 @@ export default function OnboardingView({ workspace, useCase, admin, member, onCh
   const revise = () => run(async () => {
     if (!proposal?.id) return;
     const given = Object.entries(answers).filter(([, v]) => v.trim()).map(([id, answer]) => ({ id, answer }));
-    received(await architect.revise(path, proposal.id, given, confirmed));
+    received(await architect.revise(path, proposal.id, given, confirmed, feedback));
+    setFeedback("");
     setStep(2);
   });
 
@@ -123,6 +128,9 @@ export default function OnboardingView({ workspace, useCase, admin, member, onCh
   const waiting = (releases?.items ?? []).filter((r) => r.status === "proposed" || r.status === "approved").slice(-1)[0];
 
   const counts = countByKind(proposal?.items ?? []);
+  const provider = providerLabel(status);
+  const understanding = proposal?.understanding ?? null;
+  const contradictions = proposal?.contradictions ?? [];
   const hasModel = Object.keys(confirmed.entities ?? {}).length > 0;
 
   return (
@@ -136,11 +144,10 @@ export default function OnboardingView({ workspace, useCase, admin, member, onCh
         ))}
       </ol>
       <p className="notice small" role="note" data-testid="sandbox-notice">
-        Sandbox only. {status?.configured
-          ? (status.language_model ? "A language model answers through the engine's AI gateway."
-            : "The proposals come from the sandbox architect, a deterministic test double built on approved templates: not a language model.")
-          : "This use case has no architect provider: proposals are unavailable here."}{" "}
-        Nothing on this screen changes what runs, grants a permission or calls another system.
+        <span className={`pill ${provider.tone === "ok" ? "okpill" : provider.tone === "warn" ? "warnpill" : ""}`}
+              data-testid="provider-state" data-state={provider.state}>{provider.state.replace("_", " ")}</span>{" "}
+        {provider.text}{" "}
+        Nothing on this screen changes what runs or grants a permission; the tools are simulated.
       </p>
       {error && <p className="error" role="alert" data-testid="onboarding-error">{error}</p>}
 
@@ -164,6 +171,22 @@ export default function OnboardingView({ workspace, useCase, admin, member, onCh
             <>
               <p className="small"><span className="badge" data-testid="generator">{generatorLabel(proposal)}</span>{" "}
                 Proposal {proposal.id}, revision {proposal.revision}. {proposal.items.length} provisional item(s).</p>
+              {understanding && (
+                <div className="card" data-testid="understanding">
+                  <h4>What the architect understood</h4>
+                  <p className="small">{understanding.summary}</p>
+                  {understanding.outcome && <p className="small"><strong>Outcome wanted:</strong> {understanding.outcome}</p>}
+                  {(understanding.actors?.length ?? 0) > 0 && <p className="small"><strong>Who is involved:</strong> {understanding.actors!.join(", ")}</p>}
+                  {(understanding.out_of_scope?.length ?? 0) > 0 && <p className="muted small">Left out of scope: {understanding.out_of_scope!.join("; ")}</p>}
+                </div>
+              )}
+              {contradictions.length > 0 && (
+                <div className="card" data-testid="contradictions">
+                  <h4>Statements that do not fit together</h4>
+                  <ul className="small">{contradictions.map((c, i) => <li key={i} className="warn-text">{c.statement}</li>)}</ul>
+                  <p className="muted small">The architect settles none of them: answer the matching question below.</p>
+                </div>
+              )}
               {proposal.questions?.length ? (
                 <form className="questions-form" onSubmit={(e) => { e.preventDefault(); void revise(); }}>
                   {proposal.questions.map((q) => (
@@ -241,7 +264,9 @@ export default function OnboardingView({ workspace, useCase, admin, member, onCh
                         <label><input type="checkbox" checked={chosen.has(i.id)} disabled={!admin} onChange={(e) => {
                           const next = new Set(chosen); if (e.target.checked) next.add(i.id); else next.delete(i.id); setChosen(next);
                         }} /> <span className="kind">{i.kind}</span> {itemLabel(i)}{" "}
-                          <span className="badge">proposed</span>{typeof i.confidence === "number" && <span className="muted"> · confidence {i.confidence}</span>}</label>
+                          <span className="badge">proposed</span>{" "}
+                          <span className={`pill ${i.basis === "supplied" ? "okpill" : "warnpill"}`} data-basis={i.basis ?? "inferred"}>{basisLabel(i)}</span>
+                          {typeof i.confidence === "number" && <span className="muted"> · confidence {i.confidence}</span>}</label>
                         <div className="muted">{i.rationale}</div>
                         {(i.attention ?? []).map((a) => <div key={a} className="warn-text">{a}</div>)}
                       </li>
@@ -260,6 +285,18 @@ export default function OnboardingView({ workspace, useCase, admin, member, onCh
                     {(proposal.unknowns ?? []).map((u, i) => <li key={`u${i}`} className="muted">Unknown: {u}</li>)}
                   </ul>
                 </div>
+              </div>
+              <div className="card" data-testid="revision-request">
+                <label htmlFor="ob-feedback">Ask for a revision, in your own words (optional)</label>
+                <textarea id="ob-feedback" rows={2} maxLength={2000} value={feedback} disabled={!admin}
+                          placeholder="for example: deliveries can also be split across two suppliers"
+                          onChange={(e) => setFeedback(e.target.value)} />
+                <div className="row">
+                  <button type="button" disabled={busy || !admin || !feedback.trim()} onClick={revise} data-testid="ask-revision">
+                    Ask for a revised proposal</button>
+                  <span className="muted small">Your words go to the architect as information, with your answers. The earlier revision is kept.</span>
+                </div>
+                {proposal.feedback && <p className="muted small" data-testid="feedback-kept">This revision answered: “{proposal.feedback}”</p>}
               </div>
               <div className="row">
                 <button type="button" className="primary" disabled={busy || !selected.length} onClick={validate}>
@@ -368,6 +405,7 @@ export default function OnboardingView({ workspace, useCase, admin, member, onCh
             moved to Simulation.</p>
           <ReleasesView workspace={workspace} useCase={useCase} member={member} admin={admin} onChanged={onChanged} />
           <StageOverview workspace={workspace} useCase={useCase} admin={admin} onChanged={onChanged} />
+          <SampleRecords key={`${useCase.id}-${useCase.configuration}-${useCase.effective_stage}`} workspace={workspace} useCaseId={useCase.id} />
           <div className="row"><button type="button" className="primary" onClick={() => setStep(RUNS)}>Go to stored runs</button></div>
         </section>
       )}
@@ -428,6 +466,26 @@ export default function OnboardingView({ workspace, useCase, admin, member, onCh
                     {!readiness.compared_with.differences.length && <li className="muted">No condition differs.</li>}
                   </ul>
                 </>
+              )}
+              {admin && subject === "active" && (
+                <div className="card" data-testid="recovery-card">
+                  <h4>Recovery evidence</h4>
+                  <p className="muted small">A rehearsal takes a backup of the platform&apos;s data, verifies it, restores it into a scratch
+                    folder and loads each use case from the restored files. Nothing running is touched. Evidence is recorded only if every
+                    step succeeds, and counts for the configuration it covered.</p>
+                  <div className="row">
+                    <label className="sr-only" htmlFor="drill-reason">Reason for the rehearsal</label>
+                    <input id="drill-reason" value={drillReason} onChange={(e) => setDrillReason(e.target.value)} maxLength={500}
+                           placeholder="reason (recorded with your name)" />
+                    <button type="button" disabled={busy || !drillReason.trim()} data-testid="rehearse-recovery"
+                            onClick={() => run(async () => {
+                              const out = await api.recoveryDrill(workspace, drillReason);
+                              setDrillReason(""); setDrill(`Recorded: ${out.steps.join(", ")} for ${Object.keys(out.use_cases).length} use case(s).`);
+                              setReadiness(await api.readiness(workspace, useCase.id, "pilot", subject));
+                            })}>Rehearse a recovery now</button>
+                  </div>
+                  {drill && <p className="ok small" role="status" data-testid="drill-message">{drill}</p>}
+                </div>
               )}
               <p className="notice small" data-testid="production">Production: not authorised. {readiness.production.reason}.</p>
             </div>

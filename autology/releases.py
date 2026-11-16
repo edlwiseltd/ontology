@@ -45,7 +45,10 @@ FORMAT = "autology-release/1"
 GENESIS = "0" * 64
 # server settings that describe the deployment, not what runs: never part of a release
 NON_GOVERNING = frozenset({"store", "users", "log_file", "secrets_file", "audit_scope", "oidc", "data", "ontology",
-                           "writer", "reporting", "readiness"})
+                           "writer", "reporting", "readiness",
+                           # what the workspace's AI policy grants this engine now: decided by the platform at load
+                           # time, never part of a release (the use case's own "ai" setting is, and stays governing)
+                           "ai_grant"})
 EVENTS = ("proposed", "approved", "approval_revoked", "activated", "rolled_back")
 
 SCHEMA = """

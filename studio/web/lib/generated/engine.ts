@@ -1140,6 +1140,16 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        AuditEntry: {
+            data: Record<string, never>;
+            event: string;
+            hash: string;
+            prev_hash?: string;
+            seq: number;
+            timestamp?: string | number;
+        } & {
+            [key: string]: unknown;
+        };
         CatalogEntry: {
             available: boolean;
             description: string;
@@ -1422,9 +1432,17 @@ export interface components {
                 [key: string]: unknown;
             };
             brief?: string;
+            contradictions?: ({
+                between: string[];
+                question?: string;
+                statement: string;
+            } & {
+                [key: string]: unknown;
+            })[];
             cost_usd?: number;
             created_by?: string;
             decisions?: components["schemas"]["ProposalDecision"][];
+            feedback?: string;
             generator: string;
             history?: components["schemas"]["ProposalRevision"][];
             id?: string;
@@ -1464,6 +1482,14 @@ export interface components {
             } & {
                 [key: string]: unknown;
             };
+            understanding?: null | ({
+                actors?: string[];
+                out_of_scope?: string[];
+                outcome: string;
+                summary: string;
+            } & {
+                [key: string]: unknown;
+            });
             unknowns?: string[];
             unpriced_tokens?: number;
             usage?: {
@@ -1499,6 +1525,8 @@ export interface components {
         };
         ProposalItem: {
             attention?: string[];
+            /** @enum {string} */
+            basis?: "supplied" | "inferred";
             confidence?: number;
             id: string;
             /** @enum {string} */
@@ -1519,17 +1547,26 @@ export interface components {
             sources?: string[];
             /** @enum {string} */
             status: "provisional";
+            /** @enum {string} */
+            validation?: "passed";
             value: unknown;
         } & {
             [key: string]: unknown;
         };
         ProposalList: {
             architect: {
+                bounded?: boolean;
                 configured: boolean;
+                data_classes?: string[];
                 generators: string[];
                 language_model?: boolean;
+                model?: string;
                 provider?: string;
+                reason?: string;
+                /** @enum {string} */
+                state: "none" | "sandbox" | "authorised" | "not_authorised";
                 verified_against?: string;
+                wanted?: string | null;
             } & {
                 [key: string]: unknown;
             };
@@ -1567,6 +1604,7 @@ export interface components {
             document?: {
                 [key: string]: unknown;
             };
+            feedback?: string;
             /** @enum {string} */
             generator?: "blueprint" | "model";
             revises?: string;
@@ -1605,6 +1643,146 @@ export interface components {
             kind: string;
             source: string;
             target: string;
+        };
+        Review: {
+            action: string;
+            created_at: string;
+            decided_at?: string | null;
+            decided_by?: string | null;
+            decision?: null | ({
+                approved: boolean;
+                cancelled?: boolean;
+                comment?: string;
+                reviewer: string;
+            } & {
+                [key: string]: unknown;
+            });
+            request: {
+                action?: string;
+                binding?: Record<string, never>;
+                case_id?: string;
+                description?: string | null;
+                explanation?: string | null;
+                facts?: Record<string, never>;
+                history?: string[];
+                reasons?: string[];
+                reviewers?: string[];
+                rule_ids?: string[];
+                view?: Record<string, never>;
+            } & {
+                [key: string]: unknown;
+            };
+            review_id: string;
+            reviewers: string[];
+            run_id: string;
+            /** @enum {string} */
+            status: "pending" | "approved" | "declined" | "cancelled";
+        } & {
+            [key: string]: unknown;
+        };
+        ReviewDecision: {
+            approved: boolean;
+            comment?: string;
+            justification?: string;
+        } & {
+            [key: string]: unknown;
+        };
+        ReviewList: {
+            items: components["schemas"]["Review"][];
+        } & {
+            [key: string]: unknown;
+        };
+        Run: {
+            agent?: string | null;
+            audit_verified?: boolean;
+            case_id: string;
+            configuration?: string;
+            costs?: Record<string, never>;
+            detail?: string;
+            escalation?: null | ({
+                action: string | null;
+                details: string[];
+                reason: string;
+                to: string;
+            } & {
+                [key: string]: unknown;
+            });
+            goal?: string;
+            hidden?: boolean;
+            outcomes?: Record<string, never>[];
+            pending_review?: string | null;
+            run_id: string;
+            simulated?: boolean;
+            started_by?: string | null;
+            state?: Record<string, never>;
+            /** @enum {string} */
+            status: "completed" | "blocked" | "escalated" | "deferred" | "paused" | "suspended" | "awaiting_review" | "cancelled" | "uncertain" | "pending_confirmation";
+            steps?: components["schemas"]["RunStep"][];
+            write_back?: {
+                conflicts: number;
+                state: string;
+            } & {
+                [key: string]: unknown;
+            };
+            write_back_conflicts?: Record<string, never>[];
+        } & {
+            [key: string]: unknown;
+        };
+        RunAudit: {
+            entries: components["schemas"]["AuditEntry"][];
+            run_id: string;
+            verified: boolean;
+        } & {
+            [key: string]: unknown;
+        };
+        RunCancel: {
+            reason: string;
+        } & {
+            [key: string]: unknown;
+        };
+        RunList: {
+            items: components["schemas"]["RunRow"][];
+        } & {
+            [key: string]: unknown;
+        };
+        RunRow: {
+            agent?: string | null;
+            case_id: string;
+            created_at: string;
+            goal: string;
+            ontology?: string;
+            run_id: string;
+            started_by?: string | null;
+            status: string;
+            updated_at?: string;
+        } & {
+            [key: string]: unknown;
+        };
+        RunStart: {
+            agent?: string;
+            case?: Record<string, never>;
+            case_id?: string;
+            case_template?: string;
+            goal?: string;
+            justification?: string;
+            root?: string;
+            write_back?: boolean;
+        } & {
+            [key: string]: unknown;
+        };
+        RunStep: {
+            action: string;
+            environment: string | null;
+            executed_by: string | null;
+            explanation?: string | null;
+            index: number;
+            message?: string | null;
+            outcome: string | null;
+            reviewer: string | null;
+            tool: string | null;
+            verdict: string;
+        } & {
+            [key: string]: unknown;
         };
         SolutionCheck: {
             document?: {
@@ -5366,9 +5544,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ReviewList"];
                 };
             };
             /** @description Invalid request */
@@ -5455,9 +5631,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Review"];
                 };
             };
             /** @description Invalid request */
@@ -5536,11 +5710,9 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: {
+        requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["ReviewDecision"];
             };
         };
         responses: {
@@ -5550,9 +5722,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Run"];
                 };
             };
             /** @description Invalid request */
@@ -5641,9 +5811,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["RunList"];
                 };
             };
             /** @description Invalid request */
@@ -5720,11 +5888,9 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: {
+        requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["RunStart"];
             };
         };
         responses: {
@@ -5734,9 +5900,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Run"];
                 };
             };
             /** @description Invalid request */
@@ -5823,9 +5987,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Run"];
                 };
             };
             /** @description Invalid request */
@@ -5912,9 +6074,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["RunAudit"];
                 };
             };
             /** @description Invalid request */
@@ -5993,11 +6153,9 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: {
+        requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["RunCancel"];
             };
         };
         responses: {
@@ -6007,9 +6165,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Run"];
                 };
             };
             /** @description Invalid request */

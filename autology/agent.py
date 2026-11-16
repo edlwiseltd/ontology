@@ -135,6 +135,30 @@ class ConsoleApprover:
 CANCELLABLE = ("awaiting_review", "deferred", "paused")  # a waiting run; one that is acting is never cut
 
 
+def cancel_stored(previous: "RunResult", by: str, reason: str, problem: Optional[str] = None) -> "RunResult":
+    """End a stored, waiting run. It needs no agent: stopping decides nothing and executes nothing, so a run can
+    be cancelled after the agent that started it was removed from the configuration. The run keeps what it
+    recorded (its agent, the configuration it started on); the cancellation joins its audit chain.
+    ``problem``: why the stored run does not match its chain, if the caller could check (recorded, not blocking)."""
+    if previous.run is None or previous.status not in CANCELLABLE:
+        raise ValueError(f"a run that is {previous.status} cannot be cancelled: only a run that is waiting "
+                         f"({', '.join(CANCELLABLE)}) can")
+    run, audit = previous.run, previous.audit
+    if problem is None and not audit.verify():
+        problem = "the audit chain does not verify"
+    if problem:  # stopped all the same, and the record says the stored run did not match its chain
+        audit.record("integrity.violation", case=run.case_id, reason=problem)
+    pending = run.pending_review or {}
+    audit.record("run.cancelled", case=run.case_id, by=by, reason=reason, was=previous.status,
+                 pending_action=pending.get("action"))
+    run.pending_review = None
+    escalation = Escalation(f"cancelled by {by}: {reason}", "operations", pending.get("action"))
+    audit.record("run.end", case=run.case_id, status="cancelled", escalation=escalation.__dict__,
+                 state=run.state.snapshot(), costs=dict(run.costs), resume_at=None)
+    return RunResult("cancelled", run.goal, run.case_id, run.steps, run.state, audit, escalation,
+                     run.violations, dict(run.costs), None, run)
+
+
 # -- results ----------------------------------------------------------------
 @dataclass
 class StepRecord:
@@ -703,19 +727,7 @@ class WorkAgent:
         if previous.run is None or previous.status not in CANCELLABLE:
             raise ValueError(f"a run that is {previous.status} cannot be cancelled: only a run that is waiting "
                              f"({', '.join(CANCELLABLE)}) can")
-        run, audit = previous.run, previous.audit
-        problem = self._tampering(previous)
-        if problem:  # stopped all the same, and the record says the stored run did not match its chain
-            self._log(audit, "integrity.violation", case=run.case_id, reason=problem)
-        pending = run.pending_review or {}
-        self._log(audit, "run.cancelled", case=run.case_id, by=by, reason=reason, was=previous.status,
-                  pending_action=pending.get("action"))
-        run.pending_review = None
-        escalation = Escalation(f"cancelled by {by}: {reason}", "operations", pending.get("action"))
-        self._log(audit, "run.end", case=run.case_id, status="cancelled", escalation=escalation.__dict__,
-                  state=run.state.snapshot(), costs=dict(run.costs), resume_at=None)
-        return RunResult("cancelled", run.goal, run.case_id, run.steps, run.state, audit, escalation,
-                         run.violations, dict(run.costs), None, run)
+        return cancel_stored(previous, by, reason, self._tampering(previous))
 
     def _tampering(self, previous: RunResult) -> Optional[str]:
         """Why the stored, resumable run cannot be trusted, or None."""

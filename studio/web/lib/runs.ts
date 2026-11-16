@@ -2,21 +2,12 @@
 // engine starts, pauses, resumes, cancels and audits runs and decides who may see or decide what; nothing here
 // does. A run on simulated tools is never presented as proof that a real system changed.
 
-export interface RunStep { index: number; action: string; verdict: string; outcome: string | null; executed_by: string | null;
-  tool?: string | null;
-  reviewer: string | null; message?: string | null; explanation?: string | null; environment?: string | null }
-export interface RunEscalation { reason: string; to: string; action: string | null; details: string[] }
-export interface RunView { run_id: string; case_id: string; goal: string; status: string; steps: RunStep[];
-  escalation: RunEscalation | null; costs: Record<string, number>; audit_verified: boolean;
-  state: Record<string, unknown>; pending_review: string | null; configuration?: string; agent?: string | null;
-  started_by?: string | null; simulated?: boolean; effects?: string; hidden?: boolean; detail?: string }
-export interface RunRow { run_id: string; case_id: string; goal: string; agent: string | null; status: string;
-  created_at: string; updated_at: string; started_by: string | null }
-export interface ReviewView { review_id: string; run_id: string; action: string; reviewers: string[]; status: string;
-  created_at: string; request: { description?: string; reasons?: string[]; rule_ids?: string[]; facts?: Record<string, unknown>;
-                                 explanation?: string } }
-export interface AuditEntry { seq: number; timestamp: string; event: string; data: Record<string, unknown>; hash: string }
-export interface RunAudit { run_id: string; verified: boolean; entries: AuditEntry[] }
+// Shapes come from the engine's published contract (lib/generated/engine.ts), not from this file.
+import type { AuditEntry, Review, Run, RunAudit, RunRow, RunStep } from "./types";
+
+export type { AuditEntry, RunAudit, RunRow, RunStep };
+export type RunView = Run;
+export type ReviewView = Review;
 export interface EngineMe { name: string; permissions: string[]; roles?: string[]; reviewer_roles?: string[]; kind?: string }
 export interface ObjectRow { id: string; type: string; attributes: Record<string, unknown>; revision: number }
 
@@ -73,6 +64,6 @@ const TRACE: Record<string, (d: Record<string, unknown>) => [string, string]> = 
 export function trace(entries: AuditEntry[]): { seq: number; at: string; label: string; detail: string }[] {
   return entries.filter((e) => e.event in TRACE).map((e) => {
     const [label, detail] = TRACE[e.event](e.data ?? {});
-    return { seq: e.seq, at: e.timestamp, label, detail };
+    return { seq: e.seq, at: String(e.timestamp ?? ""), label, detail };
   });
 }

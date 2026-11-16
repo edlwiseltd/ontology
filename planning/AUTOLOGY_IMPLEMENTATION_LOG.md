@@ -656,4 +656,8 @@ suite 862 OK (2 PostgreSQL tests skipped locally), 95.88 % lines (14,938 stateme
 | C — ARC-0 runs and reviews | `791c02b` | [91](https://github.com/edlwiseltd/ontology/actions/runs/43773261995) | success |
 | D — REL-2, REL-3 | `f91d045` | [92](https://github.com/edlwiseltd/ontology/actions/runs/43774524421) | success (the empty-model defect GAP-065 was not covered by a test then) |
 | E — architect API | `ccc551d` | [93](https://github.com/edlwiseltd/ontology/actions/runs/43776035198) | success |
+| F — onboarding slice | `b67853e` | [94](https://github.com/edlwiseltd/ontology/actions/runs/43777479501) | success (5 jobs; browser checks 73/73) |
+
+Summary for the owner: [R2 closure sprint report](AUTOLOGY_R2_CLOSURE_SPRINT_REPORT.md). The commit that adds it is
+documentation only; its own run is reported with the report.
 

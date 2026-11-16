@@ -46,7 +46,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 from urllib.parse import unquote, urlsplit
 
 from . import ai_policy, credentials, limits
@@ -108,12 +108,24 @@ _UNRESTRICTED_HELP = (
     'with roles); to go ahead, send "unrestricted": true. The proposer and the approver each acknowledge it')
 
 
-def _anthropic_adapter(policy: Dict[str, Any], key: Optional[str]) -> Any:
+ANTHROPIC_API = "https://api.anthropic.com"  # the provider's own address: never taken from the environment
+
+
+def _anthropic_adapter(policy: Dict[str, Any], key: Optional[str], http_client: Any = None) -> Any:
+    """The adapter of one workspace: the SDK's client with that workspace's key and nothing else. The address is
+    fixed here and the other credentials an SDK would pick up by itself (an environment variable, a signed-in
+    profile) are switched off, so a key can only go to the provider it was issued by, and only this key goes."""
     import importlib
 
     from .ai import AnthropicProvider
 
-    return AnthropicProvider(importlib.import_module("anthropic").Anthropic(api_key=key))
+    if not key:
+        raise ValueError("no key")
+    options = {"http_client": http_client} if http_client is not None else {}
+    client = importlib.import_module("anthropic").Anthropic(api_key=key, auth_token=None, base_url=ANTHROPIC_API,
+                                                            **options)
+    client.auth_token = None  # an ANTHROPIC_AUTH_TOKEN in the environment is not this workspace's credential
+    return AnthropicProvider(client)
 
 
 # provider id -> adapter factory (policy, key). Having an adapter installed authorises nothing: a workspace reaches
@@ -790,6 +802,20 @@ class Platform:
         except Exception as exc:  # an adapter that cannot be built serves nothing; the key is never in the message
             return {"refused": f"the adapter for {policy['provider']} could not be prepared ({type(exc).__name__})"}
         return {"policy": policy, "budget": budget, "adapter": adapter}
+
+    def _ai_fit(self, ws: Workspace, named: Mapping[str, Any]) -> Dict[str, Any]:
+        """Whether the workspace's AI policy, as it stands now, serves a configuration that names ``named``
+        (provider, model, policy terms). Reading only: what is served is decided by the engine's gateway."""
+        standing = self._ai_standing(ws)
+        policy = standing["policy"]
+        if standing["state"] != "authorised" or policy is None:
+            return {"served": False, "reason": standing["reason"] or "the workspace has no authorised AI policy"}
+        if policy["provider"] != named.get("provider") or policy["model"] != named.get("model"):
+            return {"served": False, "reason": f"the workspace's policy names {policy['provider']} "
+                                               f"{policy['model']}, not what this release names"}
+        if ai_policy.terms_fingerprint(policy) != named.get("policy_terms"):
+            return {"served": False, "reason": "the workspace's policy terms changed since this release was made"}
+        return {"served": True, "reason": ""}
 
     def _apply_ai(self, ws: Workspace) -> None:
         """Give every engine of the workspace the policy as it stands now (after an approval or a disabling)."""
@@ -2057,10 +2083,14 @@ class Platform:
             snapshot = self.releases.snapshot(ws.id, uc.id, number)
             # what the release contains, part by part, and whether it is coherent: fingerprints and counts only
             problems = solutions.release_problems(snapshot)
-            item = {**item, "components": solutions.release_components(snapshot),
+            components = solutions.release_components(snapshot)
+            item = {**item, "components": components,
                     "verification": {"fingerprint_matches": fingerprint_of(snapshot or {}) == item["fingerprint"],
                                      "coherent": not problems, "problems": problems,
                                      "by": "the engine, from the release's own snapshot"}}
+            if components["ai"] and components["ai"]["provider"] != "sandbox":
+                # whether the workspace's policy, as it stands now, would serve what this release names
+                item["ai_standing"] = self._ai_fit(ws, components["ai"])
             if member.workspace_admin or self.may_approve_releases(ws, member):  # the full snapshot: reviewers only
                 item = {**item, "snapshot": snapshot}
             return 200, item

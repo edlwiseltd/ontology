@@ -177,7 +177,8 @@ try {
   check("a release names its parts and the engine's verdict on its coherence",
         (await ada.textContent("[data-testid=release-verification]")).includes("Coherent") &&
         (await ada.textContent("[data-testid=release-agents]")).includes("configured by an operator") &&
-        (await ada.locator("[data-testid=release-contents] tbody tr").count()) === 7,
+        (await ada.locator("[data-testid=release-contents] tbody tr").count()) === 8 &&
+        (await ada.textContent("[data-testid=release-ai]")).length > 0,
         await ada.textContent("[data-testid=release-tools]"));
   await ada.screenshot({ path: `${OUT}/desktop-releases.png`, fullPage: true });
   await maria.close();
@@ -681,6 +682,9 @@ try {
         (await demo.textContent("[data-testid=release-agents]")).includes("disruption_agent") &&
         (await demo.textContent("[data-testid=release-agents]")).includes("configured in Studio") &&
         (await demo.textContent("[data-testid=release-tools]")).includes("all simulated"));
+  check("demo: the release says which architect it may ask (here the sandbox test double, not a language model)",
+        (await demo.textContent("[data-testid=release-ai]")).includes("sandbox test double") &&
+        (await demo.textContent("[data-testid=release-ai]")).includes("not a language model"));
   await demo.fill("#rel-reason", "e2e: activate the reviewed release");
   await demo.click("[data-testid=activate]");
   await demo.waitForSelector("[data-testid=active-release]");

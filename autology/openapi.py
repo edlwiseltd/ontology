@@ -360,6 +360,9 @@ SCHEMAS: Dict[str, Any] = {
         "architect": _obj({"configured": B, "generators": {"type": "array", "items": S}, "provider": S,
                            "language_model": B, "verified_against": S, "model": S,
                            "data_classes": {"type": "array", "items": S}, "wanted": NS, "bounded": B,
+                           "wanted_model": NS, "policy_terms": NS,
+                           # "synthetic": the operator declared that this use case sends only invented data
+                           "content": {"type": "string", "enum": ["synthetic", "model_design"]},
                            # sandbox: a test double answers; authorised: a real provider, approved and covered by
                            # the owner's authorisation; not_authorised: one is named but may not be reached
                            "state": {"type": "string", "enum": ["none", "sandbox", "authorised", "not_authorised"]},
@@ -643,7 +646,9 @@ PLATFORM_SCHEMAS: Dict[str, Any] = {
         # where the key lives, never the key
         "credential": {"oneOf": [{"type": "null"}, _obj({"ref": S, "note": S}, ("ref",))]},
         "retention": _obj({"prompts": S, "usage_days": I}, ("prompts", "usage_days")),
-        "evaluation": _obj({"status": S, "reference": S}, ("status",)), "expires": NS, "priced": B},
+        "evaluation": _obj({"status": S, "reference": S}, ("status",)), "expires": NS, "priced": B,
+        # the fingerprint of what the policy lets leave, and to which model: a use case pins it
+        "terms": S},
         ("provider", "model", "data_classes", "purposes", "limits", "budget", "retention", "evaluation")),
     "AiView": _obj({
         "state": {"type": "string", "enum": ["none", "sandbox", "authorised", "not_authorised", "unavailable"]},
@@ -674,6 +679,8 @@ PLATFORM_SCHEMAS: Dict[str, Any] = {
                      "approved_by": NS, "approved_at": NS, "activated_at": NS, "snapshot": ANY,
                      # one release read by number: what it contains, part by part, and whether it is coherent
                      "components": REF("ReleaseComponents"),
+                     # for a release that names a real AI provider: whether the workspace's policy serves it now
+                     "ai_standing": _obj({"served": B, "reason": S}, ("served", "reason")),
                      "verification": _obj({"fingerprint_matches": B, "coherent": B, "by": S,
                                            "problems": {"type": "array", "items": S}},
                                           ("fingerprint_matches", "coherent", "problems"))},
@@ -689,8 +696,11 @@ PLATFORM_SCHEMAS: Dict[str, Any] = {
                        ("names", "fingerprint", "managed")),
         "tools": _obj({"count": I, "simulated": I, "other": I, "all_simulated": B, "fingerprint": S},
                       ("count", "simulated", "other", "all_simulated", "fingerprint")),
-        "governance": _obj({"settings": {"type": "array", "items": S}, "fingerprint": S}, ("settings", "fingerprint"))},
-        ("model", "rules", "actions", "workflows", "agents", "tools", "governance")),
+        "governance": _obj({"settings": {"type": "array", "items": S}, "fingerprint": S}, ("settings", "fingerprint")),
+        # the model this configuration may ask and the policy terms it was configured under (null: no AI setting)
+        "ai": {"oneOf": [{"type": "null"}, _obj({"provider": NS, "model": NS, "policy_terms": NS, "content": NS,
+                                                "fingerprint": S}, ("provider", "fingerprint"))]}},
+        ("model", "rules", "actions", "workflows", "agents", "tools", "governance", "ai")),
     "ReleaseEvent": _obj({"seq": I, "release": I, "event": {"type": "string", "enum": [
         "proposed", "approved", "approval_revoked", "activated", "rolled_back"]}, "by": S, "by_kind": S, "reason": S,
         "fingerprint": S, "at": S}, ("seq", "release", "event", "by", "by_kind", "fingerprint", "at")),

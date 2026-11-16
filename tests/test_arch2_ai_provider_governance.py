@@ -67,7 +67,7 @@ def policy(**changes):
             "purposes": ["architect"],
             "limits": {"max_input_tokens": 50000, "max_output_tokens": 2000, "concurrency": 2, "timeout_seconds": 20,
                        "max_attempts": 2},
-            "budget": {"currency": "USD", "per_request": 1.0, "per_period": 5.0, "period": "month"},
+            "budget": {"currency": "USD", "per_request": 2.0, "per_period": 5.0, "period": "month"},
             "credential": {"ref": "env:ACME_AI_KEY"}, "retention": {"prompts": "none", "usage_days": 90},
             "evaluation": {"status": "not_evaluated"}}
     for key, value in changes.items():
@@ -80,8 +80,14 @@ AUTHORISATION = {"workspace": "acme", "provider": "double", "model": MODEL,
                  "expires": "2099-12-31", "decision": "test: an owner decision would be named here"}
 
 
+# what the use case pins: the provider, its exact model and the terms of the policy it is configured under
+TERMS = ai_policy.terms_fingerprint(policy())
+SETTING = {"provider": "double", "model": MODEL, "policy": TERMS}
+
+
 class GovernanceBase(AdminBase):
     authorisations = [AUTHORISATION]
+    setting = SETTING
 
     def setUp(self):
         self.double = Double()
@@ -106,7 +112,7 @@ class GovernanceBase(AdminBase):
         spec["ai_authorisations"] = list(self.authorisations)
         # a use case whose configuration asks for the provider (a governing setting of the use case)
         config = json.loads((EX.parent / "onboarding" / "server.json").read_text())
-        config["ai"] = {"provider": "double"}
+        config["ai"] = dict(self.setting)
         (self.config_dir / "novel.json").write_text(json.dumps(config))
         (self.config_dir / "ontology.json.novel").write_text(json.dumps({"name": "novel", "version": "0.1.0"}))
         config["ontology"] = "ontology.json.novel"

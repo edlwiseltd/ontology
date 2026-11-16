@@ -40,6 +40,7 @@ export default function AiProviderCard({ workspace }: { workspace: string }) {
             <tr><th scope="row">Budget</th><td>{p.budget.per_period} {p.budget.currency} per {p.budget.period}, {p.budget.per_request} per request
               {view.remaining_usd !== null && view.remaining_usd !== undefined ? ` · ${view.remaining_usd} left` : ""}</td></tr>
             <tr><th scope="row">Limits</th><td>{p.limits.concurrency} at a time · {p.limits.max_output_tokens} output tokens · {p.limits.timeout_seconds}s</td></tr>
+            <tr><th scope="row">Policy terms</th><td><code data-testid="ai-terms">{p.terms ?? "—"}</code> · what a use case names to be served under this policy (provider, model, data, purposes)</td></tr>
             <tr><th scope="row">Key</th><td>{p.credential ? `kept at ${p.credential.ref}; never stored or shown here` : "none: the sandbox holds no key"}</td></tr>
             <tr><th scope="row">Approved by</th><td>{view.approved_by ?? "—"} (proposed by {view.proposed_by ?? "—"})</td></tr>
             <tr><th scope="row">Owner&apos;s authorisation</th><td>{view.owner_authorisation.present ? `${view.owner_authorisation.decision ?? "present"}` : "none"}</td></tr>

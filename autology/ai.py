@@ -212,6 +212,12 @@ def _by_status(status: int, detail: str, retry_after: Optional[float] = None) ->
     return ProviderError("invalid_request", text)
 
 
+def same_model(asked: str, served: str) -> bool:
+    """Whether ``served`` is the model that was asked for: the same identifier, or a dated name of it
+    (``claude-x-1`` answered as ``claude-x-1-20260101``). Any other model is another model."""
+    return served == asked or (served.startswith(asked + "-") and served[len(asked) + 1:].isdigit())
+
+
 def _seconds(value: Any) -> Optional[float]:
     try:
         return max(0.0, float(value))
@@ -222,7 +228,9 @@ def _seconds(value: Any) -> Optional[float]:
 # -- adapter 1: Claude through the official SDK ------------------------------------------------------------
 class AnthropicProvider:
     """Claude through the official ``anthropic`` SDK. ``client`` is an SDK client (``anthropic.Anthropic()``),
-    created from the environment when not given. Exercised against a client double only."""
+    created from the environment when not given (the platform always gives one, built for one workspace from
+    that workspace's key: see ``platform._anthropic_adapter``). Exercised against a client double and against the
+    SDK itself over a local transport (``tests/test_claude2_anthropic_adapter.py``); never against the provider."""
 
     def __init__(self, client: Any = None, name: str = "anthropic", effort: str = "medium"):
         if client is None:
@@ -233,11 +241,13 @@ class AnthropicProvider:
 
     def capabilities(self) -> Capabilities:
         return Capabilities(self.name, "Anthropic Messages API through the official SDK", "native", True, False,
-                            False, "a client double (no call to the provider has been made from this adapter)")
+                            False, "a client double, and the official SDK over a local transport (no call to the "
+                                   "provider has been made from this adapter)")
 
     def invoke(self, call: ProviderCall) -> ProviderReply:
+        # no fallback to another model: the workspace's policy and the owner's authorisation name exactly one
         request = claude_request(call.model, call.max_output_tokens, call.effort or self.effort, call.system,
-                                 call.prompt, call.schema)
+                                 call.prompt, call.schema, fallback=False)
         try:
             response = self.client.beta.messages.create(**request, timeout=call.timeout)
         except Exception as exc:  # adapter boundary: every SDK failure becomes a classified ProviderError
@@ -406,7 +416,7 @@ class ModelGateway:
             return {"configured": False}
         return {"configured": True, "provider": config.provider, "model": config.model,
                 "data_classes": list(config.data_classes), "max_attempts": config.max_attempts,
-                "max_deadline_seconds": config.max_deadline_seconds,
+                "max_deadline_seconds": config.max_deadline_seconds, "max_output_tokens": config.max_output_tokens,
                 "capabilities": self.providers[config.provider].capabilities().as_dict()}
 
     def usage(self, workspace: str) -> Dict[str, Any]:
@@ -502,8 +512,14 @@ class ModelGateway:
                 served, spent = reply.model or config.model, {k: int(v) for k, v in reply.usage.items() if v}
                 for name, count in spent.items():
                     usage[name] = usage.get(name, 0) + count
-                cost += estimate_cost(served, spent)
-                unpriced += 0 if is_priced(served) else billable_tokens(spent)
+                # priced as the model that was asked for: a provider may answer under a dated name of it, and a
+                # name with no registered price must never make a call look free
+                cost += estimate_cost(config.model, spent)
+                unpriced += 0 if is_priced(config.model) else billable_tokens(spent)
+                if not same_model(config.model, served):
+                    # the tokens were spent, at a price nobody registered: the reservation stays charged
+                    raise ProviderError("invalid_response", f"the answer came from the model {served[:80]!r}, not "
+                                        f"from {config.model!r}: it is not used", uncertain=True)
                 data = self._answer(reply, request.schema)
             except ProviderError as exc:
                 self._record(request, config, served, attempts, exc.kind, time.monotonic() - began, spent,
@@ -596,7 +612,7 @@ class ModelGateway:
 
     def _record(self, request: ModelRequest, config: WorkspaceAI, served: str, attempt: int, outcome: str,
                 seconds: float, spent: Mapping[str, int], uncertain: bool) -> None:
-        cost = estimate_cost(served, spent)
+        cost = estimate_cost(config.model, spent)
         with self._lock:
             totals = self._totals.setdefault(request.workspace, _blank())
             totals["attempts"] += 1
@@ -607,7 +623,7 @@ class ModelGateway:
             totals["input_tokens"] += int(spent.get("input_tokens", 0))
             totals["output_tokens"] += int(spent.get("output_tokens", 0))
             totals["cost_usd"] += cost
-            totals["unpriced_tokens"] += 0 if is_priced(served) else billable_tokens(spent)
+            totals["unpriced_tokens"] += 0 if is_priced(config.model) else billable_tokens(spent)
         self._emit({"event": "ai.attempt", "workspace": request.workspace, "purpose": request.purpose,
                     "request_id": request.request_id, "provider": config.provider, "model": served,
                     "attempt": attempt, "outcome": outcome, "uncertain": bool(uncertain),

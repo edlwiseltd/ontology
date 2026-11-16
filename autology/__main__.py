@@ -455,8 +455,14 @@ def _cmd_architect_eval(args) -> int:
             pf.close()
             return 2
 
-        def ask(case):
-            return architect.propose(service.gateway, service.workspace, case["brief"], data_classes=("synthetic",))
+        assert service is not None and service.gateway is not None  # the state above is "authorised"
+        served, workspace = service.gateway, service.workspace
+        limits = served.describe(workspace)
+
+        def ask(case):  # within the workspace's own limits: its deadline and its output ceiling
+            return architect.propose(served, workspace, case["brief"], data_classes=("synthetic",),
+                                     deadline_seconds=limits["max_deadline_seconds"],
+                                     max_output_tokens=limits["max_output_tokens"])
     try:
         result = architect_eval.evaluate(ask, repeats=args.repeats)
     finally:

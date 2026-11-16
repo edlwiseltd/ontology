@@ -162,15 +162,28 @@ def evaluate(ask: Callable[[Mapping[str, Any]], Mapping[str, Any]], repeats: int
             seconds.append(round(time.monotonic() - started, 3))
         if failure or not runs:
             rows.append({"case": case["id"], "title": case["title"], "failed": failure,
-                         "scores": {name: 0.0 for name in THRESHOLDS}, "details": {}, "seconds": seconds})
+                         "scores": {name: 0.0 for name in THRESHOLDS}, "details": {}, "seconds": seconds,
+                         "calls": len(runs), "spent": _spent(runs)})
             continue
         scores = score(case, runs[0])
         details = scores.pop("details")
         scores["repeatability"] = _overlap(runs[0], runs[1]) if len(runs) > 1 else 1.0
         rows.append({"case": case["id"], "title": case["title"], "failed": "", "scores": scores, "details": details,
                      "seconds": seconds, "generator": runs[0].get("generator"), "ai": runs[0].get("ai"),
-                     "provider": runs[0].get("provider"), "model": runs[0].get("model")})
+                     "provider": runs[0].get("provider"), "model": runs[0].get("model"),
+                     # every run of the case, not only the one that was scored: what the evaluation really used
+                     "calls": len(runs), "spent": _spent(runs)})
     return report(rows)
+
+
+def _spent(runs: Sequence[Mapping[str, Any]]) -> Dict[str, Any]:
+    """Tokens and cost of every answer of one case, as the gateway reported them."""
+    usage = [r.get("usage") or {} for r in runs]
+    return {"input_tokens": sum(int(u.get("input_tokens", 0)) for u in usage),
+            "output_tokens": sum(int(u.get("output_tokens", 0)) for u in usage),
+            "cache_tokens": sum(int(u.get("cache_read_input_tokens", 0)) + int(u.get("cache_creation_input_tokens", 0))
+                                for u in usage),
+            "cost_usd": round(sum(float(r.get("cost_usd") or 0) for r in runs), 6)}
 
 
 def report(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -181,10 +194,15 @@ def report(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
         measures[name] = {"value": round(value, 3), "minimum": rule["min"], "kind": rule["kind"],
                           "met": bool(values) and value >= rule["min"], "what": rule["what"]}
     genuine = bool(rows) and all(r.get("ai") for r in rows)
-    usage = {"input_tokens": sum(int(r["details"].get("usage", {}).get("input_tokens", 0)) for r in rows),
-             "output_tokens": sum(int(r["details"].get("usage", {}).get("output_tokens", 0)) for r in rows),
-             "cost_usd": round(sum(float(r["details"].get("cost_usd", 0) or 0) for r in rows), 6),
-             "seconds": round(sum(sum(r["seconds"]) for r in rows), 3)}
+    spent = [r.get("spent") or {} for r in rows]
+    usage = {"answers": sum(int(r.get("calls", 0)) for r in rows),
+             "input_tokens": sum(int(s.get("input_tokens", 0)) for s in spent),
+             "output_tokens": sum(int(s.get("output_tokens", 0)) for s in spent),
+             "cache_tokens": sum(int(s.get("cache_tokens", 0)) for s in spent),
+             "cost_usd": round(sum(float(s.get("cost_usd", 0)) for s in spent), 6),
+             "seconds": round(sum(sum(r["seconds"]) for r in rows), 3),
+             "note": "answers that were used, at the registered price; the platform's spending ledger also counts "
+                     "failed and uncertain attempts and is the record of what was spent"}
     return {"cases": rows, "measures": measures, "usage": usage,
             "all_thresholds_met": all(m["met"] for m in measures.values()),
             # a test double proves the harness, never the capability
@@ -223,5 +241,9 @@ def render(result: Mapping[str, Any]) -> str:
         lines.append(f"  {row['case']:22} " + (f"FAILED: {row['failed']}" if row["failed"] else
                                                f"{row['details'].get('elements', 0)} elements, simulation: "
                                                f"{row['details'].get('simulation', '')}"))
+    used = result["usage"]
+    lines += ["", f"  {used['answers']} answers, {used['input_tokens']} input + {used['output_tokens']} output tokens "
+                  f"(+{used['cache_tokens']} cached), {used['cost_usd']} USD at the registered price, "
+                  f"{used['seconds']} s"]
     lines += ["", "For a person to judge (not measured):"] + [f"  - {q}" for q in result["needs_expert_judgement"]]
     return "\n".join(lines)

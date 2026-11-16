@@ -348,7 +348,11 @@ def release_components(snapshot: Any) -> Dict[str, Any]:
     simulated = [t for t in listed if t.get("type") == "table"]
     workflows = {k: doc.get(k) for k in ("case_templates", "automations", "goals") if doc.get(k)}
     other = {k: v for k, v in settings.items() if k not in ("agents", "solution")}
+    ai = _part(settings, "ai")
     return {
+        # which model this configuration may ask, and under which policy terms: named, never a credential
+        "ai": {"provider": ai.get("provider"), "model": ai.get("model"), "policy_terms": ai.get("policy"),
+               "content": ai.get("content"), "fingerprint": mark(dict(ai))} if ai else None,
         "model": {"ref": snap.get("ontology_ref"), "fingerprint": str(snap.get("ontology_fingerprint") or "")[:16],
                   "entities": len(doc.get("entities") or {})},
         "rules": {"count": len(doc.get("rules") or []), "fingerprint": mark(doc.get("rules") or [])},

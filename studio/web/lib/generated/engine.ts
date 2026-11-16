@@ -1557,16 +1557,20 @@ export interface components {
             architect: {
                 bounded?: boolean;
                 configured: boolean;
+                /** @enum {string} */
+                content?: "synthetic" | "model_design";
                 data_classes?: string[];
                 generators: string[];
                 language_model?: boolean;
                 model?: string;
+                policy_terms?: string | null;
                 provider?: string;
                 reason?: string;
                 /** @enum {string} */
                 state: "none" | "sandbox" | "authorised" | "not_authorised";
                 verified_against?: string;
                 wanted?: string | null;
+                wanted_model?: string | null;
             } & {
                 [key: string]: unknown;
             };

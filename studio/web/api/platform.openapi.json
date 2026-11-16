@@ -443,6 +443,9 @@
               "usage_days"
             ],
             "type": "object"
+          },
+          "terms": {
+            "type": "string"
           }
         },
         "required": [
@@ -1797,6 +1800,22 @@
               "null"
             ]
           },
+          "ai_standing": {
+            "additionalProperties": true,
+            "properties": {
+              "reason": {
+                "type": "string"
+              },
+              "served": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "served",
+              "reason"
+            ],
+            "type": "object"
+          },
           "approved_at": {
             "type": [
               "string",
@@ -1931,6 +1950,50 @@
             ],
             "type": "object"
           },
+          "ai": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "additionalProperties": true,
+                "properties": {
+                  "content": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "fingerprint": {
+                    "type": "string"
+                  },
+                  "model": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "policy_terms": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "provider": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "provider",
+                  "fingerprint"
+                ],
+                "type": "object"
+              }
+            ]
+          },
           "governance": {
             "additionalProperties": true,
             "properties": {
@@ -2053,7 +2116,8 @@
           "workflows",
           "agents",
           "tools",
-          "governance"
+          "governance",
+          "ai"
         ],
         "type": "object"
       },

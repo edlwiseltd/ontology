@@ -897,3 +897,76 @@ so the local "final tree" result was for the tree one edit earlier. Correction (
 cases; the CI wheel check counts the five cases in the installed wheel and runs `architect-eval --self-check`
 from it. Lesson kept for the next increments: any edit after the last full run means another full run, or the
 commit says which run it rests on.
+
+## 16 November 2026 — Claude activation sprint: everything before the first call (no provider contacted)
+
+Directive: "Activate Anthropic Claude API, validate the real AI architect and demonstrate intelligent onboarding".
+Start: `50517f4` (the directive names `70a060c`; the two commits in between are documentation and the record of
+the owner's first authorisation, CI run 102 green on `54a4840`). **No request was sent to a provider**: the
+authorisation is not one complete decision yet (see the decision register) and no key is present in the
+engineering environment. Increments 1 to 4 are what could be done safely before that.
+
+### 1 — the model is pinned in the use case and the release
+
+A use case that names a real provider names its exact model and the *terms* of the workspace policy it is
+configured under (`"ai": {"provider", "model", "policy"}`; `architecting.check_setting`). The terms are a
+fingerprint of what leaves and to whom (provider, model, data classes, purposes, retention rule;
+`ai_policy.terms_fingerprint`), not of how much may be spent. The setting was already governing, so a release now
+names the model: the release detail has an `ai` part and, for a real provider, `ai_standing` (whether the
+workspace's policy serves it now). A policy moved to another model, or to other terms, serves the use case
+nothing; a smaller budget keeps serving. A release that is no longer served can still be activated or rolled
+back (D29 d). Sandbox configurations are unchanged. A use case may be declared synthetic (`"content"`): its
+briefs are then sent as `synthetic` data (before, a typed brief was always a `model_design`, which a
+synthetic-only policy refuses). `tests/test_claude1_model_pinning.py` (8 tests).
+
+### 2 — the Anthropic adapter against the provider's own SDK (offline)
+
+`tests/test_claude2_anthropic_adapter.py` (9 tests) runs the official SDK (2.8.0, the version pinned for the
+image) with its HTTP transport replaced by a local function. Established: the request it puts on the wire (one
+model, the answer's schema unchanged, no tools, no sampling parameters, the key in one header); its parsing of
+an answer with a thinking block; every stop reason; its error classes for 401, 403, 400, 404, 413, 429, 500, 529,
+a timeout and a lost connection; that the SDK retries nothing itself; that the gateway's deadline reaches it;
+that the architect's contract uses only what structured output supports. **Not established:** that the provider
+accepts the request, and anything about a model's answers.
+
+What the validation found, all in code that had never run against anything but a hand-written double:
+
+* GAP-068: an answer under a dated model name was costed at zero.
+* GAP-069: the adapter asked the provider to fall back to another model on a refusal, and the gateway took an
+  answer from any model.
+* GAP-070: the SDK would have taken its address and other credentials from the host's environment.
+* Facts about the SDK that the double did not have: it speaks the provider's API version `2026-10-21`, sends an
+  API key as a bearer credential, and uses `httpx2`. Nothing in the adapter depended on the old behaviour.
+
+### 3 — spending
+
+The reservation now covers the answer's schema and the cache-writing surcharge (GAP-071); cost is taken at the
+configured model's price; the architect and the evaluation ask within the workspace's own deadline and output
+ceiling (a model that thinks before answering needs more than the 60 s and 8,192 tokens that were hard-coded).
+The evaluation counts every answer's tokens and cost, not only the one it scores.
+
+### 4 — the evaluation deployment
+
+`deploy/evaluation_setup.py` writes a dedicated platform outside the repository from the values of the owner's
+decision: one workspace (`evaluation`), four people, a use case and a Studio template that name the model and
+the terms, the authorisation block, and the policy for two people to propose and approve. It reads no key and
+writes none. `tests/test_claude3_evaluation_deployment.py` (4 tests): nothing is served before two people and a
+key; the evaluation command never falls back to a test double. Operator's guide:
+[docs/ai-provider-activation.md](../docs/ai-provider-activation.md).
+
+### 5 — real evaluation, unfamiliar case, Studio journey: blocked
+
+Ready for external evaluation. Blocked by: the owner's decision as one explicit statement (workspace, ceiling,
+per-request ceiling, expiry, retention terms read) and the key installed in the platform's environment.
+
+### Verification
+
+| Run | Result |
+|---|---|
+| Full Python suite, snapshot of the final code tree | **953 OK** (2 PostgreSQL tests skipped locally), **95.82 %** lines (16,334 statements, 683 missed) |
+| ruff; mypy ratchet | clean; 198 (= baseline) |
+| Studio | typecheck clean, **41 unit tests**, build, **119/119 browser checks** |
+
+Edits after the full run were documentation only (this log, the registers, `docs/`); the tests that read the
+documentation were re-run.
+

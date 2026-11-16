@@ -103,7 +103,7 @@ that reports usage.
 4. Whether prompts and completions may be retained for evaluation, where, and for how long.
 5. Who may approve a workspace's provider policy (the same people as data grants, or a narrower group).
 
-## 9. Implementation status (architect sprint, 16 November 2026)
+## 9. Implementation status (architect and Claude activation sprints, 16 November 2026)
 
 | Part of this design | State | Where |
 |---|---|---|
@@ -112,11 +112,11 @@ that reports usage.
 | The owner's authorisation, separate from the policy | Implemented, Tested | `"ai_authorisations"` in the platform's deployment file (`validate_authorisations`, `authorisation_for`): workspace, provider, exact model, data classes, monthly ceiling, expiry, decision reference. It cannot be set through the API. **None is deployed** |
 | Spending control: estimate before sending, per-request and per-period ceilings, concurrency, one reservation per request, uncertain outcomes stay charged, fail closed | Implemented, Tested | `ai_policy.SpendLedger`, `ai_policy.Budget`, `ModelGateway(budget=...)`; ledger `ai_ledger.db`, included in backups |
 | Keys are never configuration | Implemented, Tested | A policy holds `env:NAME` under the workspace's prefix; anything else is refused and never echoed |
-| Use case setting in the release | Unchanged | The use case's `"ai"` setting was already governing; the workspace's grant is not part of a release (`ai_grant` is non-governing) |
+| Use case setting in the release | Implemented, Tested (Claude activation, 16 Nov) | The use case names provider, exact model and the policy *terms* (`ai_policy.terms_fingerprint`); the setting is governing, so every release names them, and the release detail says whether the workspace's policy serves them now (`ai_standing`). A policy that moved to another model or other terms serves the use case nothing until a new release names it (`tests/test_claude1_model_pinning.py`). The workspace's grant is still not part of a release |
 | Studio | Read-only | Access screen card "AI provider"; onboarding names who answers. **No form** to propose a policy yet: the API is used |
 | Alerts at 50/80/100 % | Not implemented | — |
 | Requests-per-minute per policy | Not implemented | The platform's existing rate limits apply |
 | A secret manager for keys | **Blocked** (open point 3): only an environment-variable reference is accepted | — |
-| Endpoint for self-hosted or compatible providers | Not implemented: the policy has no endpoint field, so only an adapter that needs none can be installed (one is: exercised against a client double only) | — |
+| Endpoint for self-hosted or compatible providers | Not implemented: the policy has no endpoint field. The one installed adapter (`anthropic`) has its provider's address fixed in code and takes no credential from the environment; it is exercised against a client double and against the official SDK over a local transport (`tests/test_claude2_anthropic_adapter.py`), never against the provider |
 
 The five open points of §8 are unchanged and still the owner's.

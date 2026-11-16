@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accessLines, basisLabel, countByKind, generatorLabel, itemLabel, preview, providerLabel, refusalText, standing,
+import { accessLines, basisLabel, countByKind, generatorLabel, itemLabel, preview, providerLabel, refusalText, releaseAi, standing,
          withProvenance, workflow } from "../lib/onboarding";
 import type { ProposalItem } from "../lib/types";
 
@@ -89,5 +89,19 @@ describe("onboarding helpers", () => {
     expect(basisLabel({ basis: "supplied" })).toMatch(/from your description/);
     expect(basisLabel({ basis: "inferred" })).toMatch(/inferred.*needs your confirmation/);
     expect(basisLabel({})).toMatch(/inferred/);  // nothing said: never presented as a fact
+  });
+
+  it("names the model a release may ask, and whether it is served now, without any key", () => {
+    expect(releaseAi(null)).toContain("asks no architect");
+    expect(releaseAi({ provider: "sandbox" })).toContain("not a language model");
+    const named = { provider: "anthropic", model: "claude-opus-5-5", policy_terms: "0123456789abcdef", content: "synthetic" };
+    expect(releaseAi(named)).toBe("anthropic · claude-opus-5-5 · policy terms 0123456789abcdef · synthetic data only");
+    expect(releaseAi(named, { served: true, reason: "" })).toContain("served by the workspace's policy now");
+    expect(releaseAi(named, { served: false, reason: "the workspace's policy names another model" }))
+      .toContain("not served now: the workspace's policy names another model");
+    const label = providerLabel({ configured: true, generators: ["model"], state: "authorised", provider: "anthropic",
+      model: "claude-opus-5-5", bounded: true, content: "synthetic" } as any);
+    expect(label.text).toContain("declared synthetic");
+    expect(label.text).toContain("claude-opus-5-5");
   });
 });

@@ -1,6 +1,6 @@
 # Work in progress — Autology
 
-*Updated 16 November 2026 (architect sprint). Branch `claude/autology-ontology-agent-4ajjer`.*
+*Updated 16 November 2026 (Claude activation sprint). Branch `claude/autology-ontology-agent-4ajjer`.*
 
 ## Done in this directive
 
@@ -98,3 +98,17 @@ Report: [planning/AUTOLOGY_ACTIVATION_SPRINT_REPORT.md](planning/AUTOLOGY_ACTIVA
 | F — genuine provider evaluation | **Blocked by D7/D10** (ready for external evaluation) | — |
 
 Report: [planning/AUTOLOGY_ARCHITECT_SPRINT_REPORT.md](planning/AUTOLOGY_ARCHITECT_SPRINT_REPORT.md).
+
+## Claude activation sprint: everything before the first call (16 November 2026)
+
+| Increment | Status | Evidence |
+|---|---|---|
+| 1 — model pinned in the use case and the release | Done, tested with doubles | `tests/test_claude1_model_pinning.py` (8) |
+| 2 — Anthropic adapter against the provider's SDK, offline | Done; four latent defects found and fixed (GAP-068 to GAP-071); **not** verified against the provider | `tests/test_claude2_anthropic_adapter.py` (9) |
+| 3 — spending around a real call | Done, tested with doubles | `tests/test_claude3_evaluation_deployment.py` (S1) |
+| 4 — evaluation deployment and operator's guide | Done; waits for the decision and the key | `deploy/evaluation_setup.py`; [docs/ai-provider-activation.md](docs/ai-provider-activation.md) |
+| 5 — five cases with a real model, ground-handling brief, Studio journey | **Blocked**: D7/D10 not one complete decision; key not installed | — |
+
+**No request has been sent to a provider.** Report:
+[planning/AUTOLOGY_CLAUDE_ACTIVATION_REPORT.md](planning/AUTOLOGY_CLAUDE_ACTIVATION_REPORT.md).
+

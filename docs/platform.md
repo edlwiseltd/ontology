@@ -567,15 +567,19 @@ through an approved release.
 **Which provider.** An engine has an architect provider only if its configuration says so:
 `"ai": {"provider": "sandbox"}`. `sandbox` is a deterministic test double built on approved templates
 (`autology/sandbox_ai.py`): it contacts nothing, holds no credential, and its proposals are labelled
-`"ai": false`, generator `sandbox`. **It is the only value accepted** until the owner approves a provider and the
-data it may receive (decisions D7, D10): any other is refused when the engine starts. The steps and acceptance
-criteria for a first real provider are in the
-[evaluation protocol](../planning/AUTOLOGY_AI_PROVIDER_EVALUATION_PROTOCOL.md).
+`"ai": false`, generator `sandbox`. **An engine on its own accepts no other value.** Under a platform, a use case
+may name a real provider with its exact model and the policy terms it is configured under
+(`"ai": {"provider", "model", "policy", "data_classes", "content"}`); it is served only while the workspace has
+an approved policy for that provider, model and terms, the owner's authorisation covers it, the key is installed
+and the budget allows the call. The setting is governing, so every release names the model it may ask. The whole
+procedure, the key included, is in [ai-provider-activation.md](ai-provider-activation.md); the acceptance criteria
+are in the [evaluation protocol](../planning/AUTOLOGY_AI_PROVIDER_EVALUATION_PROTOCOL.md).
 
-**What this is not.** The adapters have been run against a double of the SDK client and a local mock endpoint.
-No request has been sent to a real provider from them, structured-output support differs between real providers
-and has not been checked against any, and no real model's proposals have been evaluated. Connecting a provider
-and sending anything but synthetic data are owner decisions (D7, D10).
+**What this is not.** The adapters have been run against a double of the SDK client, a local mock endpoint and,
+for the Anthropic adapter, the official SDK itself over a local transport (the request it would put on the wire,
+its parsing of answers and its error classes). **No request has been sent to a real provider from them**: whether
+the provider accepts the request and what a model answers has not been established, and no real model's proposals
+have been evaluated. Connecting a provider and sending anything but synthetic data are owner decisions (D7, D10).
 
 ## Access log (Tier 2)
 

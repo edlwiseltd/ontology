@@ -24,7 +24,8 @@ export function providerLabel(s: ArchitectStatus | null): { state: string; text:
   if (s.state === "sandbox") return { state: "sandbox", tone: "muted",
     text: "Sandbox architect: a deterministic test double built on approved templates, not a language model; nothing leaves this platform." };
   if (s.state === "authorised") return { state: "authorised", tone: "ok",
-    text: `Authorised provider: ${s.provider} (${s.model}). Your description is sent to it${s.bounded ? ", within the workspace's budget" : ""}; its answer is untrusted until you accept it.` };
+    text: `Authorised provider: ${s.provider} (${s.model}). Your description is sent to it${s.bounded ? ", within the workspace's budget" : ""}; its answer is untrusted until you accept it.`
+      + (s.content === "synthetic" ? " This use case is declared synthetic: describe invented situations only, never a real customer, person or contract." : "") };
   if (s.state === "not_authorised") return { state: "not_authorised", tone: "warn",
     text: `Provider unavailable: ${s.wanted ?? "a provider"} is named for this use case but may not be reached. ${s.reason ?? ""}` };
   return { state: "none", text: "No architect provider for this use case: proposals are unavailable here.", tone: "muted" };
@@ -125,4 +126,14 @@ export function withProvenance(doc: ModelDocument, proposal: Pick<Proposal, "id"
                                            generator: proposal.generator, ai: proposal.ai };
   }
   return d;
+}
+
+/** Which model a release may ask, and whether the workspace's policy serves it now. Never a key. */
+export function releaseAi(ai: { provider?: string | null; model?: string | null; policy_terms?: string | null; content?: string | null } | null | undefined,
+                          standing?: { served: boolean; reason: string } | null): string {
+  if (!ai || !ai.provider) return "none: this configuration asks no architect";
+  if (ai.provider === "sandbox") return "sandbox test double (not a language model; nothing leaves this platform)";
+  const named = `${ai.provider} · ${ai.model ?? "no model named"} · policy terms ${ai.policy_terms ?? "not named"}${ai.content === "synthetic" ? " · synthetic data only" : ""}`;
+  if (!standing) return named;
+  return standing.served ? `${named} — served by the workspace's policy now` : `${named} — not served now: ${standing.reason}`;
 }

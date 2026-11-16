@@ -1417,6 +1417,13 @@
               "configured": {
                 "type": "boolean"
               },
+              "content": {
+                "enum": [
+                  "synthetic",
+                  "model_design"
+                ],
+                "type": "string"
+              },
               "data_classes": {
                 "items": {
                   "type": "string"
@@ -1434,6 +1441,12 @@
               },
               "model": {
                 "type": "string"
+              },
+              "policy_terms": {
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "provider": {
                 "type": "string"
@@ -1454,6 +1467,12 @@
                 "type": "string"
               },
               "wanted": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "wanted_model": {
                 "type": [
                   "string",
                   "null"

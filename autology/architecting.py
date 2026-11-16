@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple
 
 from . import architect
 from .ai import DATA_CLASSES, ModelGateway, ProviderError, WorkspaceAI
+from .ai_policy import terms_fingerprint
 from .sandbox_ai import MODEL, SandboxArchitect
 from .server import ApiError, User
 from .store import RecordConflict
@@ -39,20 +40,53 @@ STATUS = {"not_configured": 409, "not_allowed": 409, "budget_exceeded": 409, "in
           "tool_request": 502, "invalid_response": 502, "failed": 502}
 
 
+AI_KEYS = {"provider", "model", "policy", "data_classes", "content"}
+
+
+def check_setting(spec: Any) -> Tuple[str, ...]:
+    """The data classes a use case's ``ai`` setting covers. Raises ``ValueError`` on a setting that is not one.
+
+    ``{"provider": ..., "model": ..., "policy": ..., "data_classes": [...], "content": "synthetic"}``. The sandbox
+    test double needs only ``provider``. Any other provider is named with its exact ``model`` and the ``policy``
+    terms it was configured under (the fingerprint the workspace's AI page shows): the setting is part of the use
+    case's governing configuration, so a release says which model it may ask and under which terms.
+    ``content: synthetic`` is the operator's statement that everything this use case sends is invented data."""
+    if not isinstance(spec, Mapping) or set(spec) - AI_KEYS or not isinstance(spec.get("provider"), str):
+        raise ValueError("ai: {\"provider\": ..., \"model\": ..., \"policy\": ..., \"data_classes\": [...], "
+                         "\"content\": \"synthetic\"} (the sandbox needs only the provider)")
+    classes = tuple(spec.get("data_classes") or ("synthetic", "model_design"))
+    if set(classes) - set(DATA_CLASSES):
+        raise ValueError(f"ai.data_classes: taken from {list(DATA_CLASSES)}")
+    if spec.get("content") not in (None, "synthetic"):
+        raise ValueError("ai.content: \"synthetic\" (everything this use case sends is invented data), or nothing")
+    for key in ("model", "policy"):
+        if key in spec and not (isinstance(spec[key], str) and 1 <= len(spec[key]) <= 120):
+            raise ValueError(f"ai.{key}: text")
+    if spec["provider"] in APPROVED_PROVIDERS:
+        if spec.get("model") not in (None, MODEL) or "policy" in spec:
+            raise ValueError(f"ai: the sandbox is the test double {MODEL!r}; it has no other model and no policy terms")
+    elif "model" not in spec or "policy" not in spec:
+        raise ValueError(f"ai: the provider {spec['provider']!r} is named with its exact model and the policy terms "
+                         "it is configured under: {\"provider\", \"model\", \"policy\"}")
+    return classes
+
+
 def build_gateway(spec: Any, workspace: str, grant: Optional[Mapping[str, Any]] = None
                   ) -> Tuple[Optional[ModelGateway], str]:
     """``(gateway, why not)``: the engine's AI gateway from its ``ai`` configuration, or None with the reason.
 
     The sandbox test double needs nothing else. Any other provider is reachable only with a ``grant`` from the
     platform: the workspace's approved policy, covered by the owner's authorisation, with an adapter and a budget
-    (:mod:`autology.ai_policy`). An engine on its own can never configure one: it has no grant to show."""
+    (:mod:`autology.ai_policy`), **and only when the use case names that policy's provider, exact model and
+    terms**. A policy that moved to another model, or whose terms changed, serves this use case nothing until a
+    new release of the use case names it. An engine on its own can never configure one: it has no grant to show."""
     if spec is None:
         return None, "this use case's configuration names no AI provider"
-    if not isinstance(spec, Mapping) or set(spec) - {"provider", "data_classes"} or "provider" not in spec:
-        raise ValueError("ai: {\"provider\": ..., \"data_classes\": [...]} (data_classes is optional)")
-    classes = tuple(spec.get("data_classes") or ("synthetic", "model_design"))
-    if set(classes) - set(DATA_CLASSES):
-        raise ValueError(f"ai.data_classes: taken from {list(DATA_CLASSES)}")
+    if grant is None and isinstance(spec, Mapping) and isinstance(spec.get("provider"), str) \
+            and spec["provider"] not in APPROVED_PROVIDERS:
+        raise ValueError(f"ai.provider {spec['provider']!r} is not approved: only {list(APPROVED_PROVIDERS)} may be "
+                         "configured until the owner approves a provider and its data (decisions D7, D10)")
+    classes = check_setting(spec)
     policy = (grant or {}).get("policy")
     if spec["provider"] in APPROVED_PROVIDERS:
         config = WorkspaceAI("sandbox", MODEL, classes)
@@ -63,12 +97,16 @@ def build_gateway(spec: Any, workspace: str, grant: Optional[Mapping[str, Any]] 
                                  policy["limits"]["max_output_tokens"])
             budget = grant.get("budget") if grant else None
         return ModelGateway({"sandbox": SandboxArchitect()}, {workspace: config}, budget=budget), ""
-    if grant is None:
-        raise ValueError(f"ai.provider {spec['provider']!r} is not approved: only {list(APPROVED_PROVIDERS)} may be "
-                         "configured until the owner approves a provider and its data (decisions D7, D10)")
-    if policy is None or policy["provider"] != spec["provider"] or grant.get("adapter") is None:
-        return None, str(grant.get("refused") or f"the workspace has no approved, authorised policy for "
-                                                 f"{spec['provider']}")
+    if policy is None or policy["provider"] != spec["provider"] or grant is None or grant.get("adapter") is None:
+        return None, str((grant or {}).get("refused") or f"the workspace has no approved, authorised policy for "
+                                                        f"{spec['provider']}")
+    if policy["model"] != spec["model"]:
+        return None, (f"this use case is configured for the model {spec['model']}; the workspace's approved policy "
+                      f"names {policy['model']}. A model changes only through a new release of the use case")
+    if terms_fingerprint(policy) != spec["policy"]:
+        return None, (f"this use case is configured under the policy terms {spec['policy']}; the workspace's "
+                      f"approved policy now has the terms {terms_fingerprint(policy)} (what may be sent, or for "
+                      "what, changed). The use case is served again once a new release names them")
     allowed = tuple(c for c in classes if c in policy["data_classes"])
     if not allowed:
         return None, "the workspace's AI policy allows none of the data classes this use case would send"
@@ -82,6 +120,10 @@ class ArchitectService:
         self.engine = engine
         self.workspace = "engine"  # one gateway per engine: nothing is shared between use cases
         self.wanted = config.get("ai")  # what the use case's (governing) configuration asks for
+        # what a brief typed into this use case is: a model design, unless the operator declared the use case
+        # synthetic (an evaluation or demonstration that holds only invented data)
+        self.content = "synthetic" if isinstance(self.wanted, Mapping) and self.wanted.get("content") == "synthetic" \
+            else "model_design"
         self.gateway, self.unavailable = build_gateway(self.wanted, self.workspace, config.get("ai_grant"))
 
     # -- asking -----------------------------------------------------------------------------------------
@@ -112,7 +154,10 @@ class ArchitectService:
         if not isinstance(feedback, str) or len(feedback) > 2000:
             raise ApiError(400, "feedback: what to change in the proposal, up to 2000 characters")
         try:
-            result = architect.propose(self.gateway, self.workspace, brief, base, answers=answers, feedback=feedback)
+            limits = self.gateway.describe(self.workspace)
+            result = architect.propose(self.gateway, self.workspace, brief, base, answers=answers, feedback=feedback,
+                                       data_classes=(self.content,), deadline_seconds=limits["max_deadline_seconds"],
+                                       max_output_tokens=limits["max_output_tokens"])
         except architect.ArchitectError as exc:
             raise ApiError(400, str(exc)) from None
         except ProviderError as exc:
@@ -172,6 +217,8 @@ class ArchitectService:
         if self.gateway is None:
             wanted = self.wanted.get("provider") if isinstance(self.wanted, Mapping) else None
             return {"configured": False, "generators": ["blueprint"], "wanted": wanted,
+                    "wanted_model": self.wanted.get("model") if isinstance(self.wanted, Mapping) else None,
+                    "content": self.content,
                     # "none": nothing is asked for; "not_authorised": a provider is named but may not be reached
                     "state": "not_authorised" if wanted else "none", "reason": self.unavailable}
         described = self.gateway.describe(self.workspace)
@@ -181,7 +228,8 @@ class ArchitectService:
                 "language_model": caps["language_model"], "verified_against": caps["verified_against"],
                 # a test double is never called a model; a real provider is named with its model
                 "state": "authorised" if caps["language_model"] else "sandbox", "reason": "",
-                "bounded": self.gateway.budget is not None}
+                "bounded": self.gateway.budget is not None, "content": self.content,
+                "policy_terms": self.wanted.get("policy") if isinstance(self.wanted, Mapping) else None}
 
     def attach(self, grant: Optional[Mapping[str, Any]]) -> None:
         """Take the workspace's AI policy as it is now (the platform calls this when a policy is approved,

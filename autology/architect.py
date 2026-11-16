@@ -287,7 +287,8 @@ def _strings(value: Any) -> List[str]:
 def propose(gateway: ModelGateway, workspace: str, brief: str, document: Optional[Mapping[str, Any]] = None,
             sources: Sequence[Mapping[str, str]] = (), data_classes: Sequence[str] = ("model_design",),
             deadline_seconds: float = 60.0, request_id: Optional[str] = None,
-            answers: Sequence[Mapping[str, Any]] = (), feedback: str = "") -> Dict[str, Any]:
+            answers: Sequence[Mapping[str, Any]] = (), feedback: str = "",
+            max_output_tokens: int = 8192) -> Dict[str, Any]:
     """Provisional, engine-validated additions to ``document`` for ``brief``. Nothing is applied or saved.
 
     ``sources`` are passages the caller retrieved (``{"id": ..., "text": ...}``); they are data for the model, and
@@ -310,7 +311,7 @@ def propose(gateway: ModelGateway, workspace: str, brief: str, document: Optiona
                            {"brief": brief, "current_model": outline(base), "sources": passages, "answers": given,
                             # what the person asked to change in the last proposal: data, like the brief
                             **({"revision_request": _clip(feedback)[:2000]} if feedback.strip() else {})},
-                           tuple(data_classes), deadline_seconds, 8192, **kw)
+                           tuple(data_classes), deadline_seconds, max_output_tokens, **kw)
     response = gateway.invoke(request)
     capabilities = gateway.describe(workspace).get("capabilities") or {}
     genuine = bool(capabilities.get("language_model", True))  # a test double is never presented as AI

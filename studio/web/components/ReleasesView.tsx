@@ -4,6 +4,7 @@
 // "never the proposer", "only what runs can be activated". Buttons hidden here are conveniences only; the browser
 // tests prove the platform refuses the same calls made directly.
 
+import { releaseAi } from "@/lib/onboarding";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { Release, ReleaseState, UseCase } from "@/lib/types";
@@ -187,6 +188,8 @@ export default function ReleasesView({ workspace, useCase, member, admin, onChan
                 <td><code>{inspected.components.tools.fingerprint}</code></td></tr>
               <tr><th scope="row">Governing settings</th><td>{inspected.components.governance.settings.join(", ") || "defaults"}</td>
                 <td><code>{inspected.components.governance.fingerprint}</code></td></tr>
+              <tr><th scope="row">AI provider</th><td data-testid="release-ai">{releaseAi(inspected.components.ai, inspected.ai_standing)}</td>
+                <td><code>{inspected.components.ai?.fingerprint ?? "—"}</code></td></tr>
             </tbody>
           </table>
         </div>

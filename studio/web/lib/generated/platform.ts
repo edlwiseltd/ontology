@@ -789,6 +789,7 @@ export interface components {
             } & {
                 [key: string]: unknown;
             };
+            terms?: string;
         } & {
             [key: string]: unknown;
         };
@@ -1170,6 +1171,12 @@ export interface components {
         };
         Release: {
             activated_at?: string | null;
+            ai_standing?: {
+                reason: string;
+                served: boolean;
+            } & {
+                [key: string]: unknown;
+            };
             approved_at?: string | null;
             approved_by?: string | null;
             at: string;
@@ -1211,6 +1218,15 @@ export interface components {
             } & {
                 [key: string]: unknown;
             };
+            ai: null | ({
+                content?: string | null;
+                fingerprint: string;
+                model?: string | null;
+                policy_terms?: string | null;
+                provider: string | null;
+            } & {
+                [key: string]: unknown;
+            });
             governance: {
                 fingerprint: string;
                 settings: string[];

@@ -20,6 +20,8 @@ Nothing here contacts a provider. The gateway (:mod:`autology.ai`) asks :class:`
 
 from __future__ import annotations
 
+import hashlib
+import json
 import math
 import re
 import sqlite3
@@ -317,9 +319,12 @@ class SpendLedger:
 def estimate(request: ModelRequest, policy: Mapping[str, Any]) -> Tuple[int, float]:
     """``(input tokens, USD)``: what one request could cost at most, computed before it is sent, from its size
     and the registered price. Never from anything a model says."""
-    tokens_in = math.ceil((len(request.system) + len(request.text())) / CHARS_PER_TOKEN)
+    # the answer's schema travels with the request and is billed as input; a first request may also pay the
+    # cache-writing surcharge on all of it
+    size = len(request.system) + len(request.text()) + len(json.dumps(dict(request.schema), default=str))
+    tokens_in = math.ceil(size / CHARS_PER_TOKEN)
     tokens_out = min(int(request.max_output_tokens), policy["limits"]["max_output_tokens"])
-    once = estimate_cost(policy["model"], {"input_tokens": tokens_in, "output_tokens": tokens_out})
+    once = estimate_cost(policy["model"], {"cache_creation_input_tokens": tokens_in, "output_tokens": tokens_out})
     return tokens_in, once * policy["limits"]["max_attempts"]
 
 
@@ -368,6 +373,17 @@ class Budget:
             self.ledger.close_entry(entry, SETTLED, cost, usage, attempts, outcome)
 
 
+def terms_fingerprint(policy: Mapping[str, Any]) -> str:
+    """What a policy lets leave the platform, and to whom, as one short fingerprint: the provider, the exact
+    model, the data classes, the purposes and the retention rule. A use case pins it (``"ai": {"policy": ...}``),
+    so its release names the terms it was configured under. Limits, budgets, the expiry date and where the key
+    lives are not part of it: changing them changes how much may be spent, never what is sent or to which model."""
+    terms = {"provider": policy["provider"], "model": policy["model"], "data_classes": sorted(policy["data_classes"]),
+             "purposes": sorted(policy["purposes"]), "retention": {"prompts": policy["retention"]["prompts"]}}
+    text = json.dumps(terms, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+
+
 def describe(policy: Optional[Mapping[str, Any]]) -> Optional[Dict[str, Any]]:
     """A policy as it may be shown: everything but where the key lives is repeated; the reference is named, and
     no key was ever part of it."""
@@ -377,6 +393,7 @@ def describe(policy: Optional[Mapping[str, Any]]) -> Optional[Dict[str, Any]]:
     out["credential"] = {"ref": policy["credential"]["ref"], "note": "a reference; the key is never stored or shown"} \
         if policy.get("credential") else None
     out["priced"] = policy["provider"] in NO_AUTHORISATION_NEEDED or policy["model"] in PRICES
+    out["terms"] = terms_fingerprint(policy)  # what a use case pins to be served under this policy
     return out
 
 

@@ -23,7 +23,7 @@ from unittest import mock
 from autology import architect, readiness
 from autology.ai import ModelGateway, WorkspaceAI
 from autology.ontology import Ontology
-from autology.sandbox_ai import SandboxArchitect
+from autology.sandbox_ai import MODEL as SANDBOX_MODEL, SandboxArchitect
 from autology.server import ApiError, ApiExchange
 from autology.simulation import SimulationError, sample_case, simulate
 
@@ -35,7 +35,7 @@ BRIEF = "Employees send service requests; a manager must approve expensive ones,
 def proposed_model(answers=()):
     """The document a person would get by accepting everything the sandbox architect proposes for BRIEF."""
     gateway = ModelGateway({"sandbox": SandboxArchitect()},
-                           {"w": WorkspaceAI("sandbox", "sandbox", ("synthetic", "model_design"))},
+                           {"w": WorkspaceAI("sandbox", SANDBOX_MODEL, ("synthetic", "model_design"))},
                            sink=lambda event: None)
     out = architect.propose(gateway, "w", BRIEF, answers=answers)
     return architect.apply({"name": "service-desk", "version": "0.1.0"}, out["items"])

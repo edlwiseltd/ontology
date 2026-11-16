@@ -91,7 +91,8 @@ class ReleaseContentTests(ReleaseBase):
         status, release = self.call("GET", f"{UC}/releases/{number}")
         self.assertEqual(status, 200)
         parts = release["components"]
-        self.assertEqual(sorted(parts), ["actions", "agents", "governance", "model", "rules", "tools", "workflows"])
+        self.assertEqual(sorted(parts), ["actions", "agents", "ai", "governance", "model", "rules", "tools", "workflows"])
+        self.assertEqual((parts["ai"]["provider"], parts["ai"]["policy_terms"]), ("sandbox", None))  # the test double
         self.assertEqual((parts["agents"]["names"], parts["agents"]["managed"]), (["request_handler"], "studio"))
         self.assertEqual((parts["tools"]["count"], parts["tools"]["all_simulated"], parts["tools"]["other"]), (5, True, 0))
         self.assertEqual((parts["actions"]["count"], parts["workflows"]["goals"]), (6, ["request_closed"]))
@@ -115,7 +116,7 @@ class ReleaseContentTests(ReleaseBase):
         a = self.call("GET", f"{UC}/releases/{first}")[1]["components"]
         b = self.call("GET", f"{UC}/releases/{second}")[1]["components"]
         same = sorted(k for k in a if a[k]["fingerprint"] == b[k]["fingerprint"])
-        self.assertEqual(same, ["actions", "governance", "model", "rules", "tools", "workflows"])
+        self.assertEqual(same, ["actions", "ai", "governance", "model", "rules", "tools", "workflows"])
         self.assertNotEqual(a["agents"]["fingerprint"], b["agents"]["fingerprint"])
 
     def test_coherence_is_computed_from_the_snapshot_alone(self):  # R1, R3 (pure)

@@ -151,9 +151,13 @@ class FunctionChatModel:
 
 
 def claude_request(model: str, max_tokens: int, effort: str, system: str, prompt: str,
-                   schema: Mapping[str, Any]) -> Dict[str, Any]:
+                   schema: Mapping[str, Any], fallback: bool = True) -> Dict[str, Any]:
     """The arguments of one structured-output request to Claude (``client.beta.messages.create``): the single
-    place that knows this request's shape, shared by :class:`AnthropicChatModel` and the AI gateway's adapter."""
+    place that knows this request's shape, shared by :class:`AnthropicChatModel` and the AI gateway's adapter.
+
+    ``fallback``: whether the provider may answer with another model when the one asked for declines. The
+    gateway's adapter says no: a workspace is authorised for one exact model, and an answer from another one
+    would be a transmission nobody approved."""
     request: Dict[str, Any] = dict(
         model=model,
         max_tokens=max_tokens,
@@ -162,7 +166,7 @@ def claude_request(model: str, max_tokens: int, effort: str, system: str, prompt
         system=system,
         messages=[{"role": "user", "content": prompt}],
     )
-    if model in SERVER_FALLBACK_MODELS:
+    if fallback and model in SERVER_FALLBACK_MODELS:
         request.update(betas=["server-side-fallback-2026-07-01"], fallbacks="default")
     return request
 

@@ -453,7 +453,9 @@ def effective_permissions(solution: Any, document: Any) -> Dict[str, List[Dict[s
             else:
                 status = "autonomous"
             rows.append({"action": action.name, "status": status, "tool": tools.get(action.name),
-                         "simulated": action.name in tools, "side_effect": action.side_effect,
+                         # of a tool the catalogue offers as simulated: an unknown tool is never shown as one
+                         "simulated": CATALOG.get(str(tools.get(action.name)), {}).get("environment") == "simulated"
+                         and CATALOG[str(tools[action.name])]["available"], "side_effect": action.side_effect,
                          "refused": refused, "conditions": conditions, "reviews": reviews})
         out[str(name)] = rows
     return out

@@ -434,7 +434,10 @@ class Platform:
                 raise PlatformError(f"template {t_id!r}: an id of lowercase letters, digits and '-' and a config")
             if not (base_dir / t["config"]).resolve().is_file():
                 raise PlatformError(f"template {t_id}: configuration file {t['config']} not found")
-            self.templates[t_id] = {"id": t_id, "name": str(t.get("name") or t_id),
+            scope = t.get("workspaces")  # optional: the workspaces the template is offered to (default: all)
+            if scope is not None and not (isinstance(scope, list) and scope and all(isinstance(w, str) for w in scope)):
+                raise PlatformError(f"template {t_id}: workspaces is a list of workspace ids")
+            self.templates[t_id] = {"id": t_id, "name": str(t.get("name") or t_id), "workspaces": scope,
                                     "description": str(t.get("description") or ""), "config": t["config"]}
         workspace_specs = spec.get("workspaces") or {}
         if not workspace_specs:
@@ -1315,7 +1318,8 @@ class Platform:
             raise LifecycleError(400, "id: lowercase letters, digits and '-' only (at most 63)")
         if not isinstance(name, str) or not (1 <= len(name.strip()) <= 120):
             raise LifecycleError(400, "name: 1 to 120 characters")
-        if template not in self.templates:
+        if template not in self.templates or ws.id not in (self.templates[template]["workspaces"] or [ws.id]):
+            # a template offered to other workspaces only does not exist for this one
             raise LifecycleError(400, f"unknown template {template!r}")
         with self._lock:
             if uc_id in ws.use_cases:
@@ -1643,7 +1647,9 @@ class Platform:
         if parts[2:] == ["templates"] and method == "GET":
             if not any(m.workspace_admin for m in members.values()):
                 raise LifecycleError(403, "workspace administrators only")
-            return 200, {"items": [{k: t[k] for k in ("id", "name", "description")} for t in self.templates.values()]}
+            mine = {m.workspace for m in members.values() if m.workspace_admin}
+            return 200, {"items": [{k: t[k] for k in ("id", "name", "description")} for t in self.templates.values()
+                                   if t["workspaces"] is None or mine & set(t["workspaces"])]}
         if len(parts) == 4 and parts[2] == "tenants" and method == "GET":
             tenant = self.tenants.get(parts[3])
             if tenant is None or not any(m.tenant == tenant.id for m in members.values()):

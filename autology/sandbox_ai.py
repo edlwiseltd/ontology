@@ -20,7 +20,7 @@ provisional until a person accepts it. Reports carry ``"ai": false`` and name th
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, Mapping, Optional
+from typing import Any, Dict, Iterable, Mapping, Optional
 
 from .ai import Capabilities, ProviderCall, ProviderError, ProviderReply
 from .integrity import DATA_CLOSE, DATA_OPEN
@@ -29,8 +29,8 @@ from .modeling import fill, match, parameters
 MODEL = "sandbox-templates-1"
 
 
-def _matching(brief: str) -> Optional[Dict[str, Any]]:
-    return match(brief)[0]
+def _matching(brief: str, folders: Iterable[Any] = ()) -> Optional[Dict[str, Any]]:
+    return match(brief, folders)[0]
 
 
 def _request_data(prompt: str) -> Dict[str, Any]:
@@ -47,12 +47,12 @@ def _request_data(prompt: str) -> Dict[str, Any]:
     return data
 
 
-def answer(data: Mapping[str, Any]) -> Dict[str, Any]:
+def answer(data: Mapping[str, Any], folders: Iterable[Any] = ()) -> Dict[str, Any]:
     """The proposal for one architect request (see the module docstring)."""
     empty: Dict[str, Any] = {key: [] for key in ("entities", "relationships", "actions", "rules", "goals",
                                                  "case_templates", "questions",
                                                  "assumptions", "unknowns", "roles", "agents", "integrations")}
-    template = _matching(data["brief"])
+    template = _matching(data["brief"], folders)
     if template is None:
         empty["questions"] = [{"id": "process", "why": "No approved template matches this description yet",
                                "question": "Which process should come first? Say who asks for what, who decides, "
@@ -129,6 +129,10 @@ class SandboxArchitect:
 
     name = "sandbox"
 
+    def __init__(self, folders: Iterable[Any] = ()):
+        # the blueprint folders of the use case this double answers for (its configuration), besides Autology's own
+        self.folders = tuple(folders)
+
     def capabilities(self) -> Capabilities:
         return Capabilities(self.name, "in-process deterministic templates (no network)", "native", False, False, False,
                             "this is a test double: it is not a language model and proves nothing about one",
@@ -137,5 +141,5 @@ class SandboxArchitect:
     def invoke(self, call: ProviderCall) -> ProviderReply:
         if call.cancel.is_set():
             raise ProviderError("cancelled", "cancelled before the request was read", uncertain=False)
-        return ProviderReply(json.dumps(answer(_request_data(call.prompt))), "complete", {}, MODEL)
+        return ProviderReply(json.dumps(answer(_request_data(call.prompt), self.folders)), "complete", {}, MODEL)
 

@@ -19,7 +19,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
 from .consistency import findings as consistency  # noqa: F401  (workflow consistency findings, beside validation)
 from .ontology import Ontology, OntologyError
@@ -123,16 +123,33 @@ def _questions(document: Any, service: Any = None) -> List[Dict[str, Any]]:
     return out
 
 
-def blueprints() -> List[Dict[str, Any]]:
-    return [json.loads(p.read_text(encoding="utf-8")) for p in sorted(BLUEPRINTS.glob("*.json"))]
+def library(configured: Any, base: Any) -> Tuple[Path, ...]:
+    """The folders of approved blueprints a use case's configuration names (``"blueprints"``: a folder or a list
+    of folders, relative to the configuration). A domain's templates are configuration of the use case that names
+    them: they are not part of the engine, and no other use case sees them. Raises ``ValueError`` for a folder
+    that does not exist."""
+    named = [configured] if isinstance(configured, str) else list(configured or [])
+    folders = []
+    for name in named:
+        folder = (Path(base) / str(name)).resolve()
+        if not isinstance(name, str) or not folder.is_dir():
+            raise ValueError(f"blueprints: {name!r} is not a folder of blueprints")
+        folders.append(folder)
+    return tuple(folders)
 
 
-def match(brief: str) -> Tuple[Optional[Dict[str, Any]], List[str]]:
+def blueprints(folders: Iterable[Path] = ()) -> List[Dict[str, Any]]:
+    """The blueprints shipped with Autology, then those of the folders a use case names."""
+    return [json.loads(p.read_text(encoding="utf-8"))
+            for folder in (BLUEPRINTS, *folders) for p in sorted(Path(folder).glob("*.json"))]
+
+
+def match(brief: str, folders: Iterable[Path] = ()) -> Tuple[Optional[Dict[str, Any]], List[str]]:
     """The approved blueprint whose vocabulary ``brief`` uses most (at least two terms), and the terms found."""
     words = set(re.findall(r"[a-z]+(?: order)?", brief.lower()))
     best: Optional[Dict[str, Any]] = None
     matched: List[str] = []
-    for bp in blueprints():
+    for bp in blueprints(folders):
         hits = sorted(k for k in bp["keywords"] if k in words or k in brief.lower())
         if len(hits) >= 2 and len(hits) > len(matched):
             best, matched = bp, hits
@@ -182,7 +199,7 @@ def fill(value: Any, values: Mapping[str, Any]) -> Any:
     return value
 
 
-def propose(brief: str, document: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def propose(brief: str, document: Optional[Dict[str, Any]] = None, folders: Iterable[Path] = ()) -> Dict[str, Any]:
     """Provisional additions for ``brief``. Today: approved blueprints only (no AI). Nothing is applied."""
     document = document if isinstance(document, dict) else {}
     have_entities = set(document.get("entities") or {})
@@ -192,7 +209,7 @@ def propose(brief: str, document: Optional[Dict[str, Any]] = None) -> Dict[str, 
     have_rules = {r.get("id") for r in document.get("rules") or [] if isinstance(r, dict)}
     have_goals = set(document.get("goals") or {})
     have_templates = set(document.get("case_templates") or {})
-    best, matched = match(brief)
+    best, matched = match(brief, folders)
     if best is None:
         return {"generator": "blueprint", "ai": False, "items": [],
                 "message": "no approved blueprint matches this brief; a model-based architect is not configured "

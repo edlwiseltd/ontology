@@ -23,11 +23,12 @@ belongs to.
 from __future__ import annotations
 
 import uuid
-from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from . import architect
 from .ai import DATA_CLASSES, ModelGateway, ProviderError, WorkspaceAI
 from .ai_policy import terms_fingerprint
+from .modeling import library
 from .sandbox_ai import MODEL, SandboxArchitect
 from .server import ApiError, User
 from .store import RecordConflict
@@ -73,8 +74,8 @@ def check_setting(spec: Any) -> Tuple[str, ...]:
     return classes
 
 
-def build_gateway(spec: Any, workspace: str, grant: Optional[Mapping[str, Any]] = None
-                  ) -> Tuple[Optional[ModelGateway], str]:
+def build_gateway(spec: Any, workspace: str, grant: Optional[Mapping[str, Any]] = None,
+                  folders: Sequence[Any] = ()) -> Tuple[Optional[ModelGateway], str]:
     """``(gateway, why not)``: the engine's AI gateway from its ``ai`` configuration, or None with the reason.
 
     The sandbox test double needs nothing else. Any other provider is reachable only with a ``grant`` from the
@@ -98,7 +99,7 @@ def build_gateway(spec: Any, workspace: str, grant: Optional[Mapping[str, Any]] 
                                  policy["limits"]["max_attempts"], policy["limits"]["timeout_seconds"],
                                  policy["limits"]["max_output_tokens"])
             budget = grant.get("budget") if grant else None
-        return ModelGateway({"sandbox": SandboxArchitect()}, {workspace: config}, budget=budget), ""
+        return ModelGateway({"sandbox": SandboxArchitect(folders)}, {workspace: config}, budget=budget), ""
     if policy is None or policy["provider"] != spec["provider"] or grant is None or grant.get("adapter") is None:
         return None, str((grant or {}).get("refused") or f"the workspace has no approved, authorised policy for "
                                                         f"{spec['provider']}")
@@ -126,7 +127,9 @@ class ArchitectService:
         # synthetic (an evaluation or demonstration that holds only invented data)
         self.content = "synthetic" if isinstance(self.wanted, Mapping) and self.wanted.get("content") == "synthetic" \
             else "model_design"
-        self.gateway, self.unavailable = build_gateway(self.wanted, self.workspace, config.get("ai_grant"))
+        # the blueprint folders this use case's configuration names: domain templates are configuration, not engine
+        self.folders = library(config.get("blueprints"), getattr(engine, "base_dir", "."))
+        self.gateway, self.unavailable = build_gateway(self.wanted, self.workspace, config.get("ai_grant"), self.folders)
 
     # -- asking -----------------------------------------------------------------------------------------
     def architect_proposals(self, user: User, body: Dict[str, Any]) -> Dict[str, Any]:
@@ -146,7 +149,7 @@ class ArchitectService:
             row = e.store.draft()
             base = row["document"] if row else e._active_document()
         if generator == "blueprint":
-            return propose(brief, base)
+            return propose(brief, base, self.folders)
         if self.gateway is None:
             raise ApiError(409, f"no AI provider is available to this use case: {self.unavailable} (a real "
                                 "provider needs the owner's decisions D7 and D10 and an approved workspace policy); "
@@ -245,7 +248,7 @@ class ArchitectService:
     def attach(self, grant: Optional[Mapping[str, Any]]) -> None:
         """Take the workspace's AI policy as it is now (the platform calls this when a policy is approved,
         disabled or expires). The use case's own setting does not change: only whether it may be served."""
-        self.gateway, self.unavailable = build_gateway(self.wanted, self.workspace, grant)
+        self.gateway, self.unavailable = build_gateway(self.wanted, self.workspace, grant, self.folders)
 
     def get_proposal(self, user: User, pid: str, revision: Optional[int] = None) -> Dict[str, Any]:
         e = self.engine

@@ -1,0 +1,1305 @@
+{
+ "id": "network_investigation",
+ "name": "Commercial network investigation (synthetic template)",
+ "description": "Take a compliance case from the extraction of relationships to a reviewed, auditable summary: an unusual pattern is flagged with its competing explanation, and a person decides every escalation. A training template on invented companies: it accuses nobody and proves nothing.",
+ "keywords": [
+  "investigat",
+  "compliance",
+  "invoice",
+  "payment",
+  "intermediar",
+  "ownership",
+  "contract",
+  "fraud",
+  "network of compan"
+ ],
+ "parameters": [
+  {
+   "id": "materiality_amount",
+   "type": "number",
+   "default": 10000,
+   "question": "From which amount is an unusual pattern worth a case review?",
+   "why": "Below it a pattern is noted, not flagged"
+  },
+  {
+   "id": "reviewer_role",
+   "type": "name",
+   "default": "compliance_officer",
+   "question": "Which role decides whether a case is escalated?",
+   "why": "Every escalation waits for a named person: an association is never treated as proof"
+  },
+  {
+   "id": "analyst_role",
+   "type": "name",
+   "default": "investigation_analyst",
+   "question": "Which role works on cases day to day?",
+   "why": "Only this role may prepare an escalation; the agent acts with it"
+  },
+  {
+   "id": "financial_role",
+   "type": "name",
+   "default": "financial_investigator",
+   "question": "Which role may see bank account records?",
+   "why": "Account records are restricted: other roles do not see them"
+  },
+  {
+   "id": "case_system",
+   "type": "text",
+   "default": "",
+   "question": "Which system holds the case files (for example a case management system)?",
+   "why": "Escalating a case acts outside Autology: it needs a tool, first simulated"
+  }
+ ],
+ "items": [
+  {
+   "kind": "entity",
+   "name": "Organization",
+   "rationale": "The brief speaks of a network of companies",
+   "value": {
+    "description": "A company or other organisation",
+    "states": [
+     "active",
+     "dissolved"
+    ],
+    "attributes": {
+     "name": "string",
+     "registration_id": "string",
+     "jurisdiction": "string",
+     "kind": "string"
+    }
+   }
+  },
+  {
+   "kind": "entity",
+   "name": "Person",
+   "rationale": "People act for companies in a business role",
+   "value": {
+    "description": "An authorised person and a business role",
+    "states": [
+     "active"
+    ],
+    "attributes": {
+     "name": "string",
+     "business_role": "string"
+    }
+   }
+  },
+  {
+   "kind": "entity",
+   "name": "Contract",
+   "rationale": "Companies are bound by contracts",
+   "value": {
+    "description": "A contract",
+    "states": [
+     "active",
+     "ended"
+    ],
+    "attributes": {
+     "reference": "string",
+     "value": "number",
+     "signed_on": "date"
+    }
+   }
+  },
+  {
+   "kind": "entity",
+   "name": "Invoice",
+   "rationale": "Contracts are billed",
+   "value": {
+    "description": "An invoice",
+    "states": [
+     "issued",
+     "paid",
+     "disputed"
+    ],
+    "attributes": {
+     "reference": "string",
+     "amount": "number",
+     "issued_on": "date"
+    }
+   }
+  },
+  {
+   "kind": "entity",
+   "name": "Payment",
+   "rationale": "Invoices are paid",
+   "value": {
+    "description": "A payment",
+    "states": [
+     "executed",
+     "returned"
+    ],
+    "attributes": {
+     "reference": "string",
+     "amount": "number",
+     "paid_on": "date"
+    }
+   }
+  },
+  {
+   "kind": "entity",
+   "name": "BankAccount",
+   "rationale": "Payments move between accounts",
+   "value": {
+    "description": "A bank account, by a fictitious identifier",
+    "states": [
+     "active",
+     "closed"
+    ],
+    "attributes": {
+     "identifier": "string",
+     "declared_holder": "string"
+    }
+   }
+  },
+  {
+   "kind": "entity",
+   "name": "OwnershipDeclaration",
+   "rationale": "Beneficial ownership is declared",
+   "value": {
+    "description": "A declaration of beneficial ownership, with its period",
+    "states": [
+     "declared",
+     "superseded"
+    ],
+    "attributes": {
+     "share_percent": "number",
+     "valid_from": "date",
+     "valid_to": "date",
+     "source": "string"
+    }
+   }
+  },
+  {
+   "kind": "entity",
+   "name": "Association",
+   "rationale": "A link between two parties is itself a record, with how it is known",
+   "value": {
+    "description": "A link between two organisations. Its state says how it is known: an observed fact, a confirmed assertion, an inference, or an unresolved hypothesis",
+    "states": [
+     "observed_fact",
+     "confirmed_assertion",
+     "inference",
+     "unresolved_hypothesis"
+    ],
+    "attributes": {
+     "kind": "string",
+     "note": "string",
+     "valid_from": "date",
+     "valid_to": "date",
+     "evidence_quality": "string",
+     "source_reference": "string"
+    }
+   }
+  },
+  {
+   "kind": "entity",
+   "name": "Evidence",
+   "rationale": "Findings rest on documents",
+   "value": {
+    "description": "A document, with its source and its quality",
+    "states": [
+     "received",
+     "verified",
+     "challenged"
+    ],
+    "attributes": {
+     "title": "string",
+     "source": "string",
+     "quality": "string",
+     "obtained_on": "date"
+    }
+   }
+  },
+  {
+   "kind": "entity",
+   "name": "Hypothesis",
+   "rationale": "An investigation works with hypotheses and their alternatives",
+   "value": {
+    "description": "An investigative hypothesis with the competing explanation",
+    "states": [
+     "open",
+     "supported",
+     "not_supported"
+    ],
+    "attributes": {
+     "statement": "string",
+     "alternative_explanation": "string",
+     "basis": "string"
+    }
+   }
+  },
+  {
+   "kind": "entity",
+   "name": "CaseFile",
+   "rationale": "The work is organised in case files",
+   "value": {
+    "description": "A case file",
+    "states": [
+     "opened",
+     "relationships_extracted",
+     "pattern_flagged",
+     "alternatives_recorded",
+     "escalated",
+     "summarised"
+    ],
+    "attributes": {
+     "reference": "string",
+     "subject": "string",
+     "unusual_links": "number",
+     "unusual_amount": "number",
+     "evidence_quality": "string",
+     "alternative_recorded": "boolean",
+     "summary_note": "string"
+    }
+   }
+  },
+  {
+   "kind": "entity",
+   "name": "ReviewRecord",
+   "rationale": "A person's decision on a case is recorded",
+   "value": {
+    "description": "The record of a person's review decision",
+    "states": [
+     "recorded"
+    ],
+    "attributes": {
+     "decided_by": "string",
+     "outcome": "string",
+     "reason": "string"
+    }
+   }
+  },
+  {
+   "kind": "relationship",
+   "rationale": "A case examines organisations",
+   "value": {
+    "from": "CaseFile",
+    "to": "Organization",
+    "type": "subjects",
+    "cardinality": "1..*"
+   }
+  },
+  {
+   "kind": "relationship",
+   "rationale": "A case holds hypotheses",
+   "value": {
+    "from": "CaseFile",
+    "to": "Hypothesis",
+    "type": "hypotheses",
+    "cardinality": "1..*"
+   }
+  },
+  {
+   "kind": "relationship",
+   "rationale": "A case cites evidence",
+   "value": {
+    "from": "CaseFile",
+    "to": "Evidence",
+    "type": "evidence",
+    "cardinality": "1..*"
+   }
+  },
+  {
+   "kind": "relationship",
+   "rationale": "A case records review decisions",
+   "value": {
+    "from": "CaseFile",
+    "to": "ReviewRecord",
+    "type": "decisions",
+    "cardinality": "1..*"
+   }
+  },
+  {
+   "kind": "relationship",
+   "rationale": "An organisation is party to contracts",
+   "value": {
+    "from": "Organization",
+    "to": "Contract",
+    "type": "contracts",
+    "cardinality": "1..*"
+   }
+  },
+  {
+   "kind": "relationship",
+   "rationale": "A contract is billed by invoices",
+   "value": {
+    "from": "Contract",
+    "to": "Invoice",
+    "type": "invoices",
+    "cardinality": "1..*"
+   }
+  },
+  {
+   "kind": "relationship",
+   "rationale": "An invoice is settled by payments",
+   "value": {
+    "from": "Invoice",
+    "to": "Payment",
+    "type": "payments",
+    "cardinality": "1..*"
+   }
+  },
+  {
+   "kind": "relationship",
+   "rationale": "A payment leaves an account",
+   "value": {
+    "from": "Payment",
+    "to": "BankAccount",
+    "type": "paid_from",
+    "cardinality": "1..*"
+   }
+  },
+  {
+   "kind": "relationship",
+   "rationale": "A payment reaches an account",
+   "value": {
+    "from": "Payment",
+    "to": "BankAccount",
+    "type": "paid_to",
+    "cardinality": "1..*"
+   }
+  },
+  {
+   "kind": "relationship",
+   "rationale": "An organisation holds accounts",
+   "value": {
+    "from": "Organization",
+    "to": "BankAccount",
+    "type": "accounts",
+    "cardinality": "1..*"
+   }
+  },
+  {
+   "kind": "relationship",
+   "rationale": "A person acts for an organisation",
+   "value": {
+    "from": "Person",
+    "to": "Organization",
+    "type": "mandates",
+    "cardinality": "1..*"
+   }
+  },
+  {
+   "kind": "relationship",
+   "rationale": "An organisation has declared owners",
+   "value": {
+    "from": "Organization",
+    "to": "OwnershipDeclaration",
+    "type": "declared_owners",
+    "cardinality": "1..*"
+   }
+  },
+  {
+   "kind": "relationship",
+   "rationale": "A declaration names an owner",
+   "value": {
+    "from": "OwnershipDeclaration",
+    "to": "Person",
+    "type": "owner",
+    "cardinality": "1..*"
+   }
+  },
+  {
+   "kind": "relationship",
+   "rationale": "A link has a first party",
+   "value": {
+    "from": "Association",
+    "to": "Organization",
+    "type": "first_party",
+    "cardinality": "1..*"
+   }
+  },
+  {
+   "kind": "relationship",
+   "rationale": "A link has a second party",
+   "value": {
+    "from": "Association",
+    "to": "Organization",
+    "type": "second_party",
+    "cardinality": "1..*"
+   }
+  },
+  {
+   "kind": "relationship",
+   "rationale": "A hypothesis rests on links",
+   "value": {
+    "from": "Hypothesis",
+    "to": "Association",
+    "type": "rests_on",
+    "cardinality": "1..*"
+   }
+  },
+  {
+   "kind": "action",
+   "name": "extract_relationships",
+   "rationale": "Extract the relationships between the parties of the case",
+   "value": {
+    "description": "Extract the relationships between the parties of the case",
+    "capability": "analysis.extract",
+    "requires": [
+     "CaseFile.status == 'opened'"
+    ],
+    "effects": {
+     "CaseFile": {
+      "status": "relationships_extracted"
+     }
+    },
+    "side_effect": "none"
+   }
+  },
+  {
+   "kind": "action",
+   "name": "close_without_finding",
+   "rationale": "Close the case: nothing unusual was found",
+   "value": {
+    "description": "Close the case: nothing unusual was found",
+    "capability": "reporting.close",
+    "requires": [
+     "CaseFile.status == 'relationships_extracted'",
+     "CaseFile.unusual_links == 0"
+    ],
+    "effects": {
+     "CaseFile": {
+      "status": "summarised",
+      "summary_note": "closed without finding"
+     }
+    },
+    "side_effect": "idempotent"
+   }
+  },
+  {
+   "kind": "action",
+   "name": "flag_unusual_pattern",
+   "rationale": "Flag a pattern that merits examination (a flag is not a finding)",
+   "value": {
+    "description": "Flag a pattern that merits examination (a flag is not a finding)",
+    "capability": "analysis.flag",
+    "requires": [
+     "CaseFile.status == 'relationships_extracted'",
+     "CaseFile.unusual_links > 0",
+     "CaseFile.unusual_amount >= {materiality_amount}"
+    ],
+    "effects": {
+     "CaseFile": {
+      "status": "pattern_flagged"
+     }
+    },
+    "side_effect": "none"
+   }
+  },
+  {
+   "kind": "action",
+   "name": "record_alternative_explanation",
+   "rationale": "Record the competing, innocent explanation beside the hypothesis",
+   "value": {
+    "description": "Record the competing, innocent explanation beside the hypothesis",
+    "capability": "analysis.alternatives",
+    "requires": [
+     "CaseFile.status == 'pattern_flagged'",
+     "Hypothesis.status == 'open'"
+    ],
+    "effects": {
+     "CaseFile": {
+      "status": "alternatives_recorded",
+      "alternative_recorded": "True"
+     }
+    },
+    "side_effect": "none"
+   }
+  },
+  {
+   "kind": "action",
+   "name": "escalate_for_investigation",
+   "rationale": "Ask for the case to be escalated to a formal investigation",
+   "value": {
+    "description": "Ask for the case to be escalated to a formal investigation",
+    "capability": "cases.escalate",
+    "requires": [
+     "CaseFile.status == 'alternatives_recorded'"
+    ],
+    "effects": {
+     "CaseFile": {
+      "status": "escalated"
+     }
+    },
+    "side_effect": "non_idempotent"
+   }
+  },
+  {
+   "kind": "action",
+   "name": "write_summary",
+   "rationale": "Write the investigative summary: facts, inferences, alternatives, the decision",
+   "value": {
+    "description": "Write the investigative summary: facts, inferences, alternatives, the decision",
+    "capability": "reporting.summary",
+    "requires": [
+     "CaseFile.status == 'escalated'"
+    ],
+    "effects": {
+     "CaseFile": {
+      "status": "summarised",
+      "summary_note": "summary written after review"
+     }
+    },
+    "side_effect": "idempotent"
+   }
+  },
+  {
+   "kind": "rule",
+   "rationale": "A {reviewer_role} decides every escalation: no association is treated as proof",
+   "uses": [
+    "reviewer_role"
+   ],
+   "value": {
+    "id": "R-ESCALATION-REVIEW",
+    "type": "human_review",
+    "action": "escalate_for_investigation",
+    "reviewer": "{reviewer_role}",
+    "description": "A {reviewer_role} decides every escalation: no association is treated as proof"
+   }
+  },
+  {
+   "kind": "rule",
+   "rationale": "A case that rests only on unverified evidence is never escalated",
+   "uses": [],
+   "value": {
+    "id": "R-NO-UNVERIFIED",
+    "type": "prohibition",
+    "action": "escalate_for_investigation",
+    "when": "CaseFile.evidence_quality == 'unverified'",
+    "description": "A case that rests only on unverified evidence is never escalated"
+   }
+  },
+  {
+   "kind": "rule",
+   "rationale": "The competing explanation is recorded before any escalation",
+   "uses": [],
+   "value": {
+    "id": "R-ALTERNATIVE-FIRST",
+    "type": "mandatory_step",
+    "step": "record_alternative_explanation",
+    "before": "escalate_for_investigation",
+    "description": "The competing explanation is recorded before any escalation"
+   }
+  },
+  {
+   "kind": "rule",
+   "rationale": "Only a {analyst_role} prepares an escalation",
+   "uses": [
+    "analyst_role"
+   ],
+   "value": {
+    "id": "R-ESCALATE-ROLE",
+    "type": "action_access",
+    "action": "escalate_for_investigation",
+    "roles": [
+     "{analyst_role}"
+    ],
+    "description": "Only a {analyst_role} prepares an escalation"
+   }
+  },
+  {
+   "kind": "rule",
+   "rationale": "Only a {financial_role} sees bank account records",
+   "uses": [
+    "financial_role"
+   ],
+   "value": {
+    "id": "R-ACCOUNT-ROWS",
+    "type": "row_access",
+    "entity": "BankAccount",
+    "roles": [
+     "{financial_role}"
+    ],
+    "description": "Only a {financial_role} sees bank account records"
+   }
+  },
+  {
+   "kind": "rule",
+   "rationale": "Only a {analyst_role} changes the count of unusual links",
+   "uses": [
+    "analyst_role"
+   ],
+   "value": {
+    "id": "R-FLAG-FIGURES",
+    "type": "write_access",
+    "field": "CaseFile.unusual_links",
+    "roles": [
+     "{analyst_role}"
+    ],
+    "description": "Only a {analyst_role} changes the count of unusual links"
+   }
+  },
+  {
+   "kind": "goal",
+   "name": "case_summarised",
+   "rationale": "The outcome asked for",
+   "value": {
+    "description": "The case has an auditable summary",
+    "target": "CaseFile.status == 'summarised'"
+   }
+  },
+  {
+   "kind": "case_template",
+   "name": "investigation_case",
+   "rationale": "A run starts from one case file",
+   "value": {
+    "description": "A case file with its hypotheses and its evidence",
+    "root": "CaseFile",
+    "entities": {
+     "CaseFile": "self",
+     "Hypothesis": "hypotheses",
+     "Evidence": "evidence"
+    }
+   }
+  }
+ ],
+ "roles": [
+  {
+   "name": "{analyst_role}",
+   "description": "Works on cases; the agent acts with this role"
+  },
+  {
+   "name": "{reviewer_role}",
+   "description": "Reviewer role: decides every escalation"
+  },
+  {
+   "name": "{financial_role}",
+   "description": "May see bank account records"
+  }
+ ],
+ "agents": [
+  {
+   "name": "entity_resolution_agent",
+   "description": "Proposed responsibility: proposes when two records may be the same party, as a hypothesis (no action of its own here)",
+   "actions": []
+  },
+  {
+   "name": "relationship_analysis_agent",
+   "description": "Proposed responsibility: extracts relationships and flags patterns that merit examination",
+   "actions": [
+    "extract_relationships",
+    "flag_unusual_pattern"
+   ]
+  },
+  {
+   "name": "evidence_review_agent",
+   "description": "Proposed responsibility: records the competing explanation and the quality of the evidence",
+   "actions": [
+    "record_alternative_explanation"
+   ]
+  },
+  {
+   "name": "transaction_consistency_agent",
+   "description": "Proposed responsibility: compares invoices, payments and contracts (no action of its own here)",
+   "actions": []
+  },
+  {
+   "name": "case_reporting_agent",
+   "description": "Proposed responsibility: prepares escalations for a person's decision and writes summaries",
+   "actions": [
+    "close_without_finding",
+    "escalate_for_investigation",
+    "write_summary"
+   ]
+  }
+ ],
+ "integrations": [
+  {
+   "capability": "cases.escalate",
+   "system": "{case_system}",
+   "description": "Opens a formal investigation; simulated here: nothing is opened anywhere"
+  }
+ ],
+ "assumptions": [
+  "A flag means that something merits examination: it is never a finding about a person or a company",
+  "Each link between parties is recorded with how it is known and the document it rests on"
+ ],
+ "unknowns": [
+  "Legal basis and retention rules for investigation records",
+  "Which external sources may be consulted, if any"
+ ],
+ "sample_case": {
+  "CaseFile": {
+   "status": "opened",
+   "reference": "sample",
+   "subject": "sample",
+   "unusual_links": 1,
+   "unusual_amount": 20000,
+   "evidence_quality": "primary",
+   "alternative_recorded": false,
+   "summary_note": ""
+  },
+  "Hypothesis": {
+   "status": "open",
+   "statement": "sample",
+   "alternative_explanation": "sample",
+   "basis": "sample"
+  },
+  "Evidence": {
+   "status": "verified",
+   "title": "sample",
+   "source": "sample",
+   "quality": "primary",
+   "obtained_on": "2026-01-01"
+  }
+ },
+ "solution": {
+  "agents": {
+   "case_analyst": {
+    "purpose": "Takes a case file from the extraction of relationships to a reviewed, auditable summary",
+    "responsibilities": [
+     "Extract relationships",
+     "Flag a pattern that merits examination",
+     "Record the competing explanation",
+     "Prepare an escalation for the person the policy names",
+     "Write the summary"
+    ],
+    "roles": [
+     "{analyst_role}"
+    ],
+    "goals": [
+     "case_summarised"
+    ],
+    "autonomy": {
+     "mode": "policy"
+    },
+    "tools": [
+     {
+      "action": "extract_relationships",
+      "tool": "simulated.succeed",
+      "message": "relationships listed from the case's records (simulated: nothing left Autology)"
+     },
+     {
+      "action": "close_without_finding",
+      "tool": "simulated.succeed",
+      "message": "case closed without finding (simulated: nothing left Autology)"
+     },
+     {
+      "action": "flag_unusual_pattern",
+      "tool": "simulated.succeed",
+      "message": "pattern flagged for examination; a flag is not a finding (simulated: nothing left Autology)"
+     },
+     {
+      "action": "record_alternative_explanation",
+      "tool": "simulated.succeed",
+      "message": "competing explanation recorded beside the hypothesis (simulated: nothing left Autology)"
+     },
+     {
+      "action": "escalate_for_investigation",
+      "tool": "simulated.succeed",
+      "message": "escalation recorded; no investigation was opened anywhere (simulated: nothing left Autology)"
+     },
+     {
+      "action": "write_summary",
+      "tool": "simulated.succeed",
+      "message": "summary written from the case's records (simulated: nothing left Autology)"
+     }
+    ]
+   }
+  },
+  "sample_data": {
+   "instances": [
+    {
+     "type": "Organization",
+     "id": "ORG-1",
+     "status": "active",
+     "name": "Brightwater Supplies Ltd (fictional)",
+     "registration_id": "FICT-REG-1001",
+     "jurisdiction": "Fictland",
+     "kind": "customer of the group"
+    },
+    {
+     "type": "Organization",
+     "id": "ORG-2",
+     "status": "active",
+     "name": "Calder & Finch Trading (fictional)",
+     "registration_id": "FICT-REG-1002",
+     "jurisdiction": "Fictland",
+     "kind": "supplier"
+    },
+    {
+     "type": "Organization",
+     "id": "ORG-3",
+     "status": "active",
+     "name": "Dunmore Logistics (fictional)",
+     "registration_id": "FICT-REG-1003",
+     "jurisdiction": "Fictland",
+     "kind": "supplier"
+    },
+    {
+     "type": "Organization",
+     "id": "ORG-4",
+     "status": "active",
+     "name": "Calder and Finch Trading Limited (fictional)",
+     "registration_id": "",
+     "jurisdiction": "Fictland",
+     "kind": "supplier (possibly the same as ORG-2)"
+    },
+    {
+     "type": "Organization",
+     "id": "ORG-5",
+     "status": "active",
+     "name": "Eastbrook Agency (fictional)",
+     "registration_id": "FICT-REG-1005",
+     "jurisdiction": "Fictland",
+     "kind": "commercial intermediary"
+    },
+    {
+     "type": "Person",
+     "id": "PER-1",
+     "status": "active",
+     "name": "A. Example (fictional)",
+     "business_role": "director"
+    },
+    {
+     "type": "Person",
+     "id": "PER-2",
+     "status": "active",
+     "name": "B. Sample (fictional)",
+     "business_role": "procurement manager"
+    },
+    {
+     "type": "Contract",
+     "id": "CON-1",
+     "status": "active",
+     "reference": "FICT-CON-501",
+     "value": 120000,
+     "signed_on": "2026-02-01"
+    },
+    {
+     "type": "Contract",
+     "id": "CON-2",
+     "status": "active",
+     "reference": "FICT-CON-502",
+     "value": 48000,
+     "signed_on": "2026-03-15"
+    },
+    {
+     "type": "Invoice",
+     "id": "INV-1",
+     "status": "paid",
+     "reference": "FICT-INV-9001",
+     "amount": 24000,
+     "issued_on": "2026-04-02"
+    },
+    {
+     "type": "Invoice",
+     "id": "INV-2",
+     "status": "paid",
+     "reference": "FICT-INV-9002",
+     "amount": 24000,
+     "issued_on": "2026-04-03"
+    },
+    {
+     "type": "Invoice",
+     "id": "INV-3",
+     "status": "issued",
+     "reference": "FICT-INV-9003",
+     "amount": 9000,
+     "issued_on": "2026-05-10"
+    },
+    {
+     "type": "Payment",
+     "id": "PAY-1",
+     "status": "executed",
+     "reference": "FICT-PAY-7001",
+     "amount": 24000,
+     "paid_on": "2026-04-20"
+    },
+    {
+     "type": "Payment",
+     "id": "PAY-2",
+     "status": "executed",
+     "reference": "FICT-PAY-7002",
+     "amount": 24000,
+     "paid_on": "2026-04-21"
+    },
+    {
+     "type": "BankAccount",
+     "id": "ACC-1",
+     "status": "active",
+     "identifier": "FICT-ACC-0001",
+     "declared_holder": "ORG-1"
+    },
+    {
+     "type": "BankAccount",
+     "id": "ACC-2",
+     "status": "active",
+     "identifier": "FICT-ACC-0002",
+     "declared_holder": "ORG-5"
+    },
+    {
+     "type": "BankAccount",
+     "id": "ACC-3",
+     "status": "active",
+     "identifier": "FICT-ACC-0003",
+     "declared_holder": "ORG-3"
+    },
+    {
+     "type": "OwnershipDeclaration",
+     "id": "OWN-1",
+     "status": "declared",
+     "share_percent": 40,
+     "valid_from": "2025-01-01",
+     "valid_to": "",
+     "source": "annual declaration 2025 (fictional)"
+    },
+    {
+     "type": "Evidence",
+     "id": "EV-1",
+     "status": "verified",
+     "title": "Registry extract of directors (fictional)",
+     "source": "company registry (fictional)",
+     "quality": "primary",
+     "obtained_on": "2026-06-01"
+    },
+    {
+     "type": "Evidence",
+     "id": "EV-2",
+     "status": "received",
+     "title": "Payment ledger export (fictional)",
+     "source": "group finance (fictional)",
+     "quality": "primary",
+     "obtained_on": "2026-06-02"
+    },
+    {
+     "type": "Evidence",
+     "id": "EV-3",
+     "status": "received",
+     "title": "Unsigned note received by post (fictional)",
+     "source": "anonymous",
+     "quality": "unverified",
+     "obtained_on": "2026-06-05"
+    },
+    {
+     "type": "Association",
+     "id": "ASC-1",
+     "status": "observed_fact",
+     "kind": "shares_director",
+     "note": "PER-1 is listed as a director of both companies",
+     "valid_from": "2025-01-01",
+     "valid_to": "",
+     "evidence_quality": "primary",
+     "source_reference": "EV-1"
+    },
+    {
+     "type": "Association",
+     "id": "ASC-2",
+     "status": "unresolved_hypothesis",
+     "kind": "same_entity",
+     "note": "Similar names; one has no registration identifier. Could be one company, a trading name, or two companies",
+     "valid_from": "",
+     "valid_to": "",
+     "evidence_quality": "unverified",
+     "source_reference": ""
+    },
+    {
+     "type": "Association",
+     "id": "ASC-3",
+     "status": "inference",
+     "kind": "payments_through_intermediary",
+     "note": "Two payments of the same amount on consecutive days pass through the intermediary's account",
+     "valid_from": "2026-04-20",
+     "valid_to": "2026-04-21",
+     "evidence_quality": "primary",
+     "source_reference": "EV-2"
+    },
+    {
+     "type": "Association",
+     "id": "ASC-4",
+     "status": "confirmed_assertion",
+     "kind": "declared_ownership",
+     "note": "PER-1 declared a 40 % holding; confirmed by the company secretary (fictional)",
+     "valid_from": "2025-01-01",
+     "valid_to": "",
+     "evidence_quality": "primary",
+     "source_reference": "OWN-1"
+    },
+    {
+     "type": "Hypothesis",
+     "id": "HYP-1",
+     "status": "open",
+     "statement": "Payments to the intermediary may return value to a company that shares a director with the payer",
+     "alternative_explanation": "The intermediary is a freight agent paid by both companies for separate shipments; the shared directorship was declared in 2025 and the two invoices match two deliveries",
+     "basis": "inference from ASC-1 and ASC-3: an association is not proof of wrongdoing"
+    },
+    {
+     "type": "Hypothesis",
+     "id": "HYP-2",
+     "status": "open",
+     "statement": "The unsigned note alleges an undisclosed link between two suppliers",
+     "alternative_explanation": "The note is anonymous and unverified; the similar names may be one company's trading name",
+     "basis": "unverified allegation"
+    },
+    {
+     "type": "Hypothesis",
+     "id": "HYP-0",
+     "status": "open",
+     "statement": "Routine review: no pattern expected",
+     "alternative_explanation": "None needed: nothing unusual was found",
+     "basis": "routine sampling"
+    },
+    {
+     "type": "CaseFile",
+     "id": "CASE-3001",
+     "status": "opened",
+     "reference": "CASE-3001",
+     "subject": "Routine review of ORG-2",
+     "unusual_links": 0,
+     "unusual_amount": 0,
+     "evidence_quality": "primary",
+     "alternative_recorded": false,
+     "summary_note": ""
+    },
+    {
+     "type": "CaseFile",
+     "id": "CASE-3002",
+     "status": "opened",
+     "reference": "CASE-3002",
+     "subject": "Payments from ORG-1 through ORG-5 to ORG-3",
+     "unusual_links": 2,
+     "unusual_amount": 48000,
+     "evidence_quality": "primary",
+     "alternative_recorded": false,
+     "summary_note": ""
+    },
+    {
+     "type": "CaseFile",
+     "id": "CASE-3003",
+     "status": "opened",
+     "reference": "CASE-3003",
+     "subject": "Anonymous allegation about ORG-2 and ORG-4",
+     "unusual_links": 1,
+     "unusual_amount": 33000,
+     "evidence_quality": "unverified",
+     "alternative_recorded": false,
+     "summary_note": ""
+    }
+   ],
+   "links": [
+    [
+     "CASE-3001",
+     "subjects",
+     "ORG-2"
+    ],
+    [
+     "CASE-3001",
+     "hypotheses",
+     "HYP-0"
+    ],
+    [
+     "CASE-3001",
+     "evidence",
+     "EV-2"
+    ],
+    [
+     "CASE-3002",
+     "subjects",
+     "ORG-1"
+    ],
+    [
+     "CASE-3002",
+     "subjects",
+     "ORG-3"
+    ],
+    [
+     "CASE-3002",
+     "subjects",
+     "ORG-5"
+    ],
+    [
+     "CASE-3002",
+     "hypotheses",
+     "HYP-1"
+    ],
+    [
+     "CASE-3002",
+     "evidence",
+     "EV-1"
+    ],
+    [
+     "CASE-3003",
+     "subjects",
+     "ORG-2"
+    ],
+    [
+     "CASE-3003",
+     "subjects",
+     "ORG-4"
+    ],
+    [
+     "CASE-3003",
+     "hypotheses",
+     "HYP-2"
+    ],
+    [
+     "CASE-3003",
+     "evidence",
+     "EV-3"
+    ],
+    [
+     "ORG-1",
+     "contracts",
+     "CON-1"
+    ],
+    [
+     "ORG-5",
+     "contracts",
+     "CON-1"
+    ],
+    [
+     "ORG-3",
+     "contracts",
+     "CON-2"
+    ],
+    [
+     "ORG-5",
+     "contracts",
+     "CON-2"
+    ],
+    [
+     "CON-1",
+     "invoices",
+     "INV-1"
+    ],
+    [
+     "CON-2",
+     "invoices",
+     "INV-2"
+    ],
+    [
+     "CON-2",
+     "invoices",
+     "INV-3"
+    ],
+    [
+     "INV-1",
+     "payments",
+     "PAY-1"
+    ],
+    [
+     "INV-2",
+     "payments",
+     "PAY-2"
+    ],
+    [
+     "PAY-1",
+     "paid_from",
+     "ACC-1"
+    ],
+    [
+     "PAY-1",
+     "paid_to",
+     "ACC-2"
+    ],
+    [
+     "PAY-2",
+     "paid_from",
+     "ACC-2"
+    ],
+    [
+     "PAY-2",
+     "paid_to",
+     "ACC-3"
+    ],
+    [
+     "ORG-1",
+     "accounts",
+     "ACC-1"
+    ],
+    [
+     "ORG-5",
+     "accounts",
+     "ACC-2"
+    ],
+    [
+     "ORG-3",
+     "accounts",
+     "ACC-3"
+    ],
+    [
+     "PER-1",
+     "mandates",
+     "ORG-1"
+    ],
+    [
+     "PER-1",
+     "mandates",
+     "ORG-3"
+    ],
+    [
+     "PER-2",
+     "mandates",
+     "ORG-1"
+    ],
+    [
+     "ORG-3",
+     "declared_owners",
+     "OWN-1"
+    ],
+    [
+     "OWN-1",
+     "owner",
+     "PER-1"
+    ],
+    [
+     "ASC-1",
+     "first_party",
+     "ORG-1"
+    ],
+    [
+     "ASC-1",
+     "second_party",
+     "ORG-3"
+    ],
+    [
+     "ASC-2",
+     "first_party",
+     "ORG-2"
+    ],
+    [
+     "ASC-2",
+     "second_party",
+     "ORG-4"
+    ],
+    [
+     "ASC-3",
+     "first_party",
+     "ORG-1"
+    ],
+    [
+     "ASC-3",
+     "second_party",
+     "ORG-3"
+    ],
+    [
+     "ASC-4",
+     "first_party",
+     "ORG-3"
+    ],
+    [
+     "ASC-4",
+     "second_party",
+     "ORG-3"
+    ],
+    [
+     "HYP-1",
+     "rests_on",
+     "ASC-1"
+    ],
+    [
+     "HYP-1",
+     "rests_on",
+     "ASC-3"
+    ],
+    [
+     "HYP-2",
+     "rests_on",
+     "ASC-2"
+    ]
+   ]
+  }
+ }
+}

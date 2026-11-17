@@ -1,0 +1,9 @@
+{
+ "ontology": "ontology.json",
+ "store": "autology.db",
+ "users": [],
+ "ai": {
+  "provider": "sandbox"
+ },
+ "blueprints": "blueprints"
+}

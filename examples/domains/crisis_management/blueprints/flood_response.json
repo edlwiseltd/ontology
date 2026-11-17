@@ -1,0 +1,1059 @@
+{
+ "id": "flood_response",
+ "name": "Regional flood response coordination (synthetic template)",
+ "description": "Take a reported incident through validation, a proposed allocation of equipment and the assignment of a response team, with a person deciding above a limit, and publish an update. A training template on invented data: it dispatches nobody and warns nobody.",
+ "keywords": [
+  "flood",
+  "incident",
+  "emergency",
+  "shelter",
+  "municipalit",
+  "hazard",
+  "response team",
+  "evacuat",
+  "crisis"
+ ],
+ "parameters": [
+  {
+   "id": "approval_people_threshold",
+   "type": "number",
+   "default": 50,
+   "question": "From how many people at risk must a person approve the assignment of a response team?",
+   "why": "Below it the assignment may be made within the policy; from it on, a named person decides"
+  },
+  {
+   "id": "coordinator_role",
+   "type": "name",
+   "default": "duty_coordinator",
+   "question": "Which role approves assignments above that limit?",
+   "why": "The review is addressed to a role that a named member must hold"
+  },
+  {
+   "id": "operations_role",
+   "type": "name",
+   "default": "operations_officer",
+   "question": "Which role handles incidents day to day?",
+   "why": "Only this role may assign a team or publish an update; the agent acts with it"
+  },
+  {
+   "id": "dispatch_system",
+   "type": "text",
+   "default": "",
+   "question": "Which system records assignments (for example a dispatch system)?",
+   "why": "Assigning a team acts outside Autology: it needs a tool, first simulated, then a sandbox of that system"
+  }
+ ],
+ "items": [
+  {
+   "kind": "entity",
+   "name": "HazardEvent",
+   "rationale": "The brief speaks of a hazard affecting several municipalities",
+   "value": {
+    "description": "A hazard event",
+    "states": [
+     "active",
+     "closed"
+    ],
+    "attributes": {
+     "name": "string",
+     "hazard_type": "string",
+     "severity": "number"
+    }
+   }
+  },
+  {
+   "kind": "entity",
+   "name": "AffectedArea",
+   "rationale": "Incidents happen in areas the hazard affects",
+   "value": {
+    "description": "A geographic area under the hazard",
+    "states": [
+     "monitored",
+     "affected",
+     "access_restricted"
+    ],
+    "attributes": {
+     "name": "string",
+     "municipality": "string",
+     "population": "number"
+    }
+   }
+  },
+  {
+   "kind": "entity",
+   "name": "Infrastructure",
+   "rationale": "The brief asks which infrastructure is impaired",
+   "value": {
+    "description": "An item of infrastructure in an area",
+    "states": [
+     "operational",
+     "impaired",
+     "out_of_service"
+    ],
+    "attributes": {
+     "name": "string",
+     "kind": "string"
+    }
+   }
+  },
+  {
+   "kind": "entity",
+   "name": "IncidentReport",
+   "rationale": "The work starts from an incident report",
+   "value": {
+    "description": "A report of an incident, with what is known and how",
+    "states": [
+     "received",
+     "validated",
+     "resources_identified",
+     "allocation_proposed",
+     "response_assigned",
+     "updated"
+    ],
+    "attributes": {
+     "reference": "string",
+     "description": "string",
+     "reported_by": "string",
+     "source_verified": "boolean",
+     "information_basis": "string",
+     "people_at_risk": "number",
+     "update_note": "string",
+     "simulate_outage": "boolean"
+    }
+   }
+  },
+  {
+   "kind": "entity",
+   "name": "Resource",
+   "rationale": "Equipment and vehicles are allocated to incidents",
+   "value": {
+    "description": "A vehicle or an item of equipment",
+    "states": [
+     "available",
+     "reserved",
+     "deployed"
+    ],
+    "attributes": {
+     "name": "string",
+     "kind": "string",
+     "quantity": "number"
+    }
+   }
+  },
+  {
+   "kind": "entity",
+   "name": "ResponseTeam",
+   "rationale": "Teams are assigned to incidents",
+   "value": {
+    "description": "An emergency response team",
+    "states": [
+     "available",
+     "assigned",
+     "resting"
+    ],
+    "attributes": {
+     "name": "string",
+     "speciality": "string"
+    }
+   }
+  },
+  {
+   "kind": "entity",
+   "name": "Shelter",
+   "rationale": "People may need shelter",
+   "value": {
+    "description": "A shelter and its capacity",
+    "states": [
+     "open",
+     "full",
+     "closed"
+    ],
+    "attributes": {
+     "name": "string",
+     "capacity": "number",
+     "occupancy": "number"
+    }
+   }
+  },
+  {
+   "kind": "entity",
+   "name": "SupplyRequirement",
+   "rationale": "Incidents create supply needs",
+   "value": {
+    "description": "Something an incident needs",
+    "states": [
+     "open",
+     "met"
+    ],
+    "attributes": {
+     "item": "string",
+     "quantity": "number"
+    }
+   }
+  },
+  {
+   "kind": "entity",
+   "name": "Assignment",
+   "rationale": "An allocation is first proposed, then decided",
+   "value": {
+    "description": "A proposed or decided operational assignment",
+    "states": [
+     "proposed",
+     "approved",
+     "active",
+     "completed"
+    ],
+    "attributes": {
+     "task": "string",
+     "basis": "string"
+    }
+   }
+  },
+  {
+   "kind": "entity",
+   "name": "Organization",
+   "rationale": "Teams and equipment belong to responding organisations",
+   "value": {
+    "description": "A responding organisation",
+    "states": [
+     "active"
+    ],
+    "attributes": {
+     "name": "string",
+     "kind": "string"
+    }
+   }
+  },
+  {
+   "kind": "relationship",
+   "rationale": "A hazard affects areas",
+   "value": {
+    "from": "HazardEvent",
+    "to": "AffectedArea",
+    "type": "affects",
+    "cardinality": "1..*"
+   }
+  },
+  {
+   "kind": "relationship",
+   "rationale": "An incident is located in an area",
+   "value": {
+    "from": "AffectedArea",
+    "to": "IncidentReport",
+    "type": "incidents",
+    "cardinality": "1..*"
+   }
+  },
+  {
+   "kind": "relationship",
+   "rationale": "Infrastructure lies in an area",
+   "value": {
+    "from": "AffectedArea",
+    "to": "Infrastructure",
+    "type": "infrastructure",
+    "cardinality": "1..*"
+   }
+  },
+  {
+   "kind": "relationship",
+   "rationale": "Shelters serve an area",
+   "value": {
+    "from": "AffectedArea",
+    "to": "Shelter",
+    "type": "shelters",
+    "cardinality": "1..*"
+   }
+  },
+  {
+   "kind": "relationship",
+   "rationale": "An incident has supply needs",
+   "value": {
+    "from": "IncidentReport",
+    "to": "SupplyRequirement",
+    "type": "requirements",
+    "cardinality": "1..*"
+   }
+  },
+  {
+   "kind": "relationship",
+   "rationale": "An incident receives assignments",
+   "value": {
+    "from": "IncidentReport",
+    "to": "Assignment",
+    "type": "assignments",
+    "cardinality": "1..*"
+   }
+  },
+  {
+   "kind": "relationship",
+   "rationale": "An assignment names a team",
+   "value": {
+    "from": "Assignment",
+    "to": "ResponseTeam",
+    "type": "team",
+    "cardinality": "1..*"
+   }
+  },
+  {
+   "kind": "relationship",
+   "rationale": "An assignment names equipment",
+   "value": {
+    "from": "Assignment",
+    "to": "Resource",
+    "type": "equipment",
+    "cardinality": "1..*"
+   }
+  },
+  {
+   "kind": "relationship",
+   "rationale": "Teams belong to an organisation",
+   "value": {
+    "from": "Organization",
+    "to": "ResponseTeam",
+    "type": "teams",
+    "cardinality": "1..*"
+   }
+  },
+  {
+   "kind": "relationship",
+   "rationale": "Equipment belongs to an organisation",
+   "value": {
+    "from": "Organization",
+    "to": "Resource",
+    "type": "resources",
+    "cardinality": "1..*"
+   }
+  },
+  {
+   "kind": "action",
+   "name": "validate_report",
+   "rationale": "Check that the report comes from a verified source",
+   "value": {
+    "description": "Check that the report comes from a verified source",
+    "capability": "intelligence.validate",
+    "requires": [
+     "IncidentReport.status == 'received'",
+     "IncidentReport.source_verified == True"
+    ],
+    "effects": {
+     "IncidentReport": {
+      "status": "validated"
+     }
+    },
+    "side_effect": "none"
+   }
+  },
+  {
+   "kind": "action",
+   "name": "identify_resources",
+   "rationale": "List the teams and equipment that could serve the incident",
+   "value": {
+    "description": "List the teams and equipment that could serve the incident",
+    "capability": "resources.identify",
+    "requires": [
+     "IncidentReport.status == 'validated'"
+    ],
+    "effects": {
+     "IncidentReport": {
+      "status": "resources_identified"
+     }
+    },
+    "side_effect": "none"
+   }
+  },
+  {
+   "kind": "action",
+   "name": "propose_allocation",
+   "rationale": "Propose an allocation of equipment (a recommendation, not a decision)",
+   "value": {
+    "description": "Propose an allocation of equipment (a recommendation, not a decision)",
+    "capability": "logistics.plan",
+    "requires": [
+     "IncidentReport.status == 'resources_identified'",
+     "Resource.status == 'available'"
+    ],
+    "effects": {
+     "IncidentReport": {
+      "status": "allocation_proposed"
+     },
+     "Resource": {
+      "status": "reserved"
+     }
+    },
+    "side_effect": "none"
+   }
+  },
+  {
+   "kind": "action",
+   "name": "assign_response_team",
+   "rationale": "Assign the proposed team to the incident",
+   "value": {
+    "description": "Assign the proposed team to the incident",
+    "capability": "dispatch.assign",
+    "requires": [
+     "IncidentReport.status == 'allocation_proposed'",
+     "ResponseTeam.status == 'available'"
+    ],
+    "effects": {
+     "IncidentReport": {
+      "status": "response_assigned"
+     },
+     "ResponseTeam": {
+      "status": "assigned"
+     },
+     "Assignment": {
+      "status": "approved"
+     }
+    },
+    "side_effect": "non_idempotent"
+   }
+  },
+  {
+   "kind": "action",
+   "name": "publish_update",
+   "rationale": "Publish an update of the incident for the coordination centre",
+   "value": {
+    "description": "Publish an update of the incident for the coordination centre",
+    "capability": "reporting.update",
+    "requires": [
+     "IncidentReport.status == 'response_assigned'"
+    ],
+    "effects": {
+     "IncidentReport": {
+      "status": "updated"
+     }
+    },
+    "side_effect": "idempotent"
+   }
+  },
+  {
+   "kind": "rule",
+   "rationale": "A {coordinator_role} approves assigning a team when {approval_people_threshold} people or more are at risk",
+   "uses": [
+    "coordinator_role",
+    "approval_people_threshold"
+   ],
+   "value": {
+    "id": "R-ASSIGN-APPROVAL",
+    "type": "human_review",
+    "action": "assign_response_team",
+    "reviewer": "{coordinator_role}",
+    "when": "IncidentReport.people_at_risk >= {approval_people_threshold}",
+    "description": "A {coordinator_role} approves assigning a team when {approval_people_threshold} people or more are at risk"
+   }
+  },
+  {
+   "kind": "rule",
+   "rationale": "A team is never assigned on a prediction alone: a prediction is not an observed fact",
+   "uses": [],
+   "value": {
+    "id": "R-NO-PREDICTION",
+    "type": "prohibition",
+    "action": "assign_response_team",
+    "when": "IncidentReport.information_basis == 'predicted'",
+    "description": "A team is never assigned on a prediction alone: a prediction is not an observed fact"
+   }
+  },
+  {
+   "kind": "rule",
+   "rationale": "A report is validated before any team is assigned",
+   "uses": [],
+   "value": {
+    "id": "R-VALIDATE-FIRST",
+    "type": "mandatory_step",
+    "step": "validate_report",
+    "before": "assign_response_team",
+    "description": "A report is validated before any team is assigned"
+   }
+  },
+  {
+   "kind": "rule",
+   "rationale": "Only a {operations_role} assigns a team",
+   "uses": [
+    "operations_role"
+   ],
+   "value": {
+    "id": "R-ASSIGN-ROLE",
+    "type": "action_access",
+    "action": "assign_response_team",
+    "roles": [
+     "{operations_role}"
+    ],
+    "description": "Only a {operations_role} assigns a team"
+   }
+  },
+  {
+   "kind": "rule",
+   "rationale": "Only a {operations_role} publishes an update",
+   "uses": [
+    "operations_role"
+   ],
+   "value": {
+    "id": "R-UPDATE-ROLE",
+    "type": "action_access",
+    "action": "publish_update",
+    "roles": [
+     "{operations_role}"
+    ],
+    "description": "Only a {operations_role} publishes an update"
+   }
+  },
+  {
+   "kind": "rule",
+   "rationale": "Only a {coordinator_role} changes the number of people at risk",
+   "uses": [
+    "coordinator_role"
+   ],
+   "value": {
+    "id": "R-RISK-FIGURE",
+    "type": "write_access",
+    "field": "IncidentReport.people_at_risk",
+    "roles": [
+     "{coordinator_role}"
+    ],
+    "description": "Only a {coordinator_role} changes the number of people at risk"
+   }
+  },
+  {
+   "kind": "goal",
+   "name": "incident_handled",
+   "rationale": "The outcome asked for",
+   "value": {
+    "description": "The incident has an assigned response and a published update",
+    "target": "IncidentReport.status == 'updated'"
+   }
+  },
+  {
+   "kind": "case_template",
+   "name": "incident_case",
+   "rationale": "A run starts from one incident report",
+   "value": {
+    "description": "An incident with its area, its proposed assignment, the team and the equipment",
+    "root": "IncidentReport",
+    "entities": {
+     "IncidentReport": "self",
+     "AffectedArea": "^incidents",
+     "Assignment": "assignments",
+     "ResponseTeam": "assignments.team",
+     "Resource": "assignments.equipment"
+    }
+   }
+  }
+ ],
+ "roles": [
+  {
+   "name": "{operations_role}",
+   "description": "Handles incidents; the agent acts with this role"
+  },
+  {
+   "name": "{coordinator_role}",
+   "description": "Reviewer role: approves assignments when {approval_people_threshold} people or more are at risk"
+  }
+ ],
+ "agents": [
+  {
+   "name": "incident_intelligence_agent",
+   "description": "Proposed responsibility: validates incoming reports and keeps facts apart from predictions",
+   "actions": [
+    "validate_report"
+   ]
+  },
+  {
+   "name": "resource_coordination_agent",
+   "description": "Proposed responsibility: identifies usable teams and equipment and proposes an allocation",
+   "actions": [
+    "identify_resources",
+    "propose_allocation"
+   ]
+  },
+  {
+   "name": "infrastructure_impact_agent",
+   "description": "Proposed responsibility: relates incidents to impaired infrastructure (no action of its own in this template)",
+   "actions": []
+  },
+  {
+   "name": "logistics_planning_agent",
+   "description": "Proposed responsibility: prepares the assignment of a team, which a person approves above the limit",
+   "actions": [
+    "assign_response_team"
+   ]
+  },
+  {
+   "name": "situation_reporting_agent",
+   "description": "Proposed responsibility: publishes incident updates",
+   "actions": [
+    "publish_update"
+   ]
+  }
+ ],
+ "integrations": [
+  {
+   "capability": "dispatch.assign",
+   "system": "{dispatch_system}",
+   "description": "Records an assignment; simulated here: nobody is dispatched"
+  }
+ ],
+ "assumptions": [
+  "One incident has one proposed assignment under evaluation at a time",
+  "A report's basis is recorded as observed, reported or predicted by whoever enters it"
+ ],
+ "unknowns": [
+  "Evacuation authority and its legal basis",
+  "Validated hazard models (none is used: nothing is forecast)"
+ ],
+ "sample_case": {
+  "IncidentReport": {
+   "status": "received",
+   "reference": "sample",
+   "description": "sample incident",
+   "reported_by": "sample",
+   "source_verified": true,
+   "information_basis": "observed",
+   "people_at_risk": 10,
+   "update_note": "",
+   "simulate_outage": false
+  },
+  "AffectedArea": {
+   "status": "affected",
+   "name": "Sample area",
+   "municipality": "Sample",
+   "population": 1000
+  },
+  "Assignment": {
+   "status": "proposed",
+   "task": "sample",
+   "basis": "recommendation"
+  },
+  "ResponseTeam": {
+   "status": "available",
+   "name": "Sample team",
+   "speciality": "flood response"
+  },
+  "Resource": {
+   "status": "available",
+   "name": "Sample pump",
+   "kind": "equipment",
+   "quantity": 1
+  }
+ },
+ "solution": {
+  "agents": {
+   "response_coordinator": {
+    "purpose": "Takes an incident report to an assigned response and a published update, within the policy",
+    "responsibilities": [
+     "Validate the report",
+     "Identify usable teams and equipment",
+     "Propose an allocation",
+     "Assign a team, or ask the person the policy names",
+     "Publish an update"
+    ],
+    "roles": [
+     "{operations_role}"
+    ],
+    "goals": [
+     "incident_handled"
+    ],
+    "autonomy": {
+     "mode": "policy"
+    },
+    "tools": [
+     {
+      "action": "validate_report",
+      "tool": "simulated.succeed",
+      "message": "report checked against its source (simulated: nothing left Autology)"
+     },
+     {
+      "action": "identify_resources",
+      "tool": "simulated.fail",
+      "when": "IncidentReport.simulate_outage == True",
+      "error": "the resource register is not reachable (simulated outage)"
+     },
+     {
+      "action": "propose_allocation",
+      "tool": "simulated.succeed",
+      "message": "allocation proposed as a recommendation (simulated: nothing left Autology)"
+     },
+     {
+      "action": "assign_response_team",
+      "tool": "simulated.succeed",
+      "message": "assignment recorded; nobody was dispatched (simulated: nothing left Autology)"
+     },
+     {
+      "action": "publish_update",
+      "tool": "simulated.succeed",
+      "message": "update published to the coordination centre only (simulated: nothing left Autology)"
+     }
+    ]
+   }
+  },
+  "sample_data": {
+   "instances": [
+    {
+     "type": "Organization",
+     "id": "ORG-1",
+     "status": "active",
+     "name": "Riverbend Civil Protection (fictional)",
+     "kind": "regional coordination centre"
+    },
+    {
+     "type": "HazardEvent",
+     "id": "HZ-1",
+     "status": "active",
+     "name": "Alder River flood (fictional exercise)",
+     "hazard_type": "river flood",
+     "severity": 3
+    },
+    {
+     "type": "AffectedArea",
+     "id": "AREA-NORTHMERE",
+     "status": "affected",
+     "name": "Northmere (fictional municipality)",
+     "municipality": "Northmere",
+     "population": 8400
+    },
+    {
+     "type": "AffectedArea",
+     "id": "AREA-EASTWICK",
+     "status": "affected",
+     "name": "Eastwick (fictional municipality)",
+     "municipality": "Eastwick",
+     "population": 3100
+    },
+    {
+     "type": "AffectedArea",
+     "id": "AREA-SOUTHHOLM",
+     "status": "monitored",
+     "name": "Southholm (fictional municipality)",
+     "municipality": "Southholm",
+     "population": 5200
+    },
+    {
+     "type": "Infrastructure",
+     "id": "INF-PUMP-1",
+     "status": "impaired",
+     "name": "Northmere pumping station (fictional)",
+     "kind": "water"
+    },
+    {
+     "type": "Infrastructure",
+     "id": "INF-BRIDGE-1",
+     "status": "operational",
+     "name": "Eastwick road bridge (fictional)",
+     "kind": "road"
+    },
+    {
+     "type": "Shelter",
+     "id": "SH-1",
+     "status": "open",
+     "name": "Northmere sports hall (fictional)",
+     "capacity": 300,
+     "occupancy": 40
+    },
+    {
+     "type": "SupplyRequirement",
+     "id": "SUP-1",
+     "status": "open",
+     "item": "sandbags",
+     "quantity": 2000
+    },
+    {
+     "type": "IncidentReport",
+     "id": "INC-2001",
+     "status": "received",
+     "reference": "INC-2001",
+     "reported_by": "municipal duty officer (fictional)",
+     "source_verified": true,
+     "information_basis": "observed",
+     "people_at_risk": 12,
+     "update_note": "",
+     "simulate_outage": false,
+     "description": "Water entering the basement of a care home; 12 residents"
+    },
+    {
+     "type": "Assignment",
+     "id": "ASG-2001",
+     "status": "proposed",
+     "task": "pumping and sandbagging",
+     "basis": "recommendation"
+    },
+    {
+     "type": "ResponseTeam",
+     "id": "TEAM-2001",
+     "status": "available",
+     "name": "Response team 2001 (fictional)",
+     "speciality": "flood response"
+    },
+    {
+     "type": "Resource",
+     "id": "RES-2001",
+     "status": "available",
+     "name": "Mobile pump set 2001 (fictional)",
+     "kind": "equipment",
+     "quantity": 2
+    },
+    {
+     "type": "IncidentReport",
+     "id": "INC-2002",
+     "status": "received",
+     "reference": "INC-2002",
+     "reported_by": "municipal duty officer (fictional)",
+     "source_verified": true,
+     "information_basis": "observed",
+     "people_at_risk": 180,
+     "update_note": "",
+     "simulate_outage": false,
+     "description": "Embankment overtopping near a housing estate"
+    },
+    {
+     "type": "Assignment",
+     "id": "ASG-2002",
+     "status": "proposed",
+     "task": "pumping and sandbagging",
+     "basis": "recommendation"
+    },
+    {
+     "type": "ResponseTeam",
+     "id": "TEAM-2002",
+     "status": "available",
+     "name": "Response team 2002 (fictional)",
+     "speciality": "flood response"
+    },
+    {
+     "type": "Resource",
+     "id": "RES-2002",
+     "status": "available",
+     "name": "Mobile pump set 2002 (fictional)",
+     "kind": "equipment",
+     "quantity": 2
+    },
+    {
+     "type": "IncidentReport",
+     "id": "INC-2003",
+     "status": "received",
+     "reference": "INC-2003",
+     "reported_by": "municipal duty officer (fictional)",
+     "source_verified": true,
+     "information_basis": "predicted",
+     "people_at_risk": 60,
+     "update_note": "",
+     "simulate_outage": false,
+     "description": "A model run suggests the lower quarter may flood tomorrow"
+    },
+    {
+     "type": "Assignment",
+     "id": "ASG-2003",
+     "status": "proposed",
+     "task": "pumping and sandbagging",
+     "basis": "recommendation"
+    },
+    {
+     "type": "ResponseTeam",
+     "id": "TEAM-2003",
+     "status": "available",
+     "name": "Response team 2003 (fictional)",
+     "speciality": "flood response"
+    },
+    {
+     "type": "Resource",
+     "id": "RES-2003",
+     "status": "available",
+     "name": "Mobile pump set 2003 (fictional)",
+     "kind": "equipment",
+     "quantity": 2
+    },
+    {
+     "type": "IncidentReport",
+     "id": "INC-2004",
+     "status": "received",
+     "reference": "INC-2004",
+     "reported_by": "anonymous message (unverified)",
+     "source_verified": false,
+     "information_basis": "observed",
+     "people_at_risk": 5,
+     "update_note": "",
+     "simulate_outage": false,
+     "description": "Anonymous message: bridge reported damaged"
+    },
+    {
+     "type": "Assignment",
+     "id": "ASG-2004",
+     "status": "proposed",
+     "task": "pumping and sandbagging",
+     "basis": "recommendation"
+    },
+    {
+     "type": "ResponseTeam",
+     "id": "TEAM-2004",
+     "status": "available",
+     "name": "Response team 2004 (fictional)",
+     "speciality": "flood response"
+    },
+    {
+     "type": "Resource",
+     "id": "RES-2004",
+     "status": "available",
+     "name": "Mobile pump set 2004 (fictional)",
+     "kind": "equipment",
+     "quantity": 2
+    }
+   ],
+   "links": [
+    [
+     "HZ-1",
+     "affects",
+     "AREA-NORTHMERE"
+    ],
+    [
+     "HZ-1",
+     "affects",
+     "AREA-EASTWICK"
+    ],
+    [
+     "HZ-1",
+     "affects",
+     "AREA-SOUTHHOLM"
+    ],
+    [
+     "AREA-NORTHMERE",
+     "infrastructure",
+     "INF-PUMP-1"
+    ],
+    [
+     "AREA-EASTWICK",
+     "infrastructure",
+     "INF-BRIDGE-1"
+    ],
+    [
+     "AREA-NORTHMERE",
+     "shelters",
+     "SH-1"
+    ],
+    [
+     "INC-2001",
+     "requirements",
+     "SUP-1"
+    ],
+    [
+     "AREA-NORTHMERE",
+     "incidents",
+     "INC-2001"
+    ],
+    [
+     "INC-2001",
+     "assignments",
+     "ASG-2001"
+    ],
+    [
+     "ASG-2001",
+     "team",
+     "TEAM-2001"
+    ],
+    [
+     "ASG-2001",
+     "equipment",
+     "RES-2001"
+    ],
+    [
+     "ORG-1",
+     "teams",
+     "TEAM-2001"
+    ],
+    [
+     "ORG-1",
+     "resources",
+     "RES-2001"
+    ],
+    [
+     "AREA-NORTHMERE",
+     "incidents",
+     "INC-2002"
+    ],
+    [
+     "INC-2002",
+     "assignments",
+     "ASG-2002"
+    ],
+    [
+     "ASG-2002",
+     "team",
+     "TEAM-2002"
+    ],
+    [
+     "ASG-2002",
+     "equipment",
+     "RES-2002"
+    ],
+    [
+     "ORG-1",
+     "teams",
+     "TEAM-2002"
+    ],
+    [
+     "ORG-1",
+     "resources",
+     "RES-2002"
+    ],
+    [
+     "AREA-SOUTHHOLM",
+     "incidents",
+     "INC-2003"
+    ],
+    [
+     "INC-2003",
+     "assignments",
+     "ASG-2003"
+    ],
+    [
+     "ASG-2003",
+     "team",
+     "TEAM-2003"
+    ],
+    [
+     "ASG-2003",
+     "equipment",
+     "RES-2003"
+    ],
+    [
+     "ORG-1",
+     "teams",
+     "TEAM-2003"
+    ],
+    [
+     "ORG-1",
+     "resources",
+     "RES-2003"
+    ],
+    [
+     "AREA-EASTWICK",
+     "incidents",
+     "INC-2004"
+    ],
+    [
+     "INC-2004",
+     "assignments",
+     "ASG-2004"
+    ],
+    [
+     "ASG-2004",
+     "team",
+     "TEAM-2004"
+    ],
+    [
+     "ASG-2004",
+     "equipment",
+     "RES-2004"
+    ],
+    [
+     "ORG-1",
+     "teams",
+     "TEAM-2004"
+    ],
+    [
+     "ORG-1",
+     "resources",
+     "RES-2004"
+    ]
+   ]
+  }
+ }
+}

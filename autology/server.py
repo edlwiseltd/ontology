@@ -167,7 +167,7 @@ class AutologyService:
     def __init__(self, config: Dict[str, Any], base_dir: Path = Path(".")):
         from .adapters import load_approver, load_reasoner, load_tools
 
-        base = Path(base_dir)
+        base = self.base_dir = Path(base_dir)
         rel = lambda p: str((base / p).resolve())  # noqa: E731
         self.ontology_path = Path(rel(config["ontology"]))
         self.ontology = Ontology.load(self.ontology_path)

@@ -161,7 +161,7 @@ class ConfigurationService:
             rows = e.store.architect_revisions(str(body["proposal"]))
             if not rows:
                 raise ApiError(404, f"no proposal {body['proposal']!r}")
-            template, _ = match(rows[-1]["brief"])
+            template, _ = match(rows[-1]["brief"], e.architect.folders)
             if template and template.get("solution"):
                 values, _ = parameters(template, {a["id"]: a["answer"] for a in rows[-1]["answers"]})
                 candidate = fill(template["solution"], values)

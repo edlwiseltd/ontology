@@ -1,0 +1,83 @@
+{
+ "data_dir": "data",
+ "templates": {
+  "crisis-blank": {
+   "name": "Blank solution (crisis management pack)",
+   "workspaces": [
+    "crisis"
+   ],
+   "description": "An empty model with the sandbox architect and the crisis management templates (synthetic; no language model)",
+   "config": "crisis_management/server.json"
+  },
+  "netintel-blank": {
+   "name": "Blank solution (network intelligence pack)",
+   "workspaces": [
+    "netintel"
+   ],
+   "description": "An empty model with the sandbox architect and the network investigation templates (synthetic; no language model)",
+   "config": "network_intelligence/server.json"
+  }
+ },
+ "workspaces": {
+  "crisis": {
+   "name": "Autology Crisis Management (synthetic)",
+   "release_approvers": [
+    "rosa"
+   ],
+   "members": [
+    {
+     "name": "carla",
+     "token_env": "CRISIS_TOKEN_CARLA",
+     "workspace_admin": true
+    },
+    {
+     "name": "rosa",
+     "token_env": "CRISIS_TOKEN_ROSA"
+    },
+    {
+     "name": "omar",
+     "token_env": "CRISIS_TOKEN_OMAR"
+    },
+    {
+     "name": "dana",
+     "token_env": "CRISIS_TOKEN_DANA"
+    },
+    {
+     "name": "alex",
+     "token_env": "CRISIS_TOKEN_ALEX"
+    }
+   ],
+   "use_cases": {}
+  },
+  "netintel": {
+   "name": "Autology Network Intelligence (synthetic)",
+   "release_approvers": [
+    "ravi"
+   ],
+   "members": [
+    {
+     "name": "nora",
+     "token_env": "NETINTEL_TOKEN_NORA",
+     "workspace_admin": true
+    },
+    {
+     "name": "ravi",
+     "token_env": "NETINTEL_TOKEN_RAVI"
+    },
+    {
+     "name": "alan",
+     "token_env": "NETINTEL_TOKEN_ALAN"
+    },
+    {
+     "name": "cleo",
+     "token_env": "NETINTEL_TOKEN_CLEO"
+    },
+    {
+     "name": "alex",
+     "token_env": "NETINTEL_TOKEN_ALEX"
+    }
+   ],
+   "use_cases": {}
+  }
+ }
+}

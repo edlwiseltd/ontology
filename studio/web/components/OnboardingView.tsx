@@ -415,7 +415,7 @@ export default function OnboardingView({ workspace, useCase, admin, member, onCh
               <div className="card" data-testid="revision-request">
                 <label htmlFor="ob-feedback">Ask for a revision, in your own words (optional)</label>
                 <textarea id="ob-feedback" rows={2} maxLength={2000} value={feedback} disabled={!admin}
-                          placeholder="for example: deliveries can also be split across two suppliers"
+                          placeholder="for example: one more check is needed before the approval"
                           onChange={(e) => setFeedback(e.target.value)} />
                 <div className="row">
                   <button type="button" disabled={busy || !admin || !feedback.trim()} onClick={revise} data-testid="ask-revision">

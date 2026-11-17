@@ -59,7 +59,10 @@ class ViewPolicy:
         if self.is_admin(user):
             return False
         gov, principal = self.svc.access, user.principal
-        if any(not gov.row_visible(e, state, principal)[0] for e in state.entities):
+        # an entity type of which the case holds no record carries no status (the "nothing may be assumed" marker
+        # of WorldState.initial): there is no row to hide, so a row rule on that type hides nothing in this run
+        if any(v.get("status") is not None and not gov.row_visible(e, state, principal)[0]
+               for e, v in state.entities.items()):
             return True
         return any(not gov.row_visible(e, state, principal, iid)[0]
                    for e, bucket in state.collections.items() for iid in bucket)

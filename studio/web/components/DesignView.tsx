@@ -10,7 +10,8 @@ import { addEntity, addRelationship, applyItems, ATTRIBUTE_TYPES, diffDocs, docu
 import type { Draft, ModelDocument, Proposal, Question, Validation } from "@/lib/types";
 
 const CARDINALITIES = ["1", "0..1", "1..*", "0..*"];
-const SAMPLE = "We operate multiple treatment plants. Model our pump assets, maintenance process, technicians, supervisors and approval responsibilities.";
+// a hint, never a default: Studio holds no domain of its own, so an empty description proposes nothing
+const HINT = "Describe the process in your own words: who asks for what, who decides, and what is delivered.";
 
 export default function DesignView({ path, admin }: { path: string; admin: boolean }) {
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -81,7 +82,7 @@ export default function DesignView({ path, admin }: { path: string; admin: boole
   async function runProposal() {
     setError("");
     try {
-      const p = await api.propose(path, brief || SAMPLE, doc);
+      const p = await api.propose(path, brief, doc);
       setProposal(p); setChosen(new Set(p.items.map((i) => i.id)));
     } catch (e) { setError((e as Error).message); }
   }
@@ -144,8 +145,8 @@ export default function DesignView({ path, admin }: { path: string; admin: boole
         <section className="architect" aria-labelledby="arch-title">
           <h3 id="arch-title">Architect</h3>
           <label htmlFor="brief">Describe the business</label>
-          <textarea id="brief" rows={4} value={brief} placeholder={SAMPLE} onChange={(e) => setBrief(e.target.value)} />
-          <button type="button" onClick={runProposal} disabled={!admin}>Propose</button>
+          <textarea id="brief" rows={4} value={brief} placeholder={HINT} onChange={(e) => setBrief(e.target.value)} />
+          <button type="button" onClick={runProposal} disabled={!admin || !brief.trim()}>Propose</button>
           {proposal && (
             <div className="proposal" aria-label="Proposal">
               <p className="small"><span className="badge">{proposal.ai ? "AI" : "blueprint · not AI"}</span> {proposal.message}</p>

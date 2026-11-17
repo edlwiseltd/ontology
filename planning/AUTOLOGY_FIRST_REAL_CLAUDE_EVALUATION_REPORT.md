@@ -69,6 +69,12 @@ price for the model. One difference, on the safe side: the provider bills cache 
 and Autology records 10 %. No cache read occurred in this evaluation, so nothing was mis-recorded. The ledger is
 Autology's bound; **the owner should compare the 4.42 USD with the provider's invoice.**
 
+**The ledger outlives this session only as a file.** The evaluation deployment was generated outside the
+repository, on a temporary machine. Its ledger is kept with the evidence (`ai_ledger.db`; it holds amounts,
+times and request identifiers, no key and no content). **Before any further call this month it must be put back**
+at `<deployment>/data/ai_ledger.db`: a deployment generated afresh would start counting from zero and could spend
+up to 10 USD more than the owner's ceiling allows.
+
 **Not established:** behaviour under rate limits or outages against the real provider (tested with the SDK's own
 error classes over a local transport only).
 

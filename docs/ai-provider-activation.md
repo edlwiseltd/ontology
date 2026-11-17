@@ -122,6 +122,9 @@ two after an evaluation.
 * **A refused request names its reason**: the provider's error type, and its message for an invalid request, with
   anything shaped like a credential removed. The key is never in a log, an answer or an audit entry.
 * **Answers take 16 to 104 seconds** for the architect; the deadline is 300 seconds and nothing is retried.
+* **Keep the ledger.** The monthly ceiling is counted in `<deployment>/data/ai_ledger.db`. A deployment generated
+  again starts from zero: before any further call in the same month, copy the saved ledger back (the one of
+  17 November is in `planning/evidence/claude-eval-2026-11-17/ai_ledger.db`: 4.418874 USD spent in `2026-11`).
 * **Keep the answers**: `python -m autology architect-eval --platform <platform.json> --workspace evaluation --use-case <id> --save <dir>`
   writes every answer as it was scored, and the result.
 

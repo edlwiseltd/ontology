@@ -1028,6 +1028,10 @@ canary attempts). **4.418874 USD spent, 5.581126 USD left of 10.** 33 requests r
 and billed, 9 refused before processing at no charge (3 canary attempts, 6 grammar checks, one per process start).
 No retry, no timeout, no reservation left open. To compare with the provider's invoice (owner).
 
+The deployment lives on a temporary machine. Its ledger file is kept with the evidence (`ai_ledger.db`: amounts,
+times, request identifiers; no key, no content) and **must be copied back to `<deployment>/data/ai_ledger.db`
+before any further call this month**: a deployment generated afresh would count from zero.
+
 ### What was changed, and why
 
 | Defect | Change |

@@ -13,6 +13,13 @@ export function forwardable(method: string, path: string): boolean {
     && !path.includes("..") && !path.includes("//") && !path.includes("\\") && !/%2e|%2f|%5c/i.test(path);
 }
 
+// For an application runtime served from its own origin: NOT this deployment, and nothing calls it (owner decision
+// D35; planning/AUTOLOGY_D35_RUNTIME_SEPARATION_ASSESSMENT.md). A relay of the application plane would forward the
+// Engine's versioned API of one use case, and nothing of the platform's administration or of the unversioned API.
+export function runtimeForwardable(method: string, path: string): boolean {
+  return forwardable(method, path) && /^\/w\/[^/]+\/u\/[^/]+\/api\/v1\/[^/]/.test(path);
+}
+
 export function platformBase(raw: string | undefined): string {
   if (!raw) throw new Error("set AUTOLOGY_PLATFORM_URL to the platform's base URL, e.g. http://127.0.0.1:8700");
   const url = new URL(raw);

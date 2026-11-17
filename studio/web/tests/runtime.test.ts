@@ -47,6 +47,18 @@ describe("the runtime is a renderer and nothing else", () => {
     }
   });
 
+  it("asks only the Engine's API of its own use case, and is opened from Studio in a tab that shares no session", () => {
+    for (const f of RUNTIME) expect(readFileSync(f, "utf8").split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n"), f).not.toMatch(/["'`]\/platform|\/platform\//);
+    const shell = readFileSync(join(ROOT, "runtime", "RuntimeApp.tsx"), "utf8");
+    expect(shell).toMatch(/const base = enginePath\(workspace, useCase\);/);
+    expect(shell.match(/\bbase\b[^;\n]*=/g)).toHaveLength(1);  // one address, set once, from the page's own workspace and use case
+    expect(readFileSync(join(ROOT, "runtime", "client.ts"), "utf8")).toContain("`/w/${encodeURIComponent(workspace)}/u/${encodeURIComponent(useCase)}/api/v1`");
+    const designer = readFileSync(join(ROOT, "components", "ApplicationDesigner.tsx"), "utf8");
+    const link = designer.split("\n").find((l) => l.includes("data-testid=\"app-open\"")) ?? "";
+    expect(link).toMatch(/target="_blank"/);
+    expect(link).toMatch(/rel="noreferrer"/);  // no opener: the new tab does not inherit Studio's session storage
+  });
+
   it("has its own token, apart from Studio's", () => {
     expect(readFileSync(join(ROOT, "runtime", "client.ts"), "utf8")).toContain("autology-app-token");
     expect(readFileSync(join(ROOT, "lib", "api.ts"), "utf8")).toContain("autology-studio-token");

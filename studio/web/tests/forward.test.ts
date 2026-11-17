@@ -1,5 +1,7 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { forward, forwardable, platformBase } from "../lib/forward";
+import { forward, forwardable, platformBase, runtimeForwardable } from "../lib/forward";
 
 describe("the relay to the platform", () => {
   it("forwards only GET and POST under /platform/ and /w/", () => {
@@ -9,6 +11,19 @@ describe("the relay to the platform", () => {
                           ["GET", "/platform/../api"], ["GET", "/w//u"], ["GET", "/w/a%2f..%2fb"], ["GET", "/w/a\\b"]]) {
       expect(forwardable(m, p)).toBe(false);
     }
+  });
+
+  it("has a narrower rule ready for a runtime served on its own: one use case's versioned API, no administration (not in use)", () => {
+    expect(runtimeForwardable("GET", "/w/acme/u/claims/api/v1/application")).toBe(true);
+    expect(runtimeForwardable("POST", "/w/acme/u/claims/api/v1/runs")).toBe(true);
+    for (const [m, p] of [["GET", "/platform/v1/workspaces/acme/members"], ["POST", "/platform/v1/workspaces/acme/grants"],
+                          ["GET", "/platform/openapi.json"], ["GET", "/w/acme/u/claims/api/runs"], ["GET", "/w/acme/api/v1/x"],
+                          ["GET", "/w/acme/u/claims/api/v1/"], ["GET", "/w/acme/u/claims/api/v1/../../../../platform/v1/me"],
+                          ["PUT", "/w/acme/u/claims/api/v1/objects"], ["GET", "/w/acme/u/claims/console"]]) {
+      expect(runtimeForwardable(m, p), p).toBe(false);
+    }
+    const route = (dir: string) => readFileSync(join(__dirname, "..", "app", dir, "[...path]", "route.ts"), "utf8");
+    for (const dir of ["platform", "w"]) expect(route(dir)).not.toContain("runtimeForwardable");  // prepared, not wired
   });
 
   it("accepts only a base URL for the platform", () => {

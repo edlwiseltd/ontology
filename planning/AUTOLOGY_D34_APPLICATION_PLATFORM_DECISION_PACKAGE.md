@@ -7,6 +7,12 @@ anything.*
 D34 asks which gaps of the application contract to close, and in which order. Five items: presentation metadata,
 application registration, release pinning, narrow operational permissions, an event feed.
 
+*Added by the stabilisation sprint (17 November): the lifecycle by which a design could become governed, with the
+owner's seven questions, is in the [governed application design proposal](AUTOLOGY_D34_GOVERNED_APPLICATION_DESIGN_PROPOSAL.md);
+the twelve operations of item 4 are in the [D24 proposal](AUTOLOGY_D24_APPLICATION_PERMISSIONS_PROPOSAL.md); default d
+of §5 is assessed in the [runtime separation assessment](AUTOLOGY_D35_RUNTIME_SEPARATION_ASSESSMENT.md). Each has an
+inactive, tested prototype; none is in force.*
+
 ## 1. Where each item stands after the Application Builder sprint
 
 | # | Item | State | Evidence |

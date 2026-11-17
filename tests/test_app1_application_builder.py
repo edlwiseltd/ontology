@@ -402,18 +402,18 @@ class AuthorityTests(Apps):
             status, out = self.c.call("POST", f"{j.E}/objects", operator, body)
             self.assertEqual(status, 403, out)
         self.assertEqual(self.c.call("GET", f"{j.E}/objects/INC-9", operator)[0], 404)
-        operations = appspec.PROPOSED_OPERATIONS
-        self.assertEqual(list(operations), ["create_case", "read_case", "update_allowed_fields", "perform_workflow_action",
-                                            "request_approval", "review_or_approve", "administer_ontology",
-                                            "administer_security", "manage_releases"])
-        self.assertEqual({o["today"] for k, o in operations.items() if k in ("create_case", "update_allowed_fields")}, {"admin"})
-        proposed = {operations[k]["proposed"] for k in ("create_case", "update_allowed_fields")}
-        self.assertEqual(proposed, {"records.create", "records.update"})
-        for permission in sorted(proposed) + ["operate"]:  # proposed only: the platform knows none of them
+        # the proposal (autology/operation_policy.py): twelve operations, three rights that do not exist, none in force
+        from autology import operation_policy
+
+        operations = operation_policy.OPERATIONS
+        self.assertEqual(len(operations), 12)
+        self.assertEqual({k: o["today"] for k, o in operations.items() if k in ("records.create", "records.update")},
+                         {"records.create": "admin", "records.update": "admin"})
+        self.assertEqual(operation_policy.NEW_RIGHTS, ["records.archive", "records.create", "records.update"])
+        for permission in operation_policy.NEW_RIGHTS + ["operate"]:  # proposed only: the platform knows none of them
             status, out = self.c.call("POST", f"{j.WS}/grants", d["admin"], {"member": d["operator"], "use_case": d["use_case"],
                                                                            "permissions": ["read", permission], "reason": "x"})
             self.assertEqual(status, 400, out)
-        self.assertEqual(len({o["proposed"] for o in operations.values()}), 8)  # nine operations, eight distinct rights, never one
 
 
 class MigrationTests(unittest.TestCase):

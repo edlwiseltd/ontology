@@ -1216,4 +1216,4 @@ gaps) added; D30 f/g/h, D31, D32, D24, D26 unchanged and pending.
 | `76b55e7` | [run 111](https://github.com/edlwiseltd/ontology/actions/runs/44088491962) | Success (the starting point) |
 | `c202a68` | [run 112](https://github.com/edlwiseltd/ontology/actions/runs/44168331726) | **Success**, all five jobs |
 | `d046b8d` | [run 113](https://github.com/edlwiseltd/ontology/actions/runs/44170185564) | **Failed**: `studio` job, 47 of 48 new browser checks; one check read Studio's provider notice before the page had loaded the provider's state. The check now waits for the settled notice. Python 3.10 and 3.13 (PostgreSQL, coverage gate), `package` and `quality` succeeded |
-
+| `84c2725` | [run 114](https://github.com/edlwiseltd/ontology/actions/runs/44174038450) | **Success**, all five jobs: Python 3.10 and 3.13 with PostgreSQL (the whole suite, no test may be skipped there; coverage gate 95 % passed), `package`, `studio` (unit tests, 135 browser checks and the 56 cross-domain checks), `quality` (ruff, mypy ratchet, dependency audit) |

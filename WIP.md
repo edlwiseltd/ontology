@@ -172,3 +172,5 @@ No call to a provider; nothing spent. Synthetic data and simulated tools only. R
 
 Waiting for the owner: D30 (f), (g), (h); D31; D32; D24; D26; D33 (four general defaults of this sprint); D34
 (application contract gaps); reviewers for both demonstrator domains. **R2 is not closed.**
+
+Commits `c202a68`, `d046b8d`, `84c2725`; CI run 112 green, run 113 failed on one racy new browser check (corrected), run 114 green on the final code.

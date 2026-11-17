@@ -44,7 +44,8 @@ Nothing here is evidence of fitness for real emergency response or real investig
 | Baseline the directive named | `8c9fe94` | [run 110](https://github.com/edlwiseltd/ontology/actions/runs/44086874836): success (verified again) |
 | Increment 1: general abstractions, two packs, cross-domain tests | `c202a68` | [run 112](https://github.com/edlwiseltd/ontology/actions/runs/44168331726): **success**, all five jobs |
 | Increment 2: Studio journey, application contract, element-level design | `d046b8d` | [run 113](https://github.com/edlwiseltd/ontology/actions/runs/44170185564): **failed** in the `studio` job: 47 of 48 new browser checks passed; one check read a notice before the page had finished loading the provider's state (a defect of the check, corrected in increment 3). The two Python jobs (full suite on PostgreSQL, coverage gate), `package` and `quality` succeeded |
-| Increment 3: cross-domain reading of the protocol, ledger assessment, the corrected browser check, registers, this report | the commit that carries this report | recorded in the implementation log once it has run (A.6) |
+| Increment 3: cross-domain reading of the protocol, ledger assessment, the corrected browser check, registers, this report | `84c2725` | [run 114](https://github.com/edlwiseltd/ontology/actions/runs/44174038450): **success**, all five jobs |
+| This line and the same line in the log | the commit after `84c2725` (documents only) | not awaited |
 
 ### A.2 Baseline verification
 
@@ -115,7 +116,7 @@ run.
 | Provider | No request sent. The ledger was read, not written: 27 entries, 4.418875 USD, last entry 17 Nov 08:44 UTC |
 | CI, increment 1 (`c202a68`) | Run 112: success, five jobs (Python 3.10 and 3.13 with PostgreSQL, package, Studio, quality) |
 | CI, increment 2 (`d046b8d`) | Run 113: Python 3.10 and 3.13, package and quality **succeeded**; `studio` **failed** on one new browser check (47 of 48), a race in the check itself |
-| CI, increment 3 (final) | Recorded in the [implementation log](AUTOLOGY_IMPLEMENTATION_LOG.md) after the push; this report is committed before that run exists |
+| CI, increment 3 (`84c2725`, the final code) | [Run 114](https://github.com/edlwiseltd/ontology/actions/runs/44174038450): **success**, five jobs: Python 3.10 and 3.13 with PostgreSQL (whole suite, no skip allowed, coverage gate 95 %), package, Studio (unit tests, 135 and 56 browser checks), quality (ruff, mypy ratchet, dependency audit) |
 
 Not done, and not claimed: no independent review, no load test, no test with a language model, no test against
 any real system.

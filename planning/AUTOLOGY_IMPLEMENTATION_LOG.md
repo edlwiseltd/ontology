@@ -1217,3 +1217,51 @@ gaps) added; D30 f/g/h, D31, D32, D24, D26 unchanged and pending.
 | `c202a68` | [run 112](https://github.com/edlwiseltd/ontology/actions/runs/44168331726) | **Success**, all five jobs |
 | `d046b8d` | [run 113](https://github.com/edlwiseltd/ontology/actions/runs/44170185564) | **Failed**: `studio` job, 47 of 48 new browser checks; one check read Studio's provider notice before the page had loaded the provider's state. The check now waits for the settled notice. Python 3.10 and 3.13 (PostgreSQL, coverage gate), `package` and `quality` succeeded |
 | `84c2725` | [run 114](https://github.com/edlwiseltd/ontology/actions/runs/44174038450) | **Success**, all five jobs: Python 3.10 and 3.13 with PostgreSQL (the whole suite, no test may be skipped there; coverage gate 95 % passed), `package`, `studio` (unit tests, 135 browser checks and the 56 cross-domain checks), `quality` (ruff, mypy ratchet, dependency audit) |
+
+## 17 November 2026 — Application Builder: from a released model to a business application (no provider contacted)
+
+Directive: R2 / Application Builder. Synthetic data and simulated tools only. **No request was sent to a provider
+and nothing was spent** (ledger read only: 27 entries, 4.418875 USD). Report:
+[AUTOLOGY_APPLICATION_BUILDER_MVP_REPORT.md](AUTOLOGY_APPLICATION_BUILDER_MVP_REPORT.md). R2 is not closed.
+
+### Baseline
+
+`152cba0`, clean, equal to the remote; CI runs 114 and 115 success, read from GitHub.
+
+### What was built
+
+| Increment | Content |
+|---|---|
+| 1 (`bd41bc4`) | `appspec.py` (closed manifest schema, deterministic generator, validation, tailoring), `applications.py`, five routes under `/api/v1/application`, store schema 20, the configuration precondition on requests, a third synthetic domain without a template |
+| 2 (`5cebf90`) | `studio/web/runtime/` (a separate renderer, eight view components, own sign-in), Studio's Application Designer, `e2e/apps.mjs` |
+| 3 (`45d3a27`) | `docs/application-builder.md`, the record-rights proposal (with an erratum on the earlier use of the word `operate`), the D34 package, registers, the corrected schema pin |
+| 4 (`d9448b4`) | The report; the agent's provenance in a workflow view; per-application accents |
+| 5 | The relay-header pin corrected; verification recorded |
+
+### Findings
+
+Zero domain-specific code in the Engine, the designer or the runtime (three scans). GAP-100 partly fixed. New:
+GAP-101 (a design is not part of a governed release; owner decision), GAP-102 (no server-side search), GAP-103 (the
+runtime is served with Studio). Decisions: D34 state recorded, D35 added (four engineering defaults); D24 gains a
+separate proposal for narrow record rights. Register: 103 entries (61 fixed, 18 open, 13 partly, 7 owner decision,
+4 external evidence).
+
+### Verification
+
+| Run | Result |
+|---|---|
+| Full Python suite, local, final code | 1,077 tests: **1,076 passed, 1 failed** (an older test pinned the exact headers Studio's relay forwards; this sprint added one), 2 skipped locally. The pin was updated and that test re-run: passes. The full suite was not re-run after that change |
+| Coverage | **96.01 %** lines (17,552 statements, 701 missed) |
+| ruff; mypy ratchet | clean; 198 (= baseline, not raised) |
+| Studio | typecheck clean, **73 unit tests**, build, **87/87** application browser checks locally; the 135 and 56 other browser checks ran in CI run 118 (its `studio` job did not fail) |
+| Secrets | Six known values searched for, by value, in 1,614 files: none found |
+
+### CI
+
+| Commit | Run | Result |
+|---|---|---|
+| `152cba0` | [run 115](https://github.com/edlwiseltd/ontology/actions/runs/44175682266) | Success (the starting point) |
+| `bd41bc4` | [run 116](https://github.com/edlwiseltd/ontology/actions/runs/44180266322) | **Failed**: 1 of 1,076 tests, a migration test that pinned store schema 19 |
+| `5cebf90` | [run 117](https://github.com/edlwiseltd/ontology/actions/runs/44182152537) | **Failed** (the same pin, not yet corrected) |
+| `45d3a27` | [run 118](https://github.com/edlwiseltd/ontology/actions/runs/44183051876) | **Failed** in the two Python jobs: a test that pinned the relay's two forwarded headers. `studio`, `package`, `quality` did not fail |
+

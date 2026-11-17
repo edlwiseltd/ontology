@@ -37,7 +37,9 @@ class StudioSeparationTests(unittest.TestCase):
     def test_studio_reaches_the_platform_only_through_its_relay(self):
         relay = (WEB / "lib" / "forward.ts").read_text()
         self.assertIn('FORWARDED_PREFIXES = ["/platform/", "/w/"]', relay)
-        self.assertIn('FORWARDED_HEADERS = ["authorization", "content-type"]', relay)
+        # exactly three headers, and no other: the two it always forwarded, and the configuration a request was
+        # written for (the Application Builder; the Engine refuses the request when another configuration runs)
+        self.assertIn('FORWARDED_HEADERS = ["authorization", "content-type", "x-autology-configuration"]', relay)
         self.assertIn('redirect: "manual"', relay)
         routes = sorted(p.relative_to(WEB / "app").parts[0] for p in (WEB / "app").rglob("route.ts"))
         self.assertEqual(routes, ["platform", "w"])

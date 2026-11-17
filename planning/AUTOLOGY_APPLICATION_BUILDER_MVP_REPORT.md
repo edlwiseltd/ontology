@@ -67,9 +67,10 @@ allowed, which waits for a named person, which is refused, and the audit trail.
 |---|---|---|
 | Start | `152cba0` | [run 115](https://github.com/edlwiseltd/ontology/actions/runs/44175682266): success |
 | Increment 1: manifest, generator, validation, routes, binding, third domain | `bd41bc4` | [run 116](https://github.com/edlwiseltd/ontology/actions/runs/44180266322): **failed**, 1 of 1,076 tests: an older migration test pinned store schema 19 and the design table made it 20. Corrected in increment 3 |
-| Increment 2: runtime, designer, browser demonstrations | `5cebf90` | run 117: not finished when this was written |
-| Increment 3: documents, proposals, registers, the corrected pin | `45d3a27` | run 118: not finished when this was written |
-| Increment 4: this report, provenance of the agent, final verification | the next commit | not run yet |
+| Increment 2: runtime, designer, browser demonstrations | `5cebf90` | [run 117](https://github.com/edlwiseltd/ontology/actions/runs/44182152537): **failed** (the schema pin, not yet corrected in this commit) |
+| Increment 3: documents, proposals, registers, the corrected pin | `45d3a27` | [run 118](https://github.com/edlwiseltd/ontology/actions/runs/44183051876): **failed** in the two Python jobs: an older test pins the headers Studio's relay forwards, and this sprint added one. `studio`, `package` and `quality` did not fail |
+| Increment 4: this report, provenance of the agent | `d9448b4` | run 119: in progress when this was written; expected to fail on the same pin |
+| Increment 5: the relay-header pin corrected, verification recorded | the commit that carries this table | not run yet |
 
 ---
 
@@ -248,20 +249,31 @@ anybody (GAP-101).
 
 ## F. Engineering quality
 
-<!-- VERIFICATION -->
-*Interim: this table is completed by the next commit, when the final full run and the complete browser run on the
-final tree have finished. What is listed here was run.*
+Nothing is reported that was not run.
 
-| Check | Result so far |
+| Check | Result |
 |---|---|
-| The builder's Python tests, the contract suites, the migration suites | Pass |
-| ruff; mypy ratchet | Clean; 198 (= baseline, not raised) |
-| Studio typecheck; unit tests; build | Clean; 73 of 73; built |
-| Application browser checks | 87 of 87 |
-| Full Python suite, coverage, the two other browser suites, CI on the final tree | **Not finished: not claimed** |
-<!-- /VERIFICATION -->
+| Full Python suite, local, on the final code | **1,077 tests: 1,076 passed, 1 failed**, 2 skipped locally (they need PostgreSQL; CI runs them). The failure: an older test pins the exact list of headers Studio's relay forwards, and this sprint added one (the expected configuration). The pin was updated to the new exact list of three and that test re-run: passes. The full suite was **not** re-run after that one-line change to a test; CI on the final commit runs it |
+| Coverage of `autology/` (same run) | **96.01 %** of lines (17,552 statements, 701 missed). Gate: 95 % |
+| ruff | Clean |
+| mypy ratchet | **198 = baseline, not raised** |
+| Studio typecheck; unit tests; build | Clean; **73 of 73** (58 before, 15 new); built |
+| Browser checks, application builder | **87 of 87**, locally, on the final code |
+| Browser checks, existing Studio journey (135) and cross-domain journey (56) | Not re-run locally in this sprint. They ran in CI run 118, whose `studio` job did not fail |
+| Secrets | Six known values searched for, by value, in 1,614 tracked and new files: none found |
+| Provider | No request sent. Ledger read only: 27 entries, 4.418875 USD, last entry 17 Nov 08:44 UTC |
+| CI run 115 (`152cba0`, start) | Success |
+| CI run 116 (`bd41bc4`) | **Failed**: 1 of 1,076 Python tests (store schema pinned at 19) |
+| CI run 117 (`5cebf90`) | **Failed** (the same pin, not yet corrected in that commit) |
+| CI run 118 (`45d3a27`) | **Failed** in the two Python jobs: the relay-header pin above. The `studio`, `package` and `quality` jobs did not fail |
+| CI run 119 (`d9448b4`) | In progress when this was written; it carries the same out-of-date pin and is expected to fail on it |
+| CI on the commit that carries this table | Not run yet. It is recorded in the implementation log once it has finished |
 
-**Regression findings.** One: an older test pinned the store's schema version (CI run 116). No behaviour regressed.
+**Read this plainly:** four CI runs of this sprint failed, each on a test that pins a value this sprint changed on
+purpose (a schema version, a header list). No test of behaviour failed. A green CI run on the final commit does not
+exist yet at the time of writing.
+
+**Regression findings.** Two older tests pinned values this sprint changed on purpose: the store's schema version (CI run 116) and the list of headers Studio's relay forwards (CI run 118, and the local full run). Both pins were updated to the new exact values. No behaviour regressed.
 Found and corrected during the work, before any commit: the renderer kept a list's rows on screen for a moment
 under the next list's title, because a screen's state was not reset when the screen changed.
 
@@ -369,7 +381,7 @@ met.
 | Unsupported write operations are clearly disabled | **Yes** | Forms say "Preview only"; direct writes refused |
 | The generation process is deterministic and reproducible | **Yes** | B1 |
 | The resulting configurations are versioned and traceable | **Partly.** Designs are append-only revisions with author, time, note and the configuration they were made for. They are **not** part of a release (GAP-101) |
-| Relevant regression and security tests pass | **Not yet claimed**: see F (interim) |
+| Relevant regression and security tests pass | **Locally yes, with one correction; not yet in CI.** 1,076 of 1,077 Python tests passed, the one failure was an out-of-date pin, corrected and re-run alone; 87 of 87 application checks. No green CI run exists yet for the final commit (F) |
 | The report distinguishes demonstrated behaviour from proposed architecture | **Yes**: registry, event feed, narrow record rights and model-proposed presentation are proposals; everything in C, D and E was run |
 
 Not a static mock-up: the renderer has no screen of its own. Remove the manifest and it shows "No application

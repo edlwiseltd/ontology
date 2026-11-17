@@ -465,3 +465,15 @@ review and expert review have not taken place.
 | Accurate declaration of incomplete functionality | This report: Summary, C and D "missing capabilities", E states, G.5, G.7; GAP-093, 098, 099, 100 |
 
 A synthetic test passing does not prove safety or suitability for real emergency response or for investigations.
+
+---
+
+## Erratum (17 November 2026, added by the Application Builder sprint)
+
+Sections F.5 and G.5 and the application contract said that a domain application could create cases once "the
+narrow `operate` permission" of decision D24 was approved. That was imprecise. The `operate` permission specified
+for D24 covers **operational routes** (a scheduler pass, a reporting refresh) and no record write. Creating or
+changing records without the unrestricted permission needs a **separate, narrower right**, now proposed in
+[AUTOLOGY_D24_APPLICATION_PERMISSIONS_PROPOSAL.md](AUTOLOGY_D24_APPLICATION_PERMISSIONS_PROPOSAL.md). The findings
+of this report are otherwise unchanged; no figure is affected.
+

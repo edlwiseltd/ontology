@@ -373,10 +373,14 @@ def tailor(manifest: Mapping[str, Any], ontology: Any, roles: Set[str], permissi
 
 
 # -- D24: the operations an application needs, kept apart (a proposal; nothing here is enforced or active) ---------
+# "today" is what the Engine requires now. "proposed" names a right that does not exist: "records.create" and
+# "records.update" would be grants scoped to named entity types and attributes of one use case. They are not the
+# "operate" permission of the D24 specification, which covers operational routes (scheduler pass, reporting refresh)
+# and no record write.
 PROPOSED_OPERATIONS: Dict[str, Dict[str, Any]] = {
-    "create_case": {"today": "admin", "proposed": "operate:create", "scope": "named entity types of one use case"},
+    "create_case": {"today": "admin", "proposed": "records.create", "scope": "named entity types of one use case"},
     "read_case": {"today": "read", "proposed": "read", "scope": "rows and fields the model's rules allow"},
-    "update_allowed_fields": {"today": "admin", "proposed": "operate:update", "scope": "named attributes; never a decision-critical one without its writer rule"},
+    "update_allowed_fields": {"today": "admin", "proposed": "records.update", "scope": "named attributes; never a decision-critical one without its writer rule"},
     "perform_workflow_action": {"today": "run", "proposed": "run", "scope": "ask for a run; the Engine plans and checks every rule"},
     "request_approval": {"today": "run", "proposed": "run", "scope": "a run that reaches a review rule waits; nobody asks for approval directly"},
     "review_or_approve": {"today": "review", "proposed": "review", "scope": "a person holding the reviewer role; never the requester, never a service identity"},

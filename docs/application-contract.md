@@ -1,6 +1,6 @@
 # Application contract: how a domain application consumes a released solution
 
-*Status: a technical contract validated on two synthetic demonstrators (R2 cross-domain validation, November 2026).
+*Status: a technical contract validated on two synthetic demonstrators (R2 cross-domain validation, November 2026). Since then an Application Builder renders applications from a manifest: see [application-builder](application-builder.md).
 It describes what exists in the Engine's API today and names what does not. It is not an application builder.*
 
 Autology has three roles:
@@ -29,7 +29,7 @@ Paths: the Engine's API of a use case is `/w/{workspace}/u/{use-case}/api/v1`; t
 | 3 | **Release identity** | `GET …/use-cases/{uc}` gives `release.active` (number, identifier, fingerprint) and the stage; `GET …/releases` gives who proposed and who approved. Every run carries `configuration`, the fingerprint of the release it ran on | Tested |
 | 4 | **Authentication and permissions** | Bearer token (or OpenID Connect per workspace). Permissions are grants on one use case, proposed by an administrator and approved by a second person: `read`, `run`, `review`, `audit`, `ingest`, `admin`. `GET /me` says what the caller holds. A service identity cannot decide a review and cannot approve anything | Tested |
 | 5 | **Authorised data queries** | `GET /objects?type=…`, `GET /objects/{id}` (attributes, links, revision), `GET /objects/{id}/lineage`, `POST /questions/{id}` for the questions a model declares. Row and field rules of the model apply to the application as to a person: a hidden row is a 404, a hidden field is redacted | Tested |
-| 6 | **Case creation and updates** | `POST /objects` creates or changes a record with optimistic concurrency. **It needs the `admin` data permission**, which is acknowledged as unrestricted by two people. There is no narrower "create and update cases of this use case" permission: that is owner decision **D24** (`operate`), specified and not implemented. Feeds can also arrive through configured ingestion pipelines (`ingest`) | Not available to an application without an over-broad grant |
+| 6 | **Case creation and updates** | `POST /objects` creates or changes a record with optimistic concurrency. **It needs the `admin` data permission**, which is acknowledged as unrestricted by two people. There is no narrower "create and update records of this use case" right. The `operate` permission specified for owner decision D24 does **not** cover this: it is for operational routes (a scheduler pass, a reporting refresh). A separate proposal for narrow record rights exists (`planning/AUTOLOGY_D24_APPLICATION_PERMISSIONS_PROPOSAL.md`); nothing of it is implemented. Feeds can also arrive through configured ingestion pipelines (`ingest`) | Not available to an application without an over-broad grant |
 | 7 | **Governed action requests** | `POST /runs` with a case template and a root record. The Engine plans, checks every rule and answers `completed`, `awaiting_review` or `escalated`; one open run per record. The application performs no action itself and cannot name a tool | Tested |
 | 8 | **Approval requests** | `GET /reviews` lists what waits for the caller's reviewer roles; `POST /reviews/{id}/decision` records a **person's** decision with that person's token. The application shows the request and passes on the person's own session; it never decides | Tested |
 | 9 | **Event subscriptions** | `GET /notifications?since=…` is polled; an operator can configure webhooks per use case in the deployment configuration. There is no subscription an application can create for itself, no delivery guarantee and no replay cursor beyond `since` | Partly |
@@ -68,7 +68,7 @@ can be changed, but a narrower permission would be cleaner.
 
 | Gap | Smallest useful step |
 |---|---|
-| Case creation needs `admin` | Implement D24 `operate` once the owner approves it: create and update records of named entity types, nothing else |
+| Case creation needs `admin` | Narrow record rights (create records of named entity types; update named attributes), decided with D24: see the proposal. Not the `operate` permission, which covers operational routes |
 | No application register | A workspace-level record per application: name, version, owner, the service identity it uses, the release fingerprints it was accepted with |
 | No self-service events | A cursor-based event feed per use case (runs, reviews, releases), readable with `read`, before any push delivery |
 | Release pinning is client-side | An optional request header naming the expected release fingerprint; the Engine answers 409 when another release is active |

@@ -18,7 +18,7 @@ are. Nothing here asks a language model anything.
      do; listing a view or a role in a manifest shows nobody a record they could not read
   B8 nobody anonymous and nobody of another workspace reads an application
   B9 writing records stays behind the unrestricted permission: an application user cannot create or change one;
-     the nine operations of the D24 proposal are distinct and none of the proposed permissions exists yet
+     the nine operations of the proposal are distinct and none of the proposed permissions exists yet
 """
 
 import copy
@@ -407,12 +407,39 @@ class AuthorityTests(Apps):
                                             "administer_security", "manage_releases"])
         self.assertEqual({o["today"] for k, o in operations.items() if k in ("create_case", "update_allowed_fields")}, {"admin"})
         proposed = {operations[k]["proposed"] for k in ("create_case", "update_allowed_fields")}
-        self.assertEqual(proposed, {"operate:create", "operate:update"})
+        self.assertEqual(proposed, {"records.create", "records.update"})
         for permission in sorted(proposed) + ["operate"]:  # proposed only: the platform knows none of them
             status, out = self.c.call("POST", f"{j.WS}/grants", d["admin"], {"member": d["operator"], "use_case": d["use_case"],
                                                                            "permissions": ["read", permission], "reason": "x"})
             self.assertEqual(status, 400, out)
         self.assertEqual(len({o["proposed"] for o in operations.values()}), 8)  # nine operations, eight distinct rights, never one
+
+
+class MigrationTests(unittest.TestCase):
+    def test_a_store_from_before_gains_the_design_table_and_loses_nothing(self):  # store schema 20
+        import sqlite3
+        import tempfile
+        from pathlib import Path
+
+        from autology.store import SCHEMA_VERSION, Store
+
+        path = Path(tempfile.mkdtemp()) / "autology.db"
+        store = Store(str(path))
+        store.save_draft({"name": "m", "version": "0.1.0"}, "ada", "first", 0)
+        store.close()
+        db = sqlite3.connect(path)  # as it was before this sprint: no design table, schema 19
+        db.executescript("DROP TABLE application_drafts; UPDATE meta SET value='19' WHERE key='schema_version';"
+                         "DELETE FROM schema_migrations WHERE version=20;")
+        db.commit()
+        db.close()
+        store = Store(str(path))
+        self.addCleanup(store.close)
+        self.assertEqual((store.migrated, SCHEMA_VERSION), ([20], 20))
+        self.assertEqual((store.draft()["revision"], store.application_draft(), store.application_draft_history()), (1, None, []))
+        self.assertEqual(store.save_application_draft({"id": "a"}, "ada", "first design", 0, "c" * 64), 1)
+        self.assertEqual(store.application_draft()["manifest"], {"id": "a"})
+        with self.assertRaises(Exception):
+            store.save_application_draft({"id": "b"}, "ada", "stale", 0, "c" * 64)
 
 
 if __name__ == "__main__":

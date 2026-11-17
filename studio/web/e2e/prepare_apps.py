@@ -40,8 +40,14 @@ def main(base):
     for ws in DOMAINS:
         Journey(check, client, ws).design().release()
         print(f"prepared {ws}")
-    venue(check, client)
-    print("prepared venues")
+    j = venue(check, client)
+    # a realistic number of records for one list: loaded by a member who holds the unrestricted data permission,
+    # granted by two people as the platform requires (the application's own users hold no such permission)
+    j.grant("vic", ["read", "admin"], unrestricted=True)
+    for n in range(1, 61):
+        j.call("POST", f"{j.E}/objects", "venues-vic", {"type": "Organiser", "id": f"ORG-{n + 100}", "expected_revision": 0, "attributes": {
+            "status": "active", "display_name": f"Team {n:02d} (fictional)", "department": ("Research", "Sales", "Support")[n % 3]}})
+    print("prepared venues (61 organisers)")
 
 
 if __name__ == "__main__":

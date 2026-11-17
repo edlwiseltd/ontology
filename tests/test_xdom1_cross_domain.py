@@ -51,7 +51,7 @@ PACKS = ROOT / "examples" / "domains"
 TOKENS = {f"{ws}_TOKEN_{name.upper()}": f"{ws.lower()}-{name}"
           for ws, names in (("CRISIS", ("carla", "rosa", "omar", "dana", "alex")),
                             ("NETINTEL", ("nora", "ravi", "alan", "cleo", "alex")),
-                            ("VENUES", ("vera", "vito", "viv", "val"))) for name in names}
+                            ("VENUES", ("vera", "vito", "viv", "val", "vic"))) for name in names}
 
 DOMAINS = {
     "crisis": {

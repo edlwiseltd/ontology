@@ -109,6 +109,10 @@
     {
      "name": "val",
      "token_env": "VENUES_TOKEN_VAL"
+    },
+    {
+     "name": "vic",
+     "token_env": "VENUES_TOKEN_VIC"
     }
    ],
    "use_cases": {}

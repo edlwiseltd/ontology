@@ -278,8 +278,21 @@ try {
         anonymous.status === 401 && [403, 404].includes(foreign.status) && accounts.body.total === 0 && accounts.body.items.length === 0 &&
         injected.status === 400 && extra.status === 400, `${anonymous.status} ${foreign.status} ${injected.status} ${extra.status}`);
 
-  // ---- release binding: a new release is activated under a running application
+  // ---- a list longer than a page
   const v = runs.venues;
+  await v.app.click("[data-testid=rt-nav] button:text-is('Organiser')");
+  await v.app.waitForFunction(() => document.querySelector("#rt-list-title")?.textContent === "Organiser" &&
+    document.querySelectorAll("[data-testid=rt-table] tbody tr").length === 25);
+  const firstPage = await v.app.textContent("[data-testid=rt-count]");
+  await v.app.click(".rt-pager button:has-text('Next')");
+  await v.app.waitForFunction(() => document.querySelector("[data-testid=rt-count]")?.textContent.startsWith("26–50"));
+  await v.app.click(".rt-pager button:has-text('Next')");
+  await v.app.waitForFunction(() => document.querySelector("[data-testid=rt-count]")?.textContent.startsWith("51–61"));
+  check("venues: a list of 61 records is read a page at a time, and the last page says where it ends",
+        firstPage === "1–25 of 61" && (await v.app.locator("[data-testid=rt-table] tbody tr").count()) === 11 &&
+        (await v.app.isDisabled(".rt-pager button:has-text('Next')")) && (await noScroll(v.app)), firstPage);
+
+  // ---- release binding: a new release is activated under a running application
   const pinned = v.d ? (await v.as(v.d.operator, "GET", `${v.ENG}/application`)).body.running.configuration : "";
   const draft = (await v.as(v.d.admin, "GET", `${v.ENG}/model/draft`)).body;
   draft.document.entities.Room.states.push("under_maintenance");

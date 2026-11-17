@@ -561,6 +561,7 @@ home.mkdir(exist_ok=True)
                    "members": [{"name": "vera", "token_env": "VENUES_TOKEN_VERA", "workspace_admin": True},
                                {"name": "vito", "token_env": "VENUES_TOKEN_VITO"},
                                {"name": "viv", "token_env": "VENUES_TOKEN_VIV"},
-                               {"name": "val", "token_env": "VENUES_TOKEN_VAL"}],
+                               {"name": "val", "token_env": "VENUES_TOKEN_VAL"},
+                               {"name": "vic", "token_env": "VENUES_TOKEN_VIC"}],
                    "use_cases": {}}}}, indent=1) + "\n")
 print("written:", sorted(str(p.relative_to(HERE)) for p in HERE.rglob("*.json")))

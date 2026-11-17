@@ -102,7 +102,10 @@ for number, area, facts in (
         (2003, "AREA-SOUTHHOLM", {"description": "A model run suggests the lower quarter may flood tomorrow",
                                   "information_basis": "predicted", "people_at_risk": 60}),
         (2004, "AREA-EASTWICK", {"description": "Anonymous message: bridge reported damaged", "source_verified": False,
-                                 "reported_by": "anonymous message (unverified)", "people_at_risk": 5})):
+                                 "reported_by": "anonymous message (unverified)", "people_at_risk": 5}),
+        # an exception to rehearse: the register of teams and equipment does not answer (a simulated outage)
+        (2005, "AREA-EASTWICK", {"description": "Road underpass flooded; two vehicles stranded", "people_at_risk": 4,
+                                 "simulate_outage": True})):
     rows, links = incident(number, area, **facts)
     crisis_rows += rows
     crisis_links += links

@@ -895,6 +895,41 @@
      "name": "Mobile pump set 2004 (fictional)",
      "kind": "equipment",
      "quantity": 2
+    },
+    {
+     "type": "IncidentReport",
+     "id": "INC-2005",
+     "status": "received",
+     "reference": "INC-2005",
+     "reported_by": "municipal duty officer (fictional)",
+     "source_verified": true,
+     "information_basis": "observed",
+     "people_at_risk": 4,
+     "update_note": "",
+     "simulate_outage": true,
+     "description": "Road underpass flooded; two vehicles stranded"
+    },
+    {
+     "type": "Assignment",
+     "id": "ASG-2005",
+     "status": "proposed",
+     "task": "pumping and sandbagging",
+     "basis": "recommendation"
+    },
+    {
+     "type": "ResponseTeam",
+     "id": "TEAM-2005",
+     "status": "available",
+     "name": "Response team 2005 (fictional)",
+     "speciality": "flood response"
+    },
+    {
+     "type": "Resource",
+     "id": "RES-2005",
+     "status": "available",
+     "name": "Mobile pump set 2005 (fictional)",
+     "kind": "equipment",
+     "quantity": 2
     }
    ],
    "links": [
@@ -1052,6 +1087,36 @@
      "ORG-1",
      "resources",
      "RES-2004"
+    ],
+    [
+     "AREA-EASTWICK",
+     "incidents",
+     "INC-2005"
+    ],
+    [
+     "INC-2005",
+     "assignments",
+     "ASG-2005"
+    ],
+    [
+     "ASG-2005",
+     "team",
+     "TEAM-2005"
+    ],
+    [
+     "ASG-2005",
+     "equipment",
+     "RES-2005"
+    ],
+    [
+     "ORG-1",
+     "teams",
+     "TEAM-2005"
+    ],
+    [
+     "ORG-1",
+     "resources",
+     "RES-2005"
     ]
    ]
   }

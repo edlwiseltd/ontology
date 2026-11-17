@@ -1,6 +1,6 @@
 # Work in progress — Autology
 
-*Updated 17 November 2026 (stabilisation sprint). Branch `claude/autology-ontology-agent-4ajjer`.*
+*Updated 17 November 2026 (R2 cross-domain validation). Branch `claude/autology-ontology-agent-4ajjer`.*
 
 ## Done in this directive
 
@@ -153,3 +153,22 @@ No call to a provider; nothing spent. Report:
 
 Commit `8c9fe94`; CI run 110 green. Waiting for the owner: D30 (f), (g), (h); D31; D32; D24; D26; two independent reviewers; the provider's invoice.
 **R2 is not closed.**
+
+## R2 cross-domain validation: one Engine, one Studio, two unrelated applications (17 November 2026)
+
+No call to a provider; nothing spent. Synthetic data and simulated tools only. Report:
+[planning/AUTOLOGY_CROSS_DOMAIN_ARCHITECTURE_VALIDATION_REPORT.md](planning/AUTOLOGY_CROSS_DOMAIN_ARCHITECTURE_VALIDATION_REPORT.md).
+
+| Item | Status | Evidence |
+|---|---|---|
+| Two domain packs as configuration (crisis management, network intelligence) | **Done**; engineer-written templates through the sandbox test double, and labelled so | `examples/domains/`; `tests/test_xdom1_cross_domain.py` (23) |
+| Kernel: zero domain-specific changes; five general corrections (GAP-092, 094, 095, 096, 097) | **Done** | Same file: neutrality scan, isolation I1 to I8 |
+| Studio: the same journey for both domains | **Done** with the sandbox | `studio/web/e2e/domains.mjs` (56 browser checks) |
+| Application contract and synthetic reference client | **Done** as a contract; gaps listed (GAP-093, GAP-100; D24, D34) | `docs/application-contract.md`; `tests/test_xdom2_application_contract.py` (6) |
+| GAP-082 element-level rejection | Built and tested; **not in force** | `tests/test_xdom3_element_level_rejection.py` (15) |
+| GAP-083 cross-domain reading of protocol version 2; expert-review requirements | **Proposed, not in force**; no reviewer engaged | `tests/test_xdom4_cross_domain_assessment.py` (5) |
+| D31 durable ledger deployment | Assessment only; no infrastructure changed | `planning/AUTOLOGY_SPENDING_LEDGER_DEPLOYMENT_ASSESSMENT.md` |
+| Onboarding an unfamiliar domain with a language model | **Not shown** (GAP-098); needs D30 h | Report, Summary and G.7 |
+
+Waiting for the owner: D30 (f), (g), (h); D31; D32; D24; D26; D33 (four general defaults of this sprint); D34
+(application contract gaps); reviewers for both demonstrator domains. **R2 is not closed.**

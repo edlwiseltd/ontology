@@ -95,7 +95,7 @@ finish execution gates, release governance, workspace administration and the API
 5. Studio, which can start as soon as the API contract is fixed.
 6. The exit tests.
 
-### 3.5 R2 exit requirements (updated 16 November 2026, architect sprint)
+### 3.5 R2 exit requirements (updated 17 November 2026, cross-domain validation)
 
 | Requirement | State | What is missing |
 |---|---|---|
@@ -108,6 +108,7 @@ finish execution gates, release governance, workspace administration and the API
 | Architecture (ARC-0) | Partial: notifications, ingestion, runs, reviews and the architect are services behind the engine (class 2,323 → 1,721 lines) | Reconciliation, scenarios, model design, assistant, dispatcher |
 | Readiness per use case (criterion 3, REL-2, REL-3) | Met at repository level: for what runs, for the saved draft and for a release that is not active, each named with its configuration, with the differences against what runs | Owner approval of weights and mandatory sets (D26); recorded recovery evidence per use case; sector controls |
 | AI Solution Architect (criteria 4, 5; ARC-1 to ARC-4) | Path demonstrated end to end in Studio with a sandbox test double: description, questions, stored revisions, visual review, engine validation, agents and simulated tools, governed release, **stored simulation runs**, readiness of draft and active (activation sprint; reference demonstration in [solution-demo](../docs/solution-demo.md)) | **A real provider under D7/D10 (GAP-052): everything around it is now built and tested with test doubles (workspace policy, spending ledger, contract for unfamiliar briefs, evaluation suite with thresholds); 17 Nov: the evaluation was run with a real provider (authorisation `D7D10-2026-11-16-EVAL`) and did not meet its thresholds; an unfamiliar brief was taken through Studio to a governed release and stored simulation runs ([report](AUTOLOGY_FIRST_REAL_CLAUDE_EVALUATION_REPORT.md)). Open: thresholds met on a stable system (GAP-082, GAP-083, D30), a second provider**; questions worded by a model; documents as input; BP-1 blueprints for the two named industries; anything outside the two templates' vocabulary |
+| One engine and one Studio for unrelated domains (cross-domain validation, 17 Nov) | Shown on two synthetic demonstrators (crisis management, network intelligence): the same journey through the same routes, no domain vocabulary in the engine or Studio, separate workspaces, people, releases, runs and audit trails; an application contract with a reference client ([report](AUTOLOGY_CROSS_DOMAIN_ARCHITECTURE_VALIDATION_REPORT.md)) | **The models come from engineer-written templates through the sandbox test double: onboarding an unfamiliar domain with a language model is not shown (GAP-098, D30 h).** Expert review of both domains; a real application (D24, D34); several agents on one case (D32) |
 | Agents and tools configured without files (activation sprint) | Met for simulated tools: configured in Studio, validated and compiled by the engine, released with the model | Connectors and sandbox tools from Studio (R4, Agent Factory); editing of decision-table writes; several agents sharing work is possible but not demonstrated |
 
 ## 4. R3: Structured enterprise onboarding

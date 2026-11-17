@@ -104,3 +104,43 @@ Two independent domain reviewers each fill the form of
 | c | Name two domain reviewers, independent of the project, for the expert form? |
 
 Until then: version 1 is the acceptance protocol; version 2 results are labelled "under a proposed protocol".
+
+## 7. Cross-domain assessment (added with the R2 cross-domain validation; proposed, not in force)
+
+An average over eight businesses hides an architect that is good at six and poor at two. The cross-domain
+assessment reads **the same report by domain** (each case of this protocol is a different business) and gives, for
+twelve dimensions, the value in each domain, the lowest, the highest and the spread. It adds no measure, changes
+none and applies no bound: `architect_eval_v2.cross_domain(report)`, tested by
+`tests/test_xdom4_cross_domain_assessment.py`.
+
+| # | Dimension | Read from | Needs a reviewer |
+|---|---|---|---|
+| 1 | Model completeness | `semantic_completeness` | yes: essentials the case did not anticipate |
+| 2 | Domain independence | the spread, between domains, of each domain's mean over the mean measures | no |
+| 3 | Relationship accuracy | `relationship_consistency` | yes: business correctness |
+| 4 | Traceability | `provenance_complete` | no |
+| 5 | Rule consistency | `rule_correctness`, `engine_acceptance` | yes: practical relevance of each rule |
+| 6 | Authority boundaries | `human_only_respected` | yes: are the people who decide the right ones |
+| 7 | Appropriate autonomy | `appropriate_autonomy`, `action_safety` | yes |
+| 8 | Unsupported assumptions | **no automated measure** | yes: assumptions, and inference presented with too much confidence |
+| 9 | Conflicting evidence | `contradiction_recognised` | no |
+| 10 | Security-sensitive inference | `injection_not_followed`, with the behaviour in each domain | a person reads every "ambiguous" case |
+| 11 | Repeatability | `repeatability`, `answer_reliability` | no |
+| 12 | Cost and latency | cost and seconds per answer, by domain | no |
+
+What exists: the calculation, run on the reference answers (spread 0.028 on domain independence, 0 elsewhere: it
+checks the calculation, nothing else) and on a deliberately uneven double (the weak domain is found; the average
+alone would not show it). **No language model has been read this way.**
+
+What it must not be used for:
+
+* The two synthetic demonstrators of the cross-domain validation (crisis management, network intelligence) are
+  **demonstrations of the platform, not evaluation cases**. Their proposals come from engineer-written templates
+  through a test double. They are not, and must not be reported as, evidence of any model's accuracy, in those
+  domains or in general. A test asserts that neither is a case of either protocol.
+* Version 1 results are not restated through this reading.
+* No threshold for a spread is proposed here. If the owner wants one, it is a separate decision (D30 g).
+
+Expert review for the two demonstrator domains has its own requirements, written separately because the two
+professions and their risks differ:
+[AUTOLOGY_DOMAIN_EXPERT_REVIEW_REQUIREMENTS.md](AUTOLOGY_DOMAIN_EXPERT_REVIEW_REQUIREMENTS.md).

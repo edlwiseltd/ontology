@@ -567,7 +567,12 @@ through an approved release.
 **Which provider.** An engine has an architect provider only if its configuration says so:
 `"ai": {"provider": "sandbox"}`. `sandbox` is a deterministic test double built on approved templates
 (`autology/sandbox_ai.py`): it contacts nothing, holds no credential, and its proposals are labelled
-`"ai": false`, generator `sandbox`. **An engine on its own accepts no other value.** Under a platform, a use case
+`"ai": false`, generator `sandbox`. **An engine on its own accepts no other value.** The templates it knows are
+Autology's own (three, in `autology/blueprints`) and those in the folders the use case's configuration names with
+`"blueprints": "folder"` (or a list of folders, relative to the configuration). A domain's templates are thus
+configuration of the use case that names them: no other use case sees them, the setting is part of a release's
+governing settings, and a brief that matches no template gets a question, not a guess. See
+`examples/domains/` for two packs built this way. Under a platform, a use case
 may name a real provider with its exact model and the policy terms it is configured under
 (`"ai": {"provider", "model", "policy", "data_classes", "content"}`); it is served only while the workspace has
 an approved policy for that provider, model and terms, the owner's authorisation covers it, the key is installed

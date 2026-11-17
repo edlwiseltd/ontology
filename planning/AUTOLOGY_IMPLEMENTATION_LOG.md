@@ -1167,3 +1167,53 @@ refresh; reproduced 1 in 3, then 8 of 8 visible), GAP-088 (the test suite left 2
 **Full run on the final tree (local):** 1,014 OK (2 PostgreSQL tests skipped locally), 95.92 % lines (17,068
 statements, 697 missed). After that run, variables were renamed in `consistency.py` for the type check; its tests
 were re-run, and run 110 ran everything on the committed tree.
+
+## 17 November 2026 — R2 cross-domain validation: one Engine, one Studio, two unrelated applications (no provider contacted)
+
+Directive: R2 cross-domain validation, universal Engine, Studio and application architecture. Synthetic data and
+simulated tools only. **No request was sent to a provider and nothing was spent** (ledger read, not written: 27
+entries, 4.418875 USD). Report: [AUTOLOGY_CROSS_DOMAIN_ARCHITECTURE_VALIDATION_REPORT.md](AUTOLOGY_CROSS_DOMAIN_ARCHITECTURE_VALIDATION_REPORT.md).
+R2 is not closed.
+
+### Baseline
+
+`76b55e7`, clean, equal to the remote; CI run 110 (`8c9fe94`) and run 111 (`76b55e7`) success, read from GitHub.
+Domain assumptions found in the Engine and Studio before any change: templates only inside the engine package
+(three shipped), templates offered platform-wide, a water-treatment default description and two domain hints in
+Studio, domain examples in docstrings. No branching on a domain anywhere.
+
+### What was built
+
+| Increment | Content |
+|---|---|
+| 1 (`c202a68`) | General corrections, none naming a domain: blueprint folders named by a use case's configuration (GAP-092); template scope per workspace (GAP-097); a row rule hides nothing in a run that holds no record of the restricted type (GAP-094); honest "simulated" flag in the permission preview (GAP-095); no default description in Studio (GAP-096). Two packs under `examples/domains` (crisis management, network intelligence) and one platform file hosting both. `tests/test_xdom1_cross_domain.py` |
+| 2 (`d046b8d`) | `studio/web/e2e/domains.mjs`: one browser function for both domains. `docs/application-contract.md`, `examples/domains/reference_app.py`, `tests/test_xdom2_application_contract.py`. `autology/architect_elements.py` (element-level rejection, **not in force**) and `tests/test_xdom3_element_level_rejection.py` with a replay of the 17 stored answers of the real evaluation |
+| 3 | `architect_eval_v2.cross_domain` (twelve dimensions, no bound) and `tests/test_xdom4_cross_domain_assessment.py`; expert-review requirements for emergency operations and financial compliance; ledger deployment assessment (D31); an exception case in the crisis pack; provenance, assumptions, readiness, reopening and comparison added to the browser journey; the racy browser check of run 113 corrected; registers; report |
+
+### Findings
+
+Zero domain-specific kernel changes. Five general limits found and fixed (above). Open: `read` also reads the
+design (GAP-093); the sandbox proposes nothing for a domain without a template, so onboarding an unfamiliar domain
+rests on a language model that has not met its thresholds (GAP-098, owner decision); Studio usability on larger
+models (GAP-099); application contract gaps (GAP-100). Register: 100 entries (61 fixed, 17 open, 12 partly, 6 owner
+decision, 4 external evidence). Decisions: D33 (four general defaults of this sprint) and D34 (application contract
+gaps) added; D30 f/g/h, D31, D32, D24, D26 unchanged and pending.
+
+### Verification (final tree unless said otherwise)
+
+| Run | Result |
+|---|---|
+| Full Python suite | **1,063 OK** (2 PostgreSQL tests skipped locally), **95.96 %** lines (17,234 statements, 697 missed). Earlier in the sprint: 1,057 OK, 95.95 % |
+| ruff; mypy ratchet | clean; 198 (= baseline, not raised) |
+| Studio | typecheck clean, **58 unit tests**, build, **135/135** browser checks, **56/56** cross-domain browser checks |
+| Secrets | Six known values searched for, by value, in 1,591 files: none found |
+| Provider | No request sent; nothing spent |
+
+### CI
+
+| Commit | Run | Result |
+|---|---|---|
+| `76b55e7` | [run 111](https://github.com/edlwiseltd/ontology/actions/runs/44088491962) | Success (the starting point) |
+| `c202a68` | [run 112](https://github.com/edlwiseltd/ontology/actions/runs/44168331726) | **Success**, all five jobs |
+| `d046b8d` | [run 113](https://github.com/edlwiseltd/ontology/actions/runs/44170185564) | **Failed**: `studio` job, 47 of 48 new browser checks; one check read Studio's provider notice before the page had loaded the provider's state. The check now waits for the settled notice. Python 3.10 and 3.13 (PostgreSQL, coverage gate), `package` and `quality` succeeded |
+

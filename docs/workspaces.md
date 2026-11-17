@@ -426,6 +426,11 @@ variable is refused), it is recorded in `lifecycle.db` and loaded again at every
 directory already holds data is never reused. Only workspace administrators can open a created use case until
 member grants can be managed through the API (ADM-1).
 
+A template may name the workspaces it is offered to: `"workspaces": ["crisis"]`. It then appears in the template
+list of those workspaces only, and a use case cannot be created from it anywhere else ("unknown template"). A
+template that names none is offered to every workspace, as before. `examples/domains/platform.json` hosts two
+unrelated applications this way, each with its own template.
+
 ## Isolation guarantees
 
 These are enforced server-side and tested in `tests/test_workspaces.py` through the real HTTP router:

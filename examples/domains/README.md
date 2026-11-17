@@ -24,3 +24,14 @@ What this is not:
 
 Tests: `tests/test_xdom1_cross_domain.py`. Contract for an application that consumes a released solution:
 `docs/application-contract.md`.
+
+## Running it
+
+```sh
+python examples/domains/build_packs.py             # only after changing the generator: rewrites the JSON files
+python -m unittest tests.test_xdom1_cross_domain tests.test_xdom2_application_contract
+(cd studio/web && npm run build && e2e/run_domains.sh)   # the same Studio journey for both domains
+```
+
+`reference_app.py` is a synthetic reference client of the application contract: it is not Studio and not an
+operational application.

@@ -292,6 +292,72 @@ def report(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
             "automated": sorted(MEASURES), "needs_expert_judgement": list(EXPERT)}
 
 
+# The cross-domain assessment (R2 cross-domain validation): the same report, read by business domain instead of
+# on average. Every case of this protocol is a different business, so "by case" is "by domain". It adds no
+# measure and no threshold: it shows where the architect is uneven, which an average hides.
+CROSS_DOMAIN: Dict[str, Dict[str, Any]] = {
+    "model_completeness": {"measures": ["semantic_completeness"], "expert": [1]},
+    "domain_independence": {"measures": [], "expert": [],
+                            "derived": "the spread, between domains, of each domain's mean over the mean measures"},
+    "relationship_accuracy": {"measures": ["relationship_consistency"], "expert": [0]},
+    "traceability": {"measures": ["provenance_complete"], "expert": []},
+    "rule_consistency": {"measures": ["rule_correctness", "engine_acceptance"], "expert": [3]},
+    "authority_boundaries": {"measures": ["human_only_respected"], "expert": [4]},
+    "appropriate_autonomy": {"measures": ["appropriate_autonomy", "action_safety"], "expert": [4]},
+    "unsupported_assumptions": {"measures": [], "expert": [2],
+                                "derived": "no automated measure: a reviewer judges assumptions and over-confident inference"},
+    "conflicting_evidence": {"measures": ["contradiction_recognised"], "expert": []},
+    "security_sensitive_inference": {"measures": ["injection_not_followed"], "expert": []},
+    "repeatability": {"measures": ["repeatability", "answer_reliability"], "expert": []},
+    "cost_and_latency": {"measures": [], "expert": [], "derived": "cost and seconds per answer, by domain"},
+}
+
+
+def cross_domain(result: Mapping[str, Any]) -> Dict[str, Any]:
+    """The twelve cross-domain dimensions of a report made by :func:`evaluate`: for each, the value in each domain
+    (case), the lowest, the highest and the spread. **No bound is applied and nothing is passed or failed**: the
+    owner has ratified neither this protocol nor any threshold. A run answered by a test double says nothing about
+    a language model, and a run on demonstration data says nothing about accuracy in general."""
+    rows = [r for r in result.get("cases", []) if r.get("answers")]
+    mean_measures = [name for name, rule in MEASURES.items() if rule["kind"] == "mean"]
+
+    def spread(values: Mapping[str, float]) -> Dict[str, Any]:
+        if not values:
+            return {"by_domain": {}, "lowest": None, "highest": None, "spread": None}
+        return {"by_domain": dict(values), "lowest": min(values.values()), "highest": max(values.values()),
+                "spread": round(max(values.values()) - min(values.values()), 3)}
+
+    out: Dict[str, Any] = {}
+    for name, spec in CROSS_DOMAIN.items():
+        if name == "domain_independence":
+            values = {r["case"]: round(sum(r["scores"].get(m, 0.0) for m in mean_measures) / len(mean_measures), 3)
+                      for r in rows}
+        elif name == "cost_and_latency":
+            values = {}
+            out[name] = {"measures": [], "needs_expert": False, "derived": spec["derived"],
+                         "cost_usd": spread({r["case"]: round(float((r.get("spent") or {}).get("cost_usd", 0)) / r["answers"], 6)
+                                             for r in rows}),
+                         "seconds": spread({r["case"]: round(sum(r["seconds"]) / len(r["seconds"]), 3)
+                                            for r in rows if r["seconds"]})}
+            continue
+        elif spec["measures"]:
+            values = {r["case"]: round(sum(r["scores"].get(m, 0.0) for m in spec["measures"]) / len(spec["measures"]), 3)
+                      for r in rows}
+        else:
+            values = {}
+        out[name] = {"measures": list(spec["measures"]), "needs_expert": bool(spec["expert"]),
+                     "expert_questions": [EXPERT[i] for i in spec["expert"]], **spread(values),
+                     **({"derived": spec["derived"]} if "derived" in spec else {})}
+        if name == "security_sensitive_inference":
+            out[name]["behaviour_by_domain"] = {r["case"]: r["details"]["injection"]["category"] for r in rows}
+    return {"protocol": dict(PROTOCOL), "status": "proposed, not in force: no bound is applied and nothing is ratified",
+            "domains": [r["case"] for r in rows], "unanswered": [r["case"] for r in result.get("cases", []) if not r.get("answers")],
+            "answered_by_a_language_model": bool(result.get("answered_by_a_language_model")),
+            "dimensions": out,
+            "reading": "a wide spread means the architect is uneven between businesses; a narrow one on a test double "
+                       "or on demonstration data proves nothing about a language model"}
+
+
 def reference_proposal(case: Mapping[str, Any]) -> Dict[str, Any]:
     """The case's hand-written reference answer, taken through the same validation as a model's answer, with the
     passages and answers the case provides. For checking the scorers only."""
@@ -371,5 +437,5 @@ def render(result: Mapping[str, Any]) -> str:
     return "\n".join(lines)
 
 
-__all__ = ["PROTOCOL", "MEASURES", "EXPERT", "cases", "inputs", "injection_behaviour", "score", "evaluate", "report",
+__all__ = ["PROTOCOL", "MEASURES", "EXPERT", "CROSS_DOMAIN", "cross_domain", "cases", "inputs", "injection_behaviour", "score", "evaluate", "report",
            "reference_proposal", "review_form", "agreement", "render"]

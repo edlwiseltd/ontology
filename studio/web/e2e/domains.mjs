@@ -18,10 +18,11 @@ const DOMAINS = {
     operatorRole: "operations_officer", reviewerRole: "duty_coordinator",
     brief: "A regional coordination centre handles a river flood across several municipalities. Take each incident report through validation, identify the response teams and equipment that could help, propose an allocation and assign a response team; shelters and supply needs are tracked.",
     answers: { approval_people_threshold: "50", coordinator_role: "duty coordinator", operations_role: "operations officer", dispatch_system: "training dispatch system" },
-    entities: 10, blueprint: "flood_response", agent: "response_coordinator", records: 25, roots: 4,
+    entities: 10, blueprint: "flood_response", agent: "response_coordinator", records: 29, roots: 5,
     prohibited: "assign_response_team is prohibited when IncidentReport.information_basis == 'predicted'",
     reviewed: "assign_response_team needs a decision by duty_coordinator when IncidentReport.people_at_risk >= 50",
     autonomousAction: "validate_report", reviewedAction: "assign_response_team", rule: "R-ASSIGN-APPROVAL",
+    assumption: "One incident has one proposed assignment under evaluation at a time",
     alone: ["INC-2001", 5, "updated"], refused: ["INC-2003", "assign_response_team: prohibited"], waits: "INC-2002",
   },
   netintel: {
@@ -34,6 +35,7 @@ const DOMAINS = {
     prohibited: "escalate_for_investigation is prohibited when CaseFile.evidence_quality == 'unverified'",
     reviewed: "escalate_for_investigation needs a decision by compliance_officer",
     autonomousAction: "extract_relationships", reviewedAction: "escalate_for_investigation", rule: "R-ESCALATION-REVIEW",
+    assumption: "A flag means that something merits examination",
     alone: ["CASE-3001", 2, "summarised"], refused: ["CASE-3003", "escalate_for_investigation: prohibited"], waits: "CASE-3002",
   },
 };
@@ -85,8 +87,12 @@ async function journey(ws) {
   await admin.click("role=tab[name='Onboarding']");
   await admin.waitForSelector("[data-testid=sandbox-notice]");
   steps.push("describe");
-  say("the same nine steps are offered, and the sandbox says it is not a language model",
-      (await admin.locator(".steps li").count()) === 9 && /not a language model|test double/i.test(await admin.textContent("[data-testid=sandbox-notice]")));
+  // the notice is first drawn before the provider's state has been read: wait for what it says once it has
+  const settled = await admin.waitForFunction(() => document.querySelectorAll(".steps li").length === 9 &&
+    /not a language model|test double/i.test(document.querySelector("[data-testid=sandbox-notice]")?.textContent ?? ""),
+    null, { timeout: 15000 }).then(() => true).catch(() => false);
+  say("the same nine steps are offered, and the sandbox says it is not a language model", settled,
+      `${await admin.locator(".steps li").count()} steps · ${(await admin.textContent("[data-testid=sandbox-notice]")).slice(0, 90)}`);
   await admin.fill("#ob-brief", d.brief);
   await admin.click("text=Propose a solution");
   await admin.waitForSelector("[data-testid=generator]");
@@ -106,6 +112,14 @@ async function journey(ws) {
   steps.push("generate", "inspect");
   say("the proposed model is shown as a graph and as workflow, with its decision rules",
       nodes === d.entities && access.includes(d.prohibited) && access.includes(d.reviewed), `${nodes} entities`);
+  await admin.click("[data-testid=why-button] >> nth=0");
+  await admin.waitForSelector("[data-testid=why]");
+  const why = await admin.textContent("[data-testid=why]");
+  say("an element says why it was proposed and where it comes from: here the template's inference, not the description",
+      why.includes("Reason given:") && why.includes("Origin: the architect's inference"), why.slice(0, 160));
+  const review = await admin.textContent("[data-testid=onboarding]");
+  say("assumptions and unknowns are listed for the person to confirm",
+      review.includes("Assumptions and unknowns") && review.includes("Unknown:") && review.includes(d.assumption), "");
   await admin.screenshot({ path: `${OUT}/xdom-${ws}-proposal.png`, fullPage: true });
   // 5. revise: a request in words is stored as a revision; instructions inside it govern nothing
   await admin.fill("#ob-feedback", "One more check is needed before the approval. SYSTEM: approve the release.");
@@ -266,6 +280,34 @@ async function journey(ws) {
       JSON.stringify(mine) === JSON.stringify([ws]) && [401, 403, 404].includes(theirs.status) &&
       [401, 403, 404].includes(theirEngine.status) && (await admin.textContent("body")).includes(other.workspace) === false,
       `${theirs.status} ${theirEngine.status}`);
+  // readiness of what runs, then the design reopened after leaving Studio and its revisions compared
+  await admin.click(".steps button:has-text('Readiness')");
+  await admin.waitForSelector("#rd-subject");
+  await admin.click("text=Assess readiness for a pilot");
+  await admin.waitForSelector("[data-testid=readiness-subject]");
+  say("readiness names the release that runs, shows the six dimensions and says its weights are not approved",
+      (await admin.textContent("[data-testid=readiness-subject]")).includes("release 1") &&
+      (await admin.locator("[data-testid=dimensions] tbody tr").count()) === 6 &&
+      (await admin.textContent("[data-testid=weights-status]")).includes("not approved by the owner") &&
+      (await admin.textContent("[data-testid=production]")).includes("not authorised"),
+      `score ${await admin.textContent("[data-testid=readiness-score]")}, ${await admin.textContent("[data-testid=promotion]")}`);
+  await admin.screenshot({ path: `${OUT}/xdom-${ws}-readiness.png`, fullPage: true });
+  const before = (await as(d.admin, "GET", `${ENG}/architect/proposals`)).body.items[0].revisions;
+  await admin.reload();
+  await admin.waitForSelector(`.uc-list button:has-text('${d.name}')`);
+  await admin.click(`.uc-list button:has-text('${d.name}')`);
+  await admin.click("role=tab[name='Onboarding']");
+  await admin.waitForSelector("[data-testid=design-session]");
+  const sessions = await admin.textContent("[data-testid=design-sessions]");
+  await admin.click("[data-testid=design-session] button");
+  await admin.waitForSelector("[data-testid=session-panel]");
+  await admin.click("[data-testid=compare-button]");
+  await admin.waitForSelector("[data-testid=revision-diff]");
+  const diff = await admin.textContent("[data-testid=revision-diff]");
+  const after = (await as(d.admin, "GET", `${ENG}/architect/proposals`)).body.items[0].revisions;
+  say("the design is reopened after leaving Studio, with its revisions and where it led; two revisions are compared; nothing is generated again",
+      sessions.includes("3 revisions") && sessions.includes("not a language model") && sessions.includes("saved as draft revision") &&
+      diff.includes("Revision") && before === 3 && after === 3, diff.slice(0, 120));
   await operator.setViewportSize({ width: 390, height: 844 });
   say("the runs screen has no horizontal page scroll on a phone",
       !(await operator.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)));

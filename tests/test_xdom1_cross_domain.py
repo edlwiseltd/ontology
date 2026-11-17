@@ -62,7 +62,7 @@ DOMAINS = {
                  "propose an allocation and assign a response team; shelters and supply needs are tracked.",
         "answers": {"approval_people_threshold": 50, "coordinator_role": "duty_coordinator",
                     "operations_role": "operations_officer", "dispatch_system": "training dispatch system"},
-        "agent": "response_coordinator", "case": "incident_case", "root_entity": "IncidentReport", "records": 25,
+        "agent": "response_coordinator", "case": "incident_case", "root_entity": "IncidentReport", "records": 29,
         "alone": ("INC-2001", ["validate_report", "identify_resources", "propose_allocation", "assign_response_team",
                                "publish_update"], "updated"),
         "waits": ("INC-2002", "assign_response_team", "R-ASSIGN-APPROVAL", "updated"),
@@ -311,6 +311,21 @@ class SharedJourneyTests(Hosted):
                     self.assertEqual(events.count("step"), len(run["steps"]))
                     start = trail["entries"][0]["data"]
                     self.assertEqual((start["agent"], start["acting_as"]), (d["agent"], d["operator"]))
+
+    def test_an_exception_is_reported_and_an_unverified_report_goes_nowhere(self):  # X2 (the crisis pack rehearses both)
+        j = self.j["crisis"]
+        operator = j.token(DOMAINS["crisis"]["operator"])
+        outage = j.call("POST", f"{j.E}/runs", operator, {"case_template": "incident_case", "root": "INC-2005"})
+        self.assertEqual(outage["status"], "escalated", outage)
+        reason = outage["escalation"]["reason"] + " ".join(outage["escalation"]["details"])
+        # the failure is said, with how often it was tried: never hidden, and nothing after it is attempted
+        self.assertEqual(reason, "identify_resources failed 3 times: the resource register is not reachable (simulated outage)")
+        self.assertEqual([(s["action"], s["outcome"]) for s in outage["steps"]],
+                         [("validate_report", "done"), ("identify_resources", None)])
+        self.assertEqual(j.audit(outage["run_id"])["verified"], True)
+        unverified = j.call("POST", f"{j.E}/runs", operator, {"case_template": "incident_case", "root": "INC-2004"})
+        self.assertEqual((unverified["status"], unverified["steps"]), ("escalated", []), unverified)
+        self.assertEqual(j.record("INC-2004")["attributes"]["status"], "received")  # nothing was done on a report nobody verified
 
     def test_everything_that_ran_was_simulated(self):  # X2, X5
         for ws, j in self.j.items():

@@ -17,3 +17,4 @@ if curl -sf "http://127.0.0.1:$STUDIO_PORT/" >/dev/null; then echo "FAIL Studio 
 echo "PASS Studio is stopped"
 code=$(curl -s -o /dev/null -w '%{http_code}' -H 'Authorization: Bearer acme-hana' "http://127.0.0.1:$PLATFORM_PORT/w/acme/u/claims/api/ontology")
 [ "$code" = 200 ] && echo "PASS engine answers with Studio stopped (HTTP $code)" || { echo "FAIL engine with Studio stopped: $code"; exit 1; }
+e2e/run_domains.sh

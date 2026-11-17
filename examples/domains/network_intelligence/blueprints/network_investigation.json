@@ -547,7 +547,7 @@
   },
   {
    "kind": "rule",
-   "rationale": "A {reviewer_role} decides every escalation: no association is treated as proof",
+   "rationale": "A the reviewer role decides every escalation: no association is treated as proof",
    "uses": [
     "reviewer_role"
    ],
@@ -585,7 +585,7 @@
   },
   {
    "kind": "rule",
-   "rationale": "Only a {analyst_role} prepares an escalation",
+   "rationale": "Only a the analyst role prepares an escalation",
    "uses": [
     "analyst_role"
    ],
@@ -601,7 +601,7 @@
   },
   {
    "kind": "rule",
-   "rationale": "Only a {financial_role} sees bank account records",
+   "rationale": "Only a the financial role sees bank account records",
    "uses": [
     "financial_role"
    ],
@@ -617,7 +617,7 @@
   },
   {
    "kind": "rule",
-   "rationale": "Only a {analyst_role} changes the count of unusual links",
+   "rationale": "Only a the analyst role changes the count of unusual links",
    "uses": [
     "analyst_role"
    ],

@@ -428,7 +428,7 @@
   },
   {
    "kind": "rule",
-   "rationale": "A {coordinator_role} approves assigning a team when {approval_people_threshold} people or more are at risk",
+   "rationale": "A the coordinator role approves assigning a team when the approval people threshold people or more are at risk",
    "uses": [
     "coordinator_role",
     "approval_people_threshold"
@@ -468,7 +468,7 @@
   },
   {
    "kind": "rule",
-   "rationale": "Only a {operations_role} assigns a team",
+   "rationale": "Only a the operations role assigns a team",
    "uses": [
     "operations_role"
    ],
@@ -484,7 +484,7 @@
   },
   {
    "kind": "rule",
-   "rationale": "Only a {operations_role} publishes an update",
+   "rationale": "Only a the operations role publishes an update",
    "uses": [
     "operations_role"
    ],
@@ -500,7 +500,7 @@
   },
   {
    "kind": "rule",
-   "rationale": "Only a {coordinator_role} changes the number of people at risk",
+   "rationale": "Only a the coordinator role changes the number of people at risk",
    "uses": [
     "coordinator_role"
    ],

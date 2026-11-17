@@ -10,6 +10,7 @@ never a reading of the brief and never a language model's output: the sandbox ar
     python examples/domains/build_packs.py     # rewrites the JSON files beside this script
 """
 import json
+import re
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -31,7 +32,9 @@ def act(name, description, capability, requires, effects, side="none"):
 
 
 def rule(rid, kind, description, uses=(), **params):
-    return {"kind": "rule", "rationale": description, "uses": list(uses),
+    # the rationale is shown as written (only "value" is filled from the answers): it names no placeholder
+    why = re.sub(r"\{(\w+)\}", lambda m: "the " + m.group(1).replace("_", " "), description)
+    return {"kind": "rule", "rationale": why, "uses": list(uses),
             "value": {"id": rid, "type": kind, **params, "description": description}}
 
 

@@ -8,6 +8,7 @@ import type { AccessReview, ActivationResult, AiView, ApiErrorBody, CheckResult,
   TokenIssuedOrRequested, UseCase, ValidationResult } from "./types";
 // (run shapes are hand-typed in lib/runs.ts: the engine's run routes answer open objects)
 import type { EngineMe, ObjectRow, ReviewView, RunAudit, RunRow, RunView } from "./runs";
+import type { Manifest } from "@/runtime/types";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string, public data: Record<string, unknown> = {}) {
@@ -177,6 +178,21 @@ export const runs = {
   resume: (path: string, id: string) => request<RunView>("POST", `${path}/api/v1/runs/${enc(id)}/resume`, { force: true }),
   cancel: (path: string, id: string, reason: string) =>
     request<RunView>("POST", `${path}/api/v1/runs/${enc(id)}/cancel`, { reason }),
+};
+
+// The Application Builder: manifests of what runs. The engine generates, validates and stores; Studio arranges.
+export interface AppCheck { valid: boolean; problems: { path: string; message: string }[]; digest?: string | null }
+export interface AppDraft { revision: number; manifest: Manifest | null; validation: AppCheck | null; author?: string | null;
+  at?: string | null; note?: string | null; history: { revision: number; author: string; at: string; note: string; configuration: string }[];
+  running: Manifest["binding"]; saved?: boolean }
+export const application = {
+  draft: (path: string) => request<AppDraft>("GET", `${path}/api/v1/application/draft`),
+  generate: (path: string) => request<{ manifest: Manifest; validation: AppCheck; generator: { kind: string; ai: boolean; note: string } }>(
+    "POST", `${path}/api/v1/application/generate`, {}),
+  validate: (path: string, manifest: Manifest) =>
+    request<{ validation: AppCheck }>("POST", `${path}/api/v1/application/validate`, { manifest }),
+  save: (path: string, manifest: Manifest, expected_revision: number, note: string) =>
+    request<AppDraft>("POST", `${path}/api/v1/application/draft`, { manifest, expected_revision, note }),
 };
 
 export interface SimulatedDecision { action: string; approved: boolean; as?: string }

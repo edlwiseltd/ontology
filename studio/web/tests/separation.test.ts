@@ -10,7 +10,7 @@ function files(dir: string): string[] {
     return statSync(p).isDirectory() ? files(p) : /\.(ts|tsx)$/.test(p) ? [p] : [];
   });
 }
-const SOURCES = ["app", "components", "lib"].flatMap((d) => files(join(ROOT, d)));
+const SOURCES = ["app", "components", "lib", "runtime"].flatMap((d) => files(join(ROOT, d)));
 
 describe("separation from the engine", () => {
   it("has sources to check", () => expect(SOURCES.length).toBeGreaterThan(6));

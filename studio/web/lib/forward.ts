@@ -1,10 +1,11 @@
 // The only server-side code in Studio: a narrow relay to the Autology platform, so the browser talks to one origin.
-// It decides nothing. It forwards GET and POST under /platform/ and /w/ only, with Authorization and Content-Type
-// only, never follows redirects, bounds request bodies, and answers 502 when the platform cannot be reached.
+// It decides nothing. It forwards GET and POST under /platform/ and /w/ only, with Authorization, Content-Type and
+// the expected configuration only, never follows redirects, bounds request bodies, and answers 502 when the platform cannot be reached.
 // Every permission, check, stage and isolation rule is the platform's.
 
 export const FORWARDED_PREFIXES = ["/platform/", "/w/"];
-export const FORWARDED_HEADERS = ["authorization", "content-type"];
+// x-autology-configuration: the configuration a request was written for; the Engine refuses it when another runs
+export const FORWARDED_HEADERS = ["authorization", "content-type", "x-autology-configuration"];
 export const MAX_BODY = 1_000_000;
 
 export function forwardable(method: string, path: string): boolean {

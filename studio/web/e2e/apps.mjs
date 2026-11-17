@@ -373,6 +373,31 @@ try {
   await v.app.waitForSelector("[data-testid=rt-app]");
   check("the designer is told the saved design is for another configuration; designed again for what runs, the application is shown again",
         (await v.app.textContent("[data-testid=rt-release]")).includes("design revision 2"));
+  // ---- the chain evaluation's reserved briefs, hosted from their reference answers and rendered by the same runtime
+  for (const id of ["harbour-pilotage", "museum-loans"]) {
+    const p = await page();
+    await p.goto(`${STUDIO}/run/venues/${id}`);
+    await p.waitForSelector("#rt-token");
+    await p.fill("#rt-token", "venues-viv");
+    await p.click("button[type=submit]");
+    await p.waitForSelector("[data-testid=rt-app]");
+    const entries = await p.$$eval("[data-testid=rt-nav] li[data-nav]", (els) => els.map((e) => e.dataset.nav));
+    const failed = [];
+    let drawn = 0;
+    for (const view of entries) {
+      await p.click(`[data-testid=rt-nav] li[data-nav="${view}"] button`);
+      await p.waitForSelector(".rt-main section");
+      await p.waitForFunction(() => ![...document.querySelectorAll(".rt-main [role=status]")].some((e) => e.textContent.includes("Loading")));
+      if (await p.locator(".rt-main .error, [data-testid=rt-unsupported]").count()) failed.push(view); else drawn += 1;
+    }
+    await p.click("[data-testid=rt-about-open]");
+    await p.waitForSelector("[data-testid=rt-about]");
+    const release = await p.textContent("[data-testid=rt-about-release]");
+    check(`chain: the reserved brief ${id}, hosted from its reference answer, is rendered by the same runtime: every menu screen is drawn, none fails`,
+          entries.length === 7 && drawn === 7 && failed.length === 0 && release.includes("Release 1") &&
+          same(await states(p, "rt-about-status"), AS_DESIGNED) && (await noScroll(p)), `${drawn}/${entries.length} ${failed.join(",")}`);
+    await p.screenshot({ path: `${OUT}/chain-${id}.png`, fullPage: true });
+  }
   check("no page errors", errors.length === 0, errors.join("; ").slice(0, 300));
 } catch (e) {
   check("the demonstration ran to its end", false, String(e).slice(0, 500));

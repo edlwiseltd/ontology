@@ -330,6 +330,15 @@ def _build_parser() -> argparse.ArgumentParser:
                          "protocol (held-out and adversarial cases, behaviour-based injection measure): not in force "
                          "until the owner approves it")
     ae.add_argument("--json", action="store_true", help="print the full report as JSON")
+    ce = sub.add_parser("chain-eval", help="end-to-end chain evaluation (description to simulated application), in three "
+                                           "separate results; it calls no provider and spends nothing")
+    how = ce.add_mutually_exclusive_group(required=True)
+    how.add_argument("--reference", action="store_true",
+                     help="the two reserved briefs with their hand-written reference answers: checks the chain, not a model")
+    how.add_argument("--replay", metavar="FOLDER", help="answers kept by an earlier, authorised evaluation; nothing is asked again")
+    ce.add_argument("--assume-confirmed", action="store_true",
+                    help="with --replay: as if a reviewer had confirmed every inferred element (stated in the report)")
+    ce.add_argument("--json", action="store_true", help="print the full report as JSON")
     ae.add_argument("--save", metavar="DIR", help="keep every answer exactly as it was scored (one JSON file per "
                                                   "case and run) and the report, in DIR")
     return parser
@@ -700,6 +709,19 @@ def main(argv=None) -> int:
         return _cmd_tenancy(args)
     if args.command == "architect-eval":
         return _cmd_architect_eval(args)
+    if args.command == "chain-eval":
+        from . import architect_eval, chain_eval
+
+        if args.replay:
+            chained = chain_eval.evaluate(architect_eval.cases(), chain_eval.replay(args.replay),
+                                         chain_eval.CONFIRM_ALL if args.assume_confirmed else {},
+                                         f"answers kept in {args.replay}; " + (chain_eval.CONFIRM_ALL if args.assume_confirmed
+                                                                              else "no decision of a person"))
+        else:
+            chained = chain_eval.evaluate(chain_eval.reserved(), chain_eval.reference, None,
+                                         "the reserved briefs' hand-written reference answers (not a model)")
+        print(json.dumps(chained, indent=1, default=str) if args.json else chain_eval.render(chained))
+        return 0
     if args.command == "openapi":
         from .openapi import platform_spec, spec
 

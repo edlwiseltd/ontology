@@ -16,7 +16,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
+from autology import chain_eval  # noqa: E402
 from tests.test_app1_application_builder import venue  # noqa: E402
+from tests.test_chain1_end_to_end_evaluation import host  # noqa: E402
 from tests.test_xdom1_cross_domain import DOMAINS, Journey  # noqa: E402
 
 
@@ -48,6 +50,11 @@ def main(base):
         j.call("POST", f"{j.E}/objects", "venues-vic", {"type": "Organiser", "id": f"ORG-{n + 100}", "expected_revision": 0, "attributes": {
             "status": "active", "display_name": f"Team {n:02d} (fictional)", "department": ("Research", "Sales", "Support")[n % 3]}})
     print("prepared venues (61 organisers)")
+    # the reserved briefs of the end-to-end evaluation: each reference answer taken through the chain, and the draft it
+    # gives hosted like any other use case (released by two people, in Simulation, with a generated application)
+    for case in chain_eval.reserved():
+        host(check, client, chain_eval.run_case(case, chain_eval.reference))
+        print(f"hosted the reserved brief {case['id']}")
 
 
 if __name__ == "__main__":

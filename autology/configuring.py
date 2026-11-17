@@ -172,8 +172,16 @@ class ConfigurationService:
                                                         .get("agents") or [])
                 if candidate["agents"] and not solutions.check(candidate, document)[0]:
                     suggested, source = candidate, "architect descriptions"
+        with e.graph_lock:
+            taken = set(e.graph._instances)  # a sample never claims the identifier of a record that exists
         if suggested is None:
-            suggested = solutions.suggest(document, sample_case(onto, document))
+            suggested = solutions.suggest(document, sample_case(onto, document), taken)
+        elif not suggested.get("sample_data"):
+            # agents a person or the architect described come without records: one synthetic case along the
+            # model's case template, so that what was configured can be rehearsed (kept only if it fits)
+            records = solutions.sample_records(onto, sample_case(onto, document), taken)
+            if records and not solutions.check({**suggested, "sample_data": records}, document)[0]:
+                suggested = {**suggested, "sample_data": records}
         return {**self._view({**draft, "document": document}, suggested), "source": source, "saved": False}
 
     def save_solution_draft(self, user: User, body: Dict[str, Any]) -> Dict[str, Any]:

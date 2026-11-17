@@ -118,7 +118,32 @@ confidence between 0 and 1. Put what you had to assume under assumptions, what y
 and ask clarification questions rather than guess (give each question a short id; answers come back under \
 that id). Describe the roles, agents and integrations the solution would involve: they are descriptions for an \
 administrator, who alone grants roles and connects systems. Do not repeat what the current model already \
-contains. Conditions are expressions such as: Order.status == 'open' and Order.amount > 1000."""
+contains.
+
+How the engine reads what you propose (it refuses anything else, element by element):
+- An entity has at least one state. Its current state is its attribute "status" (Order.status == 'open'); the \
+first state listed is the one a new record starts in.
+- A condition (an action's "requires", a rule's "when", a goal's "target") is one expression over \
+Entity.attribute: comparisons (== != < <= > >=), "in", "and", "or", "not", parentheses; text in single quotes; \
+numbers; True and False with a capital letter. For example: Order.status == 'open' and Order.amount > 1000. \
+Never prose, a percentage or a function call, except all_of(...), any_of(...) and count_of(...) over the records \
+of one entity.
+- An effect sets an entity's attribute to a value; for "status" the value is one of that entity's states, \
+written without quotes.
+- A goal's "target" is a condition that is true when a case is finished (Order.status == 'delivered'), never a \
+metric.
+- A rule has "id", "type", "description", optionally "when", and only the keys of its type: mandatory_step takes \
+"step" (an action) and optionally "before" (the action it must precede); human_review takes "action" and \
+"reviewer" (a role); prohibition takes "action" (say when in "when"); action_access takes "action" and "roles"; \
+data_access and write_access take "field" (Entity.attribute) and "roles"; row_access takes "entity" and "roles". \
+Leave every other key out.
+- A case template names the root entity a run starts from and, for every entity the run needs (the root \
+included), the path from the root: "self" for the root itself; otherwise the names of the relationships to \
+follow, joined by dots (orders.lines), each with a leading ^ when it is followed against its direction \
+(^placed_by). A path is made of relationship names only, never of entity names.
+- Names of entities, attributes, actions and roles are identifiers (letters, digits, underscores). Whatever a \
+condition, an effect, a rule, a relationship or a case template mentions must be among the elements you propose \
+or in the current model."""
 
 PROMPT = ("Propose additions to the business model for the brief given as data. Use the outline of the current "
           "model to avoid duplicates, and cite sources by their id (the brief's id is \"brief\").")
@@ -256,6 +281,15 @@ def _culprit(problem: Mapping[str, Any], items: List[Dict[str, Any]],
         for item in of_kind:
             if item["name"] == name:
                 return item
+    numbered = re.match(r"rules\.(\d+)\b", message)  # the loader names a rule by its place: "rules.3 (R4): ..."
+    if numbered:
+        added = [i for i in items if i["kind"] == "rule"]
+        offset = int(numbered.group(1)) - len(document.get("rules") or [])
+        if 0 <= offset < len(added):
+            return added[offset]
+    # an expression that itself contains quotes is quoted with double quotes in the message: it is looked for
+    # first, before the fragments in single quotes inside it (which may be a state or a name of another element)
+    whole = re.findall(r'"([^"]+)"', message)
     where = locate(str(problem.get("path") or ""))
     named = {"entity": where.get("node"),
              "action": where.get("name") if where.get("section") == "actions" else None,
@@ -269,7 +303,7 @@ def _culprit(problem: Mapping[str, Any], items: List[Dict[str, Any]],
             offset = where[key] - len(document.get(section) or [])
             if 0 <= offset < len(added):
                 return added[offset]
-    for text in quoted:  # e.g. "invalid expression '...'": the item one of whose values is the quoted text
+    for text in whole + quoted:  # e.g. "invalid expression '...'": the item one of whose values is the quoted text
         for item in items:
             if item["name"] == text or text in _strings(item["value"]):
                 return item

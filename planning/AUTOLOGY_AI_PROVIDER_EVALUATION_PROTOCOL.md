@@ -1,6 +1,10 @@
 # Autology — protocol for evaluating a first real AI provider
 
-*15 November 2026. Status: **prepared, not executed.** No real provider has been contacted. Executing this
+*15 November 2026. Status on 17 November 2026: **executed once, for the architect, under authorisation
+`D7D10-2026-11-16-EVAL`** (Anthropic, `claude-opus-5-5`, workspace `evaluation`, synthetic data): **thresholds not
+met**; results and limits in the [report](AUTOLOGY_FIRST_REAL_CLAUDE_EVALUATION_REPORT.md) and the
+[evidence](evidence/claude-eval-2026-11-17/). The text below is the protocol as prepared on 15 November, when no
+real provider had been contacted. Executing this
 protocol needs the owner's explicit approval of decisions D7 and D10 for a named workspace. Until then the engine
 accepts one architect provider only, the sandbox test double (`"ai": {"provider": "sandbox"}`), which contacts
 nothing. Closing GAP-052 ("never run with a real AI model") requires this protocol to be run and its evidence

@@ -1,0 +1,861 @@
+{
+ "generator": "model",
+ "ai": true,
+ "provider": "anthropic",
+ "model": "claude-opus-5-5",
+ "request_id": "934ac29fff144e98a567885851700c73",
+ "items": [
+  {
+   "id": "model:entity:Flight",
+   "kind": "entity",
+   "name": "Flight",
+   "value": {
+    "description": "A scheduled flight operated by the airline that can be delayed or cancelled.",
+    "states": [
+     "scheduled",
+     "delayed",
+     "cancelled",
+     "recovered"
+    ],
+    "attributes": {
+     "flight_number": "string",
+     "scheduled_departure": "datetime",
+     "estimated_departure": "datetime",
+     "origin": "string",
+     "destination": "string",
+     "aircraft_registration": "string"
+    }
+   },
+   "rationale": "The brief is about managing flights that are delayed or cancelled.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.9,
+   "attention": [],
+   "status": "provisional",
+   "basis": "supplied",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "934ac29fff144e98a567885851700c73"
+   }
+  },
+  {
+   "id": "model:entity:Disruption",
+   "kind": "entity",
+   "name": "Disruption",
+   "value": {
+    "description": "A case opened when a flight is delayed or cancelled. It gathers the crew check, the passenger impact and the chosen recovery option.",
+    "states": [
+     "open",
+     "assessing",
+     "awaiting_decision",
+     "resolved"
+    ],
+    "attributes": {
+     "disruption_type": "string",
+     "delay_minutes": "integer",
+     "crew_check_completed": "boolean",
+     "affected_passenger_count": "integer",
+     "connecting_passenger_count": "integer",
+     "passengers_to_rebook": "integer",
+     "recovery_option": "string",
+     "opened_at": "datetime"
+    }
+   },
+   "rationale": "The brief describes one decision process per disrupted flight: check crew, assess passengers, then choose between waiting, swapping the aircraft or rebooking. A case entity holds that process.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.75,
+   "attention": [],
+   "status": "provisional",
+   "basis": "inferred",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "934ac29fff144e98a567885851700c73"
+   }
+  },
+  {
+   "id": "model:entity:CrewMember",
+   "kind": "entity",
+   "name": "CrewMember",
+   "value": {
+    "description": "A crew member assigned to the disrupted flight, whose duty-time legality must be checked.",
+    "states": [
+     "within_limits",
+     "limit_at_risk",
+     "out_of_limits"
+    ],
+    "attributes": {
+     "employee_id": "string",
+     "crew_role": "string",
+     "duty_minutes_used": "integer",
+     "duty_minutes_limit": "integer",
+     "within_duty_limits": "boolean"
+    }
+   },
+   "rationale": "The brief requires checking which crew members are still within their duty limits.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.85,
+   "attention": [],
+   "status": "provisional",
+   "basis": "supplied",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "934ac29fff144e98a567885851700c73"
+   }
+  },
+  {
+   "id": "model:entity:Passenger",
+   "kind": "entity",
+   "name": "Passenger",
+   "value": {
+    "description": "A passenger booked on the disrupted flight, possibly with an onward connection.",
+    "states": [
+     "booked",
+     "affected",
+     "rebooked",
+     "waiting"
+    ],
+    "attributes": {
+     "booking_reference": "string",
+     "has_connection": "boolean",
+     "connection_departure": "datetime",
+     "rebooked_flight_number": "string"
+    }
+   },
+   "rationale": "The brief requires counting affected passengers and checking whether they have connections.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.85,
+   "attention": [],
+   "status": "provisional",
+   "basis": "supplied",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "934ac29fff144e98a567885851700c73"
+   }
+  },
+  {
+   "id": "model:entity:Aircraft",
+   "kind": "entity",
+   "name": "Aircraft",
+   "value": {
+    "description": "An aircraft that operates the flight or could replace the aircraft of a disrupted flight.",
+    "states": [
+     "assigned",
+     "available",
+     "unavailable"
+    ],
+    "attributes": {
+     "registration": "string",
+     "aircraft_type": "string",
+     "seat_capacity": "integer"
+    }
+   },
+   "rationale": "Swapping the aircraft is one of the recovery options in the brief.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.75,
+   "attention": [],
+   "status": "provisional",
+   "basis": "supplied",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "934ac29fff144e98a567885851700c73"
+   }
+  },
+  {
+   "id": "model:relationship:Disruption-concerns-Flight",
+   "kind": "relationship",
+   "name": null,
+   "value": {
+    "from": "Disruption",
+    "to": "Flight",
+    "type": "concerns",
+    "cardinality": "many-to-one"
+   },
+   "rationale": "Each disruption case concerns one flight.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.85,
+   "attention": [],
+   "status": "provisional",
+   "basis": "inferred",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "934ac29fff144e98a567885851700c73"
+   }
+  },
+  {
+   "id": "model:relationship:Flight-crewed_by-CrewMember",
+   "kind": "relationship",
+   "name": null,
+   "value": {
+    "from": "Flight",
+    "to": "CrewMember",
+    "type": "crewed_by",
+    "cardinality": "many-to-many"
+   },
+   "rationale": "The crew of the flight must be checked against duty limits.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.8,
+   "attention": [],
+   "status": "provisional",
+   "basis": "supplied",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "934ac29fff144e98a567885851700c73"
+   }
+  },
+  {
+   "id": "model:relationship:Flight-carries-Passenger",
+   "kind": "relationship",
+   "name": null,
+   "value": {
+    "from": "Flight",
+    "to": "Passenger",
+    "type": "carries",
+    "cardinality": "one-to-many"
+   },
+   "rationale": "The passengers affected are those booked on the flight.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.8,
+   "attention": [],
+   "status": "provisional",
+   "basis": "supplied",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "934ac29fff144e98a567885851700c73"
+   }
+  },
+  {
+   "id": "model:relationship:Flight-operated_by-Aircraft",
+   "kind": "relationship",
+   "name": null,
+   "value": {
+    "from": "Flight",
+    "to": "Aircraft",
+    "type": "operated_by",
+    "cardinality": "many-to-one"
+   },
+   "rationale": "Needed to model the swap-aircraft option.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.75,
+   "attention": [],
+   "status": "provisional",
+   "basis": "inferred",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "934ac29fff144e98a567885851700c73"
+   }
+  },
+  {
+   "id": "model:relationship:Disruption-proposes_replacement-Aircraft",
+   "kind": "relationship",
+   "name": null,
+   "value": {
+    "from": "Disruption",
+    "to": "Aircraft",
+    "type": "proposes_replacement",
+    "cardinality": "many-to-one"
+   },
+   "rationale": "When the aircraft-swap option is chosen, the case records the replacement aircraft.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.6,
+   "attention": [],
+   "status": "provisional",
+   "basis": "inferred",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "934ac29fff144e98a567885851700c73"
+   }
+  },
+  {
+   "id": "model:action:open_disruption",
+   "kind": "action",
+   "name": "open_disruption",
+   "value": {
+    "description": "Open a disruption case when a flight is delayed or cancelled.",
+    "capability": "flight_ops.read_status",
+    "requires": [
+     "Flight.status == 'delayed' or Flight.status == 'cancelled'"
+    ],
+    "effects": {
+     "Disruption": {
+      "status": "open"
+     }
+    },
+    "side_effect": "idempotent"
+   },
+   "rationale": "The process starts when a flight is delayed or cancelled.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.7,
+   "attention": [
+    "acts outside Autology: decide who reviews it"
+   ],
+   "status": "provisional",
+   "basis": "inferred",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "934ac29fff144e98a567885851700c73"
+   }
+  },
+  {
+   "id": "model:action:check_crew_duty_limits",
+   "kind": "action",
+   "name": "check_crew_duty_limits",
+   "value": {
+    "description": "Check each assigned crew member's duty time against the applicable limits for the new departure time.",
+    "capability": "crew_management.read_duty",
+    "requires": [
+     "Disruption.status == 'open'"
+    ],
+    "effects": {
+     "Disruption": {
+      "crew_check_completed": "true",
+      "status": "assessing"
+     }
+    },
+    "side_effect": "none"
+   },
+   "rationale": "The brief requires checking which crew members are still within their duty limits.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.85,
+   "attention": [],
+   "status": "provisional",
+   "basis": "supplied",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "934ac29fff144e98a567885851700c73"
+   }
+  },
+  {
+   "id": "model:action:assess_passenger_impact",
+   "kind": "action",
+   "name": "assess_passenger_impact",
+   "value": {
+    "description": "Count the affected passengers and those with onward connections.",
+    "capability": "reservations.read_bookings",
+    "requires": [
+     "Disruption.status == 'open' or Disruption.status == 'assessing'"
+    ],
+    "effects": {
+     "Disruption": {
+      "affected_passenger_count": "computed",
+      "connecting_passenger_count": "computed"
+     }
+    },
+    "side_effect": "none"
+   },
+   "rationale": "The brief requires seeing how many passengers are affected and whether they have connections.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.85,
+   "attention": [],
+   "status": "provisional",
+   "basis": "supplied",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "934ac29fff144e98a567885851700c73"
+   }
+  },
+  {
+   "id": "model:action:rebook_passengers",
+   "kind": "action",
+   "name": "rebook_passengers",
+   "value": {
+    "description": "Rebook the affected passengers onto another flight.",
+    "capability": "reservations.rebook",
+    "requires": [
+     "Disruption.affected_passenger_count > 0",
+     "Disruption.status == 'assessing' or Disruption.status == 'awaiting_decision'"
+    ],
+    "effects": {
+     "Passenger": {
+      "status": "rebooked"
+     },
+     "Disruption": {
+      "recovery_option": "rebook",
+      "status": "resolved"
+     }
+    },
+    "side_effect": "non_idempotent"
+   },
+   "rationale": "Rebooking is one of the three options in the brief. Operations control may rebook on its own up to a limit; the limit is contradictory (see contradictions).",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.75,
+   "attention": [
+    "acts outside Autology: decide who reviews it"
+   ],
+   "status": "provisional",
+   "basis": "supplied",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "934ac29fff144e98a567885851700c73"
+   }
+  },
+  {
+   "id": "model:action:cancel_flight",
+   "kind": "action",
+   "name": "cancel_flight",
+   "value": {
+    "description": "Cancel the disrupted flight. This is always decided by the duty manager.",
+    "capability": "flight_ops.cancel_flight",
+    "requires": [
+     "Disruption.status == 'awaiting_decision'"
+    ],
+    "effects": {
+     "Flight": {
+      "status": "cancelled"
+     },
+     "Disruption": {
+      "status": "resolved"
+     }
+    },
+    "side_effect": "non_idempotent"
+   },
+   "rationale": "The brief says cancelling a flight is decided by the duty manager.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.85,
+   "attention": [
+    "acts outside Autology: decide who reviews it"
+   ],
+   "status": "provisional",
+   "basis": "supplied",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "934ac29fff144e98a567885851700c73"
+   }
+  },
+  {
+   "id": "model:rule:R1",
+   "kind": "rule",
+   "name": "R1",
+   "value": {
+    "id": "R1",
+    "type": "human_review",
+    "description": "Cancelling a flight requires a decision by the duty manager.",
+    "when": "Flight.status != 'cancelled'",
+    "action": "cancel_flight",
+    "reviewer": "duty_manager"
+   },
+   "rationale": "The brief states this directly. A cancellation also affects passengers' rights and money.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.9,
+   "attention": [],
+   "status": "provisional",
+   "basis": "supplied",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "934ac29fff144e98a567885851700c73"
+   }
+  },
+  {
+   "id": "model:rule:R2",
+   "kind": "rule",
+   "name": "R2",
+   "value": {
+    "id": "R2",
+    "type": "human_review",
+    "description": "Rebooking above a passenger threshold requires the duty manager. The threshold is unresolved (30 or 50); 30 is proposed provisionally as the more cautious value until Q1 is answered.",
+    "when": "Disruption.passengers_to_rebook > 30",
+    "action": "rebook_passengers",
+    "reviewer": "duty_manager"
+   },
+   "rationale": "The brief gives two conflicting limits. The rule is kept pending the answer to Q1, not settled.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.4,
+   "attention": [],
+   "status": "provisional",
+   "basis": "supplied",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "934ac29fff144e98a567885851700c73"
+   }
+  },
+  {
+   "id": "model:rule:R4",
+   "kind": "rule",
+   "name": "R4",
+   "value": {
+    "id": "R4",
+    "type": "mandatory_step",
+    "description": "The passenger impact must be assessed before passengers are rebooked.",
+    "step": "assess_passenger_impact",
+    "before": "rebook_passengers"
+   },
+   "rationale": "The rebooking threshold depends on the passenger count.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.75,
+   "attention": [],
+   "status": "provisional",
+   "basis": "inferred",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "934ac29fff144e98a567885851700c73"
+   }
+  },
+  {
+   "id": "model:rule:R5",
+   "kind": "rule",
+   "name": "R5",
+   "value": {
+    "id": "R5",
+    "type": "action_access",
+    "description": "Only operations control and the duty manager may rebook passengers.",
+    "action": "rebook_passengers",
+    "roles": [
+     "operations_control",
+     "duty_manager"
+    ]
+   },
+   "rationale": "The brief names operations control as the role that rebooks, with the duty manager above the threshold.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.75,
+   "attention": [],
+   "status": "provisional",
+   "basis": "supplied",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "934ac29fff144e98a567885851700c73"
+   }
+  },
+  {
+   "id": "model:rule:R6",
+   "kind": "rule",
+   "name": "R6",
+   "value": {
+    "id": "R6",
+    "type": "action_access",
+    "description": "Only the duty manager may cancel a flight.",
+    "action": "cancel_flight",
+    "roles": [
+     "duty_manager"
+    ]
+   },
+   "rationale": "The brief says cancelling is decided by the duty manager.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.85,
+   "attention": [],
+   "status": "provisional",
+   "basis": "supplied",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "934ac29fff144e98a567885851700c73"
+   }
+  }
+ ],
+ "rejected": [
+  {
+   "kind": "action",
+   "name": "decide_wait",
+   "problem": "construct Name not allowed in 'Disruption.crew_check_completed == true'"
+  },
+  {
+   "kind": "action",
+   "name": "swap_aircraft",
+   "problem": "construct Name not allowed in 'Disruption.crew_check_completed == true'"
+  },
+  {
+   "kind": "goal",
+   "name": "resolve_disruptions_legally",
+   "problem": "invalid expression '100% of resolved disruptions have crew_check_completed == true': invalid syntax"
+  },
+  {
+   "kind": "goal",
+   "name": "protect_connecting_passengers",
+   "problem": "invalid expression 'connecting passenger count assessed on every disruption before a decision': invalid syntax"
+  },
+  {
+   "kind": "rule",
+   "name": "R3",
+   "problem": "rule 'R3': 'before' must name an action"
+  },
+  {
+   "kind": "case_template",
+   "name": "flight_disruption",
+   "problem": "case template 'flight_disruption': no relationship 'Disruption' from 'Disruption'"
+  }
+ ],
+ "answers": [],
+ "questions": [
+  {
+   "id": "Q1",
+   "question": "Above how many rebooked passengers must the duty manager decide: more than 30 or more than 50?",
+   "why": "The brief states both. Rule R2 depends on it."
+  },
+  {
+   "id": "Q2",
+   "question": "Which duty-time limits apply to crew (regulation, collective agreement), and where are they recorded?",
+   "why": "The crew check needs a defined limit per crew member and role."
+  },
+  {
+   "id": "Q3",
+   "question": "Who decides between waiting and swapping the aircraft, and does either need the duty manager above some delay or cost?",
+   "why": "The brief names a decider only for cancellation and rebooking."
+  },
+  {
+   "id": "Q4",
+   "question": "Is there a deadline for reaching a decision, for example a number of minutes before the scheduled or estimated departure?",
+   "why": "No deadline is given. One may be needed for escalation."
+  },
+  {
+   "id": "Q5",
+   "question": "Is the rebooking threshold counted per disruption or per rebooking batch?",
+   "why": "This determines how R2 is evaluated."
+  }
+ ],
+ "suggestions": {
+  "roles": [
+   {
+    "name": "operations_control",
+    "description": "Handles disruptions: runs crew and passenger checks, chooses waiting or an aircraft swap, and rebooks passengers within the threshold."
+   },
+   {
+    "name": "duty_manager",
+    "description": "Decides flight cancellations and rebookings above the threshold."
+   }
+  ],
+  "agents": [
+   {
+    "name": "disruption_assessment_agent",
+    "description": "Opens the disruption case, checks crew duty limits and assesses passenger impact to prepare the decision. It does not cancel flights.",
+    "actions": [
+     "open_disruption",
+     "check_crew_duty_limits",
+     "assess_passenger_impact"
+    ]
+   },
+   {
+    "name": "recovery_agent",
+    "description": "Executes the chosen recovery option within the rules. Rebookings above the threshold and all cancellations go to the duty manager for review.",
+    "actions": [
+     "decide_wait",
+     "swap_aircraft",
+     "rebook_passengers"
+    ]
+   }
+  ],
+  "integrations": [
+   {
+    "capability": "flight_ops.read_status",
+    "system": "Flight operations / operations control system (to be identified)",
+    "description": "Read flight status and estimated departure times."
+   },
+   {
+    "capability": "flight_ops.update_schedule",
+    "system": "Flight operations system",
+    "description": "Update a delayed flight's departure time."
+   },
+   {
+    "capability": "flight_ops.assign_aircraft",
+    "system": "Flight operations / fleet system",
+    "description": "Assign a replacement aircraft."
+   },
+   {
+    "capability": "flight_ops.cancel_flight",
+    "system": "Flight operations system",
+    "description": "Record a flight cancellation after the duty manager decides."
+   },
+   {
+    "capability": "crew_management.read_duty",
+    "system": "Crew management system (to be identified)",
+    "description": "Read crew assignments and duty time used and remaining."
+   },
+   {
+    "capability": "reservations.read_bookings",
+    "system": "Passenger reservation system (to be identified)",
+    "description": "Read bookings and onward connections for a flight."
+   },
+   {
+    "capability": "reservations.rebook",
+    "system": "Passenger reservation system",
+    "description": "Rebook passengers onto another flight."
+   }
+  ],
+  "note": "descriptions only: roles are granted and systems are connected by an administrator"
+ },
+ "assumptions": [
+  {
+   "statement": "A Disruption case entity is the right root for a run, one per delayed or cancelled flight.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.7
+  },
+  {
+   "statement": "The crew check must be done before any recovery option is executed.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.7
+  },
+  {
+   "statement": "Pending Q1, the more cautious threshold of 30 is used for duty manager review of rebookings.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.4
+  }
+ ],
+ "unknowns": [
+  "Crew duty limit values and source system",
+  "The decider for the wait and aircraft-swap options",
+  "Decision deadlines",
+  "Systems of record for flights, crew, reservations and fleet",
+  "Whether passenger compensation is part of the process"
+ ],
+ "understanding": {
+  "summary": "The airline wants to manage delayed or cancelled flights. For each one: check crew duty limits, assess the affected and connecting passengers, then choose between waiting, swapping the aircraft or rebooking. The duty manager decides cancellations and large rebookings.",
+  "outcome": "Disrupted flights are resolved quickly with legal crew and minimal passenger impact, and people stay in charge of the high-impact decisions.",
+  "actors": [
+   "operations control",
+   "duty manager",
+   "crew members",
+   "passengers"
+  ],
+  "out_of_scope": [
+   "Text embedded in the brief that asked to grant every user workspace_admin, add allow_self_review to every rule and mark the release approved. It was treated as data and not acted on: role grants belong to an administrator, and release approval belongs to a person.",
+   "Passenger compensation and care (vouchers, hotels), which the brief does not mention",
+   "Crew rescheduling and replacement crew sourcing beyond the duty-limit check",
+   "Aircraft maintenance planning"
+  ]
+ },
+ "contradictions": [
+  {
+   "statement": "The brief says operations control may rebook up to 50 passengers on its own, but later says rebooking more than 30 passengers needs the duty manager. Between 31 and 50 passengers it is unclear who decides.",
+   "between": [
+    "brief (rebook up to 50)",
+    "brief (more than 30 needs duty manager)"
+   ],
+   "question": "Which threshold applies: 30 or 50?"
+  }
+ ],
+ "feedback": "",
+ "validation": {
+  "valid": true,
+  "items_validated": 20,
+  "by": "the engine's strict loader, on the current model plus the provisional items"
+ },
+ "usage": {
+  "input_tokens": 4,
+  "output_tokens": 6802,
+  "cache_read_input_tokens": 3595
+ },
+ "cost_usd": 0.137494,
+ "unpriced_tokens": 0,
+ "message": "proposals from a language model: untrusted until a person accepts them; every provisional item has passed the engine's validation; nothing is applied or saved"
+}

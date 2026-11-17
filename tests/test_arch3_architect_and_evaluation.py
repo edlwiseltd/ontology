@@ -106,6 +106,42 @@ class ArchitectCapabilityTests(unittest.TestCase):
         self.assertIn("UNTRUSTED_DATA", self.double.prompts[0])  # the brief travelled as data, with its planted instruction
         self.assertIn("ignore previous instructions", self.double.prompts[0])
 
+    def test_one_wrong_element_costs_one_element(self):  # C1 (found by the first real model, 17 Nov)
+        """A real model's first answers put a key on a rule that its type does not take, and wrote "== true".
+        The engine named the fault but not the element, and refused the whole proposal because of it."""
+        evidence = {"rationale": "r", "basis": "inferred", "sources": ["brief"], "confidence": 0.7}
+        answer = copy.deepcopy(AIRLINE["reference_answer"])
+        answer["rules"].insert(0, {"id": "R-NO-CANCEL", "type": "prohibition", "description": "No cancellation at night",
+                                   "action": "cancel_flight", "entity": "Flight", **evidence})
+        answer["actions"].append({"name": "hold_flight", "description": "Hold the flight", "capability": "ops.hold_flight",
+                                  "requires": ["Flight.status != 'cancelled' or (Flight.delay_minutes > 0 and Flight.held == true)"],
+                                  "effects": [], "side_effect": "none", **evidence})
+        answer["goals"].append({"name": "on_time", "description": "Punctuality", "target": "95% of flights on time", **evidence})
+        self.double.answer = answer
+        out = self.ask()
+        refused = {(r["kind"], r["name"]): r["problem"] for r in out["rejected"]}
+        self.assertEqual(sorted(refused), [("action", "hold_flight"), ("goal", "on_time"), ("rule", "R-NO-CANCEL")])
+        self.assertIn("unknown key 'entity' in prohibition rule", refused[("rule", "R-NO-CANCEL")])
+        self.assertIn("not allowed", refused[("action", "hold_flight")])
+        for problem in refused.values():
+            self.assertNotIn("as a whole", problem)  # each refusal names its own element
+        reference = architect_eval.reference_proposal(AIRLINE)
+        self.assertEqual(sorted(i["id"] for i in out["items"]), sorted(i["id"] for i in reference["items"]))
+        self.assertTrue(out["validation"]["valid"])
+
+    def test_the_instructions_state_the_engines_own_forms(self):  # C1
+        from autology.ontology import RULE_KEYS
+
+        for kind, keys in RULE_KEYS.items():
+            if kind in architect.RULE_TYPES:
+                self.assertIn(kind, architect.SYSTEM)
+                for key in keys:
+                    if key in architect.RULE_PARAMS:
+                        self.assertIn(f'"{key}"', architect.SYSTEM, (kind, key))
+        for form in ("True and False", "single quotes", '"status"', "at least one state", "metric", '"self"',
+                     "leading ^", "relationship names only"):
+            self.assertIn(form, architect.SYSTEM)
+
     def test_supplied_is_a_claim_the_engine_checks(self):  # C2
         answer = copy.deepcopy(AIRLINE["reference_answer"])
         answer["entities"][0].update(sources=[], basis="supplied")  # claims to be given, cites nothing
@@ -286,6 +322,20 @@ class EvaluationTests(unittest.TestCase):
         self.assertEqual(set(row["scores"].values()), {0.0})
         self.assertFalse(result["all_thresholds_met"])  # a missing answer is a failed case, never a skipped one
         self.assertEqual(len(calls), 5)
+        self.assertEqual(result["failed_cases"], ["global-logistics"])
+        # a case that failed does not change who answered the others (the first real run was labelled a test
+        # double because two of its calls gave no usable answer)
+
+        def model(case):
+            if case["id"] == "global-logistics":
+                raise ProviderError("invalid_response", "outside the contract")
+            return {**architect_eval.reference_proposal(case), "ai": True}
+        partly = architect_eval.evaluate(model, repeats=1)
+        self.assertTrue(partly["answered_by_a_language_model"])
+        self.assertIn("1 of 5 cases gave no usable answer", partly["conclusion"])
+        nobody = architect_eval.evaluate(lambda case: (_ for _ in ()).throw(ProviderError("timeout", "x")), repeats=1)
+        self.assertFalse(nobody["answered_by_a_language_model"])
+        self.assertIn("no case was answered", nobody["conclusion"])
         only = architect_eval.evaluate(architect_eval.reference_proposal, repeats=1, only=["b2b-procurement"])
         self.assertEqual([r["case"] for r in only["cases"]], ["b2b-procurement"])
         out, err = io.StringIO(), io.StringIO()
@@ -293,6 +343,13 @@ class EvaluationTests(unittest.TestCase):
             self.assertEqual(main(["architect-eval", "--self-check", "--repeats", "1"]), 0)
             self.assertEqual(main(["architect-eval", "--sandbox", "--repeats", "1", "--json"]), 1)
         self.assertIn("NOT MET", architect_eval.render(json.loads(out.getvalue()[out.getvalue().index("{\n"):])))
+        kept = Path(tempfile.mkdtemp()) / "answers"  # every answer as it was scored, and the report
+        with redirect_stdout(io.StringIO()):
+            self.assertEqual(main(["architect-eval", "--sandbox", "--repeats", "2", "--save", str(kept)]), 1)
+        self.assertEqual(len(list(kept.glob("*-[12].json"))), 10)
+        report = json.loads((kept / "result.json").read_text())
+        self.assertEqual((len(report["cases"]), report["answered_by_a_language_model"]), (5, False))
+        self.assertIn("items", json.loads((kept / "airline-disruption-1.json").read_text()))
         # with a platform: only an authorised provider is evaluated; otherwise it stops, and says why
         from .helpers import ROOT
         from .test_workspaces import TOKENS

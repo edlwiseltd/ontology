@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cancellable, mayDecide, releaseOf, resumable, statusClass, stepLine, trace, STATUS_TEXT } from "../lib/runs";
+import { cancellable, mayDecide, releaseOf, resumable, statusClass, stepLine, trace, STATUS_TEXT, runChoices } from "../lib/runs";
 import type { ReviewView } from "../lib/runs";
 
 const review: ReviewView = { review_id: "r1", run_id: "run1", action: "approve", reviewers: ["manager"], status: "pending",
@@ -61,4 +61,14 @@ describe("run helpers", () => {
     expect(rows[6].detail).toBe("assess via a.assess → done: ok (simulated)");
     expect(rows[8].detail).toBe("status cancelled — cancelled by hana: duplicate");
   });
+
+  it("offers the agents and their goals in a stable order, and nothing to choose when there is one", () => {
+    expect(runChoices(null)).toEqual([]);
+    expect(runChoices({ solo: { goals: ["done"] } })).toEqual([{ name: "solo", goals: ["done"] }]);
+    const several = runChoices({ planner: { goals: ["recovered", "closed"] }, monitor: { goals: ["recovered"] }, idle: {} });
+    expect(several.map((a) => a.name)).toEqual(["idle", "monitor", "planner"]);
+    expect(several[2].goals).toEqual(["closed", "recovered"]);
+    expect(several[0].goals).toEqual([]);
+  });
 });
+

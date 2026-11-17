@@ -151,7 +151,7 @@ class FunctionChatModel:
 
 
 def claude_request(model: str, max_tokens: int, effort: str, system: str, prompt: str,
-                   schema: Mapping[str, Any], fallback: bool = True) -> Dict[str, Any]:
+                   schema: Mapping[str, Any], fallback: bool = True, grammar: bool = True) -> Dict[str, Any]:
     """The arguments of one structured-output request to Claude (``client.beta.messages.create``): the single
     place that knows this request's shape, shared by :class:`AnthropicChatModel` and the AI gateway's adapter.
 
@@ -162,7 +162,9 @@ def claude_request(model: str, max_tokens: int, effort: str, system: str, prompt
         model=model,
         max_tokens=max_tokens,
         cache_control={"type": "ephemeral"},
-        output_config={"effort": effort, "format": {"type": "json_schema", "schema": dict(schema)}},
+        # grammar: the provider constrains the answer to the schema; without it the caller asks in its instructions
+        output_config={"effort": effort, **({"format": {"type": "json_schema", "schema": dict(schema)}}
+                                            if grammar else {})},
         system=system,
         messages=[{"role": "user", "content": prompt}],
     )

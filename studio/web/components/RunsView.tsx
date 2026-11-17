@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, runs as engine, ApiError } from "@/lib/api";
-import { cancellable, mayDecide, releaseOf, resumable, statusClass, stepLine, trace, STATUS_TEXT } from "@/lib/runs";
+import { cancellable, mayDecide, releaseOf, resumable, runChoices, statusClass, stepLine, trace, STATUS_TEXT } from "@/lib/runs";
 import type { EngineMe, ObjectRow, ReviewView, RunAudit, RunRow, RunView } from "@/lib/runs";
 import type { OntologySummary, ReleaseState, UseCase } from "@/lib/types";
 import SampleRecords from "./SampleRecords";
@@ -22,6 +22,8 @@ export default function RunsView({ workspace, useCase, onChanged }: { workspace:
   const [records, setRecords] = useState<ObjectRow[]>([]);
   const [template, setTemplate] = useState("");
   const [root, setRoot] = useState("");
+  const [agent, setAgent] = useState("");
+  const [goal, setGoal] = useState("");
   const [run, setRun] = useState<RunView | null>(null);
   const [review, setReview] = useState<ReviewView | null>(null);
   const [audit, setAudit] = useState<RunAudit | null>(null);
@@ -33,6 +35,11 @@ export default function RunsView({ workspace, useCase, onChanged }: { workspace:
 
   const can = useCallback((p: string) => !!me && (me.permissions.includes(p) || me.permissions.includes("admin")), [me]);
   const templates: Templates = useMemo(() => ((model as any)?.case_templates ?? {}) as Templates, [model]);
+  // the agents of the configuration that runs, and the goals each may pursue (part of the model's summary)
+  const agents = useMemo(() => runChoices(((model as any)?.agents ?? {}) as Record<string, { goals?: string[] }>), [model]);
+  const goals = useMemo(() => agents.find((a) => a.name === agent)?.goals ?? [], [agents, agent]);
+  useEffect(() => { setAgent((cur) => (agents.some((a) => a.name === cur) ? cur : agents[0]?.name ?? "")); }, [agents]);
+  useEffect(() => { setGoal((cur) => (goals.includes(cur) ? cur : goals[0] ?? "")); }, [goals]);
 
   const attempt = useCallback(async (work: () => Promise<void>) => {
     setBusy(true); setError(""); setMessage("");
@@ -81,7 +88,9 @@ export default function RunsView({ workspace, useCase, onChanged }: { workspace:
   const after = async (view: RunView, text: string) => { await show(view); await list(me); setMessage(text); onChanged?.(); };
 
   const start = () => attempt(async () => {
-    const view = await engine.start(path, { case_template: template, root });
+    // with one agent and one goal the engine needs neither named; with several, the person chooses
+    const view = await engine.start(path, { case_template: template, root, ...(agents.length > 1 && agent ? { agent } : {}),
+                                            ...(goals.length > 1 && goal ? { goal } : {}) });
     await after(view, `Run ${view.run_id} is stored: ${STATUS_TEXT[view.status] ?? view.status}.`);
   });
   const decide = (approved: boolean) => attempt(async () => {
@@ -125,6 +134,16 @@ export default function RunsView({ workspace, useCase, onChanged }: { workspace:
               <select id="run-root" value={root} onChange={(e) => setRoot(e.target.value)}>
                 {records.map((r) => <option key={r.id} value={r.id}>{r.id}{r.attributes.status ? ` · ${String(r.attributes.status)}` : ""}</option>)}
               </select>
+              {agents.length > 1 && (<>
+                <label htmlFor="run-agent">Agent</label>
+                <select id="run-agent" value={agent} onChange={(e) => setAgent(e.target.value)}>
+                  {agents.map((a) => <option key={a.name} value={a.name}>{a.name}</option>)}
+                </select></>)}
+              {goals.length > 1 && (<>
+                <label htmlFor="run-goal">Goal</label>
+                <select id="run-goal" value={goal} onChange={(e) => setGoal(e.target.value)}>
+                  {goals.map((g) => <option key={g} value={g}>{g}</option>)}
+                </select></>)}
               <button type="button" className="primary" disabled={busy || !root || !runnable} onClick={start} data-testid="start-run">
                 Start a stored run</button>
               {!records.length && <span className="muted small">No record of this kind is visible to you (sample records come with the released configuration).</span>}

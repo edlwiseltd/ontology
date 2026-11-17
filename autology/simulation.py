@@ -32,19 +32,28 @@ class SimulationError(ValueError):
 
 
 def sample_case(onto: Ontology, document: Mapping[str, Any]) -> Dict[str, Dict[str, Any]]:
-    """One synthetic record per entity, in its initial state. Numbers that a human-review rule compares against
-    a threshold are set at that threshold, so that the review the model asks for is exercised by default."""
+    """One synthetic record per entity, in its initial state. A number that an action's precondition needs to
+    reach a threshold is set at it, so that the work the model describes can start at all (a turnaround that is
+    not delayed gives a delay-handling model nothing to do). A number that a human-review rule compares against a
+    threshold is then set at that one, so that the review the model asks for is exercised by default."""
     case: Dict[str, Dict[str, Any]] = {}
     for name, etype in onto.entities.items():
         case[name] = {"status": etype.initial_state,
                       **{a.name: _SAMPLES.get(a.type, "sample") for a in etype.attributes.values()}}
+
+    def reach(condition: Any) -> None:
+        for entity, attribute, op, number in _THRESHOLD.findall(condition if isinstance(condition, str) else ""):
+            if entity in case and attribute in case[entity] and not isinstance(case[entity][attribute], bool) \
+                    and isinstance(case[entity][attribute], (int, float)):
+                value = float(number) + (1 if op == ">" else 0)
+                case[entity][attribute] = int(value) if value == int(value) else value
+
+    for action in (document.get("actions") or {}).values():
+        for condition in (action.get("requires") or []) if isinstance(action, Mapping) else []:
+            reach(condition)
     for rule in document.get("rules") or []:
-        if isinstance(rule, Mapping) and rule.get("type") == "human_review" and isinstance(rule.get("when"), str):
-            for entity, attribute, op, number in _THRESHOLD.findall(rule["when"]):
-                if entity in case and attribute in case[entity] and not isinstance(case[entity][attribute], bool) \
-                        and isinstance(case[entity][attribute], (int, float)):
-                    value = float(number) + (1 if op == ">" else 0)
-                    case[entity][attribute] = int(value) if value == int(value) else value
+        if isinstance(rule, Mapping) and rule.get("type") == "human_review":
+            reach(rule.get("when"))
     return case
 
 

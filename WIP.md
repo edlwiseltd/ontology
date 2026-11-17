@@ -1,6 +1,6 @@
 # Work in progress — Autology
 
-*Updated 16 November 2026 (Claude activation sprint). Branch `claude/autology-ontology-agent-4ajjer`.*
+*Updated 17 November 2026 (first real model run). Branch `claude/autology-ontology-agent-4ajjer`.*
 
 ## Done in this directive
 
@@ -109,7 +109,7 @@ Report: [planning/AUTOLOGY_ARCHITECT_SPRINT_REPORT.md](planning/AUTOLOGY_ARCHITE
 | 4 — evaluation deployment and operator's guide | Done; waits for the decision and the key | `deploy/evaluation_setup.py`; [docs/ai-provider-activation.md](docs/ai-provider-activation.md) |
 | 5 — five cases with a real model, ground-handling brief, Studio journey | **Blocked on the key only**: the owner's decision is recorded (`D7D10-2026-11-16-EVAL`: workspace `evaluation`, `claude-opus-5-5`, synthetic data, 10 USD a month, 1 USD a request, until 23 Nov 2026); `EVALUATION_AI_KEY` is not in the environment | [report §7](planning/AUTOLOGY_CLAUDE_ACTIVATION_REPORT.md) has the exact commands for the session that has the key |
 
-**No request has been sent to a provider.** Report:
+No request was sent to a provider in that sprint (the first one was sent on 17 November, below). Report:
 [planning/AUTOLOGY_CLAUDE_ACTIVATION_REPORT.md](planning/AUTOLOGY_CLAUDE_ACTIVATION_REPORT.md).
 
 **16 Nov, 22:49 UTC:** first real execution attempted and stopped at the credential check: `EVALUATION_AI_KEY` is
@@ -117,3 +117,21 @@ not set in the environment `ontology`. No call was made. The model identifier an
 the provider's published documentation (implementation log). A session that has the variable starts with
 `python deploy/evaluation_setup.py --check`, then one canary call, then the five cases.
 
+
+## First real model run (17 November 2026)
+
+Authorisation `D7D10-2026-11-16-EVAL`: workspace `evaluation`, Anthropic, `claude-opus-5-5`, synthetic data, 10 USD
+a month. The key was in the environment from 07:47 UTC.
+
+| Step | Status | Evidence |
+|---|---|---|
+| Verify, deploy, authorise (two identities, one operator) | Done | Report §A |
+| Canary: one real call | **Passed on the fourth attempt** (three refused by the provider at no charge: GAP-072, GAP-073) | `planning/evidence/claude-eval-2026-11-17/canary/` |
+| Five-case evaluation, original | **Thresholds not met: 5 of 13** | `run1-original/` |
+| Corrections (GAP-074, GAP-075), second run | **Thresholds not met: 3 of 13**; two answers refused whole (GAP-082) | `run2-after-correction/` |
+| Unfamiliar brief (airport ground handling) in Studio | Demonstrated: 40 of 40 elements accepted, three governed releases, four stored runs (autonomous, approval-dependent, refused by policy), verified audit, readiness | `ground-handling/` |
+| Spending | 4.418874 USD recorded, 5.581126 USD left; 33 requests, 24 answers | `spending-ledger.json` |
+
+Defects: GAP-072 to GAP-079 fixed; GAP-080, GAP-081 open; GAP-082, GAP-083 wait for the owner (D30 f, g).
+**GAP-052 is partly fixed, R2 is not closed.** Nothing further is sent to the provider without the owner's word.
+Report: [planning/AUTOLOGY_FIRST_REAL_CLAUDE_EVALUATION_REPORT.md](planning/AUTOLOGY_FIRST_REAL_CLAUDE_EVALUATION_REPORT.md).

@@ -21,6 +21,8 @@ def count() -> int:
     if out.returncode not in (0, 1):  # 2: mypy itself failed (bad config, crash): never pass silently
         sys.exit(f"mypy did not run: {out.stderr or out.stdout}")
     errors = [line for line in out.stdout.splitlines() if ": error:" in line]
+    if out.returncode == 1 and not errors:  # the interpreter also exits with 1 when mypy is not installed
+        sys.exit(f"mypy did not run: {out.stderr or out.stdout}")
     return len(errors)
 
 

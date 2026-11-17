@@ -12,8 +12,9 @@ solution is a good one for a real organisation. That judgement belongs to a pers
 to look at. A plausible element the brief does not state is "inferred": it needs confirmation and is never
 counted as a verified fact.
 
-The thresholds (:data:`THRESHOLDS`) were fixed before any language model was evaluated. No model has been: until
-the owner authorises a provider (decisions D7, D10), only test doubles answer.
+The thresholds (:data:`THRESHOLDS`) were fixed before any language model was evaluated, and have not been changed
+since. The first evaluation of a real model (17 November 2026, one authorised workspace, synthetic data) did not
+meet them; its answers and reports are kept in ``planning/evidence/``.
 """
 
 from __future__ import annotations
@@ -193,7 +194,9 @@ def report(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
         value = (min(values) if rule["kind"] == "hard" else sum(values) / len(values)) if values else 0.0
         measures[name] = {"value": round(value, 3), "minimum": rule["min"], "kind": rule["kind"],
                           "met": bool(values) and value >= rule["min"], "what": rule["what"]}
-    genuine = bool(rows) and all(r.get("ai") for r in rows)
+    answered = [r for r in rows if not r["failed"]]
+    # who answered is known from the answers themselves: a case whose request failed says nothing about it
+    genuine = bool(answered) and all(r.get("ai") for r in answered)
     spent = [r.get("spent") or {} for r in rows]
     usage = {"answers": sum(int(r.get("calls", 0)) for r in rows),
              "input_tokens": sum(int(s.get("input_tokens", 0)) for s in spent),
@@ -207,7 +210,11 @@ def report(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
             "all_thresholds_met": all(m["met"] for m in measures.values()),
             # a test double proves the harness, never the capability
             "answered_by_a_language_model": genuine,
-            "conclusion": ("thresholds evaluated on a language model's answers" if genuine else
+            "failed_cases": [r["case"] for r in rows if r["failed"]],
+            "conclusion": (("thresholds evaluated on a language model's answers"
+                            + (f"; {len(rows) - len(answered)} of {len(rows)} cases gave no usable answer and score "
+                               "zero on every measure" if len(answered) < len(rows) else "")) if genuine else
+                           "no case was answered: nothing can be said about any model" if not answered else
                            "answered by a test double: this run checks the evaluation itself and says nothing about "
                            "what a language model can do"),
             "deterministic": sorted(THRESHOLDS), "needs_expert_judgement": JUDGEMENT}

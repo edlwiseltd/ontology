@@ -575,11 +575,18 @@ and the budget allows the call. The setting is governing, so every release names
 procedure, the key included, is in [ai-provider-activation.md](ai-provider-activation.md); the acceptance criteria
 are in the [evaluation protocol](../planning/AUTOLOGY_AI_PROVIDER_EVALUATION_PROTOCOL.md).
 
-**What this is not.** The adapters have been run against a double of the SDK client, a local mock endpoint and,
-for the Anthropic adapter, the official SDK itself over a local transport (the request it would put on the wire,
-its parsing of answers and its error classes). **No request has been sent to a real provider from them**: whether
-the provider accepts the request and what a model answers has not been established, and no real model's proposals
-have been evaluated. Connecting a provider and sending anything but synthetic data are owner decisions (D7, D10).
+**What this is not.** The adapters are tested against a double of the SDK client, a local mock endpoint and, for
+the Anthropic adapter, the official SDK itself over a local transport. The Anthropic adapter has also been used
+with its provider once, on synthetic data, under one owner authorisation (17 November 2026: 24 answers from
+`claude-opus-5-5`; the architect's evaluation **did not meet its thresholds**;
+[report](../planning/AUTOLOGY_FIRST_REAL_CLAUDE_EVALUATION_REPORT.md)). The other adapter has met no provider. No
+test contacts a provider. Connecting a provider and sending anything but synthetic data are owner decisions
+(D7, D10).
+
+**The answer's contract with a real provider.** The provider is asked to hold the answer to the request's schema.
+When it refuses to compile that schema (the architect's contract is refused as too large), the adapter sends the
+request once more with the schema written into the instructions. Either way the gateway checks the answer against
+the contract and refuses, whole, an answer that does not keep it: such an answer has been paid for.
 
 ## Access log (Tier 2)
 

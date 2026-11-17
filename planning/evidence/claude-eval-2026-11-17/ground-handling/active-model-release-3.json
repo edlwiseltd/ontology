@@ -1,0 +1,702 @@
+{
+ "name": "new-solution",
+ "version": "0.1.0",
+ "description": "An empty model: the starting point of a guided onboarding in Studio (synthetic, no customer data)",
+ "entities": {
+  "Turnaround": {
+   "description": "The ground turnaround of one aircraft at one airport, from arrival to departure.",
+   "states": [
+    "scheduled",
+    "in_progress",
+    "delayed",
+    "completed"
+   ],
+   "attributes": {
+    "flight_number": "string",
+    "airport_code": "string",
+    "scheduled_departure": "datetime",
+    "delay_minutes": "integer",
+    "conflicts_checked": "boolean"
+   }
+  },
+  "OperationalConflict": {
+   "description": "A conflict caused by a delay, affecting crew availability, a passenger connection, ground equipment, a servicing task or a departure slot.",
+   "states": [
+    "open",
+    "assessed",
+    "resolved",
+    "escalated"
+   ],
+   "attributes": {
+    "conflict_type": "string",
+    "severity": "string",
+    "description": "string",
+    "owned_by_airline": "boolean"
+   }
+  },
+  "RecoveryOption": {
+   "description": "One alternative for resolving a conflict, with its cost, added delay and safety classification.",
+   "states": [
+    "proposed",
+    "under_review",
+    "approved",
+    "rejected",
+    "executed"
+   ],
+   "attributes": {
+    "description": "string",
+    "cost_eur": "number",
+    "added_delay_minutes": "integer",
+    "safety_critical": "boolean",
+    "safety_domain": "string",
+    "requires_slot_change": "boolean"
+   }
+  },
+  "GroundTeam": {
+   "description": "One of the company's own ground handling teams at an airport.",
+   "states": [
+    "available",
+    "assigned",
+    "unavailable"
+   ],
+   "attributes": {
+    "team_name": "string",
+    "skill": "string",
+    "airport_code": "string"
+   }
+  },
+  "TeamAssignment": {
+   "description": "The assignment of a ground team to carry out an approved recovery option.",
+   "states": [
+    "planned",
+    "notified",
+    "confirmed",
+    "cancelled"
+   ],
+   "attributes": {
+    "task": "string",
+    "start_time": "datetime"
+   }
+  },
+  "SlotRequest": {
+   "description": "A request for a new departure slot, sent to the airline operations controller, who asks the airport slot coordinator.",
+   "states": [
+    "draft",
+    "submitted_to_airline",
+    "granted",
+    "refused"
+   ],
+   "attributes": {
+    "requested_time": "datetime",
+    "reason": "string"
+   }
+  },
+  "DecisionRecord": {
+   "description": "An audit entry for one decision.",
+   "states": [
+    "recorded",
+    "archived"
+   ],
+   "attributes": {
+    "decided_by": "string",
+    "decided_at": "datetime",
+    "facts": "string",
+    "alternatives_considered": "string",
+    "outcome": "string",
+    "retention_until": "date"
+   }
+  }
+ },
+ "relationships": [
+  {
+   "from": "Turnaround",
+   "to": "OperationalConflict",
+   "type": "conflicts",
+   "cardinality": "1:N"
+  },
+  {
+   "from": "OperationalConflict",
+   "to": "RecoveryOption",
+   "type": "options",
+   "cardinality": "1:N"
+  },
+  {
+   "from": "RecoveryOption",
+   "to": "TeamAssignment",
+   "type": "assignments",
+   "cardinality": "1:N"
+  },
+  {
+   "from": "TeamAssignment",
+   "to": "GroundTeam",
+   "type": "team",
+   "cardinality": "N:1"
+  },
+  {
+   "from": "RecoveryOption",
+   "to": "SlotRequest",
+   "type": "slot_requests",
+   "cardinality": "1:N"
+  },
+  {
+   "from": "Turnaround",
+   "to": "DecisionRecord",
+   "type": "decisions",
+   "cardinality": "1:N"
+  }
+ ],
+ "actions": {
+  "mark_delayed": {
+   "description": "Mark a turnaround as delayed once it is 10 minutes or more behind schedule.",
+   "capability": "flight_ops_feed",
+   "requires": [
+    "(Turnaround.status == 'scheduled' or Turnaround.status == 'in_progress') and Turnaround.delay_minutes >= 10"
+   ],
+   "effects": {
+    "Turnaround": {
+     "status": "delayed"
+    }
+   },
+   "side_effect": "none"
+  },
+  "detect_conflict": {
+   "description": "Check a delayed turnaround for conflicts on crew, connections, equipment, servicing and slots, and open a conflict record.",
+   "capability": "resource_planning",
+   "requires": [
+    "Turnaround.status == 'delayed'"
+   ],
+   "effects": {
+    "OperationalConflict": {
+     "status": "open"
+    },
+    "Turnaround": {
+     "conflicts_checked": "True"
+    }
+   },
+   "side_effect": "none"
+  },
+  "assess_conflict": {
+   "description": "Assess the severity and ownership of an open conflict (company or airline).",
+   "capability": "resource_planning",
+   "requires": [
+    "OperationalConflict.status == 'open'"
+   ],
+   "effects": {
+    "OperationalConflict": {
+     "status": "assessed"
+    }
+   },
+   "side_effect": "none"
+  },
+  "escalate_to_airline": {
+   "description": "Flag an assessed conflict the airline owns (crew, passenger connections) to the airline operations controller.",
+   "capability": "airline_ops_messaging",
+   "requires": [
+    "OperationalConflict.status == 'assessed' and OperationalConflict.owned_by_airline == True"
+   ],
+   "effects": {
+    "OperationalConflict": {
+     "status": "escalated"
+    }
+   },
+   "side_effect": "non_idempotent"
+  },
+  "propose_recovery_option": {
+   "description": "Draw up a recovery alternative for an assessed conflict the company owns, with its cost, added delay and safety classification.",
+   "capability": "resource_planning",
+   "requires": [
+    "OperationalConflict.status == 'assessed' and OperationalConflict.owned_by_airline == False"
+   ],
+   "effects": {
+    "RecoveryOption": {
+     "status": "proposed"
+    }
+   },
+   "side_effect": "none"
+  },
+  "auto_approve_recovery_option": {
+   "description": "Approve a non-safety-critical option within both limits (cost at most 2000 euros, added delay at most 15 minutes) without human approval.",
+   "capability": "resource_planning",
+   "requires": [
+    "RecoveryOption.status == 'proposed' and RecoveryOption.safety_critical == False and RecoveryOption.cost_eur <= 2000 and RecoveryOption.added_delay_minutes <= 15"
+   ],
+   "effects": {
+    "RecoveryOption": {
+     "status": "approved"
+    }
+   },
+   "side_effect": "none"
+  },
+  "submit_option_for_review": {
+   "description": "Send an option that is safety-critical or above a limit to the competent authority.",
+   "capability": "resource_planning",
+   "requires": [
+    "RecoveryOption.status == 'proposed' and (RecoveryOption.safety_critical == True or RecoveryOption.cost_eur > 2000 or RecoveryOption.added_delay_minutes > 15)"
+   ],
+   "effects": {
+    "RecoveryOption": {
+     "status": "under_review"
+    }
+   },
+   "side_effect": "none"
+  },
+  "approve_recovery_option": {
+   "description": "The competent authority approves an option under review.",
+   "capability": "human_approval",
+   "requires": [
+    "RecoveryOption.status == 'under_review'"
+   ],
+   "effects": {
+    "RecoveryOption": {
+     "status": "approved"
+    }
+   },
+   "side_effect": "none"
+  },
+  "reject_recovery_option": {
+   "description": "The competent authority rejects an option under review.",
+   "capability": "human_approval",
+   "requires": [
+    "RecoveryOption.status == 'under_review'"
+   ],
+   "effects": {
+    "RecoveryOption": {
+     "status": "rejected"
+    }
+   },
+   "side_effect": "none"
+  },
+  "record_decision": {
+   "description": "Record who decided, when, on which facts and which alternatives were considered, with a five-year retention date.",
+   "capability": "audit_store",
+   "requires": [
+    "RecoveryOption.status == 'approved' or RecoveryOption.status == 'rejected'"
+   ],
+   "effects": {
+    "DecisionRecord": {
+     "status": "recorded"
+    }
+   },
+   "side_effect": "idempotent"
+  },
+  "assign_ground_team": {
+   "description": "Assign an available company ground team to an approved option and notify it.",
+   "capability": "team_notification",
+   "requires": [
+    "RecoveryOption.status == 'approved' and GroundTeam.status == 'available'"
+   ],
+   "effects": {
+    "TeamAssignment": {
+     "status": "notified"
+    },
+    "GroundTeam": {
+     "status": "assigned"
+    }
+   },
+   "side_effect": "non_idempotent"
+  },
+  "request_slot_change_via_airline": {
+   "description": "Send a departure slot request to the airline operations controller, never directly to the slot coordinator.",
+   "capability": "airline_ops_messaging",
+   "requires": [
+    "RecoveryOption.status == 'approved' and RecoveryOption.requires_slot_change == True"
+   ],
+   "effects": {
+    "SlotRequest": {
+     "status": "submitted_to_airline"
+    }
+   },
+   "side_effect": "non_idempotent"
+  },
+  "execute_recovery_option": {
+   "description": "Carry out an approved option and mark its conflict resolved.",
+   "capability": "resource_planning",
+   "requires": [
+    "RecoveryOption.status == 'approved'"
+   ],
+   "effects": {
+    "RecoveryOption": {
+     "status": "executed"
+    },
+    "OperationalConflict": {
+     "status": "resolved"
+    }
+   },
+   "side_effect": "non_idempotent"
+  },
+  "complete_turnaround": {
+   "description": "Close a turnaround once it has departed.",
+   "capability": "flight_ops_feed",
+   "requires": [
+    "Turnaround.status == 'delayed' or Turnaround.status == 'in_progress'"
+   ],
+   "effects": {
+    "Turnaround": {
+     "status": "completed"
+    }
+   },
+   "side_effect": "none"
+  }
+ },
+ "rules": [
+  {
+   "id": "R_review_safety_apron",
+   "type": "human_review",
+   "description": "A safety-critical option on apron or equipment matters (aircraft movement on the apron, fuelling, de-icing, pushback) is decided by the airport operations duty manager.",
+   "when": "RecoveryOption.safety_critical == True and RecoveryOption.safety_domain == 'apron_equipment'",
+   "action": "approve_recovery_option",
+   "reviewer": "airport_ops_duty_manager"
+  },
+  {
+   "id": "R_review_safety_aircraft",
+   "type": "human_review",
+   "description": "A safety-critical option about the aircraft itself, such as a change to the load sheet, is decided by the airline operations controller.",
+   "when": "RecoveryOption.safety_critical == True and RecoveryOption.safety_domain == 'aircraft'",
+   "action": "approve_recovery_option",
+   "reviewer": "airline_ops_controller"
+  },
+  {
+   "id": "R_review_cost_delay",
+   "type": "human_review",
+   "description": "A non-safety-critical option costing more than 2000 euros or adding more than 15 minutes of delay is approved by the duty operations manager.",
+   "when": "RecoveryOption.safety_critical == False and (RecoveryOption.cost_eur > 2000 or RecoveryOption.added_delay_minutes > 15)",
+   "action": "approve_recovery_option",
+   "reviewer": "duty_operations_manager"
+  },
+  {
+   "id": "R_no_auto_approval_beyond_limits",
+   "type": "prohibition",
+   "description": "The system never approves on its own an option that is safety-critical or above either limit.",
+   "when": "RecoveryOption.safety_critical == True or RecoveryOption.cost_eur > 2000 or RecoveryOption.added_delay_minutes > 15",
+   "action": "auto_approve_recovery_option"
+  },
+  {
+   "id": "R_no_execution_unrecorded",
+   "type": "mandatory_step",
+   "description": "A decision must be recorded before the option is executed.",
+   "step": "record_decision",
+   "before": "execute_recovery_option"
+  },
+  {
+   "id": "R_approve_access",
+   "type": "action_access",
+   "description": "Only the competent authorities may approve an option under review.",
+   "action": "approve_recovery_option",
+   "roles": [
+    "airport_ops_duty_manager",
+    "airline_ops_controller",
+    "duty_operations_manager"
+   ]
+  },
+  {
+   "id": "R_reject_access",
+   "type": "action_access",
+   "description": "Only the competent authorities may reject an option under review.",
+   "action": "reject_recovery_option",
+   "roles": [
+    "airport_ops_duty_manager",
+    "airline_ops_controller",
+    "duty_operations_manager"
+   ]
+  },
+  {
+   "id": "R_safety_flag_write",
+   "type": "write_access",
+   "description": "Only the safety authorities may change an option's safety-critical flag, so that a misclassification cannot bypass review.",
+   "field": "RecoveryOption.safety_critical",
+   "roles": [
+    "airport_ops_duty_manager",
+    "airline_ops_controller"
+   ]
+  },
+  {
+   "id": "R_decision_trail_read",
+   "type": "row_access",
+   "description": "Decision records are visible to auditors, managers and authorities.",
+   "entity": "DecisionRecord",
+   "roles": [
+    "auditor",
+    "duty_operations_manager",
+    "airport_ops_duty_manager",
+    "airline_ops_controller",
+    "ground_ops_coordinator"
+   ]
+  },
+  {
+   "id": "R_no_completion_with_unsettled_conflict",
+   "type": "prohibition",
+   "description": "complete_turnaround is not allowed while the turnaround's operational conflict is neither resolved nor escalated to the airline. A conflict that is open or only assessed blocks completion.",
+   "when": "OperationalConflict.status != 'resolved' and OperationalConflict.status != 'escalated'",
+   "action": "complete_turnaround"
+  }
+ ],
+ "goals": {
+  "turnaround_recovered": {
+   "description": "The turnaround is completed after recovery.",
+   "target": "Turnaround.status == 'completed'"
+  },
+  "decision_traced": {
+   "description": "Every decision is recorded in the trail.",
+   "target": "DecisionRecord.status == 'recorded' or DecisionRecord.status == 'archived'"
+  }
+ },
+ "case_templates": {
+  "delayed_turnaround_recovery": {
+   "description": "One run per delayed turnaround: its conflicts, recovery options, team assignments, slot requests and decision trail.",
+   "root": "Turnaround",
+   "entities": {
+    "Turnaround": "self",
+    "OperationalConflict": "conflicts",
+    "RecoveryOption": "conflicts.options",
+    "TeamAssignment": "conflicts.options.assignments",
+    "GroundTeam": "conflicts.options.assignments.team",
+    "SlotRequest": "conflicts.options.slot_requests",
+    "DecisionRecord": "decisions"
+   }
+  }
+ },
+ "x-studio": {
+  "provenance": {
+   "entity:Turnaround": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "entity:OperationalConflict": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "entity:RecoveryOption": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "entity:GroundTeam": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "entity:TeamAssignment": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "entity:SlotRequest": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "entity:DecisionRecord": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "relationship:Turnaround —conflicts→ OperationalConflict": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "relationship:OperationalConflict —options→ RecoveryOption": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "relationship:RecoveryOption —assignments→ TeamAssignment": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "relationship:TeamAssignment —team→ GroundTeam": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "relationship:RecoveryOption —slot_requests→ SlotRequest": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "relationship:Turnaround —decisions→ DecisionRecord": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "action:mark_delayed": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "action:detect_conflict": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "action:assess_conflict": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "action:escalate_to_airline": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "action:propose_recovery_option": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "action:auto_approve_recovery_option": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "action:submit_option_for_review": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "action:approve_recovery_option": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "action:reject_recovery_option": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "action:record_decision": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "action:assign_ground_team": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "action:request_slot_change_via_airline": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "action:execute_recovery_option": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "action:complete_turnaround": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "rule:R_review_safety_apron": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "rule:R_review_safety_aircraft": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "rule:R_review_cost_delay": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "rule:R_no_auto_approval_beyond_limits": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "rule:R_no_execution_unrecorded": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "rule:R_approve_access": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "rule:R_reject_access": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "rule:R_safety_flag_write": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "rule:R_decision_trail_read": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "goal:turnaround_recovered": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "goal:decision_traced": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "case_template:delayed_turnaround_recovery": {
+    "proposal": "P-8cc33c0a6e",
+    "revision": 2,
+    "generator": "model",
+    "ai": true
+   },
+   "rule:R_no_completion_with_unsettled_conflict": {
+    "proposal": "P-bea079593d",
+    "revision": 1,
+    "generator": "model",
+    "ai": true
+   }
+  }
+ }
+}

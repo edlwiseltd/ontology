@@ -234,7 +234,7 @@ class ContractTests(Wires):
             caps = described["capabilities"]
             protocols.add(caps["protocol"])
             self.assertEqual((caps["structured_output"], caps["tools_offered"]), ("native", False))
-            self.assertRegex(caps["verified_against"], "double|mock")  # never "production", never a real provider
+            self.assertRegex(caps["verified_against"], "double|mock")  # says how far it was exercised, never "production"
             self.assertNotIn(API_KEY, json.dumps(described))
             # the untrusted part of the request is in a block of its own, after the task
             prompt = requests[0]["prompt"]

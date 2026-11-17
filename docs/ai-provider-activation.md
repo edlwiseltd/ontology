@@ -1,7 +1,10 @@
 # Activating a real AI provider for one workspace
 
-*For the operator of an Autology platform. Status on 16 November 2026: everything below is implemented and tested
-with test doubles and with the provider's SDK over a local transport. **No request has been sent to a provider.***
+*For the operator of an Autology platform. Status on 17 November 2026: everything below is implemented, tested
+with test doubles and with the provider's SDK over a local transport, and **was followed once with the real
+provider** (workspace `evaluation`, `claude-opus-5-5`, synthetic data; 33 requests, 24 answers, 4.42 USD recorded;
+[report](../planning/AUTOLOGY_FIRST_REAL_CLAUDE_EVALUATION_REPORT.md)). Rate limits, overload and timeouts have
+not been met with the real provider.*
 
 A language model is reached only when five independent things are true at once. None of them implies another.
 
@@ -107,6 +110,20 @@ sent. One workspace's spending never counts against another's.
 
 The price table (`autology/reasoners.py`, `PRICES`) is Autology's bound, not the provider's invoice: compare the
 two after an evaluation.
+
+## What the first use showed (17 November 2026)
+
+* **The key reaches a cloud session only when its machine starts.** A variable added to the environment is read
+  when the machine is created or restored after a pause, not by a session that is already running.
+* **The provider refuses the architect's contract as a grammar** ("The compiled grammar is too large", HTTP 400,
+  nothing billed). The adapter then sends the request once more with the schema written into the instructions.
+  Expect one refused request per process and schema, and no guarantee from the provider that the answer keeps
+  the contract: the gateway checks it, and an answer outside it is refused whole after being paid for (2 of 24).
+* **A refused request names its reason**: the provider's error type, and its message for an invalid request, with
+  anything shaped like a credential removed. The key is never in a log, an answer or an audit entry.
+* **Answers take 16 to 104 seconds** for the architect; the deadline is 300 seconds and nothing is retried.
+* **Keep the answers**: `python -m autology architect-eval --platform <platform.json> --workspace evaluation --use-case <id> --save <dir>`
+  writes every answer as it was scored, and the result.
 
 ## What the provider keeps
 

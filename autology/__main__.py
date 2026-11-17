@@ -316,6 +316,8 @@ def _build_parser() -> argparse.ArgumentParser:
     ae.add_argument("--use-case")
     ae.add_argument("--repeats", type=int, default=2)
     ae.add_argument("--json", action="store_true", help="print the full report as JSON")
+    ae.add_argument("--save", metavar="DIR", help="keep every answer exactly as it was scored (one JSON file per "
+                                                  "case and run) and the report, in DIR")
     return parser
 
 
@@ -463,11 +465,25 @@ def _cmd_architect_eval(args) -> int:
             return architect.propose(served, workspace, case["brief"], data_classes=("synthetic",),
                                      deadline_seconds=limits["max_deadline_seconds"],
                                      max_output_tokens=limits["max_output_tokens"])
+    saved: dict = {}
+    if args.save:  # the answers themselves, before anyone improves anything
+        from pathlib import Path
+
+        target, asked = Path(args.save), ask
+        target.mkdir(parents=True, exist_ok=True)
+
+        def ask(case):
+            answer = asked(case)
+            saved[case["id"]] = saved.get(case["id"], 0) + 1
+            (target / f"{case['id']}-{saved[case['id']]}.json").write_text(json.dumps(answer, indent=1) + "\n")
+            return answer
     try:
         result = architect_eval.evaluate(ask, repeats=args.repeats)
     finally:
         if closing is not None:
             closing()
+    if args.save:
+        (target / "result.json").write_text(json.dumps(result, indent=1) + "\n")
     print(json.dumps(result, indent=1) if args.json else architect_eval.render(result))
     return 0 if result["all_thresholds_met"] else 1
 

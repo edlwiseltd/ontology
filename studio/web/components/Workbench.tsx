@@ -222,7 +222,7 @@ export default function Workbench() {
         )}
         <h2 className="section">Coming next</h2>
         <ul className="planned small muted" aria-label="Planned areas">
-          <li>AI Architect with a language model — blocked on D7/D10 (a sandbox architect and blueprints work today)</li>
+          <li>AI Architect with a language model — only where the owner authorised a provider for the workspace (D7/D10); elsewhere a sandbox architect and blueprints</li>
           <li>Processes, organisation — planned</li>
         </ul>
       </nav>

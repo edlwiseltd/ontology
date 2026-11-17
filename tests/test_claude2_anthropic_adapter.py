@@ -22,7 +22,7 @@ import json
 import unittest
 
 from autology import platform as platform_module
-from autology.ai import AnthropicProvider, ModelGateway, ModelRequest, ProviderError, WorkspaceAI
+from autology.ai import PROMPTED, AnthropicProvider, ModelGateway, ModelRequest, ProviderError, WorkspaceAI, unfenced
 from autology.architect import SCHEMA
 from autology.reasoners import PRICES
 
@@ -135,6 +135,51 @@ class RequestTests(AdapterBase):
         self.ask(schema=SCHEMA)
         self.assertEqual(self.body()["output_config"]["format"]["schema"], json.loads(json.dumps(SCHEMA)))  # sent unchanged
 
+    def test_a_schema_the_provider_will_not_compile_is_asked_for_in_the_instructions(self):  # A6
+        """The first real requests were refused in a third of a second: "The compiled grammar is too large".
+        Nothing is processed or billed for such a refusal. The same request then goes once with the schema in the
+        instructions; the gateway checks the answer against the schema either way."""
+        refusal = httpx.Response(400, json={"type": "error", "error": {
+            "type": "invalid_request_error",
+            "message": "The compiled grammar is too large, which would cause performance issues. Simplify your tool "
+                       "schemas or reduce the number of strict tools."}})
+        answer = {k: [] for k in SCHEMA["required"]}
+        self.plan = [refusal, message("```json\n" + json.dumps(answer) + "\n```")]
+        response = self.ask(schema=SCHEMA)
+        self.assertEqual((response.data, response.attempts), (answer, 1))  # one attempt for the gateway and the ledger
+        self.assertEqual(len(self.seen), 2)
+        first, second = self.body(0), self.body(1)
+        self.assertIn("format", first["output_config"])
+        self.assertEqual(second["output_config"], {"effort": "medium"})  # no grammar asked for
+        self.assertTrue(second["system"].startswith(first["system"]))
+        self.assertIn(PROMPTED.strip(), second["system"])
+        self.assertTrue(second["system"].endswith(json.dumps(SCHEMA)))  # the contract itself, as written
+        self.assertEqual((second["model"], second["messages"]), (first["model"], first["messages"]))
+        for absent in ("tools", "tool_choice", "fallbacks", "temperature"):
+            self.assertNotIn(absent, second)
+
+        self.plan = [message(json.dumps(answer))]
+        self.ask(schema=SCHEMA)  # remembered: the doomed request is not sent again
+        self.assertEqual(len(self.seen), 3)
+        self.assertNotIn("format", self.body()["output_config"])
+        self.ask()  # a small schema still gets the provider's grammar
+        self.assertIn("format", self.body()["output_config"])
+
+        # asked in the instructions, an answer is still only as good as the contract says
+        for bad in ("Here is the proposal: {}", json.dumps({**answer, "grants": ["admin"]}), json.dumps(answer)[:-1]):
+            self.plan = [message(bad)]
+            with self.assertRaises(ProviderError) as caught:
+                self.ask(schema=SCHEMA)
+            self.assertEqual(caught.exception.kind, "invalid_response", bad)
+        self.assertEqual(unfenced('```\n{"a": 1}\n```'), '{"a": 1}')
+        self.assertEqual(unfenced(' {"a": 1} '), '{"a": 1}')
+
+    def test_another_invalid_request_is_not_sent_twice(self):  # A6
+        self.plan = [error(400, "invalid_request_error")]
+        with self.assertRaises(ProviderError) as caught:
+            self.ask(schema=SCHEMA)
+        self.assertEqual((caught.exception.kind, len(self.seen)), ("invalid_request", 1))
+
     def test_the_environment_cannot_redirect_the_key_or_add_a_credential(self):  # A1
         import os
         from unittest import mock
@@ -208,16 +253,19 @@ class FailureTests(AdapterBase):
         text = str(caught.exception)
         self.assertNotIn(KEY, text)
         self.assertNotIn(PROMPT, text)
-        self.assertNotIn("detail from the provider", text)  # a provider's message can quote the request
         return caught.exception, len(self.seen) - before
 
     def test_provider_errors_are_classified_from_the_sdks_exceptions(self):  # A4
         for status, kind in ((401, "authentication_error"), (403, "permission_error")):
             exc, sent = self.failure(error(status, kind))
             self.assertEqual((exc.kind, exc.retryable, exc.uncertain, sent), ("auth", False, False, 1))
+            self.assertIn(kind, str(exc))  # which kind of refusal, in the provider's own word
+            self.assertNotIn("detail from the provider", str(exc))  # and no more than that
         for status, kind in ((400, "invalid_request_error"), (404, "not_found_error"), (413, "request_too_large")):
             exc, sent = self.failure(error(status, kind))
             self.assertEqual((exc.kind, sent), ("invalid_request", 1))
+            # a request the provider calls invalid says why: nothing else tells the person what to correct
+            self.assertIn(f"({kind}): {kind}: detail from the provider", str(exc))
         # a rate limit is tried again by the gateway (the SDK itself retries nothing), then given up
         exc, sent = self.failure(error(429, "rate_limit_error", {"retry-after": "0"}), error(429, "rate_limit_error"))
         self.assertEqual((exc.kind, exc.attempts, sent), ("rate_limited", 2, 2))
@@ -228,6 +276,25 @@ class FailureTests(AdapterBase):
         self.assertEqual((exc.kind, exc.uncertain, sent), ("timeout", True, 1))  # may have been processed: not retried
         exc, sent = self.failure(httpx.ConnectError("down"), httpx.ConnectError("down"))
         self.assertEqual((exc.kind, sent), ("unavailable", 2))
+
+    def test_the_providers_reason_never_carries_a_credential_and_is_cut_short(self):  # A4
+        leaky = httpx.Response(400, json={"type": "error", "error": {
+            "type": "invalid_request_error",
+            "message": f"Your credit balance is too low. key {KEY} header Bearer abc.def-123 other sk-ant-zzzzzzzzzzzz "
+                       + "x" * 500}})
+        exc, sent = self.failure(leaky)
+        text = str(exc)
+        self.assertIn("Your credit balance is too low", text)  # the reason reaches the person
+        for secret in (KEY, "abc.def-123", "sk-ant-zzzzzzzzzzzz"):
+            self.assertNotIn(secret, text)
+        self.assertIn("[credential]", text)
+        self.assertLessEqual(len(text), 310)
+        for status in (429, 500, 529):  # other refusals: the kind, never the provider's text
+            exc, _ = self.failure(error(status, "some_error"), error(status, "some_error"))
+            self.assertNotIn("detail from the provider", str(exc))
+        odd = httpx.Response(400, text="not json at all")  # a body that is not the provider's error object
+        exc, _ = self.failure(odd)
+        self.assertEqual(exc.kind, "invalid_request")
 
     def test_a_retry_that_succeeds_counts_every_attempt_once(self):  # A4
         self.plan = [error(529, "overloaded_error"), message()]

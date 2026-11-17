@@ -67,3 +67,11 @@ export function trace(entries: AuditEntry[]): { seq: number; at: string; label: 
     return { seq: e.seq, at: String(e.timestamp ?? ""), label, detail };
   });
 }
+
+/** The agents a run can be given, with the goals each may pursue, in a stable order. With one agent and one
+ *  goal a person chooses nothing; with several, the runs screen asks. */
+export function runChoices(agents: Record<string, { goals?: string[] }> | null | undefined): { name: string; goals: string[] }[] {
+  return Object.entries(agents ?? {}).map(([name, a]) => ({ name, goals: [...(a?.goals ?? [])].sort() }))
+    .sort((x, y) => x.name.localeCompare(y.name));
+}
+

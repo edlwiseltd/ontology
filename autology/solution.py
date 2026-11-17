@@ -29,7 +29,7 @@ contribute entries, but only the engine validates and compiles them.
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Mapping, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
 from .expressions import compile_expression
 from .graph import KnowledgeGraph
@@ -224,6 +224,7 @@ def check(solution: Any, document: Any) -> Tuple[List[Dict[str, str]], Optional[
             table.append({"name": f"{name}.{action.name}", "capability": action.capability, "type": "table",
                           "description": f"{entry['name']} ({tool['tool']})",
                           "rows": _rows(str(name), action, tool, onto, at, problems)})
+        table = _by_capability(str(name), table, f"{where}.tools", problems)
         _autonomy(autonomy, seen, f"{where}.autonomy", problems)
         compiled[str(name)] = {"managed": "studio", "purpose": str(spec.get("purpose") or "")[:MAX_TEXT],
                                "responsibilities": [d[:MAX_TEXT] for d in duties], "roles": sorted(set(roles)),
@@ -236,6 +237,36 @@ def check(solution: Any, document: Any) -> Tuple[List[Dict[str, str]], Optional[
     if problems:
         return problems, None
     return [], {"agents": compiled, "data": dict(data) if data else None}
+
+
+def _by_capability(agent: str, table: List[Dict[str, Any]], where: str,
+                   problems: List[Dict[str, str]]) -> List[Dict[str, Any]]:
+    """One tool per capability. A person assigns a tool to each action, but the engine chooses a tool by the
+    action's *capability*: when a model gives several actions one capability, they are served by one tool. If
+    they were given the same simulated behaviour, that one tool is declared under the capability's name (so a
+    run's record does not name a tool after another action); if not, the configuration is refused, because one
+    of the actions would silently get the other's behaviour."""
+    groups: Dict[str, List[Dict[str, Any]]] = {}
+    for tool in table:
+        groups.setdefault(tool["capability"], []).append(tool)
+    out: List[Dict[str, Any]] = []
+    for tool in table:
+        group = groups[tool["capability"]]
+        if len(group) == 1:
+            out.append(tool)
+            continue
+        actions = [g["name"].split(".", 1)[1] for g in group]
+        if any(g["rows"] != group[0]["rows"] or g["description"] != group[0]["description"] for g in group):
+            if tool is group[0]:
+                problems.append({"path": where, "message": (
+                    f"{', '.join(actions)} share the capability {tool['capability']!r}, and the engine chooses a "
+                    "tool by capability: give them the same tool, or give the actions different capabilities in "
+                    "the model")})
+            continue
+        if tool is group[0]:
+            out.append({**tool, "name": f"{agent}.{tool['capability']}",
+                        "description": f"{tool['description']} for {', '.join(actions)}"})
+    return out
 
 
 def _autonomy(spec: Any, assigned: set, where: str, problems: List[Dict[str, str]]) -> None:
@@ -429,7 +460,8 @@ def effective_permissions(solution: Any, document: Any) -> Dict[str, List[Dict[s
 
 
 # -- a starting point -------------------------------------------------------------------------------------------
-def suggest(document: Any, sample: Optional[Mapping[str, Mapping[str, Any]]] = None) -> Dict[str, Any]:
+def suggest(document: Any, sample: Optional[Mapping[str, Mapping[str, Any]]] = None,
+            taken: Iterable[str] = ()) -> Dict[str, Any]:
     """A plain starting configuration for a model: one agent holding the roles the access rules name, pursuing
     every goal, with a ``simulated.succeed`` tool for each action, and one sample case along the first case
     template. A person edits it; the engine validates whatever is saved."""
@@ -439,20 +471,47 @@ def suggest(document: Any, sample: Optional[Mapping[str, Mapping[str, Any]]] = N
              "roles": roles, "goals": sorted(onto.goals), "autonomy": {"mode": "policy"},
              "tools": [{"action": name, "tool": "simulated.succeed"} for name in sorted(onto.actions)]}
     out: Dict[str, Any] = {"agents": {"solution_agent": agent} if onto.actions and onto.goals else {}}
-    template = next(iter(onto.case_templates.values()), None)
-    if template is not None and sample is not None:
-        instances, links = [], []
-        ids = {entity: f"{entity.upper()[:8]}-1" for entity in template.entities}
-        for entity, steps in template.entities.items():
-            if entity not in sample or len(steps) > 1:
-                continue
-            instances.append({"type": entity, "id": ids[entity], **dict(sample[entity])})
-            if len(steps) == 1:
-                step = steps[0]
-                links.append([ids[entity], step[1:], ids[template.root]] if step.startswith("^")
-                             else [ids[template.root], step, ids[entity]])
-        out["sample_data"] = {"instances": instances, "links": links}
+    data = sample_records(onto, sample, taken)
+    if data is not None:
+        out["sample_data"] = data
     return out
+
+
+def sample_records(onto: Ontology, sample: Optional[Mapping[str, Mapping[str, Any]]],
+                   taken: Iterable[str] = ()) -> Optional[Dict[str, Any]]:
+    """One synthetic record per entity of the first case template, linked along the template's paths (a path
+    may take several steps: ``orders.lines``), or None when the model has no case template. A run needs records
+    to read its case from; a model nobody wrote a template for has none until a person asks for these.
+    ``taken``: identifiers already in use (the use case's records): a sample never claims one, because a record
+    that exists is never overwritten and the sample would silently not be loaded."""
+    template = next(iter(onto.case_templates.values()), None)
+    if template is None or sample is None:
+        return None
+    ids: Dict[str, str] = {}
+    used = set(taken)
+    for entity in template.entities:
+        stem, n = entity.upper()[:8], 1
+        while f"{stem}-{n}" in ids.values() or f"{stem}-{n}" in used:
+            n += 1
+        ids[entity] = f"{stem}-{n}"
+    instances, links = [], []
+    for entity, steps in template.entities.items():
+        if entity not in sample:
+            continue
+        previous = template.root
+        if len(steps) > 1:  # the record the last step starts from: the entity the path reaches one step earlier
+            try:
+                previous = onto._walk(template.root, steps[:-1], f"case template {template.name!r}")
+            except OntologyError:
+                continue
+            if previous not in ids or previous not in sample:
+                continue
+        instances.append({"type": entity, "id": ids[entity], **dict(sample[entity])})
+        if steps:
+            step = steps[-1]
+            links.append([ids[entity], step[1:], ids[previous]] if step.startswith("^")
+                         else [ids[previous], step, ids[entity]])
+    return {"instances": instances, "links": links}
 
 
 def from_descriptions(document: Any, described: Any) -> Dict[str, Any]:

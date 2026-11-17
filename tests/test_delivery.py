@@ -97,5 +97,32 @@ class PackagingTests(unittest.TestCase):
         self.assertIn("required=false", text)  # the proxy CA secret is optional and never stored in the image
 
 
+class QualityGateTests(unittest.TestCase):
+    """GAP-084: a gate that cannot run its checker must fail, not report zero findings."""
+
+    def test_the_type_ratchet_fails_when_the_checker_did_not_run(self):
+        import importlib.util
+        import subprocess
+        from unittest import mock
+
+        spec = importlib.util.spec_from_file_location("mypy_ratchet", ROOT / "deploy" / "mypy_ratchet.py")
+        ratchet = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(ratchet)
+
+        def ran(code, out="", err=""):
+            return mock.patch.object(ratchet.subprocess, "run", return_value=subprocess.CompletedProcess(
+                [], code, stdout=out, stderr=err))
+
+        with ran(1, err="/usr/bin/python: No module named mypy"), self.assertRaises(SystemExit) as stop:
+            ratchet.count()  # the interpreter's own exit code 1: before, this counted as no error at all
+        self.assertIn("mypy did not run", str(stop.exception.code))
+        with ran(2, err="bad configuration"), self.assertRaises(SystemExit):
+            ratchet.count()
+        with ran(1, out="autology/a.py:3: error: one\nautology/a.py:4: note: about it\nautology/b.py:9: error: two\n"):
+            self.assertEqual(ratchet.count(), 2)
+        with ran(0):
+            self.assertEqual(ratchet.count(), 0)
+
+
 if __name__ == "__main__":
     unittest.main()

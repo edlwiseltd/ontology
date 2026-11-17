@@ -130,7 +130,7 @@ def _anthropic_adapter(policy: Dict[str, Any], key: Optional[str], http_client: 
 
 # provider id -> adapter factory (policy, key). Having an adapter installed authorises nothing: a workspace reaches
 # a provider only with an approved policy that the owner's authorisation covers (see _ai_standing). The adapter
-# listed here has been exercised against a client double only: no call to the provider was ever made (GAP-052).
+# listed here was first run against its provider on 17 November 2026, on synthetic data, for one workspace.
 PROVIDER_ADAPTERS: Dict[str, Any] = {"anthropic": _anthropic_adapter}
 
 

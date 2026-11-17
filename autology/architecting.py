@@ -13,9 +13,11 @@ activate a release, call a tool. Accepted items reach a draft only through ``POS
 with ``configure``; a draft becomes active only through a release approved by another person.
 
 **Providers.** An engine has an AI gateway only if its configuration says so (``"ai": {"provider": "sandbox"}``).
-Until the owner approves a provider and the data it may receive (decisions D7, D10), ``sandbox`` - a deterministic
-test double that contacts nothing (:mod:`autology.sandbox_ai`) - is the only value accepted: any other is refused
-when the engine starts. Every permission is asked of the engine this service belongs to.
+On its own an engine accepts only ``sandbox``, a deterministic test double that contacts nothing
+(:mod:`autology.sandbox_ai`). Under a platform a use case may name a real provider with its exact model and policy
+terms; it is served only while the workspace's approved policy, the owner's authorisation (decisions D7, D10), the
+key and the budget all allow it (:func:`build_gateway`). Every permission is asked of the engine this service
+belongs to.
 """
 
 from __future__ import annotations

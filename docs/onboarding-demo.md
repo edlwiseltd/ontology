@@ -11,7 +11,10 @@ readiness report**
 
 What it is, plainly: the proposals come from the **sandbox architect**, a deterministic test double built on an
 approved, industry-neutral template (request → review → approval → fulfilment → closure). **No language model is
-involved** and nothing is sent anywhere; a real provider waits for the owner's decisions D7 and D10
+involved** in this demonstration and nothing is sent anywhere. A real provider was first used on 17 November 2026,
+in a separate evaluation workspace on synthetic data
+([report](../planning/AUTOLOGY_FIRST_REAL_CLAUDE_EVALUATION_REPORT.md));
+elsewhere it waits for the owner's decisions D7 and D10
 ([evaluation protocol](../planning/AUTOLOGY_AI_PROVIDER_EVALUATION_PROTOCOL.md)). Every step goes through the
 versioned API; the engine validates, stores and decides. Nothing on the screen changes what runs, grants a
 permission or calls another system.
@@ -69,7 +72,7 @@ browser checks: `cd studio/web && npm run build && e2e/run.sh` (17 of its checks
 | Readiness report with blockers | Works for what runs now, for the saved draft and for a release that is not active; each report names its subject |
 | Publish the draft, approve and activate a release | Works in step 7 of the same screen (and in the **Releases** tab); it needs a second person, by design |
 | Run the published model as a stored simulation run | Works: agents and simulated tools are configured in step 5, released with the model, and runs are started in step 8 by a member who holds `run` |
-| A description outside the template's vocabulary | Gets a clarification question only. A language model is needed for more (blocked on D7/D10) |
+| A description outside the template's vocabulary | Gets a clarification question only. A language model is needed for more (authorised for the evaluation workspace only; elsewhere blocked on D7/D10) |
 | Documents as input, industry packs, integrations to real systems | Not available |
 
 The scripted journey takes under two seconds. That says nothing about a person: no timing with real users has

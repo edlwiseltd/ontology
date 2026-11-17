@@ -52,6 +52,7 @@ import hashlib
 import importlib
 import json
 import logging
+import re
 import threading
 import time
 import urllib.error
@@ -212,6 +213,27 @@ def _by_status(status: int, detail: str, retry_after: Optional[float] = None) ->
     return ProviderError("invalid_request", text)
 
 
+PROMPTED = ("\n\nAnswer with one JSON object and nothing else: no prose before or after it, no code fence. It must "
+            "satisfy the JSON Schema below exactly. Use only the property names the schema lists, at every level: an "
+            "answer that carries any other property anywhere (a note, a hint, a placeholder, a comment) is discarded "
+            "whole. Leave an optional property out when it does not apply.\n")
+# what a provider says when it will not compile a schema into a grammar; the request was not processed
+TOO_LARGE = ("grammar is too large", "too complex for compilation")
+
+
+def unfenced(text: str) -> str:
+    """``text`` without a surrounding code fence, if a model wrote one around its JSON."""
+    body = text.strip()
+    if body.startswith("```"):
+        body = body.split("\n", 1)[1] if "\n" in body else ""
+        if body.rstrip().endswith("```"):
+            body = body.rstrip()[:-3]
+    return body.strip()
+
+
+_CREDENTIAL = re.compile(r"(sk-[A-Za-z0-9_\-]{8,}|Bearer\s+\S+)")
+
+
 def same_model(asked: str, served: str) -> bool:
     """Whether ``served`` is the model that was asked for: the same identifier, or a dated name of it
     (``claude-x-1`` answered as ``claude-x-1-20260101``). Any other model is another model."""
@@ -229,8 +251,9 @@ def _seconds(value: Any) -> Optional[float]:
 class AnthropicProvider:
     """Claude through the official ``anthropic`` SDK. ``client`` is an SDK client (``anthropic.Anthropic()``),
     created from the environment when not given (the platform always gives one, built for one workspace from
-    that workspace's key: see ``platform._anthropic_adapter``). Exercised against a client double and against the
-    SDK itself over a local transport (``tests/test_claude2_anthropic_adapter.py``); never against the provider."""
+    that workspace's key: see ``platform._anthropic_adapter``). Exercised against a client double, against the
+    SDK itself over a local transport (``tests/test_claude2_anthropic_adapter.py``) and, since 17 November 2026,
+    against the provider on synthetic data (``planning/AUTOLOGY_FIRST_REAL_CLAUDE_EVALUATION_REPORT.md``)."""
 
     def __init__(self, client: Any = None, name: str = "anthropic", effort: str = "medium"):
         if client is None:
@@ -238,16 +261,35 @@ class AnthropicProvider:
         if hasattr(client, "with_options"):  # retries are the gateway's decision, not the SDK's
             client = client.with_options(max_retries=0)
         self.client, self.name, self.effort = client, name, effort
+        self._prompted: set = set()  # schemas the provider would not compile: asked for in the instructions instead
 
     def capabilities(self) -> Capabilities:
+        # "native": the provider is asked to constrain the answer; a schema it will not compile is asked for in
+        # the instructions instead (see invoke). The gateway checks the answer in both cases.
         return Capabilities(self.name, "Anthropic Messages API through the official SDK", "native", True, False,
-                            False, "a client double, and the official SDK over a local transport (no call to the "
-                                   "provider has been made from this adapter)")
+                            False, "a client double, the official SDK over a local transport, and the provider "
+                                   "itself on synthetic data (first calls 17 November 2026, claude-opus-5-5)")
 
     def invoke(self, call: ProviderCall) -> ProviderReply:
+        # A provider compiles the answer's schema into a grammar and refuses one that is too large (the
+        # architect's contract is). The refusal is immediate and nothing is processed or billed; the same
+        # request is then sent once with the schema written into the instructions instead. Either way the
+        # gateway checks the answer against the schema: the provider's grammar was never the authority.
+        mark = hashlib.sha256(json.dumps(dict(call.schema), sort_keys=True, default=str).encode()).hexdigest()
+        if mark not in self._prompted:
+            try:
+                return self._send(call, grammar=True)
+            except ProviderError as exc:
+                if exc.kind != "invalid_request" or not any(s in str(exc) for s in TOO_LARGE):
+                    raise
+                self._prompted.add(mark)
+        return self._send(call, grammar=False)
+
+    def _send(self, call: ProviderCall, grammar: bool) -> ProviderReply:
+        system = call.system if grammar else call.system + PROMPTED + json.dumps(dict(call.schema), default=str)
         # no fallback to another model: the workspace's policy and the owner's authorisation name exactly one
-        request = claude_request(call.model, call.max_output_tokens, call.effort or self.effort, call.system,
-                                 call.prompt, call.schema, fallback=False)
+        request = claude_request(call.model, call.max_output_tokens, call.effort or self.effort, system,
+                                 call.prompt, call.schema, fallback=False, grammar=grammar)
         try:
             response = self.client.beta.messages.create(**request, timeout=call.timeout)
         except Exception as exc:  # adapter boundary: every SDK failure becomes a classified ProviderError
@@ -264,20 +306,43 @@ class AnthropicProvider:
         elif stop == "end_turn":
             reply.stop = "complete"
             reply.text = next((b.text for b in blocks if getattr(b, "type", "") == "text"), None)
+            if not grammar and isinstance(reply.text, str):
+                reply.text = unfenced(reply.text)
         return reply
 
-    @staticmethod
-    def _classify(exc: Exception) -> ProviderError:
-        name = type(exc).__name__  # the message of an SDK error can quote the request: only its type is kept
+    def _classify(self, exc: Exception) -> ProviderError:
+        name = type(exc).__name__
         status = getattr(exc, "status_code", None)
         if isinstance(status, int):
             headers = getattr(getattr(exc, "response", None), "headers", None) or {}
-            return _by_status(status, name, _seconds(headers.get("retry-after")))
+            return _by_status(status, f"{name}{self._reason(exc, status)}", _seconds(headers.get("retry-after")))
         if isinstance(exc, TimeoutError) or "Timeout" in name:
             return ProviderError("timeout", name)
         if isinstance(exc, OSError) or "Connection" in name:
             return ProviderError("unavailable", name)
         return ProviderError("failed", name)
+
+    def _reason(self, exc: Exception, status: int) -> str:
+        """What the provider said about a refused request, for the person who made it.
+
+        Every refusal carries the provider's error *type* (``invalid_request_error``, ``authentication_error``...).
+        A request the provider calls invalid (400, 404, 413, 422) also carries its message, because nothing else
+        says what to correct: a field it does not accept, an account without credit. That message can quote the
+        request, which the caller wrote; it is cut short, and anything that looks like a credential is removed.
+        Other refusals keep the type only."""
+        body = getattr(exc, "body", None)
+        error = body.get("error") if isinstance(body, Mapping) else None
+        if not isinstance(error, Mapping):
+            return ""
+        kind = error.get("type") if isinstance(error.get("type"), str) else ""
+        text = f" ({kind[:60]})" if kind else ""
+        if status in (400, 404, 413, 422) and isinstance(error.get("message"), str):
+            said = " ".join(error["message"].split())[:200]
+            key = getattr(self.client, "api_key", None)
+            if isinstance(key, str) and key:
+                said = said.replace(key, "[credential]")
+            text += ": " + _CREDENTIAL.sub("[credential]", said)
+        return text
 
 
 # -- adapter 2: the chat-completions protocol over HTTP ------------------------------------------------------

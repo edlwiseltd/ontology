@@ -426,8 +426,11 @@ SCHEMAS: Dict[str, Any] = {
                              ("revision", "manifest", "validation", "history", "running")),
     "Application": _obj({"manifest": ANY, "revision": I, "digest": S, "running": REF("ApplicationRunning"), "status": S,
                          "stage": NS, "runs_refused": NS, "production": {"type": "boolean"}, "you": ANY,
-                         "governance": REF("ApplicationGovernance")},
-                        ("manifest", "revision", "digest", "running", "status", "production", "you", "governance")),
+                         "governance": REF("ApplicationGovernance"),
+                         # the active release the application runs on (null on an engine no platform hosts)
+                         "release": {"anyOf": [{"type": "null"}, _obj({"number": I, "fingerprint": S, "runs": {"type": "boolean"}},
+                                                                    ("number", "fingerprint", "runs"), extra=False)]}},
+                        ("manifest", "revision", "digest", "running", "status", "production", "you", "governance", "release")),
     # where a design stands: six states, each said to be supported or not by the engine, and one sentence
     "ApplicationGovernance": _obj({**{state: _obj({"supported": {"type": "boolean"}, "value": {"type": "boolean"}, "detail": S},
                                               ("supported", "value", "detail"), extra=False)

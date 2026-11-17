@@ -105,7 +105,7 @@ async function demo(ws) {
       (await studio.getAttribute("[data-testid=app-preview] [data-testid=rt-app]", "data-mode")) === "configuration" &&
       (await studio.textContent("[data-testid=app-preview] [data-testid=rt-mode]")).includes("Configuration preview") &&
       (await studio.textContent("[data-testid=app-preview] [data-testid=rt-production]")).includes("unavailable") &&
-      (await studio.locator("[data-testid=app-preview] [data-testid=rt-nav] > ul > li").count()) === generated.navigation.length &&
+      (await studio.locator("[data-testid=app-preview] [data-testid=rt-nav] li[data-nav]").count()) === generated.navigation.length &&
       (await studio.locator("[data-testid=app-preview] [data-testid=rt-no-data]").count()) >= 1);
   await studio.click("[data-testid=app-preview-config]");
   await studio.click("[data-testid=app-validate]");
@@ -138,6 +138,28 @@ async function demo(ws) {
   say("the application tells its user the same six states, and calls itself neither a release nor a production system",
       same(shown, AS_DESIGNED) && (await app.textContent("[data-testid=rt-status-summary]")).includes("design draft, validated, bound to the configuration that runs; not an approved release artifact; production not authorised"),
       JSON.stringify(shown));
+  const groupsShown = await app.$$eval("[data-testid=rt-nav] .rt-nav-group", (els) => els.map((e) => [e.querySelector("h3").textContent, e.querySelectorAll("li[data-nav]").length]));
+  say("the menu is grouped by what a screen is for, from the view types and never from a name, and loses no screen",
+      same(groupsShown.map((g) => g[0]), ["Overview", "Work", "Records", "Evidence"]) &&
+      groupsShown.reduce((n, g) => n + g[1], 0) === (await app.locator("[data-testid=rt-nav] li[data-nav]").count()) &&
+      groupsShown[0][1] === 1 && groupsShown[3][1] === 1, JSON.stringify(groupsShown));
+  await app.click("[data-testid=rt-about-open]");
+  await app.waitForSelector("[data-testid=rt-about]");
+  const about = Object.fromEntries(await app.$$eval("[data-testid=rt-about] [data-testid^=rt-about-]", (els) => els.map((e) => [e.dataset.testid.slice(9), e.textContent])));
+  say("the application says what it is and what it runs on: version, bound configuration, release, stage, simulation, last answer",
+      about.app.includes(generated.title) && about.version.includes("Design revision 1") && about.version.includes("no release contains it") &&
+      about.bound.includes(generated.binding.model) && about.bound.includes(generated.binding.configuration.slice(0, 12)) &&
+      about.release.includes("Release 1") && about.release.includes("it is what runs") && about.stage.includes("simulation") &&
+      about.mode.includes("Production: unavailable") && /\d/.test(about.last) && about.last.includes("not how recent any record is"),
+      JSON.stringify(about).slice(0, 300));
+  say("it says what this person can do, what their permissions restrict and what no application can do yet, as the engine reports it",
+      about.can.includes("Read records") && about.can.includes("Ask the solution to handle a record") &&
+      about.restricted.includes("Create or change records") && about.restricted.includes("owner decision D24") &&
+      about.restricted.includes("Decide reviews") && !about.can.includes("Decide reviews") &&
+      (await app.locator("[data-testid=rt-about-unavailable] li").count()) === generated.unavailable.length &&
+      same(await states(app, "rt-about-status"), AS_DESIGNED), about.can);
+  await app.screenshot({ path: `${OUT}/app-${ws}-about.png`, fullPage: true });
+  await app.click("[data-testid=rt-nav] li[data-nav] button >> nth=0");
   const nav = await app.textContent("[data-testid=rt-nav]");
   say("navigation is generated from the design, and a kind of record this person can never see is not in it",
       nav.includes(`${words(d.root)} (all)`) && nav.includes("Audit trail") && (d.hiddenLabel ? !nav.includes(d.hiddenLabel) : true) &&
@@ -163,6 +185,12 @@ async function demo(ws) {
   say("a record shows its fields and its recorded links",
       (await app.locator("[data-testid=rt-fields] div").count()) > 3 && (await app.locator(".rt-related").count()) > 0 &&
       (await app.textContent("[data-testid=rt-detail]")).includes("none is computed or inferred"));
+  const provenance = await app.textContent("[data-testid=rt-provenance]");
+  await app.click("[data-testid=rt-lineage-open]");
+  await app.waitForSelector("[data-testid=rt-lineage]");
+  say("a record says which revision the engine holds and when this screen read it; where it came from is asked from the engine and not guessed",
+      /Revision \d+ of this record, as the Engine holds it/.test(provenance) && provenance.includes("this browser's clock") &&
+      (await app.textContent("[data-testid=rt-lineage]")).includes("no recorded load"), provenance.slice(0, 120));
   await app.screenshot({ path: `${OUT}/app-${ws}-record.png`, fullPage: true });
   await app.click("[data-testid=rt-open-links]");
   await app.waitForSelector("[data-testid=rt-graph] .rt-node");
@@ -214,6 +242,7 @@ async function demo(ws) {
   const direct = await as(d.operator, "POST", `${ENG}/objects`, { type: d.root, id: "NEW-E2E-2", attributes: {} });
   say("a form says it is a preview, nothing is saved, and the engine refuses the same write sent directly",
       (await app.textContent("[data-testid=rt-form-mode]")).includes("Preview only") &&
+      (await app.textContent("[data-testid=rt-form-kind]")) === "Preview: nothing is saved" &&
       (await app.textContent("[data-testid=rt-form-result]")).includes("Not saved") && stored.status === 404 && direct.status === 403,
       `read ${stored.status}, direct write ${direct.status}`);
 
@@ -261,7 +290,7 @@ async function demo(ws) {
   }
 
   // ---- keyboard, phone
-  await app.focus("[data-testid=rt-nav] li:first-child button");
+  await app.focus("[data-testid=rt-nav] li[data-nav] button >> nth=0");
   await app.keyboard.press("Enter");
   await app.waitForSelector("[data-testid=rt-dashboard]");
   await app.setViewportSize({ width: 390, height: 844 });
@@ -317,7 +346,7 @@ try {
   await v.as(v.d.approver, "POST", `${v.UC}/releases/${rel.body.number}/approve`, { reason: "e2e" });
   const activated = await v.as(v.d.admin, "POST", `${v.UC}/releases/${rel.body.number}/activate`, { reason: "e2e" });
   const stalePin = await v.as(v.d.operator, "GET", `${v.ENG}/objects?type=Room`, undefined, { "X-Autology-Configuration": pinned });
-  await v.app.click("[data-testid=rt-nav] li:nth-child(3) button");
+  await v.app.click("[data-testid=rt-nav] button:text-is('Room')");
   await v.app.waitForSelector(".rt-main .error");
   const inPlace = await v.app.textContent(".rt-main .error");
   await v.app.click("[data-testid=rt-reload]");

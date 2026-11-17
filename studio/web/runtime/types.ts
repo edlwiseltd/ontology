@@ -31,7 +31,7 @@ export type Governance = Record<GovernanceState, { supported: boolean; value: bo
 export interface Application {
   manifest: Manifest; revision: number; digest: string; status: string; stage: string | null; runs_refused: string | null;
   production: boolean; running: Manifest["binding"]; you: { name: string; kind: string; permissions: string[]; may: May };
-  governance: Governance;
+  governance: Governance; release: { number: number; fingerprint: string; runs: boolean } | null;
 }
 export interface RecordRow { id: string; type: string; attributes: Record<string, unknown>; revision?: number;
   links?: { kind: string; direction: "out" | "in"; id: string; type: string }[] }

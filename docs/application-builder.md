@@ -153,6 +153,29 @@ A state the Engine does not have is reported as "not supported", not as "no": th
 was not approved" and "there is nothing here that could approve it" is the point. An application that opens in a
 browser is, at most, simulation-ready.
 
+### What an application tells its user
+
+Every running application has an **About this application** screen. It is the renderer's own, not a view of the
+manifest, and every line but one is printed from the Engine's answer:
+
+| Line | Source |
+|---|---|
+| Application and version | The manifest's title and identifier; the design revision and content digest. It says "a design draft: no release contains it" |
+| Bound configuration | The model reference and the configuration fingerprint the design was saved for |
+| Current release | The active release's number, and whether it is what runs (`release`, from the platform's release register). None on an engine no platform hosts |
+| Environment | The stage of the use case, and why runs are refused if they are |
+| Mode | Simulation; production unavailable |
+| Status of the design | The six states above |
+| What you can do · restricted by your permissions | `you.may` and `you.permissions`; screens closed to this caller, with the Engine's reason |
+| Not available in any application yet | The manifest's fixed list |
+| Last answer from the Engine | **This screen's own clock**: when it last received a successful answer. It says so, and says it is not a statement about how recent any record is. The Engine gives no freshness guarantee and none is invented |
+
+A record's page states the revision the Engine holds and when the screen read it; "where this record came from"
+asks the Engine for the recorded loads (`GET /objects/{id}/lineage`) and says plainly when there is none.
+
+The menu is grouped by what a screen is for (Overview, Work, Records, Evidence). The groups come from the view
+types of the schema, never from a name; a menu with more than nine entries gets a box to find a screen.
+
 ## 5. Permissions
 
 A manifest grants nothing, and the runtime adds no permission.

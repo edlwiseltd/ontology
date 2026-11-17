@@ -34,14 +34,15 @@ function useLoad<T>(ctx: Ctx, path: string | null, deps: unknown[]): { data: T |
 const NoData = () => <p className="muted small" data-testid="rt-no-data">A configuration preview shows the screens as designed. No record is read.</p>;
 const Status = ({ value }: { value: unknown }) => <span className="rt-pill">{cell(value)}</span>;
 const Busy = ({ on }: { on: boolean }) => (on ? <p className="muted small" role="status">Loading…</p> : null);
-const Failed = ({ text }: { text: string }) => (text ? <p className="error" role="alert">{text}</p> : null);
+const Failed = ({ text, retry }: { text: string; retry?: () => void }) => (text ? (
+  <p className="error" role="alert">{text}{retry && <> <button type="button" className="small" onClick={retry} data-testid="rt-retry">Try again</button></>}</p>) : null);
 
 // -- records ---------------------------------------------------------------------------------------------------
 export function EntityList({ view, ctx }: Props) {
   const size = view.page_size ?? 25;
   const [offset, setOffset] = useState(0);
   const [query, setQuery] = useState("");
-  const { data, error, loading } = useLoad<Page>(ctx, `/objects?type=${encodeURIComponent(view.entity ?? "")}&limit=${size}&offset=${offset}`, [view.id]);
+  const { data, error, loading, reload } = useLoad<Page>(ctx, `/objects?type=${encodeURIComponent(view.entity ?? "")}&limit=${size}&offset=${offset}`, [view.id]);
   const columns = view.columns ?? [];
   const rows = filterLoaded(data?.items ?? [], query, columns);
   const detail = viewFor(ctx.manifest, "EntityDetailView", view.entity ?? "");
@@ -57,7 +58,7 @@ export function EntityList({ view, ctx }: Props) {
         <>
           <label htmlFor="rt-filter">Filter the records loaded on this page</label>
           <input id="rt-filter" value={query} onChange={(e) => setQuery(e.target.value)} maxLength={80} placeholder="text in any column shown" />
-          <Busy on={loading} /><Failed text={error} />
+          <Busy on={loading} /><Failed text={error} retry={reload} />
         </>)}
       <div className="rt-scroll">
         <table className="rt-table" data-testid="rt-table">
@@ -84,7 +85,7 @@ export function EntityList({ view, ctx }: Props) {
 }
 
 export function EntityDetail({ view, ctx }: Props) {
-  const { data, error, loading } = useLoad<RecordRow>(ctx, ctx.record ? `/objects/${encodeURIComponent(ctx.record)}` : null, [ctx.record]);
+  const { data, error, loading, reload } = useLoad<RecordRow>(ctx, ctx.record ? `/objects/${encodeURIComponent(ctx.record)}` : null, [ctx.record]);
   const links = viewFor(ctx.manifest, "RelationshipView", view.entity ?? "");
   const work = viewFor(ctx.manifest, "WorkflowView", view.entity ?? "");
   const list = viewFor(ctx.manifest, "EntityListView", view.entity ?? "");
@@ -106,7 +107,7 @@ export function EntityDetail({ view, ctx }: Props) {
           {work && <button type="button" className="small primary" onClick={() => ctx.open(work.id, ctx.record)} data-testid="rt-open-work">Work on this record</button>}
         </span>
       </div>
-      <Busy on={loading} /><Failed text={error} />
+      <Busy on={loading} /><Failed text={error} retry={reload} />
       {data && (
         <>
           <dl className="rt-fields" data-testid="rt-fields">
@@ -125,14 +126,38 @@ export function EntityDetail({ view, ctx }: Props) {
                     <li key={x.id}>{target ? <button type="button" className="link" onClick={() => ctx.open(target.id, x.id)}>{x.id}</button> : x.id}</li>))}</ul>)}
               </div>);
           })}
+          <Provenance record={data} ctx={ctx} />
           <p className="muted small">Shown as recorded. Links are recorded links: none is computed or inferred by this screen.</p>
         </>)}
     </section>
   );
 }
 
+/** Where a record stands and where it came from, as the Engine holds it. Nothing here is computed by the screen. */
+function Provenance({ record, ctx }: { record: RecordRow; ctx: Ctx }) {
+  const [asked, setAsked] = useState(false);
+  const [read] = useState(() => new Date().toLocaleTimeString());
+  const lineage = useLoad<{ loads: { pipeline: string; source: string; action: string; loaded_at: string; attributes: string[] }[] }>(
+    ctx, asked && ctx.mode === "simulation" ? `/objects/${encodeURIComponent(record.id)}/lineage` : null, [record.id, asked]);
+  return (
+    <div className="rt-provenance small" data-testid="rt-provenance">
+      <p>
+        <strong>Provenance.</strong> {record.revision === undefined ? "The Engine gave no revision for this record."
+          : `Revision ${record.revision} of this record, as the Engine holds it.`} Read by this screen at {read} (this browser's clock).
+        {ctx.mode === "synthetic" ? " This is a preview with the designer's own access." : ""}
+      </p>
+      {ctx.mode === "simulation" && !asked && <button type="button" className="small" onClick={() => setAsked(true)} data-testid="rt-lineage-open">Where this record came from</button>}
+      <Busy on={lineage.loading} /><Failed text={lineage.error} />
+      {lineage.data && (lineage.data.loads.length === 0
+        ? <p className="muted" data-testid="rt-lineage">The Engine has no recorded load for this record: it was not written by an ingestion pipeline. Who wrote it is in the Engine&apos;s access log, which this application does not read.</p>
+        : <ul className="rt-plain" data-testid="rt-lineage">{lineage.data.loads.map((l, i) => (
+            <li key={i}>{l.action} by pipeline {l.pipeline} from {l.source} at {l.loaded_at}: {(l.attributes ?? []).join(", ") || "no attribute"}</li>))}</ul>)}
+    </div>
+  );
+}
+
 export function Relationships({ view, ctx }: Props) {
-  const { data, error, loading } = useLoad<RecordRow>(ctx, ctx.record ? `/objects/${encodeURIComponent(ctx.record)}` : null, [ctx.record]);
+  const { data, error, loading, reload } = useLoad<RecordRow>(ctx, ctx.record ? `/objects/${encodeURIComponent(ctx.record)}` : null, [ctx.record]);
   const [states, setStates] = useState<Record<string, string>>({});
   const g = useMemo(() => (data ? graph(data) : null), [data]);
   useEffect(() => {  // each neighbour's own state, as recorded (bounded: the nodes drawn)
@@ -154,7 +179,7 @@ export function Relationships({ view, ctx }: Props) {
     <section aria-labelledby="rt-links-title" data-testid="rt-links">
       <div className="row spread"><h2 id="rt-links-title">{view.title} <span className="muted">{ctx.record}</span></h2>
         {back && <button type="button" className="small" onClick={() => ctx.open(back.id, ctx.record)}>Back to the record</button>}</div>
-      <Busy on={loading} /><Failed text={error} />
+      <Busy on={loading} /><Failed text={error} retry={reload} />
       {g && (
         <>
           <svg viewBox="0 0 640 380" className="rt-graph" role="img" aria-label={`Recorded links of ${ctx.record}`} data-testid="rt-graph">
@@ -198,7 +223,7 @@ export function RecordForm({ view, ctx }: Props) {
   };
   return (
     <section aria-labelledby="rt-form-title" data-testid="rt-form">
-      <h2 id="rt-form-title">{view.title}</h2>
+      <h2 id="rt-form-title">{view.title} <span className={`rt-pill ${real ? "rt-ok" : "rt-bad"}`} data-testid="rt-form-kind">{real ? "Sent to the Engine" : "Preview: nothing is saved"}</span></h2>
       <p className="warn" data-testid="rt-form-mode">{real
         ? "You hold the unrestricted data permission on this use case: this form is sent to the Engine, which validates and stores it."
         : "Preview only: nothing you enter here is saved. Creating or changing records from an application needs a permission that does not exist yet (owner decision D24)."}</p>
@@ -339,7 +364,7 @@ export function ApprovalInbox({ view, ctx }: Props) {
       <ul className="rt-plain">{(view.rules ?? []).map((id) => <li key={id}><span className="rt-pill">a person decides</span> {ctx.rules[id]?.description ?? id} <span className="muted small">({id})</span></li>)}</ul>
       {!usable && <p className="muted" data-testid="rt-inbox-unavailable">{ctx.mode !== "simulation" ? "A preview shows no request: decisions exist in the engine-backed simulation only."
         : view.unavailable_because ?? "The Engine does not let you decide reviews."}</p>}
-      <Busy on={loading} /><Failed text={error} />
+      <Busy on={loading} /><Failed text={error} retry={reload} />
       {message && <p role="status" data-testid="rt-inbox-message">{message}</p>}
       {usable && data && data.items.length === 0 && <p className="muted" data-testid="rt-empty">Nothing waits for you.</p>}
       {(data?.items ?? []).map((r) => (

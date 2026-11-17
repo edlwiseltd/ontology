@@ -170,6 +170,16 @@ class ApplicationService:
         return {**self.draft(user), "revision": revision, "saved": True}
 
     # -- using (a renderer) ---------------------------------------------------------------------------------
+    def release(self) -> Any:
+        """The governed release that runs, as the platform records it: its number, and whether it is what runs.
+        None for an engine that no platform hosts. A fact for the screen; it authorises nothing."""
+        active = getattr(self.engine, "active_release", None)
+        item = active() if callable(active) else None
+        if not item:
+            return None
+        return {"number": item["number"], "fingerprint": item["fingerprint"],
+                "runs": item["fingerprint"] == self.engine.configuration_fingerprint}
+
     def application(self, user: Any) -> Dict[str, Any]:
         """The application as this caller may use it: see the module docstring for the refusals."""
         from .server import ApiError
@@ -196,7 +206,7 @@ class ApplicationService:
         return {
             "manifest": manifest, "revision": row["revision"], "digest": check["digest"], "running": running,
             "status": "design preview: not part of a governed release", **self._stage(),
-            "governance": self.governance(row, check),
+            "governance": self.governance(row, check), "release": self.release(),
             # what the Engine will let this caller do; a screen shows it, the Engine enforces it on each request
             "you": {"name": user.name, "kind": user.kind, "permissions": sorted(can),
                     "may": {"read_records": "read" in can or "admin" in can,

@@ -1216,6 +1216,11 @@ export interface components {
                 [key: string]: unknown;
             };
             production: boolean;
+            release: null | {
+                fingerprint: string;
+                number: number;
+                runs: boolean;
+            };
             revision: number;
             running: components["schemas"]["ApplicationRunning"];
             runs_refused?: string | null;

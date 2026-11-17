@@ -4,9 +4,10 @@
 // this caller. It is not Studio and shares no session with it. It holds no rule, no permission and no audit trail
 // of its own: what it shows is what the Engine answered, and a button it hides is hidden for comfort, not security.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { call, enginePath, EngineError, getToken, setToken, type Caller } from "./client";
-import { short, supported, unsupportedViews } from "./model";
+import About from "./about";
+import { groupNavigation, NAV_FILTER_FROM, short, supported, unsupportedViews } from "./model";
 import DesignStatus from "./status";
 import type { Application, Manifest, May, Mode, RuleInfo, View } from "./types";
 import { MODE_LABEL } from "./types";
@@ -38,14 +39,18 @@ export default function RuntimeApp({ workspace, useCase, preview }: { workspace:
   const [at, setAt] = useState<{ view: string; record?: string } | null>(null);
   const [activity, setActivity] = useState<string[]>([]);
   const [token, setTokenInput] = useState("");
+  const [about, setAbout] = useState(false);
+  const [find, setFind] = useState("");
+  const lastAnswer = useRef<Date | null>(null);  // when this screen last heard from the Engine: a fact about the screen
+  const heard = useCallback(() => { lastAnswer.current = new Date(); }, []);
 
-  const who: Caller = useMemo(() => ({ base, token: preview ? preview.token : getToken, configuration: app?.running.configuration }),
-                              [base, preview, app]);
+  const who: Caller = useMemo(() => ({ base, token: preview ? preview.token : getToken, configuration: app?.running.configuration, heard }),
+                              [base, preview, app, heard]);
   const load = useCallback(async () => {
     if (preview) return;
     if (!getToken()) { setState("signed-out"); return; }
     setState("loading"); setRefusal(null);
-    const me: Caller = { base, token: getToken };
+    const me: Caller = { base, token: getToken, heard };
     try {
       const found = await call<Application>(me, "GET", "/application");
       setApp(found);
@@ -57,7 +62,7 @@ export default function RuntimeApp({ workspace, useCase, preview }: { workspace:
       if (err.status === 401) { setToken(null); setState("signed-out"); setRefusal({ status: 401, message: "Your token was refused.", details: {} }); }
       else { setApp(null); setRefusal({ status: err.status ?? 0, message: err.message, details: err.details ?? {} }); setState("refused"); }
     }
-  }, [base, preview]);
+  }, [base, preview, heard]);
   useEffect(() => { void load(); }, [load]);
   useEffect(() => {  // a designer's preview explains rules with what the model says, when it may be read
     if (!preview || preview.mode === "configuration") return;
@@ -71,7 +76,8 @@ export default function RuntimeApp({ workspace, useCase, preview }: { workspace:
   const views = useMemo(() => (manifest?.views ?? []).filter(supported), [manifest]);
   const navigation = (manifest?.navigation ?? []).filter((n) => views.some((v) => v.id === n.view));
   const current = views.find((v) => v.id === at?.view) ?? views.find((v) => v.id === navigation[0]?.view) ?? views[0];
-  const open = useCallback((view: string, record?: string) => setAt({ view, record }), []);
+  const open = useCallback((view: string, record?: string) => { setAbout(false); setAt({ view, record }); }, []);
+  const groups = groupNavigation(navigation, views, find);
   const say = useCallback((line: string) => setActivity((a) => [...a.slice(-49), `${new Date().toLocaleTimeString()} · ${line}`]), []);
 
   if (state === "signed-out") {
@@ -128,8 +134,19 @@ export default function RuntimeApp({ workspace, useCase, preview }: { workspace:
       </header>
       <div className="rt-body">
         <nav aria-label="Application" className="rt-nav" data-testid="rt-nav">
-          <ul>{navigation.map((n) => (
-            <li key={n.view}><button type="button" aria-current={current.id === n.view ? "page" : undefined} onClick={() => open(n.view)}>{n.label}</button></li>))}</ul>
+          {navigation.length > NAV_FILTER_FROM && (
+            <div className="rt-nav-find">
+              <label htmlFor="rt-nav-find" className="small">Find a screen</label>
+              <input id="rt-nav-find" value={find} onChange={(e) => setFind(e.target.value)} maxLength={60} data-testid="rt-nav-find" />
+            </div>)}
+          {groups.map((g) => (
+            <div key={g.label} className="rt-nav-group" data-testid={`rt-nav-group-${g.label}`}>
+              <h3 id={`rt-nav-${g.label}`}>{g.label}</h3>
+              <ul aria-labelledby={`rt-nav-${g.label}`}>{g.items.map((n) => (
+                <li key={n.view} data-nav={n.view}><button type="button" aria-current={!about && current.id === n.view ? "page" : undefined} onClick={() => open(n.view)}>{n.label}</button></li>))}</ul>
+            </div>))}
+          {groups.length === 0 && <p className="muted small" role="status" data-testid="rt-nav-none">No screen has that text in its name.</p>}
+          {app && <button type="button" className="rt-about-open" aria-current={about ? "page" : undefined} onClick={() => setAbout(true)} data-testid="rt-about-open">About this application</button>}
           <details className="rt-cannot" data-testid="rt-cannot">
             <summary>What this application cannot do ({manifest.unavailable.length})</summary>
             <ul>{manifest.unavailable.map((u) => <li key={u.feature} className="small">{u.reason}</li>)}</ul>
@@ -137,7 +154,8 @@ export default function RuntimeApp({ workspace, useCase, preview }: { workspace:
         </nav>
         <main className="rt-main">
           {dropped.length > 0 && <p className="warn" data-testid="rt-dropped">{dropped.length} screen(s) of this design are of a kind this renderer does not support and are not shown: {dropped.map((v) => v.type).join(", ")}.</p>}
-          {current.available === false && mode === "simulation" && current.type !== "ApprovalInboxView" && current.type !== "AuditTimelineView"
+          {about && app ? <About app={app} lastAnswer={lastAnswer.current} />
+            : current.available === false && mode === "simulation" && current.type !== "ApprovalInboxView" && current.type !== "AuditTimelineView"
             ? <p className="muted">{current.unavailable_because}</p> : <Render key={`${current.id}:${at?.record ?? ""}`} view={current} ctx={ctx} activity={activity} />}
         </main>
       </div>

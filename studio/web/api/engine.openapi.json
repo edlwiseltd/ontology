@@ -99,6 +99,33 @@
           "production": {
             "type": "boolean"
           },
+          "release": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "fingerprint": {
+                    "type": "string"
+                  },
+                  "number": {
+                    "type": "integer"
+                  },
+                  "runs": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "number",
+                  "fingerprint",
+                  "runs"
+                ],
+                "type": "object"
+              }
+            ]
+          },
           "revision": {
             "type": "integer"
           },
@@ -133,7 +160,8 @@
           "status",
           "production",
           "you",
-          "governance"
+          "governance",
+          "release"
         ],
         "type": "object"
       },

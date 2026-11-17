@@ -773,6 +773,7 @@ class Platform:
         setattr(service, "scope", {"workspace": ws.id, "use_case": uc_id})  # an application manifest is bound to both
         uc = UseCase(uc_id, ws.id, str(spec.get("name") or uc_id), service, spec=dict(spec))
         service.stage_gate = lambda: self.effective_stage_and_reason(uc)  # execution gates: the stage governs every run
+        setattr(service, "active_release", lambda: self.release_of(uc)["active"])  # an application says what it runs on
         gate = ws.gates.setdefault(uc_id, Gate())
         service.background_guard = (gate.enter, gate.leave)  # the scheduler never ticks while the engine is switched
         return uc

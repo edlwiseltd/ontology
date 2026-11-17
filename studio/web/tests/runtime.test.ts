@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { basisCounts, moveNavigation, renameNavigation, setColumns, toggleNavigation } from "../lib/appdesign";
 import { FORWARDED_HEADERS } from "../lib/forward";
 import { call, EngineError } from "../runtime/client";
-import { cell, countBy, filterLoaded, formProblems, formRecord, graph, linked, outcome, runLabel, supported, timeline, unsupportedViews } from "../runtime/model";
+import { capabilities, cell, countBy, filterLoaded, formProblems, formRecord, graph, groupNavigation, linked, NAV_FILTER_FROM, NAV_GROUPS, outcome, runLabel, supported, timeline, unsupportedViews } from "../runtime/model";
 import { DESIGN_STATES, stateWord } from "../runtime/status";
 import type { Manifest, RecordRow, View } from "../runtime/types";
 import { VIEW_TYPES } from "../runtime/types";
@@ -80,6 +80,45 @@ describe("the runtime is a renderer and nothing else", () => {
     for (const t of VIEW_TYPES) expect(shell).toContain(`case "${t}"`);
     expect(supported({ type: "ScriptView" })).toBe(false);
     expect(unsupportedViews({ views: [list, { ...list, id: "x", type: "MapView" }] }).map((v) => v.type)).toEqual(["MapView"]);
+  });
+});
+
+describe("the menu and what a person can do", () => {
+  const views = [{ id: "o", type: "DashboardView" }, { id: "w", type: "WorkflowView" }, { id: "l1", type: "EntityListView" },
+    { id: "l2", type: "EntityListView" }, { id: "i", type: "ApprovalInboxView" }, { id: "a", type: "AuditTimelineView" }, { id: "x", type: "MapView" }];
+  const nav = [["l2", "Zeta"], ["a", "Audit"], ["o", "Overview"], ["l1", "Alpha"], ["i", "Decisions"], ["w", "Work"], ["x", "Map"]]
+    .map(([view, label]) => ({ view, label, basis: "default" as const }));
+
+  it("groups screens by view type, keeps the designer's order inside a group and loses none it can render", () => {
+    expect(groupNavigation(nav, views).map((g) => [g.label, g.items.map((n) => n.view)])).toEqual([
+      ["Overview", ["o"]], ["Work", ["i", "w"]], ["Records", ["l2", "l1"]], ["Evidence", ["a"]]]);
+    expect(NAV_GROUPS.flatMap(([, types]) => types).sort()).toEqual([...VIEW_TYPES].sort());  // every view type has a group
+    expect(groupNavigation(nav, views, " ALP ").map((g) => [g.label, g.items.map((n) => n.label)])).toEqual([["Records", ["Alpha"]]]);
+    expect(groupNavigation(nav, views, "zz")).toEqual([]);
+    expect(NAV_FILTER_FROM).toBeGreaterThan(5);
+    const source = readFileSync(join(ROOT, "runtime", "model.ts"), "utf8");
+    expect(source).not.toMatch(/label\.(includes|startsWith|match)\(["'`][A-Za-z]/);  // no screen is grouped by what it is called
+  });
+
+  it("words what the Engine allows, and never adds to it", () => {
+    const none = { read_records: false, start_runs: false, decide_reviews: false, read_audit: false, write_records: false };
+    expect(capabilities(none).can).toEqual([]);
+    expect(capabilities(none).cannot).toHaveLength(5);
+    const some = capabilities({ ...none, read_records: true, start_runs: true });
+    expect(some.can).toEqual(["Read records, within the rules of the model", "Ask the solution to handle a record"]);
+    expect(some.cannot.map((c) => c.what)).toEqual(["Decide reviews addressed to your reviewer roles", "Read the audit trail of a request", "Create or change records"]);
+    expect(some.cannot[2].why).toContain("owner decision D24");
+    expect(capabilities({ read_records: true, start_runs: true, decide_reviews: true, read_audit: true, write_records: true }).cannot).toEqual([]);
+  });
+
+  it("tells the screen when the Engine last answered, on success only", async () => {
+    let heard = 0;
+    const ok = (async () => new Response("{}", { status: 200 })) as unknown as typeof fetch;
+    const no = (async () => new Response('{"error":{"message":"no"}}', { status: 403 })) as unknown as typeof fetch;
+    const who = { base: "/w/a/u/b/api/v1", token: () => "t", heard: () => { heard += 1; } };
+    await call(who, "GET", "/me", undefined, ok);
+    await expect(call(who, "GET", "/me", undefined, no)).rejects.toBeInstanceOf(EngineError);
+    expect(heard).toBe(1);
   });
 });
 

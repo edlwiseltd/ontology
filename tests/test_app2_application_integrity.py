@@ -123,6 +123,8 @@ class StatusTests(Integrity):
             self.assertIn("owner decision D34", g["approved_release_artifact"]["detail"])
             for word in ("released", "deployed", "published", "live"):  # a design is never described as any of these
                 self.assertNotIn(word, json.dumps(g).lower().replace("not an approved release artifact", ""))
+        served = t.call("GET", f"{t.E}/application", self.worker)["release"]  # the release it runs on, as the platform records it
+        self.assertEqual(served, {"number": 1, "fingerprint": self.engine().configuration_fingerprint, "runs": True})
         # a new release: the same design is still saved, and is now valid for nothing that runs
         document = json.loads(json.dumps(MODEL))
         document["entities"]["Owner"]["states"].append("retired")
@@ -139,7 +141,9 @@ class StatusTests(Integrity):
         self.assertIn("saved for another configuration", after["summary"])
         self.assertEqual(self.c.call("GET", f"{t.E}/application", self.worker)[0], 409)
         self.design()  # designed again for what runs
-        self.assertEqual(self.states(t.call("GET", f"{t.E}/application", self.worker)["governance"])["simulation_ready"], (True, True))
+        again = t.call("GET", f"{t.E}/application", self.worker)
+        self.assertEqual(self.states(again["governance"])["simulation_ready"], (True, True))
+        self.assertEqual((again["release"]["number"], again["release"]["runs"]), (number, True))
 
     def test_a_stored_design_that_was_never_validated_is_not_served(self):  # S3
         t = self.t

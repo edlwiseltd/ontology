@@ -1,5 +1,5 @@
 // Pure helpers of the application runtime: no network, no DOM. Tested in tests/runtime.test.ts.
-import type { AuditEntry, Field, Manifest, RecordRow, Related, View } from "./types";
+import type { AuditEntry, Field, Manifest, May, RecordRow, Related, View } from "./types";
 import { VIEW_TYPES } from "./types";
 
 /** View types this renderer has a component for. Anything else is shown as "not supported", never guessed at. */
@@ -118,3 +118,31 @@ export function runLabel(run: { status: string; escalation?: { reason: string; d
 export const short = (fingerprint: string | undefined): string => (fingerprint ?? "").slice(0, 12);
 export const viewFor = (manifest: Manifest, type: string, entity: string): View | undefined =>
   manifest.views.find((v) => v.type === type && v.entity === entity);
+
+// -- the menu, grouped by what a screen is for. The groups come from the view types of the schema, never from a name.
+export const NAV_GROUPS: [string, string[]][] = [
+  ["Overview", ["DashboardView"]], ["Work", ["WorkflowView", "ApprovalInboxView"]],
+  ["Records", ["EntityListView", "EntityDetailView", "RelationshipView", "RecordFormView"]], ["Evidence", ["AuditTimelineView"]]];
+/** A menu with more entries than this gets a box to find a screen by its label. */
+export const NAV_FILTER_FROM = 9;
+export function groupNavigation(navigation: Manifest["navigation"], views: { id: string; type: string }[], query = ""):
+    { label: string; items: Manifest["navigation"] }[] {
+  const type = Object.fromEntries(views.map((v) => [v.id, v.type]));
+  const q = query.trim().toLowerCase();
+  return NAV_GROUPS.map(([label, types]) => ({ label,
+    items: navigation.filter((n) => types.includes(type[n.view]) && (!q || n.label.toLowerCase().includes(q))) }))
+    .filter((g) => g.items.length > 0);
+}
+
+// -- what this caller can and cannot do, in words. The Engine's answer ("you.may") is the only source.
+const CAPABILITIES: [keyof May, string, string][] = [
+  ["read_records", "Read records, within the rules of the model", "needs the read permission"],
+  ["start_runs", "Ask the solution to handle a record", "needs the run permission, in a stage that allows runs"],
+  ["decide_reviews", "Decide reviews addressed to your reviewer roles", "needs the review permission, held by a person"],
+  ["read_audit", "Read the audit trail of a request", "needs the audit permission"],
+  ["write_records", "Create or change records", "needs the unrestricted data permission: no narrower one exists (owner decision D24)"]];
+export function capabilities(may: May): { can: string[]; cannot: { what: string; why: string }[] } {
+  return { can: CAPABILITIES.filter(([k]) => may[k]).map(([, what]) => what),
+           cannot: CAPABILITIES.filter(([k]) => !may[k]).map(([, what, why]) => ({ what, why })) };
+}
+

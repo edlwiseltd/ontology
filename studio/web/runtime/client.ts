@@ -20,7 +20,8 @@ export class EngineError extends Error {
 export const enginePath = (workspace: string, useCase: string): string =>
   `/w/${encodeURIComponent(workspace)}/u/${encodeURIComponent(useCase)}/api/v1`;
 
-export interface Caller { base: string; token: () => string | null; configuration?: string }
+/** ``heard`` is called when the Engine answered successfully: a screen may show when it last did. */
+export interface Caller { base: string; token: () => string | null; configuration?: string; heard?: () => void }
 
 export async function call<T>(who: Caller, method: "GET" | "POST", path: string, body?: unknown,
                               fetcher: typeof fetch = fetch): Promise<T> {
@@ -36,5 +37,6 @@ export async function call<T>(who: Caller, method: "GET" | "POST", path: string,
     const message = typeof e === "string" ? e : e?.message ?? `HTTP ${res.status}`;
     throw new EngineError(res.status, message, typeof e === "object" && e?.details ? e.details : {});
   }
+  who.heard?.();
   return data as T;
 }

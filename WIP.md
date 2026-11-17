@@ -1,6 +1,6 @@
 # Work in progress — Autology
 
-*Updated 17 November 2026 (first real model run). Branch `claude/autology-ontology-agent-4ajjer`.*
+*Updated 17 November 2026 (stabilisation sprint). Branch `claude/autology-ontology-agent-4ajjer`.*
 
 ## Done in this directive
 
@@ -130,8 +130,26 @@ a month. The key was in the environment from 07:47 UTC.
 | Five-case evaluation, original | **Thresholds not met: 5 of 13** | `run1-original/` |
 | Corrections (GAP-074, GAP-075), second run | **Thresholds not met: 3 of 13**; two answers refused whole (GAP-082) | `run2-after-correction/` |
 | Unfamiliar brief (airport ground handling) in Studio | Demonstrated: 40 of 40 elements accepted, three governed releases, four stored runs (autonomous, approval-dependent, refused by policy), verified audit, readiness | `ground-handling/` |
-| Spending | 4.418874 USD recorded, 5.581126 USD left; 33 requests, 24 answers | `spending-ledger.json` |
+| Spending | 4.418875 USD recorded, 5.581125 USD left (corrected by one millionth after reconciliation); 33 requests, 24 answers | `spending-ledger.json` |
 
 Defects: GAP-072 to GAP-079 fixed; GAP-080, GAP-081 open; GAP-082, GAP-083 wait for the owner (D30 f, g).
 Commits `a2b5cb7`, `253544d`; CI runs 107 and 108 green. **GAP-052 is partly fixed, R2 is not closed.** Nothing further is sent to the provider without the owner's word.
 Report: [planning/AUTOLOGY_FIRST_REAL_CLAUDE_EVALUATION_REPORT.md](planning/AUTOLOGY_FIRST_REAL_CLAUDE_EVALUATION_REPORT.md).
+
+## AI Architect reliability and evaluation stabilisation (17 November 2026)
+
+No call to a provider; nothing spent. Report:
+[planning/AUTOLOGY_AI_ARCHITECT_RELIABILITY_REPORT.md](planning/AUTOLOGY_AI_ARCHITECT_RELIABILITY_REPORT.md).
+
+| Increment | Status | Evidence |
+|---|---|---|
+| A — spending ledger that outlives a deployment (P0, GAP-085) | **Done**; the ledger of 17 Nov restored and reconciled (27 entries, 4.418875 USD spent, 5.581125 left) | `tests/test_stab1_spending_ledger.py` (18) |
+| B — structured output (GAP-082) | Diagnostics, closed key list and evidence done; **the rule is unchanged and the choice is the owner's** | `tests/test_stab2_structured_output.py` (8); [decision record](planning/AUTOLOGY_STRUCTURED_OUTPUT_DECISION_RECORD.md) |
+| C — proposal lifecycle in Studio (GAP-080) | **Done**, with the sandbox | `tests/test_stab3_proposal_lifecycle.py` (8); 8 browser checks |
+| D — provenance (GAP-081) | **Done**, with the sandbox | same file |
+| E, G — evaluation methodology (GAP-083) | Version 2 **proposed, not in force**; version 1 untouched | `tests/test_stab4_evaluation_protocol.py` (11); [protocol](planning/AUTOLOGY_ARCHITECT_EVALUATION_PROTOCOL_V2.md); [expert form](planning/AUTOLOGY_ARCHITECT_EXPERT_REVIEW_FORM.md) |
+| F — record editor, consistency findings, several agents | Editor: partial (needs the unrestricted permission; D24). Findings: done. Several agents: [design only](planning/AUTOLOGY_MULTI_AGENT_COORDINATION_DESIGN.md) | `tests/test_stab5_workflow_consistency.py` (5); 8 browser checks |
+| Third real evaluation | **Not run. Ready for controlled re-evaluation — awaiting owner authorization** | Report §4 |
+
+Waiting for the owner: D30 (f), (g), (h); D31; D32; D24; D26; two independent reviewers; the provider's invoice.
+**R2 is not closed.**

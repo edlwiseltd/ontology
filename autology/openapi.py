@@ -192,13 +192,25 @@ SCHEMAS: Dict[str, Any] = {
                       "question": S, "why": S, "evidence": S, "node": S, "action": S, "rule": I},
                      ("id", "kind", "severity", "question", "why", "evidence")),
     "Draft": _obj({"revision": I, "document": ANY, "author": NS, "at": NS, "note": S,
+                   # the architect proposal revision this model was saved from; null: not recorded (unknown)
+                   "origin": {"oneOf": [{"type": "null"}, _obj({"proposal": S, "revision": I},
+                                                               ("proposal", "revision"))]},
                    "active": _obj({"ref": S, "fingerprint": S}, ("ref", "fingerprint")),
                    "validation": REF("Validation"), "questions": {"type": "array", "items": REF("Question")},
+                   "consistency": {"type": "array", "items": REF("ConsistencyFinding")},
                    "active_model_changed": B},
                   ("revision", "document", "active", "validation", "questions")),
     "ValidationResult": _obj({"validation": REF("Validation"),
-                              "questions": {"type": "array", "items": REF("Question")}},
+                              "questions": {"type": "array", "items": REF("Question")},
+                              "consistency": {"type": "array", "items": REF("ConsistencyFinding")}},
                              ("validation", "questions")),
+    # a potential inconsistency of the workflow the model describes, for a person to decide: nothing is changed
+    "ConsistencyFinding": _obj({"id": S, "kind": {"type": "string", "enum": [
+        "goal_unreachable", "open_exception", "action_cannot_start", "obligation_cannot_be_met", "always_prohibited",
+        "outside_effect_ungoverned", "state_never_reached"]},
+        "severity": {"type": "string", "enum": ["high", "medium", "low"]}, "finding": S, "why": S,
+        "a_person_could": {"type": "array", "items": S}, "action": S, "entity": S, "goal": S, "rule": S},
+        ("id", "kind", "severity", "finding", "why", "a_person_could")),
     "ProposalItem": _obj({"id": S, "kind": {"type": "string",
                                            "enum": ["entity", "relationship", "action", "rule", "goal",
                                                     "case_template"]},
@@ -207,6 +219,13 @@ SCHEMAS: Dict[str, Any] = {
                           "attention": {"type": "array", "items": S},
                           # supplied: something that was given is cited for it; inferred: the architect's reading
                           "basis": {"type": "string", "enum": ["supplied", "inferred"]},
+                          # what it cites, canonically ("brief", "answer:<question id>", a given passage's id), and
+                          # where it comes from in one word; "unknown": presented as supplied, nothing given cited
+                          "evidence": {"type": "array", "items": _obj(
+                              {"ref": S, "kind": {"type": "string", "enum": ["brief", "answer", "source"]}},
+                              ("ref", "kind"))},
+                          "origin": {"type": "string", "enum": ["brief", "answers", "sources", "several", "inference",
+                                                                "unknown"]},
                           "validation": {"type": "string", "enum": ["passed"]},
                           "provenance": _obj({"generator": S, "blueprint": S, "ai": B, "provider": S, "model": S,
                                               "request_id": S, "matched_terms": {"type": "array", "items": S}},
@@ -313,7 +332,10 @@ SCHEMAS: Dict[str, Any] = {
                                     "approvals": {"type": "array", "items": _obj(
                                         {"action": S, "approved": B, "as": S}, ("action", "approved"))}}),
     "ProposalRevision": _obj({"revision": I, "at": S, "created_by": S, "answers": {"type": "array", "items": ANY},
-                              "items": I, "rejected": I, "open_questions": I},
+                              "items": I, "rejected": I, "open_questions": I,
+                              # who generated the revision: the generator, and for a model its provider and exact name
+                              "generator": NS, "ai": B, "provider": NS, "model": NS,
+                              "cost_usd": {"type": ["number", "null"]}, "feedback": S},
                              ("revision", "at", "created_by", "answers", "items", "rejected", "open_questions")),
     "ProposalDecision": _obj({"revision": I, "decided_by": S, "at": S, "accepted": {"type": "array", "items": S},
                               "rejected": {"type": "array", "items": S}, "note": S},
@@ -349,13 +371,20 @@ SCHEMAS: Dict[str, Any] = {
                       "usage": {"type": "object", "additionalProperties": {"type": "integer"}},
                       "cost_usd": {"type": "number"}, "unpriced_tokens": I,
                       "history": {"type": "array", "items": REF("ProposalRevision")},
-                      "decisions": {"type": "array", "items": REF("ProposalDecision")}},
+                      "decisions": {"type": "array", "items": REF("ProposalDecision")},
+                      "source_index": {"type": "object", "additionalProperties": _obj(
+                          {"kind": {"type": "string", "enum": ["brief", "answer", "source"]}, "text": S,
+                           "question": S}, ("kind", "text"))},
+                      "drafts": {"type": "array", "items": _obj(
+                          {"draft_revision": I, "proposal_revision": I, "saved_by": S, "at": S},
+                          ("draft_revision", "proposal_revision", "saved_by", "at"))}},
                      ("generator", "ai", "items", "message")),
     "ProposalList": _obj({
         "items": {"type": "array", "items": _obj(
-            {"id": S, "brief": S, "revisions": I, "generator": S, "ai": B, "provider": S, "decisions": I,
+            {"id": S, "brief": S, "revisions": I, "generator": NS, "ai": B, "provider": NS, "decisions": I,
              "revision": I, "at": S, "created_by": S, "answers": {"type": "array", "items": ANY}, "items": I,
-             "rejected": I, "open_questions": I},
+             "rejected": I, "open_questions": I, "model": NS, "cost_usd": {"type": ["number", "null"]},
+             "feedback": S, "spent_usd": {"type": "number"}, "drafts": {"type": "array", "items": I}},
             ("id", "brief", "revisions", "generator", "ai", "provider", "decisions", "revision", "at"))},
         "architect": _obj({"configured": B, "generators": {"type": "array", "items": S}, "provider": S,
                            "language_model": B, "verified_against": S, "model": S,
@@ -371,7 +400,10 @@ SCHEMAS: Dict[str, Any] = {
     "ProposalDecisionRequest": _obj({"revision": I, "accepted": {"type": "array", "items": S},
                                      "rejected": {"type": "array", "items": S}, "note": S}),
     "DraftSave": _obj({"document": ANY, "expected_revision": {"type": "integer", "minimum": 0},
-                       "note": S}, ("document", "expected_revision")),
+                       "note": S,
+                       # the stored architect proposal revision this model was saved from, checked by the engine
+                       "origin": _obj({"proposal": S, "revision": I}, ("proposal", "revision"))},
+                      ("document", "expected_revision")),
     "ValidateRequest": _obj({"document": {}}, ("document",)),
     "ProposalRequest": _obj({"brief": {"type": "string", "minLength": 1, "maxLength": 4000},
                              "document": ANY, "generator": {"type": "string", "enum": ["blueprint", "model"]},
@@ -659,6 +691,14 @@ PLATFORM_SCHEMAS: Dict[str, Any] = {
         "pending": {"type": "array", "items": _obj({"id": S, "policy": REF("AiPolicy"), "proposed_by": S,
                                                     "proposed_at": S, "reason": S}, ("id", "policy", "proposed_by"))},
         "usage": {"oneOf": [{"type": "null"}, {"type": "object"}]}, "remaining_usd": {"type": ["number", "null"]},
+        # the spending ledger every ceiling is counted in: where it stands and this workspace's periods
+        "ledger": _obj({"available": B, "problem": S, "id": NS, "entries": {"type": ["integer", "null"]},
+                        "outside_deployment": B, "bound_to_authorisation": B,
+                        "history": {"type": "array", "items": _obj({
+                            "period": S, "entries": I, "spent_usd": {"type": "number"},
+                            "reserved_usd": {"type": "number"}, "carried_forward_usd": {"type": "number"}},
+                            ("period", "entries", "spent_usd", "reserved_usd"))}},
+                       ("available", "outside_deployment", "bound_to_authorisation", "history")),
         "adapters_installed": {"type": "array", "items": S},
         "use_cases": {"type": "array", "items": {"type": "object"}}, "proposed": S},
         ("state", "reason", "transmits_externally", "policy", "owner_authorisation", "pending", "use_cases")),
@@ -679,6 +719,13 @@ PLATFORM_SCHEMAS: Dict[str, Any] = {
                      "approved_by": NS, "approved_at": NS, "activated_at": NS, "snapshot": ANY,
                      # one release read by number: what it contains, part by part, and whether it is coherent
                      "components": REF("ReleaseComponents"),
+                     # the draft this configuration was published from and the architect proposal behind it;
+                     # null: nothing was recorded (a configuration that was not published from a draft)
+                     "design": {"oneOf": [{"type": "null"}, _obj({
+                         "draft_revision": {"type": ["integer", "null"]}, "published_by": S, "published_at": S,
+                         "proposal": {"oneOf": [{"type": "null"}, _obj({"proposal": S, "revision": I},
+                                                                       ("proposal", "revision"))]}},
+                         ("draft_revision", "proposal"))]},
                      # for a release that names a real AI provider: whether the workspace's policy serves it now
                      "ai_standing": _obj({"served": B, "reason": S}, ("served", "reason")),
                      "verification": _obj({"fingerprint_matches": B, "coherent": B, "by": S,

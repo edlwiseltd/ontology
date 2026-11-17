@@ -400,7 +400,22 @@ class Platform:
                                                                        spec.get("workspaces") or {})
         except ValueError as exc:
             raise PlatformError(str(exc)) from None
-        self.ai_ledger = ai_policy.SpendLedger(self.data_dir / "ai_ledger.db")
+        # the spending ledger is the authority for every AI ceiling. By default it lives with the platform's data;
+        # a deployment that may reach a real provider names one kept outside it ("ai_ledger"), which the platform
+        # never creates: a missing, empty, damaged or different ledger serves nothing (fail closed)
+        named = spec.get("ai_ledger")
+        if named is not None and (not isinstance(named, str) or not named.strip()):
+            raise PlatformError('"ai_ledger": the path of the spending ledger, outside the data directory')
+        ledger_path = (base_dir / named).resolve() if named else self.data_dir / "ai_ledger.db"
+        self.ai_ledger_external = bool(named) and ledger_path != self.data_dir and self.data_dir not in ledger_path.parents
+        if named and not self.ai_ledger_external:
+            raise PlatformError('"ai_ledger" must be outside the data directory: it outlives a deployment')
+        self._ledger_checks: Dict[str, str] = {}
+        try:
+            self.ai_ledger: Any = ai_policy.SpendLedger(ledger_path, create=not named)
+            self.ai_ledger.recover_interrupted()
+        except ai_policy.LedgerError as exc:
+            self.ai_ledger = ai_policy.UnavailableLedger(ledger_path, str(exc))
         self.workspaces: Dict[str, Workspace] = {}
         self.tenants: Dict[str, Tenant] = {}
         # token digest -> {workspace: Member}: one identity, with one Member per workspace it explicitly belongs to
@@ -779,6 +794,8 @@ class Platform:
             state, reason = "not_authorised", f"the workspace's policy expired on {policy['expires']}"
         elif authorisation is None:
             state = "not_authorised"
+        elif state == "authorised" and self._ledger_problem(authorisation):
+            state, reason = "unavailable", self._ledger_problem(authorisation)
         elif policy.get("credential") and not os.environ.get(policy["credential"]["ref"][4:]):
             state, reason = "unavailable", ("the credential reference of the policy names nothing in the platform's "
                                             "environment")
@@ -786,6 +803,42 @@ class Platform:
             state, reason = "unavailable", f"no adapter is installed for the provider {policy['provider']}"
         return {"state": state, "reason": reason, "policy": policy, "authorisation": authorisation,
                 "current": current, "pending": pending}
+
+    def _ledger_problem(self, authorisation: Mapping[str, Any]) -> str:
+        """Why a real provider cannot be served from the spending ledger in place; empty when it can. The owner's
+        ceiling is counted in one named ledger kept outside the deployment: without it, with another one, or with
+        an older copy of it, nothing is sent."""
+        if self.ai_ledger.problem:
+            return f"the spending ledger is unavailable: {self.ai_ledger.problem}. No request is sent without it"
+        binding = authorisation.get("ledger")
+        if not binding:
+            return ("the owner's authorisation names no spending ledger: its ceiling could be counted from zero by "
+                    "another deployment, so nothing is sent (deploy/evaluation_setup.py --ledger)")
+        if not self.ai_ledger_external:
+            return ('the platform keeps its spending ledger inside its data directory: a ledger an authorisation '
+                    'counts in is named by "ai_ledger" and kept outside the deployment')
+        key = json.dumps(binding, sort_keys=True)
+        if key not in self._ledger_checks:  # entries an authorisation was written against never change afterwards
+            self._ledger_checks[key] = "; ".join(self.ai_ledger.verify(binding))
+        problem = self._ledger_checks[key]
+        return f"{problem}. No request is sent" if problem else ""
+
+    def _ledger_view(self, ws: Workspace, authorisation: Optional[Mapping[str, Any]]) -> Dict[str, Any]:
+        """The ledger as it may be shown: where it stands and every period of this workspace. Never another
+        workspace's entries, and nothing but amounts and counts."""
+        bound = bool(authorisation and authorisation.get("ledger"))
+        if self.ai_ledger.problem:
+            return {"available": False, "problem": self.ai_ledger.problem, "id": None, "entries": None,
+                    "outside_deployment": self.ai_ledger_external, "bound_to_authorisation": bound, "history": []}
+        try:
+            point = self.ai_ledger.checkpoint()
+            history = self.ai_ledger.history(ws.id)
+        except Exception as exc:  # shown as unavailable; requests are refused by the budget on their own
+            return {"available": False, "problem": f"the spending ledger cannot be read ({type(exc).__name__})",
+                    "id": None, "entries": None, "outside_deployment": self.ai_ledger_external,
+                    "bound_to_authorisation": bound, "history": []}
+        return {"available": True, "problem": "", "id": point["id"], "entries": point["entries"],
+                "outside_deployment": self.ai_ledger_external, "bound_to_authorisation": bound, "history": history}
 
     def _ai_grant(self, ws: Workspace, uc_id: str) -> Dict[str, Any]:
         """What one use case's engine may use now: the policy with an adapter and a budget, or the refusal."""
@@ -825,7 +878,10 @@ class Platform:
     def ai_view(self, ws: Workspace) -> Dict[str, Any]:
         standing = self._ai_standing(ws)
         policy = standing["policy"]
-        usage = self.ai_ledger.usage(ws.id, policy["budget"]["period"]) if policy else None
+        try:
+            usage = self.ai_ledger.usage(ws.id, policy["budget"]["period"]) if policy else None
+        except Exception:  # an unreadable ledger shows no figure rather than a wrong one
+            usage = None
         remaining = None
         if policy and usage:
             remaining = round(policy["budget"]["per_period"] - usage["spent_usd"] - usage["reserved_usd"], 6)
@@ -842,6 +898,7 @@ class Platform:
                                         "note": "written by the operator from an owner decision; it cannot be set here"},
                 "pending": [{**p, "policy": ai_policy.describe(p["policy"])} for p in standing["pending"].values()],
                 "usage": usage, "remaining_usd": remaining,
+                "ledger": self._ledger_view(ws, standing["authorisation"] if policy else None),
                 "adapters_installed": sorted(PROVIDER_ADAPTERS),
                 "use_cases": [{"id": uc.id, **uc.service.architect.status()} for uc in ws.use_cases.values()]}
 
@@ -899,7 +956,8 @@ class Platform:
         scratch = Path(tempfile.mkdtemp(prefix="autology-drill-"))
         try:
             try:
-                taken = recovery.backup(self.data_dir, scratch / "backup")
+                outside = Path(self.ai_ledger.path) if self.ai_ledger_external and not self.ai_ledger.problem else None
+                taken = recovery.backup(self.data_dir, scratch / "backup", ledger=outside)
                 checked = recovery.verify(scratch / "backup")
                 restored = recovery.restore(scratch / "backup", scratch / "restored")
             except recovery.RecoveryError as exc:
@@ -1179,6 +1237,24 @@ class Platform:
         return {"active": active, "running_fingerprint": running,
                 "drift": bool(active) and active["fingerprint"] != running,
                 "integrity_problem": st["integrity_problem"], "items": st["items"], "history": st["history"]}
+
+    def release_design(self, uc: UseCase) -> Dict[str, Dict[str, Any]]:
+        """Where each configuration that was released came from, by configuration fingerprint: the draft revision
+        that was published to produce it (the signed administration log says so) and the architect proposal that
+        draft was saved from (the use case's store says so). Empty where nothing was recorded: never guessed."""
+        events, problem = self.admin.events(uc.workspace)
+        if problem or uc.unavailable:
+            return {}
+        out: Dict[str, Dict[str, Any]] = {}
+        for event in events:
+            data = event["data"]
+            if event["event"] != "draft_published" or data.get("use_case") != uc.id or not data.get("configuration"):
+                continue
+            row = uc.service.store.draft(data.get("revision"))
+            out[data["configuration"]] = {"draft_revision": data.get("revision"), "published_by": event["by"],
+                                          "published_at": event["at"],
+                                          "proposal": (row or {}).get("origin")}
+        return out
 
     def effective_stage(self, uc: UseCase) -> str:
         """The stage the engine obeys: a stale stage, a history that does not verify, a release history that does
@@ -2056,7 +2132,10 @@ class Platform:
                 rel = self.release_of(uc)
                 may_propose = member.workspace_admin and member.kind == "person"
                 may_approve = self.may_approve_releases(ws, member)
-                out = {**rel, "may_propose": may_propose, "may_approve": may_approve}
+                design = self.release_design(uc)
+                out = {**rel, "may_propose": may_propose, "may_approve": may_approve,
+                       # each release with the draft it was published from and the proposal behind that draft
+                       "items": [{**item, "design": design.get(item["fingerprint"])} for item in rel["items"]]}
                 if may_propose or may_approve:  # who may publish needs the revision to name, and who saved it
                     # a use case that serves nothing (its engine could not be loaded) has no draft to offer now
                     row = None if uc.unavailable else uc.service.store.draft()
@@ -2084,7 +2163,7 @@ class Platform:
             # what the release contains, part by part, and whether it is coherent: fingerprints and counts only
             problems = solutions.release_problems(snapshot)
             components = solutions.release_components(snapshot)
-            item = {**item, "components": components,
+            item = {**item, "components": components, "design": self.release_design(uc).get(item["fingerprint"]),
                     "verification": {"fingerprint_matches": fingerprint_of(snapshot or {}) == item["fingerprint"],
                                      "coherent": not problems, "problems": problems,
                                      "by": "the engine, from the release's own snapshot"}}

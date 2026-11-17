@@ -163,8 +163,11 @@ class ArchitectService:
         except architect.ArchitectError as exc:
             raise ApiError(400, str(exc)) from None
         except ProviderError as exc:
+            details: Dict[str, Any] = {"kind": exc.kind, "retryable": exc.retryable}
+            if exc.violation_classes:  # why an answer outside the contract was refused, never the answer itself
+                details["violations"] = dict(exc.violation_classes)
             raise ApiError(STATUS[exc.kind], f"the architect gave no usable proposal ({exc.kind}): {exc}",
-                           {"kind": exc.kind, "retryable": exc.retryable}) from None
+                           details) from None
         pid = previous["id"] if previous else f"P-{uuid.uuid4().hex[:10]}"
         try:
             e.store.add_architect_revision(pid, user.name, brief, answers, result, previous["revision"] if previous else 0)
@@ -200,7 +203,11 @@ class ArchitectService:
         result = row["result"]
         return {"revision": row["revision"], "at": row["at"], "created_by": row["created_by"],
                 "answers": row["answers"], "items": len(result["items"]), "rejected": len(result["rejected"]),
-                "open_questions": len(result["questions"])}
+                "open_questions": len(result["questions"]),
+                # who generated this revision: a test double is never called a model, and a model is named exactly
+                "generator": result.get("generator"), "ai": bool(result.get("ai")),
+                "provider": result.get("provider"), "model": result.get("model"),
+                "cost_usd": result.get("cost_usd"), "feedback": result.get("feedback") or ""}
 
     def list_proposals(self, user: User) -> Dict[str, Any]:
         e = self.engine
@@ -209,8 +216,10 @@ class ArchitectService:
         for row in e.store.architect_revisions():
             threads.setdefault(row["id"], []).append(row)
         items = [{"id": pid, "brief": rows[-1]["brief"][:200], "revisions": len(rows),
-                  "generator": rows[-1]["result"]["generator"], "ai": rows[-1]["result"]["ai"],
-                  "provider": rows[-1]["result"]["provider"], "decisions": len(e.store.architect_decisions(pid)),
+                  "decisions": len(e.store.architect_decisions(pid)),
+                  # what was already paid for this design session, and where it led: nobody has to ask again
+                  "spent_usd": round(sum(float(r["result"].get("cost_usd") or 0) for r in rows), 6),
+                  "drafts": [d["draft_revision"] for d in e.store.drafts_from(pid)],
                   **self._counts(rows[-1])} for pid, rows in threads.items()]
         return {"items": sorted(items, key=lambda i: i["at"], reverse=True), "architect": self.status()}
 
@@ -248,7 +257,43 @@ class ArchitectService:
         return {"id": pid, "revision": row["revision"], "latest_revision": rows[-1]["revision"],
                 "created_by": row["created_by"], "at": row["at"], "brief": row["brief"], **row["result"],
                 "answers": row["answers"], "history": [self._counts(r) for r in rows],
-                "decisions": e.store.architect_decisions(pid)}
+                "decisions": e.store.architect_decisions(pid),
+                # what an element's references point to, so that "why was this proposed" can be read: the brief,
+                # each answer with the question it answered. Only what this revision was given
+                "source_index": self._source_index(rows, row),
+                # the drafts saved from this proposal (the engine recorded the link when each was saved)
+                "drafts": e.store.drafts_from(pid)}
+
+    @staticmethod
+    def _source_index(rows: List[Dict[str, Any]], row: Mapping[str, Any]) -> Dict[str, Dict[str, str]]:
+        asked: Dict[str, str] = {}
+        for earlier in rows:
+            if earlier["revision"] < row["revision"]:
+                asked.update({q["id"]: q["question"] for q in earlier["result"].get("questions") or []})
+        index: Dict[str, Dict[str, str]] = {"brief": {"kind": "brief", "text": row["brief"][:500]}}
+        for answer in row["answers"]:
+            index[f"answer:{answer['id']}"] = {"kind": "answer", "question": asked.get(answer["id"], ""),
+                                              "text": str(answer["answer"])[:500]}
+        return index
+
+    def draft_origin(self, origin: Any) -> Optional[Dict[str, Any]]:
+        """The architect proposal a draft says its model was saved from, checked: the revision must exist in this
+        use case. Recorded with the draft, so that a draft and what is released from it can be traced back; a
+        draft that names none has no recorded origin, and none is guessed."""
+        if origin is None:
+            return None
+        if not (isinstance(origin, dict) and isinstance(origin.get("proposal"), str)
+                and isinstance(origin.get("revision"), int) and not isinstance(origin.get("revision"), bool)
+                and not set(origin) - {"proposal", "revision"}):
+            raise ApiError(400, 'origin: {"proposal": id, "revision": number} of a stored architect proposal')
+        if not any(r["revision"] == origin["revision"] for r in self.engine.store.architect_revisions(origin["proposal"])):
+            raise ApiError(400, f"origin: there is no revision {origin['revision']} of a proposal "
+                                f"{origin['proposal']!r} in this use case")
+        return {"proposal": origin["proposal"], "revision": origin["revision"]}
+
+    def save_draft(self, document: Dict[str, Any], author: str, note: str, expected: int, origin: Any) -> int:
+        """Save a draft revision of the model with the proposal it was saved from (checked first)."""
+        return self.engine.store.save_draft(document, author, note, expected, origin=self.draft_origin(origin))
 
     # -- a person's review --------------------------------------------------------------------------------
     def decide_proposal(self, user: User, pid: str, body: Dict[str, Any]) -> Dict[str, Any]:

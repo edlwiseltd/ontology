@@ -43,9 +43,14 @@ Take any one away and nothing is sent: the use case's architect answers "provide
 ## The steps
 
 ```bash
-# 1. the deployment, from the owner's decision (written outside the repository; holds no key)
+# 1. the deployment, from the owner's decision (written outside the repository; holds no key).
+#    The spending ledger is NOT part of the deployment: it is a file on storage that outlives it.
+#    First time (or when the ledger is lost): say what was already spent under this decision this month.
 python deploy/evaluation_setup.py --out /srv/autology-eval --model <exact model id> \
-    --monthly-usd <ceiling> --per-request-usd 1 --expires <YYYY-MM-DD> --decision "<decision reference>"
+    --monthly-usd <ceiling> --per-request-usd 1 --expires <YYYY-MM-DD> --decision "<decision reference>" \
+    --ledger /var/lib/autology-ledgers/evaluation/ai_ledger.db \
+    --new-ledger --opening-spent-usd 0 --opening-reference "first deployment under <decision reference>"
+#    Every later time: the same --ledger, without --new-ledger. What the ledger holds stays counted.
 
 # 2. secrets of the process: the audit key, one token per person, the provider key
 export AUTOLOGY_AUDIT_KEY=...  EVALUATION_TOKEN_OWNER=...  EVALUATION_TOKEN_REVIEWER=... \
@@ -122,11 +127,33 @@ two after an evaluation.
 * **A refused request names its reason**: the provider's error type, and its message for an invalid request, with
   anything shaped like a credential removed. The key is never in a log, an answer or an audit entry.
 * **Answers take 16 to 104 seconds** for the architect; the deadline is 300 seconds and nothing is retried.
-* **Keep the ledger.** The monthly ceiling is counted in `<deployment>/data/ai_ledger.db`. A deployment generated
-  again starts from zero: before any further call in the same month, copy the saved ledger back (the one of
-  17 November is in `planning/evidence/claude-eval-2026-11-17/ai_ledger.db`: 4.418874 USD spent in `2026-11`).
+* **The ledger outlives the deployment** (since the stabilisation sprint; before it, a deployment written again
+  counted from zero). See "The spending ledger" below. The ledger of 17 November (27 entries, 4.418875 USD in
+  `2026-11`) was put back from its saved copy and reconciled with that day's evidence.
 * **Keep the answers**: `python -m autology architect-eval --platform <platform.json> --workspace evaluation --use-case <id> --save <dir>`
   writes every answer as it was scored, and the result.
+
+## The spending ledger
+
+The owner's ceiling is counted in **one ledger file, kept outside the deployment** and named by the platform's
+configuration (`"ai_ledger"`) and by the owner's authorisation, which records the state the ledger was in when the
+deployment was written (its identity, how many entries it held, a fingerprint of them, what was settled).
+
+| Situation | What happens |
+|---|---|
+| The deployment is written again, or started on an empty data directory | Nothing changes: the same ledger is used, what was spent stays spent |
+| The ledger is missing, empty, damaged, not a ledger, another ledger, or an older copy of it | **Nothing is sent.** The workspace's AI state is `unavailable` with the reason; the rest of the platform works; no file is created in its place |
+| The ledger is lost for good | `evaluation_setup.py --new-ledger --opening-spent-usd <amount> --opening-reference <evidence>`: a new ledger whose first entry carries what was already spent this month. Never silent, never zero by default |
+| A saved copy exists | `python -m autology ai-ledger restore COPY.db LEDGER.db` (refuses to replace a ledger in place; the copy is only read) |
+| What does it hold? | `python -m autology ai-ledger status LEDGER.db`: identity, entries, settled total, each workspace's periods. Amounts, counts and request identifiers: never a prompt, an answer or a key |
+| A process died during a call | At the next start the entry is marked `uncertain`: it stays charged and no longer blocks the next call |
+| Backup and restore | `platform-backup` carries the ledger; `platform-restore --config platform.json` keeps a ledger in place that holds everything the backup's holds, and stops if a different one is in place. A restore never takes spending history back in time |
+
+Entries are never deleted and a closed entry never changes (the file refuses it); as with the audit log, this
+guards against mistakes and forgetful code, not against someone who edits the file. **What software cannot do:**
+stop an operator who deliberately creates a new ledger and states a false opening balance. That act is explicit
+and visible in the ledger's first entry; comparing the ledger with the provider's invoice remains the owner's
+control. Where the ledger lives durably (a volume or a database server that outlives any machine) is decision D31.
 
 ## What the provider keeps
 

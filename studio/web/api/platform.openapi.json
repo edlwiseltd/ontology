@@ -481,6 +481,72 @@
               "null"
             ]
           },
+          "ledger": {
+            "additionalProperties": true,
+            "properties": {
+              "available": {
+                "type": "boolean"
+              },
+              "bound_to_authorisation": {
+                "type": "boolean"
+              },
+              "entries": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "history": {
+                "items": {
+                  "additionalProperties": true,
+                  "properties": {
+                    "carried_forward_usd": {
+                      "type": "number"
+                    },
+                    "entries": {
+                      "type": "integer"
+                    },
+                    "period": {
+                      "type": "string"
+                    },
+                    "reserved_usd": {
+                      "type": "number"
+                    },
+                    "spent_usd": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "period",
+                    "entries",
+                    "spent_usd",
+                    "reserved_usd"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "outside_deployment": {
+                "type": "boolean"
+              },
+              "problem": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "available",
+              "outside_deployment",
+              "bound_to_authorisation",
+              "history"
+            ],
+            "type": "object"
+          },
           "owner_authorisation": {
             "additionalProperties": true,
             "properties": {
@@ -1833,6 +1899,58 @@
           },
           "components": {
             "$ref": "#/components/schemas/ReleaseComponents"
+          },
+          "design": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "additionalProperties": true,
+                "properties": {
+                  "draft_revision": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "proposal": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "additionalProperties": true,
+                        "properties": {
+                          "proposal": {
+                            "type": "string"
+                          },
+                          "revision": {
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "proposal",
+                          "revision"
+                        ],
+                        "type": "object"
+                      }
+                    ]
+                  },
+                  "published_at": {
+                    "type": "string"
+                  },
+                  "published_by": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "draft_revision",
+                  "proposal"
+                ],
+                "type": "object"
+              }
+            ]
           },
           "fingerprint": {
             "type": "string"

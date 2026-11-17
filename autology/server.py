@@ -919,16 +919,16 @@ class AutologyService:
         return json.loads(self.ontology_path.read_text(encoding="utf-8"))
 
     def model_draft(self, user: User) -> Dict[str, Any]:
-        from .modeling import questions, validate
+        from .modeling import consistency, questions, validate
 
         self.require_any(user, "read", "configure")
         row = self.store.draft()
         doc = row["document"] if row else self._active_document()
-        return {"revision": row["revision"] if row else 0, "document": doc,
+        return {"revision": row["revision"] if row else 0, "document": doc, "origin": (row or {}).get("origin"),
                 "author": row["author"] if row else None, "at": row["at"] if row else None,
                 "note": row["note"] if row else "the active model (no draft saved yet)",
                 "active": {"ref": self.ontology.ref, "fingerprint": self.ontology.fingerprint},
-                "validation": validate(doc), "questions": questions(doc, self),
+                "validation": validate(doc), "questions": questions(doc, self), "consistency": consistency(doc)["findings"],
                 "active_model_changed": False}  # a draft never changes what runs (releases: REL-1)
 
     def save_model_draft(self, user: User, body: Dict[str, Any]) -> Dict[str, Any]:
@@ -943,7 +943,7 @@ class AutologyService:
         if len(json.dumps(doc, default=str)) > 500_000:
             raise ApiError(413, "the draft is too large")
         try:
-            self.store.save_draft(doc, user.name, str(body.get("note") or "")[:500], expected)
+            self.architect.save_draft(doc, user.name, str(body.get("note") or "")[:500], expected, body.get("origin"))
         except RecordConflict as exc:
             raise ApiError(409, f"{exc}; reload the draft and apply your changes again",
                            {"revision": exc.revision}) from None
@@ -954,11 +954,11 @@ class AutologyService:
         return {"items": self.store.draft_history()}
 
     def validate_model(self, user: User, body: Dict[str, Any]) -> Dict[str, Any]:
-        from .modeling import questions, validate
+        from .modeling import consistency, questions, validate
 
         self.require_any(user, "read", "configure")
         doc = body.get("document")
-        return {"validation": validate(doc), "questions": questions(doc, self)}
+        return {"validation": validate(doc), "questions": questions(doc, self), "consistency": consistency(doc)["findings"]}
 
     def architect_proposals(self, user: User, body: Dict[str, Any]) -> Dict[str, Any]:
         return self.architect.architect_proposals(user, body)

@@ -423,6 +423,11 @@ try {
   await onb.waitForSelector("[data-testid=engine-validation]");
   check("onboarding: the engine validates the selection before anything is saved",
         (await onb.textContent("[data-testid=engine-validation]")).includes("strict loader accepts"));
+  const consistencyText = await onb.textContent("[data-testid=consistency]");
+  check("onboarding: workflow consistency findings come beside validation, say what a person could do, and block nothing",
+        (consistencyText.includes("nothing to question") || (consistencyText.includes("Nothing was changed") &&
+         consistencyText.includes("You could:") && consistencyText.includes("leave it: this is intended"))) &&
+        (await onb.locator("button:has-text('as a draft')").isEnabled()), consistencyText.slice(0, 220));
   const beforeSave = await call(onb, "GET", "/w/acme/u/service-desk/api/v1/model/draft/history");
   await onb.click("button:has-text('as a draft')");
   await onb.waitForSelector("[data-testid=saved]");
@@ -475,6 +480,60 @@ try {
         typeof runsAfter === "object" && (await onb.textContent(".uc-list button:has-text('Service desk')")).includes("Draft"));
   await onb.screenshot({ path: `${OUT}/desktop-onboarding-readiness.png`, fullPage: true });
   console.log(`INFO onboarding journey (scripted, sandbox): ${((Date.now() - onb_started) / 1000).toFixed(1)} s`);
+  // 5c. the design session is left and resumed (GAP-080): the page is reloaded, the stored proposal is reopened,
+  // its revisions are compared and an element says why it was proposed. Nothing is generated again
+  const sessionsOf = () => onb.evaluate(async () => {
+    const h = { Authorization: "Bearer " + sessionStorage.getItem("autology-studio-token") };
+    const list = await (await fetch("/w/acme/u/service-desk/api/v1/architect/proposals", { headers: h })).json();
+    return { count: list.items.length, revisions: list.items[0].revisions, drafts: list.items[0].drafts };
+  });
+  const before_resume = await sessionsOf();
+  await onb.reload();
+  await onb.waitForSelector(".uc-list button:has-text('Service desk')");
+  await onb.click(".uc-list button:has-text('Service desk')");
+  await onb.click("role=tab[name='Onboarding']");
+  await onb.waitForSelector("[data-testid=design-session]");
+  const sessionText = await onb.textContent("[data-testid=design-sessions]");
+  check("sessions: after leaving Studio the stored proposal is listed with its revisions, its generator and where it led",
+        (await onb.locator("[data-testid=design-session]").count()) === 1 && sessionText.includes("2 revisions") &&
+        sessionText.includes("not a language model") && sessionText.includes("saved as draft revision 1") &&
+        sessionText.includes("nothing is spent"), sessionText.slice(0, 200));
+  await onb.click("[data-testid=design-session] button");
+  await onb.waitForSelector("[data-testid=session-panel]");
+  const reading = await onb.textContent("[data-testid=session-reading]");
+  check("sessions: the proposal is reopened at its latest revision, with the brief and the answers that were given",
+        reading.includes("revision 2 of 2") && reading.includes("not a language model") &&
+        (await onb.locator("[data-testid=revision-list] li").count()) === 2 &&
+        (await onb.textContent("[data-testid=revision-list]")).includes("4 answer(s)"), reading);
+  const outcomesText = await onb.textContent("[data-testid=session-outcomes]");
+  check("sessions: the proposal says where it led: the draft saved from it, and that nothing is released",
+        outcomesText.includes("revision 2 → draft revision 1 (saved by ada)") && outcomesText.includes("not released") &&
+        (await onb.textContent("[data-testid=session-decisions]")).includes("18 accepted, 0 rejected by ada"), outcomesText);
+  check("sessions: elements the draft already holds are shown as such and are not selected again",
+        (await onb.locator("[data-testid=in-draft]").count()) === 18 &&
+        (await onb.locator("[data-testid=proposed-items] input:checked").count()) === 0,
+        `${await onb.locator("[data-testid=in-draft]").count()} in the draft`);
+  await onb.click("[data-testid=compare-button]");
+  await onb.waitForSelector("[data-testid=revision-diff]");
+  const diffText = await onb.textContent("[data-testid=revision-diff]");
+  check("sessions: two revisions are compared: what was added, removed and changed, and the answers given in between",
+        diffText.includes("Revision 1 → revision 2") && diffText.includes("Added (") && diffText.includes("Changed (") &&
+        diffText.includes("answers given in between") && diffText.includes("approval_threshold: 5000"), diffText.slice(0, 300));
+  await onb.click("[data-testid=why-button] >> nth=0");
+  await onb.waitForSelector("[data-testid=why]");
+  const whyText = await onb.textContent("[data-testid=why]");
+  check("sessions: an element says why it was proposed, where it comes from and who accepted it; nothing is invented",
+        whyText.includes("Reason given:") && whyText.includes("Origin: the architect's inference") &&
+        whyText.includes("Cites your description: Employees send service requests") && whyText.includes("Accepted by ada"), whyText);
+  await onb.click("[data-testid=revision-list] button:has-text('open')");
+  await onb.waitForFunction(() => document.querySelector("[data-testid=session-reading]")?.textContent.includes("revision 1 of 2"));
+  check("sessions: an earlier revision is read as it was, and a revision request is said to continue from the latest",
+        (await onb.textContent("[data-testid=session-reading]")).includes("continues from the latest revision"));
+  const after_resume = await sessionsOf();
+  check("sessions: leaving, reopening, comparing and reading asked the architect nothing: no new revision",
+        JSON.stringify(after_resume) === JSON.stringify(before_resume) && after_resume.count === 1 && after_resume.revisions === 2,
+        JSON.stringify(after_resume));
+  await onb.screenshot({ path: `${OUT}/desktop-onboarding-session.png`, fullPage: true });
   // 5b. agents and simulated tools of the draft (the engine validates; nothing saved here runs)
   await onb.click("role=tab[name='Agents & tools']");
   await onb.waitForSelector("[data-testid=config-state]");
@@ -804,6 +863,79 @@ try {
     .filter((el) => el.getBoundingClientRect().right > window.innerWidth + 1).slice(0, 6)
     .map((el) => `${el.tagName.toLowerCase()}.${el.className}#${el.id}:${Math.round(el.getBoundingClientRect().right)}`).join(" | ")) : "";
   check("demo: the runs screen has no horizontal page scroll on a phone", !overflowRuns, wide);
+  // 6b. synthetic records are edited in Studio through the engine's own record API (stabilisation F1): a person with
+  // the data administration permission (granted by two people) creates and changes a record; the engine refuses a
+  // field its write rule reserves to another role; a member without the permission only reads
+  {
+    const g = await asPerson("acme-ada", "POST", "/platform/v1/workspaces/acme/grants",
+      { member: "olivia", use_case: "supply", reason: "e2e: maintain the synthetic records", permissions: ["read", "admin"] });
+    // the platform refuses the unrestricted permission until the proposer, then the approver, each acknowledge it
+    const acknowledged = await asPerson("acme-ada", "POST", "/platform/v1/workspaces/acme/grants",
+      { member: "olivia", use_case: "supply", reason: "e2e: maintain the synthetic records", permissions: ["read", "admin"], unrestricted: true });
+    const unacknowledged = await asPerson(mariaToken, "POST", `/platform/v1/workspaces/acme/grants/${acknowledged.body.id}/approve`, { reason: "e2e: checked" });
+    const approved = await asPerson(mariaToken, "POST", `/platform/v1/workspaces/acme/grants/${acknowledged.body.id}/approve`,
+      { reason: "e2e: checked", unrestricted: true });
+    const keeper = await enter("acme-olivia");
+    await keeper.click(".uc-list button:has-text('Supplier disruption')");
+    await keeper.click("role=tab[name='Simulation runs']");
+    await keeper.waitForSelector("[data-testid=record-editor]");
+    await keeper.selectOption("#records-type", "Delivery");
+    await keeper.waitForSelector("[data-testid=record-list] tbody tr code");
+    const before = await keeper.locator("[data-testid=record-list] tbody tr").count();
+    check("records: data administration is unrestricted, so two people each acknowledge it; its holder then sees the editor",
+          g.status === 400 && acknowledged.status === 201 && unacknowledged.status !== 200 && approved.status === 200 && before >= 5 &&
+          (await keeper.textContent("[data-testid=records-note]")).includes("never a real customer") &&
+          (await keeper.textContent("[data-testid=records-note]")).includes("The engine checks each change"), `${before} deliveries`);
+    await keeper.click("[data-testid=record-new]");
+    await keeper.fill("#record-id", "DEL-E2E");
+    await keeper.fill("#record-item", "valve");
+    await keeper.fill("#record-delay_days", "3");
+    await keeper.click("[data-testid=record-save]");
+    await keeper.waitForSelector("[data-testid=record-message]");
+    const created = await asPerson("acme-olivia", "GET", `${DENG}/objects/DEL-E2E`);
+    check("records: a new synthetic record is created through the engine, validated against the model",
+          (await keeper.textContent("[data-testid=record-message]")).includes("DEL-E2E saved at revision 1") &&
+          created.status === 200 && created.body.attributes.delay_days === 3 && created.body.attributes.status === "delayed" &&
+          (await keeper.locator("[data-testid=record-list] tbody tr").count()) === before + 1, JSON.stringify(created.body.attributes));
+    await keeper.click("button[aria-label='Edit DEL-E2E']");
+    await keeper.fill("#record-delay_days", "9");
+    check("records: the form says what a save would change before anything is sent",
+          (await keeper.textContent("[data-testid=record-changes]")).includes("delay_days: 3 → 9"));
+    await keeper.click("[data-testid=record-save]");
+    await keeper.waitForFunction(() => document.querySelector("[data-testid=record-message]")?.textContent.includes("revision 2"));
+    await keeper.click("button[aria-label='Edit DEL-E2E']");
+    await keeper.fill("#record-delay_days", "soon");
+    check("records: a value of the wrong type is refused in the form and the save is disabled",
+          (await keeper.textContent("[data-testid=record-changes]")).includes("delay_days: a number") &&
+          (await keeper.isDisabled("[data-testid=record-save]")));
+    await keeper.fill("#record-delay_days", "12");
+    // meanwhile the record changes elsewhere (another person, another screen): the form was read at revision 2
+    const elsewhere = await asPerson("acme-olivia", "POST", `${DENG}/objects`, { type: "Delivery", id: "DEL-E2E", expected_revision: 2,
+      attributes: { status: "delayed", item: "valve", delay_days: 7, simulate_outage: false } });
+    await keeper.click("[data-testid=record-save]");
+    await keeper.waitForSelector("[data-testid=record-error]");
+    const afterRefusal = await asPerson("acme-olivia", "GET", `${DENG}/objects/DEL-E2E`);
+    check("records: a save over a record that changed meanwhile is refused by the engine, in its own words, and nothing is written",
+          elsewhere.status === 200 && (await keeper.textContent("[data-testid=record-error]")).includes("was changed since you read it") &&
+          (await keeper.textContent("[data-testid=record-error]")).includes("nothing was written") &&
+          afterRefusal.body.revision === 3 && afterRefusal.body.attributes.delay_days === 7, await keeper.textContent("[data-testid=record-error]"));
+    const invalid = await asPerson("acme-olivia", "POST", `${DENG}/objects`, { type: "Delivery", id: "DEL-E2E", expected_revision: 3,
+      attributes: { status: "teleported", item: "valve" } });
+    check("records: a value the model does not allow is refused by the engine whoever sends it", invalid.status === 400, `HTTP ${invalid.status}`);
+    await planner.reload();
+    await planner.waitForSelector(".uc-list button:has-text('Supplier disruption')");
+    await planner.click(".uc-list button:has-text('Supplier disruption')");
+    await planner.click("role=tab[name='Simulation runs']");
+    await planner.waitForSelector("[data-testid=record-editor]");
+    const unauthorised = await asPerson("acme-hana", "POST", `${DENG}/objects`, { type: "Delivery", id: "DEL-X", attributes: { status: "delayed" } });
+    check("records: a member without data administration reads the records, is offered no edit, and the engine refuses a direct write",
+          (await planner.textContent("[data-testid=records-note]")).includes("You may read them") &&
+          (await planner.locator("[data-testid=record-new]").count()) === 0 &&
+          (await planner.locator("[data-testid=record-list] button").count()) === 0 && unauthorised.status === 403, `HTTP ${unauthorised.status}`);
+    await keeper.screenshot({ path: `${OUT}/desktop-record-editor.png`, fullPage: true });
+    await keeper.close();
+  }
+
   await planner.close();
   // readiness: what runs, then a changed draft, each named with its configuration, and their differences
   await demo.click(".steps button:has-text('Readiness')");

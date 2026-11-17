@@ -97,7 +97,10 @@ class ArchitectApiTests(unittest.TestCase):
         self.assertEqual([r["name"] for r in out["suggestions"]["roles"]], ["service_agent", "manager"])
         self.assertEqual(out["suggestions"]["agents"][0]["name"], "request_handler")
         self.assertEqual(out["history"], [{"revision": 1, "at": out["at"], "created_by": "clara", "answers": [],
-                                           "items": 18, "rejected": 0, "open_questions": 4}])
+                                           "items": 18, "rejected": 0, "open_questions": 4,
+                                           # who generated the revision (GAP-080): a test double, said as such
+                                           "generator": "sandbox", "ai": False, "provider": "sandbox",
+                                           "model": "sandbox-templates-1", "cost_usd": 0.0, "feedback": ""}])
         # an item that depends on an unanswered question says so and is less certain
         approval = next(i for i in out["items"] if i["name"] == "R-APPROVAL")
         self.assertEqual((approval["confidence"], approval["value"]["when"]), (0.5, "Request.amount >= 1000"))

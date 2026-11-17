@@ -27,6 +27,7 @@
     python -m autology platform-backup PLATFORM.json BACKUP_DIR [--include-secrets]   # the whole platform, verified
     python -m autology platform-verify BACKUP_DIR                         # check a backup without changing it
     python -m autology platform-restore BACKUP_DIR NEW_DATA_DIR           # verified restore; never overwrites
+    python -m autology ai-ledger status|create LEDGER.db | restore COPY.db LEDGER.db   # the AI spending ledger
     python -m autology console --engine http://127.0.0.1:8800 [--port 8900]   # separate UI to talk to the engine
     python -m autology platform PLATFORM.json [--port 8700]      # isolated workspaces, each with use cases
     python -m autology token                                               # new API token and its hash
@@ -38,6 +39,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 from .economics import TCOModel, evaluate, from_metrics
 from .export import to_jsonld, to_turtle
@@ -271,6 +273,14 @@ def _build_parser() -> argparse.ArgumentParser:
                                                   "never overwrites")
     pr.add_argument("backup")
     pr.add_argument("target", help="the new data directory (must not exist, or be empty)")
+    pr.add_argument("--config", help="the platform configuration: when it keeps its spending ledger outside the "
+                                     "data directory, the ledger in place is kept and never taken back in time")
+    al = sub.add_parser("ai-ledger", help="the spending ledger every AI ceiling is counted in: where it stands, "
+                                          "an explicit new one, or a saved copy put back")
+    al.add_argument("action", choices=("status", "create", "restore"))
+    al.add_argument("path", help="the ledger file (status, create) or the saved copy (restore)")
+    al.add_argument("to", nargs="?", help="restore: where the ledger is put back (must not exist)")
+    al.add_argument("--json", action="store_true")
     rp = sub.add_parser("reporting", help="write the governed reporting database that BI tools read")
     rp.add_argument("config")
     rp.add_argument("--out", help="SQLite file (default: the server config's reporting.target)")
@@ -315,6 +325,10 @@ def _build_parser() -> argparse.ArgumentParser:
     ae.add_argument("--workspace")
     ae.add_argument("--use-case")
     ae.add_argument("--repeats", type=int, default=2)
+    ae.add_argument("--protocol", choices=("1", "2"), default="1",
+                    help="1: the acceptance protocol (five cases, thirteen measures; the default). 2: the proposed "
+                         "protocol (held-out and adversarial cases, behaviour-based injection measure): not in force "
+                         "until the owner approves it")
     ae.add_argument("--json", action="store_true", help="print the full report as JSON")
     ae.add_argument("--save", metavar="DIR", help="keep every answer exactly as it was scored (one JSON file per "
                                                   "case and run) and the report, in DIR")
@@ -396,17 +410,83 @@ def _cmd_score(args, onto: Ontology) -> int:
     return 0
 
 
+def _cmd_ai_ledger(args) -> int:
+    """Status of a spending ledger, an explicitly new one, or a saved copy put back where none is. None of these
+    changes an entry, and none replaces a ledger that exists."""
+    import sqlite3
+
+    from .ai_policy import LedgerError, SpendLedger
+
+    path = Path(args.path).resolve()
+    try:
+        if args.action == "create":
+            if path.exists() and path.stat().st_size:
+                raise LedgerError(f"{path} exists: a ledger is never created over another")
+            path.parent.mkdir(parents=True, exist_ok=True)
+            ledger = SpendLedger(path, create=True)
+        elif args.action == "restore":
+            if not args.to:
+                raise LedgerError("restore names the saved copy and where to put it: ai-ledger restore COPY LEDGER")
+            target = Path(args.to).resolve()
+            if target.exists() and target.stat().st_size:
+                raise LedgerError(f"{target} exists: a ledger in place is never replaced by a copy")
+            if not path.is_file():
+                raise LedgerError(f"there is no saved ledger at {path}")
+            target.parent.mkdir(parents=True, exist_ok=True)
+            try:  # the saved copy is only read: it may be evidence
+                source, dest = sqlite3.connect(f"file:{path}?mode=ro", uri=True), sqlite3.connect(str(target))
+                try:
+                    source.backup(dest)
+                    held = source.execute("SELECT COUNT(*) FROM ai_ledger").fetchone()[0]
+                finally:
+                    source.close()
+                    dest.close()
+                ledger = SpendLedger(target, create=False)  # a damaged or foreign file stops here
+                if len(ledger._identity_rows()) != held:
+                    ledger.close()
+                    raise LedgerError("the copy put in place does not hold what the saved one holds")
+            except (sqlite3.Error, LedgerError) as exc:
+                target.unlink(missing_ok=True)
+                raise LedgerError(f"{path} could not be put back as a ledger, nothing was kept: {exc}") from None
+            path = target
+        else:
+            ledger = SpendLedger(path, create=False)
+    except LedgerError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    try:
+        point = ledger.checkpoint()
+        report = {"path": str(path), **point,
+                  "workspaces": {ws: ledger.history(ws) for ws in ledger.workspaces()}}
+    finally:
+        ledger.close()
+    if args.json:
+        print(json.dumps(report, indent=2))
+        return 0
+    print(f"spending ledger {report['path']}")
+    print(f"  id {point['id']}; {point['entries']} entries; {point['settled_usd']:.6f} USD settled in all; "
+          f"digest {point['digest'][:16]}")
+    for ws, periods in report["workspaces"].items():
+        for row in periods:
+            print(f"  {ws} {row['period']}: {row['spent_usd']:.6f} USD spent, {row['reserved_usd']:.6f} held, "
+                  f"{row['entries']} entries"
+                  + (f" ({row['carried_forward_usd']:.6f} carried forward)" if row["carried_forward_usd"] else ""))
+    return 0
+
+
 def _cmd_recovery(args) -> int:
     from . import recovery
 
     try:
         if args.command == "platform-backup":
-            out = recovery.backup(recovery.data_dir_of(args.config), args.out, include_secrets=args.include_secrets)
+            out = recovery.backup(recovery.data_dir_of(args.config), args.out, include_secrets=args.include_secrets,
+                                  ledger=recovery.ledger_of(args.config))
             what = "backup"
         elif args.command == "platform-verify":
             out, what = recovery.verify(args.backup), "verified"
         else:
-            out, what = recovery.restore(args.backup, args.target), "restored"
+            outside = recovery.ledger_of(args.config) if args.config else None
+            out, what = recovery.restore(args.backup, args.target, ledger=outside), "restored"
     except recovery.RecoveryError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
@@ -414,6 +494,8 @@ def _cmd_recovery(args) -> int:
     print(f"{what} {out['path']}: {out['files']} files, {c['stores']} stores in {c['workspaces']} workspaces, "
           f"{c['runs']} runs, {c['objects']} objects, {c['releases']} releases, {c['admin_events']} administration "
           f"events; every chain verifies" + (f"; {out['seconds']} s" if "seconds" in out else ""))
+    if out.get("ledger"):
+        print(f"  spending ledger: {out['ledger']}")
     for name in out.get("not_included", []):
         print(f"  not included: {name}")
     for need in out.get("needs", []):
@@ -425,11 +507,19 @@ def _cmd_recovery(args) -> int:
 
 def _cmd_architect_eval(args) -> int:
     """Exit code 0: every threshold met; 1: not met; 2: the evaluation could not run (not authorised)."""
-    from . import architect, architect_eval
+    from . import architect, architect_eval, architect_eval_v2
+
+    # the proposed protocol is a separate version: its cases, its measures, its own report. Choosing it never
+    # changes what the acceptance protocol says
+    proposed = args.protocol == "2"
+    protocol: Any = architect_eval_v2 if proposed else architect_eval
+
+    def given(case):  # what a case gives besides its brief (version 2: documents, records, tool results, answers)
+        return architect_eval_v2.inputs(case) if proposed else {}
 
     closing = None
     if args.self_check:
-        ask = architect_eval.reference_proposal
+        ask = protocol.reference_proposal
     elif args.sandbox:
         from .ai import ModelGateway, WorkspaceAI
         from .sandbox_ai import MODEL, SandboxArchitect
@@ -437,7 +527,7 @@ def _cmd_architect_eval(args) -> int:
         gateway = ModelGateway({"sandbox": SandboxArchitect()}, {"evaluation": WorkspaceAI("sandbox", MODEL, ("synthetic",))})
 
         def ask(case):
-            return architect.propose(gateway, "evaluation", case["brief"], data_classes=("synthetic",))
+            return architect.propose(gateway, "evaluation", case["brief"], data_classes=("synthetic",), **given(case))
     else:
         from .platform import Platform
 
@@ -464,28 +554,23 @@ def _cmd_architect_eval(args) -> int:
         def ask(case):  # within the workspace's own limits: its deadline and its output ceiling
             return architect.propose(served, workspace, case["brief"], data_classes=("synthetic",),
                                      deadline_seconds=limits["max_deadline_seconds"],
-                                     max_output_tokens=limits["max_output_tokens"])
-    saved: dict = {}
-    if args.save:  # the answers themselves, before anyone improves anything
+                                     max_output_tokens=limits["max_output_tokens"], **given(case))
+    if args.save:  # the answers themselves, before anyone improves anything; refused ones too, marked as such
         from pathlib import Path
 
-        target, asked = Path(args.save), ask
-        target.mkdir(parents=True, exist_ok=True)
-
-        def ask(case):
-            answer = asked(case)
-            saved[case["id"]] = saved.get(case["id"], 0) + 1
-            (target / f"{case['id']}-{saved[case['id']]}.json").write_text(json.dumps(answer, indent=1) + "\n")
-            return answer
+        target = Path(args.save)
+        asking: Any = architect_eval.keeping(ask, target)
+    else:
+        asking = ask
     try:
-        result = architect_eval.evaluate(ask, repeats=args.repeats)
+        result = protocol.evaluate(asking, repeats=args.repeats)
     finally:
         if closing is not None:
             closing()
     if args.save:
         (target / "result.json").write_text(json.dumps(result, indent=1) + "\n")
-    print(json.dumps(result, indent=1) if args.json else architect_eval.render(result))
-    return 0 if result["all_thresholds_met"] else 1
+    print(json.dumps(result, indent=1) if args.json else protocol.render(result))
+    return 0 if result["all_proposed_thresholds_met" if proposed else "all_thresholds_met"] else 1
 
 
 def _cmd_backup(args) -> int:
@@ -688,6 +773,8 @@ def main(argv=None) -> int:
         return _cmd_reporting(args)
     if args.command == "backup":
         return _cmd_backup(args)
+    if args.command == "ai-ledger":
+        return _cmd_ai_ledger(args)
     if args.command in ("platform-backup", "platform-verify", "platform-restore"):
         return _cmd_recovery(args)
 

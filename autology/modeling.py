@@ -21,6 +21,7 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Tuple
 
+from .consistency import findings as consistency  # noqa: F401  (workflow consistency findings, beside validation)
 from .ontology import Ontology, OntologyError
 
 BLUEPRINTS = Path(__file__).resolve().parent / "blueprints"
@@ -65,7 +66,16 @@ def validate(document: Any) -> Dict[str, Any]:
 
 
 def questions(document: Any, service: Any = None) -> List[Dict[str, Any]]:
-    """Questions that come from real gaps in this model and this use case (rule-based, not AI)."""
+    """Questions that come from real gaps in this model and this use case (rule-based, not AI). A document too
+    malformed to be read section by section has none: the loader's message is the one that matters then (GAP-086:
+    such a document used to end in an internal error instead of the loader's answer)."""
+    try:
+        return _questions(document, service)
+    except (TypeError, AttributeError, KeyError, ValueError):
+        return []
+
+
+def _questions(document: Any, service: Any = None) -> List[Dict[str, Any]]:
     if not isinstance(document, dict):
         return []
     out: List[Dict[str, Any]] = []

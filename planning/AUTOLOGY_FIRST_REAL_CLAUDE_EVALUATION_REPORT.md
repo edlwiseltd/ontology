@@ -58,8 +58,8 @@ tokens); the settlement equals the registered price (0.128256 USD); the remainin
 | Answered by the model and billed | **24** (22 used, 2 refused whole by Autology as outside the contract) |
 | Refused by the provider before processing, not billed | 9 (3 canary attempts, 6 one-off grammar checks, one per process start) |
 | Tokens | 96 input, 205,152 output (thinking included), plus cache writes |
-| Cost recorded by the ledger | **4.418874 USD** |
-| Budget remaining | **5.581126 USD** of 10 |
+| Cost recorded by the ledger | **4.418875 USD** (corrected on 17 Nov, later the same day: first written as 4.418874, two rounded subtotals added by hand; the ledger and the platform's view always said 4.418875) |
+| Budget remaining | **5.581125 USD** of 10 (first written as 5.581126; same correction) |
 | Reservations left open (uncertain outcomes) | 0 |
 | Provider errors | The 9 refusals above. No rate limit, overload, timeout or authentication failure occurred |
 | Retries | None (`max_attempts` 1). Latency 16 to 104 s per answer; the 300 s deadline was never reached |

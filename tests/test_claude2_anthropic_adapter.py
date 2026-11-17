@@ -22,7 +22,8 @@ import json
 import unittest
 
 from autology import platform as platform_module
-from autology.ai import PROMPTED, AnthropicProvider, ModelGateway, ModelRequest, ProviderError, WorkspaceAI, unfenced
+from autology.ai import (PROMPTED, AnthropicProvider, ModelGateway, ModelRequest, ProviderError, WorkspaceAI,
+                         allowed_keys, unfenced)
 from autology.architect import SCHEMA
 from autology.reasoners import PRICES
 
@@ -153,7 +154,15 @@ class RequestTests(AdapterBase):
         self.assertEqual(second["output_config"], {"effort": "medium"})  # no grammar asked for
         self.assertTrue(second["system"].startswith(first["system"]))
         self.assertIn(PROMPTED.strip(), second["system"])
-        self.assertTrue(second["system"].endswith(json.dumps(SCHEMA)))  # the contract itself, as written
+        self.assertIn(json.dumps(SCHEMA), second["system"])  # the contract itself, as written
+        # and, after it, the closed list of property names, object by object, derived from the same schema: the
+        # two answers lost on 17 November each carried one property that no list allowed (GAP-082)
+        keys = second["system"].split(json.dumps(SCHEMA), 1)[1]
+        self.assertIn("The only property names allowed, object by object", keys)
+        self.assertEqual(keys.strip().splitlines()[1:], allowed_keys(SCHEMA))
+        self.assertIn("relationships[]: from, to, type, cardinality, rationale, sources, confidence, basis", keys)
+        self.assertNotIn("name", [k.strip() for k in next(
+            line for line in allowed_keys(SCHEMA) if line.startswith("relationships[]")).split(":")[1].split(",")])
         self.assertEqual((second["model"], second["messages"]), (first["model"], first["messages"]))
         for absent in ("tools", "tool_choice", "fallbacks", "temperature"):
             self.assertNotIn(absent, second)

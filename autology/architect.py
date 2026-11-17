@@ -146,7 +146,39 @@ condition, an effect, a rule, a relationship or a case template mentions must be
 or in the current model."""
 
 PROMPT = ("Propose additions to the business model for the brief given as data. Use the outline of the current "
-          "model to avoid duplicates, and cite sources by their id (the brief's id is \"brief\").")
+          "model to avoid duplicates, and cite sources by their id (the brief's id is \"brief\"; an answer is cited "
+          "by its \"cite_as\", for example \"answer:q1\").")
+
+# Where an element comes from, as far as the engine can establish it (GAP-081). A reference is canonical: "brief",
+# "answer:<question id>" or the id of a passage that was given. Nothing else is a reference.
+ORIGINS = ("brief", "answers", "sources", "several", "inference", "unknown")
+
+
+def canonical(cited: Any, passages: Iterable[str], answers: Iterable[str]) -> Optional[Dict[str, str]]:
+    """The canonical reference for what an element cites, or None when it is nothing that was given. An exact
+    reference stands as it is. An answer cited by its bare question id (what a model does when the answers reach it
+    as ``{"id": "q1", ...}``) is the answer, unless a passage has that very id: then the passage is meant. Nothing
+    is guessed beyond that: an unknown reference stays unknown."""
+    ref = str(cited)
+    passage_ids, answer_ids = set(passages), set(answers)
+    if ref == "brief":
+        return {"ref": "brief", "kind": "brief"}
+    if ref in passage_ids:
+        return {"ref": ref, "kind": "source"}
+    bare = ref[len("answer:"):] if ref.startswith("answer:") else ref
+    if bare in answer_ids:
+        return {"ref": f"answer:{bare}", "kind": "answer"}
+    return None
+
+
+def origin_of(basis_claimed: Any, evidence: Sequence[Mapping[str, str]]) -> str:
+    """One word for where an element comes from: what it cites when it cites something that was given
+    (``brief``, ``answers``, ``sources``, or ``several``); ``inference`` when the architect presents it as its own
+    reading; ``unknown`` when it is presented as supplied and nothing that was given is cited for it."""
+    kinds = {e["kind"] for e in evidence}
+    if kinds and basis_claimed == "supplied":
+        return "several" if len(kinds) > 1 else {"brief": "brief", "answer": "answers", "source": "sources"}[kinds.pop()]
+    return "unknown" if basis_claimed == "supplied" else "inference"
 
 
 class ArchitectError(ValueError):
@@ -208,7 +240,9 @@ def _existing(kind: str, document: Mapping[str, Any]) -> set:
 def _items(data: Mapping[str, Any], document: Mapping[str, Any], known_sources: Iterable[str],
            provenance: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     """The model's answer as provisional items, and those refused before validation (with the reason)."""
-    known, items, rejected = set(known_sources), [], []
+    known, items, rejected = list(known_sources), [], []
+    answer_ids = [k[len("answer:"):] for k in known if k.startswith("answer:")]
+    passage_ids = [k for k in known if k != "brief" and not k.startswith("answer:")]
     for kind, section in SECTIONS:
         taken = _existing(kind, document)
         for position, raw in enumerate(data.get(section) or []):
@@ -229,9 +263,14 @@ def _items(data: Mapping[str, Any], document: Mapping[str, Any], known_sources: 
                 rejected.append({"kind": kind, "name": _clip(label)[:80], "problem": problem})
                 continue
             taken.add(key)
-            cited = [s for s in raw["sources"] if s in known]
+            evidence: List[Dict[str, str]] = []
+            for source in raw["sources"]:
+                found = canonical(source, passage_ids, answer_ids)
+                if found is not None and found not in evidence:
+                    evidence.append(found)
+            cited = [e["ref"] for e in evidence]
             attention = []
-            if len(cited) != len(raw["sources"]):
+            if len([s for s in raw["sources"] if canonical(s, passage_ids, answer_ids) is None]):
                 attention.append("cites a source that was not given")
             if not cited:
                 attention.append("no source supports this item")
@@ -245,6 +284,9 @@ def _items(data: Mapping[str, Any], document: Mapping[str, Any], known_sources: 
             items.append({"id": f"model:{kind}:{label}", "kind": kind, "name": name, "value": value,
                           "rationale": _clip(raw["rationale"]), "sources": cited, "confidence": float(confidence),
                           "attention": attention, "status": "provisional", "basis": basis,
+                          # what it cites, in canonical form, and where it comes from in one word. "unknown" is
+                          # said when it is presented as supplied and nothing given supports it: never a guess
+                          "evidence": evidence, "origin": origin_of(raw.get("basis"), evidence),
                           "validation": "passed", "provenance": provenance})
     return items, rejected
 
@@ -342,7 +384,9 @@ def propose(gateway: ModelGateway, workspace: str, brief: str, document: Optiona
              if isinstance(a, Mapping) and "id" in a and "answer" in a][:MAX_ITEMS]
     kw = {"request_id": request_id} if request_id else {}
     request = ModelRequest(workspace, "architect.propose", SYSTEM, PROMPT, SCHEMA,
-                           {"brief": brief, "current_model": outline(base), "sources": passages, "answers": given,
+                           {"brief": brief, "current_model": outline(base), "sources": passages,
+                            # each answer says how it is cited, so that an element can name the answer it rests on
+                            "answers": [{**a, "cite_as": f"answer:{a['id']}"} for a in given],
                             # what the person asked to change in the last proposal: data, like the brief
                             **({"revision_request": _clip(feedback)[:2000]} if feedback.strip() else {})},
                            tuple(data_classes), deadline_seconds, max_output_tokens, **kw)
@@ -364,7 +408,11 @@ def propose(gateway: ModelGateway, workspace: str, brief: str, document: Optiona
                              "problem": result["problems"][0]["message"] if culprit is not None else
                              f"the proposal does not validate as a whole: {result['problems'][0]['message']}"})
         result = validate(apply(base, items))
-    known = set(citable)
+    answer_ids, passage_ids = [a["id"] for a in given], [p["id"] for p in passages]
+
+    def refs(cited: Iterable[Any]) -> List[str]:
+        found = [canonical(s, passage_ids, answer_ids) for s in cited]
+        return list(dict.fromkeys(f["ref"] for f in found if f is not None))
     described = response.data
     understood = described.get("understanding") or {}
     return {"generator": generator, "ai": genuine, "provider": response.provider, "model": response.model,
@@ -380,7 +428,7 @@ def propose(gateway: ModelGateway, workspace: str, brief: str, document: Optiona
                 "integrations": [{"capability": _clip(i["capability"])[:64], "system": _clip(i["system"])[:120],
                                   "description": _clip(i["description"])} for i in described["integrations"][:MAX_ITEMS]],
                 "note": "descriptions only: roles are granted and systems are connected by an administrator"},
-            "assumptions": [{"statement": _clip(a["statement"]), "sources": [s for s in a["sources"] if s in known],
+            "assumptions": [{"statement": _clip(a["statement"]), "sources": refs(a["sources"]),
                              "confidence": a["confidence"]} for a in response.data["assumptions"][:MAX_ITEMS]
                             if not isinstance(a["confidence"], bool) and 0 <= a["confidence"] <= 1],
             "unknowns": [_clip(u) for u in response.data["unknowns"][:MAX_ITEMS]],

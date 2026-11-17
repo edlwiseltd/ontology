@@ -147,6 +147,11 @@ def _v18(store: Any, db: Any) -> None:
                "loaded_at TEXT NOT NULL, configuration TEXT NOT NULL)")
 
 
+def _v19(store: Any, db: Any) -> None:
+    """Which architect proposal, and which revision of it, a draft's model was saved from (GAP-080)."""
+    _add(db, "model_drafts", "origin", "TEXT")
+
+
 MIGRATIONS: List[Tuple[int, str, Callable[[Any, Any], None]]] = [
     (4, "who started each run", _v4),
     (5, "write-back snapshots and conflicts; automation failure counts", _v5),
@@ -159,6 +164,7 @@ MIGRATIONS: List[Tuple[int, str, Callable[[Any, Any], None]]] = [
     (16, "architect proposals and review decisions", _v16),
     (17, "executable configuration in model drafts", _v17),
     (18, "synthetic sample records are marked", _v18),
+    (19, "a draft records the architect proposal it was saved from", _v19),
 ]
 
 

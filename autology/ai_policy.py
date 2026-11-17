@@ -23,13 +23,15 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import os
 import re
 import sqlite3
 import threading
+import uuid
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
-from .ai import DATA_CLASSES, ModelRequest, ProviderError
+from .ai import DATA_CLASSES, PROMPTED, ModelRequest, ProviderError, allowed_keys
 from .reasoners import PRICES, estimate_cost, is_priced
 
 PURPOSES = ("architect",)  # what a model may be used for today; nothing else reaches the gateway through a policy
@@ -137,9 +139,18 @@ def validate_authorisations(spec: Any, workspaces: Any) -> List[Dict[str, Any]]:
     for i, item in enumerate(spec or []):
         where = f"ai_authorisations[{i}]"
         if not isinstance(item, Mapping) or set(item) - {"workspace", "provider", "model", "data_classes",
-                                                         "max_budget_usd_per_month", "expires", "decision"}:
+                                                         "max_budget_usd_per_month", "expires", "decision", "ledger"}:
             raise ValueError(f"{where}: workspace, provider, model, data_classes, max_budget_usd_per_month, expires, "
-                             "decision")
+                             "decision, ledger")
+        binding = item.get("ledger")
+        if binding is not None and not (
+                isinstance(binding, Mapping) and not set(binding) - {"id", "entries", "digest", "settled_usd"}
+                and isinstance(binding.get("id"), str) and binding["id"]
+                and isinstance(binding.get("entries"), int) and not isinstance(binding["entries"], bool)
+                and binding["entries"] >= 0 and isinstance(binding.get("digest"), str)
+                and _number(binding.get("settled_usd"), 0, 10_000_000)):
+            raise ValueError(f"{where}: ledger: the checkpoint of the spending ledger this ceiling is counted in "
+                             "(id, entries, digest, settled_usd), as `python -m autology ai-ledger status` prints it")
         if item.get("workspace") not in workspaces:
             raise ValueError(f"{where}: unknown workspace {item.get('workspace')!r}")
         if not isinstance(item.get("decision"), str) or not item["decision"].strip():
@@ -200,29 +211,180 @@ CREATE TABLE IF NOT EXISTS ai_ledger (
 CREATE TABLE IF NOT EXISTS ai_refusals (
     id INTEGER PRIMARY KEY AUTOINCREMENT, workspace TEXT NOT NULL, use_case TEXT NOT NULL, request_id TEXT NOT NULL,
     purpose TEXT NOT NULL, reason TEXT NOT NULL, at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS ai_ledger_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+"""
+# Spending history is only ever added to. As with the audit log's triggers, this guards against mistakes and
+# against code that forgets the rule, not against someone who edits the database file directly.
+GUARDS = """
+CREATE TRIGGER IF NOT EXISTS ai_ledger_never_deleted BEFORE DELETE ON ai_ledger
+BEGIN SELECT RAISE(ABORT, 'a spending entry is never deleted'); END;
+CREATE TRIGGER IF NOT EXISTS ai_ledger_closed_is_final BEFORE UPDATE ON ai_ledger
+WHEN OLD.state IN ('settled', 'released')
+BEGIN SELECT RAISE(ABORT, 'a closed spending entry is never changed'); END;
+CREATE TRIGGER IF NOT EXISTS ai_ledger_identity_is_final BEFORE UPDATE ON ai_ledger
+WHEN NEW.id IS NOT OLD.id OR NEW.workspace IS NOT OLD.workspace OR NEW.request_id IS NOT OLD.request_id
+     OR NEW.period IS NOT OLD.period OR NEW.reserved_usd IS NOT OLD.reserved_usd
+BEGIN SELECT RAISE(ABORT, 'what a spending entry reserved, for whom and when, is never changed'); END;
+CREATE TRIGGER IF NOT EXISTS ai_ledger_meta_never_deleted BEFORE DELETE ON ai_ledger_meta
+BEGIN SELECT RAISE(ABORT, 'the identity of a spending ledger is never removed'); END;
+CREATE TRIGGER IF NOT EXISTS ai_ledger_meta_is_final BEFORE UPDATE ON ai_ledger_meta
+BEGIN SELECT RAISE(ABORT, 'the identity of a spending ledger is never changed'); END;
 """
 OPEN, SETTLED, RELEASED, UNCERTAIN = "reserved", "settled", "released", "uncertain"
+OPENING = "opening_balance"  # the purpose of an entry that carries earlier spending into a new ledger
+
+
+class LedgerError(Exception):
+    """The spending ledger is missing, unreadable or not the one an authorisation names: nothing may be spent."""
 
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-class SpendLedger:
-    """What each workspace reserved and spent on model calls. One SQLite file for the platform; every check and
-    its reservation are one transaction, so parallel calls cannot spend the same money twice. It holds amounts,
-    token counts and outcomes: never a prompt, an answer or a key."""
+def _identity_digest(rows: Sequence[Sequence[Any]]) -> str:
+    """One fingerprint of what the entries reserved, for whom and when (the columns no entry ever changes)."""
+    h = hashlib.sha256()
+    for row in rows:
+        h.update(json.dumps([row[0], row[1], row[2], row[3], round(float(row[4]), 6)],
+                            separators=(",", ":")).encode("utf-8"))
+        h.update(b"\n")
+    return h.hexdigest()
 
-    def __init__(self, path: Any):
+
+class SpendLedger:
+    """What each workspace reserved and spent on model calls. One SQLite file; every check and its reservation are
+    one transaction, so parallel calls cannot spend the same money twice. It holds amounts, token counts and
+    outcomes: never a prompt, an answer or a key.
+
+    The file is the authority for every ceiling, so it is never taken on trust and never silently replaced:
+
+    * it has an identity, written once; an owner's authorisation names the ledger its ceiling is counted in
+      (:meth:`checkpoint`, :meth:`verify`), so an empty or older file in its place serves nothing;
+    * ``create=False`` (a ledger kept outside the deployment) refuses a missing or empty file instead of starting
+      a new history;
+    * a file that is not a readable ledger raises :class:`LedgerError`; entries are never deleted, and a closed
+      entry is never changed."""
+
+    def __init__(self, path: Any, create: bool = True):
         self.path = str(path)
-        self._db = sqlite3.connect(self.path, check_same_thread=False, isolation_level=None)
-        self._db.row_factory = sqlite3.Row
-        self._db.executescript(SCHEMA)
+        self.problem = ""  # an open ledger has none (see UnavailableLedger)
+        present = os.path.isfile(self.path) and os.path.getsize(self.path) > 0
+        if not present and not create:
+            raise LedgerError(f"there is no spending ledger at {self.path}: an empty one is never started in its "
+                              "place (restore the ledger, or create a new one explicitly with its opening balance)")
+        try:
+            self._db = sqlite3.connect(self.path, check_same_thread=False, isolation_level=None)
+            self._db.row_factory = sqlite3.Row
+            if present:
+                state = self._db.execute("PRAGMA quick_check").fetchone()[0]
+                tables = {r[0] for r in self._db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+                if state != "ok":
+                    raise LedgerError(f"the spending ledger {self.path} is damaged ({state})")
+                if "ai_ledger" not in tables:
+                    raise LedgerError(f"{self.path} is not a spending ledger")
+            self._db.executescript(SCHEMA + GUARDS)
+            self.id = self._identify()
+        except sqlite3.Error as exc:
+            raise LedgerError(f"the spending ledger {self.path} cannot be read ({type(exc).__name__}: {exc})") from None
         self._lock = threading.RLock()
+
+    def _identify(self) -> str:
+        row = self._db.execute("SELECT value FROM ai_ledger_meta WHERE key='ledger_id'").fetchone()
+        if row is not None:
+            return str(row[0])
+        rows = self._identity_rows()
+        # a ledger written before ledgers had an identity keeps one derived from its history: restoring the same
+        # file twice gives the same ledger, not two
+        ledger_id = ("adopted-" + _identity_digest(rows)[:24]) if rows else uuid.uuid4().hex
+        self._db.execute("BEGIN IMMEDIATE")
+        self._db.execute("INSERT INTO ai_ledger_meta (key, value) VALUES ('ledger_id', ?)", (ledger_id,))
+        self._db.execute("INSERT INTO ai_ledger_meta (key, value) VALUES ('identified_at', ?)", (_now(),))
+        self._db.execute("COMMIT")
+        return ledger_id
+
+    def _identity_rows(self, through: Optional[int] = None) -> List[Tuple[Any, ...]]:
+        sql = "SELECT id, workspace, request_id, period, reserved_usd FROM ai_ledger"
+        args: Tuple[Any, ...] = ()
+        if through is not None:
+            sql, args = sql + " WHERE id <= ?", (int(through),)
+        return [tuple(r) for r in self._db.execute(sql + " ORDER BY id", args)]
 
     def close(self) -> None:
         with self._lock:
             self._db.close()
+
+    def checkpoint(self) -> Dict[str, Any]:
+        """Where the ledger stands, for an authorisation to name: its identity, how many entries it holds, a
+        fingerprint of what they reserved, and what was settled. A ledger that later holds fewer entries, other
+        entries or less settled money is not this ledger any more."""
+        with self._lock:
+            rows = self._identity_rows()
+            settled = self._db.execute("SELECT COALESCE(SUM(actual_usd), 0) FROM ai_ledger WHERE state=?",
+                                       (SETTLED,)).fetchone()[0]
+        return {"id": self.id, "entries": rows[-1][0] if rows else 0, "digest": _identity_digest(rows),
+                "settled_usd": round(float(settled), 6)}
+
+    def verify(self, binding: Mapping[str, Any]) -> List[str]:
+        """Why this ledger is not (or no longer) the one ``binding`` names; empty when it is."""
+        if binding.get("id") != self.id:
+            return [f"the authorisation names the spending ledger {binding.get('id')}; the one in place is {self.id}"]
+        through = int(binding.get("entries", 0))
+        with self._lock:
+            rows = self._identity_rows(through)
+            settled = self._db.execute("SELECT COALESCE(SUM(actual_usd), 0) FROM ai_ledger WHERE state=? AND id<=?",
+                                       (SETTLED, through)).fetchone()[0]
+        if (rows[-1][0] if rows else 0) != through or _identity_digest(rows) != binding.get("digest"):
+            return [f"the spending ledger in place does not hold the {through} entries the authorisation was written "
+                    "against: it is older than, or different from, the authorised one"]
+        # a checkpoint states the settled amount to a millionth of a dollar; the entries hold what was computed
+        if round(float(settled), 6) + 1e-9 < float(binding.get("settled_usd", 0)):
+            return [f"the spending ledger in place records {float(settled):.6f} USD settled where the authorisation "
+                    f"was written against {float(binding['settled_usd']):.6f}"]
+        return []
+
+    def recover_interrupted(self) -> int:
+        """Entries a process left open when it stopped: nobody knows whether the provider did the work, so they
+        stay charged (``uncertain``) and no longer count as running. Called once, when a platform starts."""
+        with self._lock:
+            done = self._db.execute(
+                "UPDATE ai_ledger SET state=?, outcome=?, closed_at=? WHERE state=?",
+                (UNCERTAIN, "interrupted: the process stopped before the outcome was recorded", _now(), OPEN))
+            return int(done.rowcount)
+
+    def carry_forward(self, workspace: str, period: str, amount: float, reference: str, provider: str,
+                      model: str) -> bool:
+        """Record, in a new ledger, what was already spent under an authorisation whose earlier ledger is lost.
+        Counted like any settled entry; named once per reference. Returns False when it was already there."""
+        if not _number(amount, 0, 10_000_000) or not str(reference).strip():
+            raise LedgerError("an opening balance names an amount and the evidence it comes from")
+        with self._lock:
+            done = self._db.execute(
+                "INSERT OR IGNORE INTO ai_ledger (workspace, use_case, request_id, purpose, provider, model, period, "
+                "state, reserved_usd, actual_usd, outcome, reserved_at, closed_at) VALUES (?, '', ?, ?, ?, ?, ?, ?, ?, "
+                "?, ?, ?, ?)",
+                (workspace, f"opening:{reference}", OPENING, provider, model, period, SETTLED, float(amount),
+                 float(amount), f"carried forward: {reference}", _now(), _now()))
+            return done.rowcount == 1
+
+    def workspaces(self) -> List[str]:
+        with self._lock:
+            return [r[0] for r in self._db.execute("SELECT DISTINCT workspace FROM ai_ledger ORDER BY 1")]
+
+    def history(self, workspace: str) -> List[Dict[str, Any]]:
+        """Every period this workspace spent in, oldest first: what was settled, what is still held, how many
+        entries. Nothing is ever dropped from it."""
+        with self._lock:
+            rows = [dict(r) for r in self._db.execute(
+                "SELECT period, COUNT(*) AS entries, "
+                "COALESCE(SUM(CASE WHEN state=? THEN actual_usd ELSE 0 END), 0) AS spent, "
+                "COALESCE(SUM(CASE WHEN state IN (?, ?) THEN reserved_usd ELSE 0 END), 0) AS held, "
+                "COALESCE(SUM(CASE WHEN purpose=? THEN actual_usd ELSE 0 END), 0) AS carried "
+                "FROM ai_ledger WHERE workspace=? GROUP BY period ORDER BY period",
+                (SETTLED, OPEN, UNCERTAIN, OPENING, workspace))]
+        return [{"period": r["period"], "entries": r["entries"], "spent_usd": round(float(r["spent"]), 6),
+                 "reserved_usd": round(float(r["held"]), 6), "carried_forward_usd": round(float(r["carried"]), 6)}
+                for r in rows]
 
     def reserve(self, workspace: str, use_case: str, request: ModelRequest, policy: Mapping[str, Any],
                 amount: float, clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc)) -> Dict[str, Any]:
@@ -316,12 +478,46 @@ class SpendLedger:
                                                       (workspace,))]
 
 
+class UnavailableLedger:
+    """Stands where a ledger could not be opened: every reservation fails, so nothing is sent (fail closed)."""
+
+    id = ""
+
+    def __init__(self, path: Any, problem: str):
+        self.path, self.problem = str(path), problem
+
+    def _refuse(self, *args: Any, **kwargs: Any) -> Any:
+        raise LedgerError(self.problem)
+
+    reserve = usage = checkpoint = carry_forward = _refuse
+
+    def verify(self, binding: Mapping[str, Any]) -> List[str]:
+        return [self.problem]
+
+    def recover_interrupted(self) -> int:
+        return 0
+
+    def close_entry(self, *args: Any, **kwargs: Any) -> None:
+        return None
+
+    def history(self, workspace: str) -> List[Dict[str, Any]]:
+        return []
+
+    def entries(self, workspace: str) -> List[Dict[str, Any]]:
+        return []
+
+    def close(self) -> None:
+        return None
+
+
 def estimate(request: ModelRequest, policy: Mapping[str, Any]) -> Tuple[int, float]:
     """``(input tokens, USD)``: what one request could cost at most, computed before it is sent, from its size
     and the registered price. Never from anything a model says."""
     # the answer's schema travels with the request and is billed as input; a first request may also pay the
     # cache-writing surcharge on all of it
-    size = len(request.system) + len(request.text()) + len(json.dumps(dict(request.schema), default=str))
+    # (and, when the provider cannot hold the model to the schema, the instructions that spell its keys out)
+    size = (len(request.system) + len(request.text()) + len(json.dumps(dict(request.schema), default=str))
+            + len(PROMPTED) + sum(len(line) + 1 for line in allowed_keys(request.schema)) + 100)
     tokens_in = math.ceil(size / CHARS_PER_TOKEN)
     tokens_out = min(int(request.max_output_tokens), policy["limits"]["max_output_tokens"])
     once = estimate_cost(policy["model"], {"cache_creation_input_tokens": tokens_in, "output_tokens": tokens_out})

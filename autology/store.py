@@ -41,7 +41,7 @@ from .audit import GENESIS, AuditLog
 from .graph import KnowledgeGraph
 from .ontology import Ontology, OntologyError
 
-SCHEMA_VERSION = 18
+SCHEMA_VERSION = 19
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -127,7 +127,7 @@ CREATE TABLE IF NOT EXISTS sample_records (
     instance_id TEXT PRIMARY KEY, loaded_by TEXT NOT NULL, loaded_at TEXT NOT NULL, configuration TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS model_drafts (
     revision INTEGER PRIMARY KEY, document TEXT NOT NULL, author TEXT NOT NULL, note TEXT NOT NULL, at TEXT NOT NULL,
-    solution TEXT);
+    solution TEXT, origin TEXT);
 CREATE TRIGGER IF NOT EXISTS model_drafts_no_update BEFORE UPDATE ON model_drafts
     BEGIN SELECT RAISE(ABORT, 'model drafts are append-only'); END;
 CREATE TRIGGER IF NOT EXISTS model_drafts_no_delete BEFORE DELETE ON model_drafts
@@ -340,14 +340,14 @@ class Store:
 
     # -- model drafts (Studio): append-only versions of a proposed ontology document; never active -----------
     def save_draft(self, document: Optional[Dict[str, Any]], author: str, note: str, expected_revision: int,
-                   solution: Any = KEEP) -> int:
+                   solution: Any = KEEP, origin: Optional[Dict[str, Any]] = None) -> int:
         """Append a new draft revision, only over the revision the author read (0: no draft yet). A draft holds
         the model and, optionally, the executable configuration (agents, simulated tools, sample records): the
         part that is not given (``document`` None, ``solution`` left as ``KEEP``) is carried over from the
         revision before, so that the two are always saved, published and released as one."""
         with self._tx() as db:
-            row = db.execute("SELECT revision, document, solution FROM model_drafts ORDER BY revision DESC LIMIT 1"
-                             ).fetchone()
+            row = db.execute("SELECT revision, document, solution, origin FROM model_drafts ORDER BY revision DESC "
+                             "LIMIT 1").fetchone()
             current = row["revision"] if row else 0
             if current != expected_revision:
                 raise RecordConflict("model draft", f"the draft was saved meanwhile (revision {current}, expected "
@@ -357,8 +357,13 @@ class Store:
                 raise ValueError("a first draft needs a model document")
             kept = (row["solution"] if row else None) if solution is KEEP else (
                 None if solution is None else json.dumps(solution, default=str))
-            db.execute("INSERT INTO model_drafts VALUES (?, ?, ?, ?, ?, ?)",
-                       (current + 1, model, author, note[:500], _now(), kept))
+            # where the model of this revision comes from: the architect proposal it was saved from (given), or
+            # what the revision before said when the model is carried over unchanged. A model changed by hand
+            # with no proposal named has no recorded origin: unknown is said, never guessed
+            came_from = json.dumps(origin, default=str) if origin else (
+                row["origin"] if row and (document is None or model == row["document"]) else None)
+            db.execute("INSERT INTO model_drafts VALUES (?, ?, ?, ?, ?, ?, ?)",
+                       (current + 1, model, author, note[:500], _now(), kept, came_from))
             return current + 1
 
     def draft(self, revision: Optional[int] = None) -> Optional[Dict[str, Any]]:
@@ -367,10 +372,17 @@ class Store:
         if not rows:
             return None
         return {**dict(rows[0]), "document": json.loads(rows[0]["document"]),
-                "solution": json.loads(rows[0]["solution"]) if rows[0]["solution"] else None}
+                "solution": json.loads(rows[0]["solution"]) if rows[0]["solution"] else None,
+                "origin": json.loads(rows[0]["origin"]) if rows[0]["origin"] else None}
 
     def draft_history(self) -> List[Dict[str, Any]]:
-        return [dict(r) for r in self._query("SELECT revision, author, note, at FROM model_drafts ORDER BY revision")]
+        return [{**dict(r), "origin": json.loads(r["origin"]) if r["origin"] else None} for r in self._query(
+            "SELECT revision, author, note, at, origin FROM model_drafts ORDER BY revision")]
+
+    def drafts_from(self, pid: str) -> List[Dict[str, Any]]:
+        """The draft revisions saved from architect proposal ``pid`` (or carried over from one), oldest first."""
+        return [{"draft_revision": r["revision"], "proposal_revision": r["origin"]["revision"], "saved_by": r["author"],
+                 "at": r["at"]} for r in self.draft_history() if (r["origin"] or {}).get("proposal") == pid]
 
     # -- architect proposals: every revision and every review decision is kept (append-only) -----------------
     def add_architect_revision(self, pid: str, created_by: str, brief: str, answers: List[Dict[str, Any]],

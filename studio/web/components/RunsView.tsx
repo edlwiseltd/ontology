@@ -9,7 +9,9 @@ import { api, runs as engine, ApiError } from "@/lib/api";
 import { cancellable, mayDecide, releaseOf, resumable, runChoices, statusClass, stepLine, trace, STATUS_TEXT } from "@/lib/runs";
 import type { EngineMe, ObjectRow, ReviewView, RunAudit, RunRow, RunView } from "@/lib/runs";
 import type { OntologySummary, ReleaseState, UseCase } from "@/lib/types";
+import RecordEditor from "./RecordEditor";
 import SampleRecords from "./SampleRecords";
+import type { EntitySpec } from "@/lib/records";
 
 type Templates = Record<string, { root: string; entities: string[] }>;
 
@@ -119,6 +121,9 @@ export default function RunsView({ workspace, useCase, onChanged }: { workspace:
       {message && <p className="ok small" role="status" data-testid="runs-message">{message}</p>}
 
       <SampleRecords workspace={workspace} useCaseId={useCase.id} onLoaded={() => setTemplate((t) => t)} />
+      <RecordEditor path={path} stage={useCase.effective_stage ?? useCase.stage} me={me}
+                    entities={((model as any)?.entities ?? {}) as Record<string, EntitySpec>}
+                    onChanged={() => { if (root || template) void engine.objects(path, templates[template]?.root ?? "").then((r) => setRecords(r.items)).catch(() => undefined); }} />
       <section className="card" aria-labelledby="run-start">
         <h3 id="run-start">Start a simulation run</h3>
         {!can("run") ? <p className="muted small" data-testid="runs-denied">You do not have permission to start runs on this use case.

@@ -20,7 +20,9 @@ for the test, with a registered price, so that budgets can be measured.
 
 import json
 import os
+import tempfile
 import threading
+from pathlib import Path
 from unittest import mock
 
 from autology import ai_policy, platform as platform_module
@@ -110,6 +112,19 @@ class GovernanceBase(AdminBase):
         spec["data_dir"] = self.data_dir
         spec["workspaces"]["acme"]["use_cases"]["claims"]["config"] = str(self.config_dir / "server.json")
         spec["ai_authorisations"] = list(self.authorisations)
+        if self.authorisations:
+            # the owner's ceiling is counted in a ledger kept outside the deployment, which the authorisation
+            # names as it stands when the deployment is written (deploy/evaluation_setup.py does the same)
+            if getattr(self, "ledger_path", None) is None:
+                self.ledger_path = Path(tempfile.mkdtemp()) / "ai_ledger.db"
+                ai_policy.SpendLedger(self.ledger_path).close()
+            point = getattr(self, "ledger_binding", None)  # a test may keep the binding of an earlier writing
+            if point is None:
+                ledger = ai_policy.SpendLedger(self.ledger_path, create=False)
+                point = ledger.checkpoint()
+                ledger.close()
+            spec["ai_ledger"] = str(self.ledger_path)
+            spec["ai_authorisations"] = [{"ledger": point, **a} for a in self.authorisations]
         # a use case whose configuration asks for the provider (a governing setting of the use case)
         config = json.loads((EX.parent / "onboarding" / "server.json").read_text())
         config["ai"] = dict(self.setting)

@@ -1160,6 +1160,22 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        ConsistencyFinding: {
+            a_person_could: string[];
+            action?: string;
+            entity?: string;
+            finding: string;
+            goal?: string;
+            id: string;
+            /** @enum {string} */
+            kind: "goal_unreachable" | "open_exception" | "action_cannot_start" | "obligation_cannot_be_met" | "always_prohibited" | "outside_effect_ungoverned" | "state_never_reached";
+            rule?: string;
+            /** @enum {string} */
+            severity: "high" | "medium" | "low";
+            why: string;
+        } & {
+            [key: string]: unknown;
+        };
         Draft: {
             active: {
                 fingerprint: string;
@@ -1170,10 +1186,17 @@ export interface components {
             active_model_changed?: boolean;
             at?: string | null;
             author?: string | null;
+            consistency?: components["schemas"]["ConsistencyFinding"][];
             document: {
                 [key: string]: unknown;
             };
             note?: string;
+            origin?: null | ({
+                proposal: string;
+                revision: number;
+            } & {
+                [key: string]: unknown;
+            });
             questions: components["schemas"]["Question"][];
             revision: number;
             validation: components["schemas"]["Validation"];
@@ -1186,6 +1209,12 @@ export interface components {
             };
             expected_revision: number;
             note?: string;
+            origin?: {
+                proposal: string;
+                revision: number;
+            } & {
+                [key: string]: unknown;
+            };
         } & {
             [key: string]: unknown;
         };
@@ -1442,6 +1471,14 @@ export interface components {
             cost_usd?: number;
             created_by?: string;
             decisions?: components["schemas"]["ProposalDecision"][];
+            drafts?: ({
+                at: string;
+                draft_revision: number;
+                proposal_revision: number;
+                saved_by: string;
+            } & {
+                [key: string]: unknown;
+            })[];
             feedback?: string;
             generator: string;
             history?: components["schemas"]["ProposalRevision"][];
@@ -1468,6 +1505,16 @@ export interface components {
             })[];
             request_id?: string;
             revision?: number;
+            source_index?: {
+                [key: string]: {
+                    /** @enum {string} */
+                    kind: "brief" | "answer" | "source";
+                    question?: string;
+                    text: string;
+                } & {
+                    [key: string]: unknown;
+                };
+            };
             suggestions?: {
                 agents: {
                     [key: string]: unknown;
@@ -1528,10 +1575,19 @@ export interface components {
             /** @enum {string} */
             basis?: "supplied" | "inferred";
             confidence?: number;
+            evidence?: ({
+                /** @enum {string} */
+                kind: "brief" | "answer" | "source";
+                ref: string;
+            } & {
+                [key: string]: unknown;
+            })[];
             id: string;
             /** @enum {string} */
             kind: "entity" | "relationship" | "action" | "rule" | "goal" | "case_template";
             name?: string | null;
+            /** @enum {string} */
+            origin?: "brief" | "answers" | "sources" | "several" | "inference" | "unknown";
             provenance: {
                 ai: boolean;
                 blueprint?: string;
@@ -1581,16 +1637,21 @@ export interface components {
                 }[];
                 at: string;
                 brief: string;
+                cost_usd?: number | null;
                 created_by?: string;
                 decisions: number;
-                generator: string;
+                drafts?: number[];
+                feedback?: string;
+                generator: string | null;
                 id: string;
                 items?: number;
+                model?: string | null;
                 open_questions?: number;
-                provider: string;
+                provider: string | null;
                 rejected?: number;
                 revision: number;
                 revisions: number;
+                spent_usd?: number;
             } & {
                 [key: string]: unknown;
             })[];
@@ -1616,13 +1677,19 @@ export interface components {
             [key: string]: unknown;
         };
         ProposalRevision: {
+            ai?: boolean;
             answers: {
                 [key: string]: unknown;
             }[];
             at: string;
+            cost_usd?: number | null;
             created_by: string;
+            feedback?: string;
+            generator?: string | null;
             items: number;
+            model?: string | null;
             open_questions: number;
+            provider?: string | null;
             rejected: number;
             revision: number;
         } & {
@@ -1878,6 +1945,7 @@ export interface components {
             [key: string]: unknown;
         };
         ValidationResult: {
+            consistency?: components["schemas"]["ConsistencyFinding"][];
             questions: components["schemas"]["Question"][];
             validation: components["schemas"]["Validation"];
         } & {

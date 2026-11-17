@@ -797,6 +797,25 @@ export interface components {
             adapters_installed?: string[];
             approved_at?: string | null;
             approved_by?: string | null;
+            ledger?: {
+                available: boolean;
+                bound_to_authorisation: boolean;
+                entries?: number | null;
+                history: ({
+                    carried_forward_usd?: number;
+                    entries: number;
+                    period: string;
+                    reserved_usd: number;
+                    spent_usd: number;
+                } & {
+                    [key: string]: unknown;
+                })[];
+                id?: string | null;
+                outside_deployment: boolean;
+                problem?: string;
+            } & {
+                [key: string]: unknown;
+            };
             owner_authorisation: {
                 decision?: string | null;
                 expires?: string | null;
@@ -1181,6 +1200,19 @@ export interface components {
             approved_by?: string | null;
             at: string;
             components?: components["schemas"]["ReleaseComponents"];
+            design?: null | ({
+                draft_revision: number | null;
+                proposal: null | ({
+                    proposal: string;
+                    revision: number;
+                } & {
+                    [key: string]: unknown;
+                });
+                published_at?: string;
+                published_by?: string;
+            } & {
+                [key: string]: unknown;
+            });
             fingerprint: string;
             id: string;
             note: string;

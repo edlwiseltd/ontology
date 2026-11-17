@@ -57,6 +57,9 @@ after fixing type errors, run `python deploy/mypy_ratchet.py --update`.
 autology platform-backup  /config/platform.json /backups/2026-11-15        # while the platform runs
 autology platform-verify  /backups/2026-11-15                              # any time; changes nothing
 autology platform-restore /backups/2026-11-15 /restore-test/data           # into a NEW data directory
+# when the platform keeps its AI spending ledger outside the data directory ("ai_ledger"), name the configuration:
+# the ledger in place is kept if it holds everything the backup's holds, and a different one stops the restore
+autology platform-restore /backups/2026-11-15 /restore-test/data --config /config/platform.json
 ```
 
 **What is in it:** every use case's store (records, runs, reviews, audit chains, the external-calls journal), its

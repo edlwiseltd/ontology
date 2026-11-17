@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { accessLines, basisLabel, countByKind, generatorLabel, itemLabel, preview, providerLabel, refusalText, releaseAi, standing,
-         withProvenance, workflow } from "../lib/onboarding";
+         withProvenance, workflow, ledgerLine } from "../lib/onboarding";
 import type { ProposalItem } from "../lib/types";
 
 const item = (kind: ProposalItem["kind"], name: string | null, value: any): ProposalItem => ({
@@ -62,7 +62,9 @@ describe("onboarding helpers", () => {
     expect(itemLabel(ITEMS[5])).toBe("R-APPROVAL");
     expect(countByKind(ITEMS)).toEqual({ entity: 2, relationship: 1, action: 2, rule: 3, goal: 1 });
     const doc = withProvenance(preview(CONFIRMED, ITEMS), { id: "P-1", revision: 2, generator: "sandbox", ai: false }, ITEMS.slice(0, 1));
-    expect(doc["x-studio"].provenance).toEqual({ "entity:Request": { proposal: "P-1", revision: 2, generator: "sandbox", ai: false } });
+    // an element from a template carries no origin: the draft says "unknown", it does not make one up
+    expect(doc["x-studio"].provenance).toEqual({ "entity:Request": { proposal: "P-1", revision: 2, generator: "sandbox", ai: false,
+      basis: "inferred", origin: "unknown", evidence: [] } });
     expect(doc.entities.Request).toBeDefined();
   });
 
@@ -103,5 +105,26 @@ describe("onboarding helpers", () => {
       model: "claude-opus-5-5", bounded: true, content: "synthetic" } as any);
     expect(label.text).toContain("declared synthetic");
     expect(label.text).toContain("claude-opus-5-5");
+  });
+});
+
+describe("the spending ledger line", () => {
+  const base = { available: true, problem: "", id: "adopted-0123456789abcdef0123", entries: 27, outside_deployment: true,
+    bound_to_authorisation: true, history: [{ period: "2026-11", spent_usd: 4.418875, reserved_usd: 0 }] };
+  it("says where the ledger stands and what was spent, period by period", () => {
+    const line = ledgerLine({ ledger: base });
+    expect(line).toContain("27 entries");
+    expect(line).toContain("kept outside this deployment, named by the owner's authorisation");
+    expect(line).toContain("2026-11: 4.418875 spent");
+    expect(ledgerLine({ ledger: { ...base, history: [{ period: "2026-11", spent_usd: 1, reserved_usd: 0.3, carried_forward_usd: 1 }] } }))
+      .toContain("2026-11: 1 spent, 0.3 held (1 carried forward)");
+  });
+  it("never shows a figure for a ledger that cannot be read, and says nothing is sent", () => {
+    const line = ledgerLine({ ledger: { ...base, available: false, problem: "there is no spending ledger at /durable/ledger.db", history: [] } });
+    expect(line).toContain("unavailable: there is no spending ledger");
+    expect(line).toContain("Nothing is sent without it");
+    expect(line).not.toContain("spent");
+    expect(ledgerLine({ ledger: { ...base, outside_deployment: false, bound_to_authorisation: false } })).toContain("a real provider needs one kept outside");
+    expect(ledgerLine({})).toBe("—");
   });
 });

@@ -81,9 +81,11 @@ class PackagingTests(unittest.TestCase):
         self.assertIn(f'version = "{__version__}"', text)
         # the inbox, the console, the industry blueprints and the architect's evaluation cases ship inside
         # the package: `architect-eval` reads the cases from an installed copy, not only from a checkout
-        self.assertIn('autology = ["static/*", "console_static/*", "blueprints/*.json", "evaluation/*.json"]', text)
+        self.assertIn('autology = ["static/*", "console_static/*", "blueprints/*.json", "evaluation/*.json", '
+                      '"evaluation_v2/*.json"]', text)
         self.assertTrue((ROOT / "autology" / "blueprints" / "water_treatment.json").exists())
-        self.assertEqual(len(list((ROOT / "autology" / "evaluation").glob("*.json"))), 5)
+        self.assertEqual(len(list((ROOT / "autology" / "evaluation").glob("*.json"))), 5)  # the acceptance protocol
+        self.assertEqual(len(list((ROOT / "autology" / "evaluation_v2").glob("*.json"))), 8)  # the proposed one
         for folder, names in (("static", ("index.html", "app.js", "app.css")),
                               ("console_static", ("index.html", "console.js", "commands.js", "console.css"))):
             for name in names:

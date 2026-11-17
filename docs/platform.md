@@ -588,6 +588,29 @@ When it refuses to compile that schema (the architect's contract is refused as t
 request once more with the schema written into the instructions. Either way the gateway checks the answer against
 the contract and refuses, whole, an answer that does not keep it: such an answer has been paid for.
 
+### What the architect keeps, and how a design session is resumed
+
+Every proposal and every revision is stored by the engine, append-only: the brief, the answers, the elements with
+their reasons, what the engine refused, the review decisions, and **who generated the revision** (the provider and
+the exact model; a test double is said to be one). `GET /api/architect/proposals` lists them with what the
+session already cost and the drafts saved from it; `GET /api/architect/proposals/{id}?revision=n` reads any
+revision again. Reading asks no model and costs nothing: a person can leave and come back.
+
+**Provenance.** Each element says what it rests on: `evidence` (canonical references: `brief`,
+`answer:<question id>`, the id of a passage that was given) and `origin` in one word: `brief`, `answers`,
+`sources`, `several`, `inference` (the architect's own reading), or `unknown` (presented as supplied, with nothing
+that was given behind it). A reference is never guessed. `source_index` gives the text behind each reference (an
+answer with the question it answered). A draft saved from a proposal records that revision
+(`"origin": {"proposal", "revision"}`, checked by the engine), and a release names the draft it was published
+from and the proposal behind it (`design`). Studio shows it as "Why was this proposed?".
+
+**Workflow consistency.** Beside validation, `POST /api/model/validate` and the draft return `consistency`:
+potential inconsistencies the engine found by reading the model (a goal nothing leads to; a case that can be
+completed while something it owns is unsettled; an action that can never start; an obligation that can never be
+met; an action always prohibited; an outside effect no rule names; a state never reached). Each says why it may
+matter and what a person could do, including "leave it: this is intended". Nothing is changed and nothing is
+blocked by a finding.
+
 ## Access log (Tier 2)
 
 Every API request, except the health check and the inbox's static files, is written to an `access_log` table: time, who (or `-` when sign-in failed), method and path, and the response status. Assistant tool calls are logged the same way. Database triggers reject any UPDATE or DELETE. As with the audit log's triggers, this guards against mistakes, not against someone with direct database access.

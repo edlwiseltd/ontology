@@ -60,7 +60,7 @@ import urllib.request
 import uuid
 from collections import OrderedDict
 from dataclasses import asdict, dataclass, field, replace
-from typing import Any, Callable, Dict, Mapping, Optional, Protocol, Tuple
+from typing import Any, Callable, Dict, List, Mapping, Optional, Protocol, Sequence, Tuple
 
 from . import outbound
 from .integrity import data_block
@@ -113,6 +113,11 @@ class ProviderError(Exception):
         self.retry_after = retry_after
         self.attempts = 0  # filled in by the gateway
         self.usage: Dict[str, int] = {}  # tokens spent on the attempts that did answer
+        # for an answer outside the contract: every violation, what kinds they are, and the answer itself, held in
+        # memory for the caller that asked (an evaluation keeps it as evidence). It is never applied and never logged
+        self.violations: List[str] = []
+        self.violation_classes: Dict[str, int] = {}
+        self.rejected_text: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -213,6 +218,54 @@ def _by_status(status: int, detail: str, retry_after: Optional[float] = None) ->
     return ProviderError("invalid_request", text)
 
 
+SENSITIVE_WORDS = ("permission", "grant", "role_assign", "admin", "release", "approve", "autonomy", "setting",
+                   "policy", "tool", "endpoint", "url", "credential", "secret", "token", "budget", "self_review")
+
+
+def violation_classes(problems: Sequence[str]) -> Dict[str, int]:
+    """What kinds of contract violations an answer has, counted. The answer is refused whichever they are; the
+    classes say *why* answers are lost, and separate a stray note on one element from an attempt to add something
+    the contract has no place for.
+
+    * ``unknown_section``: a property at the top level that the contract does not name;
+    * ``sensitive_property``: an unexpected property, anywhere, named like a permission, a grant, a release, a
+      setting, a tool, an endpoint or a credential;
+    * ``stray_property``: any other unexpected property on an element;
+    * ``missing``, ``wrong_type``, ``not_allowed_value``, ``other``."""
+    out: Dict[str, int] = {}
+    for problem in problems:
+        where, _, what = problem.partition(": ")
+        if what.startswith("unexpected "):
+            name = what[len("unexpected "):].strip("'\"").lower()
+            kind = ("sensitive_property" if any(w in name for w in SENSITIVE_WORDS)
+                    else "unknown_section" if where == "$" else "stray_property")
+        elif what.startswith("missing "):
+            kind = "missing"
+        elif what.startswith("expected "):
+            kind = "wrong_type"
+        elif " not in [" in what:
+            kind = "not_allowed_value"
+        else:
+            kind = "other"
+        out[kind] = out.get(kind, 0) + 1
+    return out
+
+
+def allowed_keys(schema: Mapping[str, Any], path: str = "") -> List[str]:
+    """The property names a schema allows, object by object, one line each ("rules[]: id, type, ..."): the closed
+    list a model is given when the provider cannot hold it to the schema. Derived from the schema, never typed."""
+    lines: List[str] = []
+    kind = schema.get("type")
+    if kind == "array" and isinstance(schema.get("items"), Mapping):
+        return allowed_keys(schema["items"], path + "[]")
+    if kind == "object" and isinstance(schema.get("properties"), Mapping):
+        lines.append(f"{path or 'the answer'}: {', '.join(schema['properties'])}")
+        for name, sub in schema["properties"].items():
+            if isinstance(sub, Mapping):
+                lines += allowed_keys(sub, f"{path}.{name}" if path else name)
+    return lines
+
+
 PROMPTED = ("\n\nAnswer with one JSON object and nothing else: no prose before or after it, no code fence. It must "
             "satisfy the JSON Schema below exactly. Use only the property names the schema lists, at every level: an "
             "answer that carries any other property anywhere (a note, a hint, a placeholder, a comment) is discarded "
@@ -286,7 +339,10 @@ class AnthropicProvider:
         return self._send(call, grammar=False)
 
     def _send(self, call: ProviderCall, grammar: bool) -> ProviderReply:
-        system = call.system if grammar else call.system + PROMPTED + json.dumps(dict(call.schema), default=str)
+        system = call.system if grammar else (
+            call.system + PROMPTED + json.dumps(dict(call.schema), default=str)
+            + "\n\nThe only property names allowed, object by object (nothing else, anywhere):\n"
+            + "\n".join(allowed_keys(call.schema)))
         # no fallback to another model: the workspace's policy and the owner's authorisation name exactly one
         request = claude_request(call.model, call.max_output_tokens, call.effort or self.effort, system,
                                  call.prompt, call.schema, fallback=False, grammar=grammar)
@@ -661,8 +717,13 @@ class ModelGateway:
             raise ProviderError("invalid_response", "the answer is not a JSON object")
         problems = schema_errors(data, dict(schema))
         if problems:
-            raise ProviderError("invalid_response", "the answer does not match the schema that was asked for: "
-                                + "; ".join(problems[:3]) + (f" (+{len(problems) - 3} more)" if len(problems) > 3 else ""))
+            classes = violation_classes(problems)
+            error = ProviderError(
+                "invalid_response", "the answer does not match the schema that was asked for: "
+                + "; ".join(problems[:3]) + (f" (+{len(problems) - 3} more)" if len(problems) > 3 else "")
+                + " [" + ", ".join(f"{n} {k}" for k, n in sorted(classes.items())) + "]")
+            error.violations, error.violation_classes, error.rejected_text = problems[:50], classes, reply.text
+            raise error
         return data
 
     # -- accounting and logging -------------------------------------------------------------------------

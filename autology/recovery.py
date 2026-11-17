@@ -100,6 +100,21 @@ def data_dir_of(config_path: str) -> Path:
     return (p.parent / spec.get("data_dir", "data")).resolve()
 
 
+LEDGER = "ai_ledger.db"
+
+
+def ledger_of(config_path: str) -> Optional[Path]:
+    """The spending ledger a ``platform.json`` keeps outside its data directory (``"ai_ledger"``), or None when
+    the ledger lives with the data."""
+    p = Path(config_path).resolve()
+    try:
+        spec = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise RecoveryError(f"cannot read the platform configuration {p}: {exc}") from None
+    named = spec.get("ai_ledger") if isinstance(spec, dict) else None
+    return (p.parent / named).resolve() if isinstance(named, str) and named.strip() else None
+
+
 def inventory(data_dir: Path, include_secrets: bool = False) -> Tuple[List[Dict[str, str]], List[str]]:
     """What to copy, in order, and what is left out. Each item: ``path`` (relative), ``kind``, ``workspace``,
     ``use_case``."""
@@ -301,9 +316,11 @@ def _private(folder: Path) -> None:
 
 
 def backup(data_dir: Path, target: Path, key: Optional[bytes] = None, include_secrets: bool = False,
-           on_file: Optional[Callable[[str], None]] = None) -> Dict[str, Any]:
+           on_file: Optional[Callable[[str], None]] = None, ledger: Optional[Path] = None) -> Dict[str, Any]:
     """Write a verified backup of ``data_dir`` to the new folder ``target``; the platform may be running.
-    ``on_file`` is called before each file is copied (tests use it to change data, or to fail, mid-backup)."""
+    ``on_file`` is called before each file is copied (tests use it to change data, or to fail, mid-backup).
+    ``ledger``: the spending ledger when the platform keeps it outside its data directory; it is part of the
+    backup, and a platform whose ledger is missing is not backed up as if it had none."""
     started = time.monotonic()
     data_dir, target = Path(data_dir).resolve(), Path(target).resolve()
     if target.exists() and (not target.is_dir() or any(target.iterdir())):
@@ -314,6 +331,13 @@ def backup(data_dir: Path, target: Path, key: Optional[bytes] = None, include_se
     items, skipped = inventory(data_dir, include_secrets)
     if not any(i["kind"] in ("store", "registry") for i in items):
         raise RecoveryError(f"{data_dir} does not look like a platform data directory (no store, no registry)")
+    if ledger is not None:
+        ledger = Path(ledger).resolve()
+        if not ledger.is_file() or ledger.stat().st_size == 0:
+            raise RecoveryError(f"the spending ledger {ledger} is missing: no backup was written without it")
+        items = [i for i in items if i["path"] != LEDGER]
+        at = next((n for n, i in enumerate(items) if i["kind"] == "access_log"), len(items))
+        items.insert(at, {"path": LEDGER, "kind": "registry", "workspace": "", "use_case": ""})
     partial = target.parent / f".{target.name}.partial-{os.getpid()}"
     if partial.exists():
         shutil.rmtree(partial)
@@ -323,6 +347,8 @@ def backup(data_dir: Path, target: Path, key: Optional[bytes] = None, include_se
             if on_file:
                 on_file(item["path"])
             source, dest = data_dir / item["path"], partial / item["path"]
+            if ledger is not None and item["path"] == LEDGER:
+                source = ledger
             dest.parent.mkdir(parents=True, exist_ok=True)
             if item["path"].endswith(".db"):
                 _copy_database(source, dest)
@@ -415,10 +441,36 @@ def _copy_files(source: Path, target: Path, manifest: Dict[str, Any],
         shutil.copyfile(source / entry["path"], dest)
 
 
+def _settle_ledger(restored: Path, ledger: Path) -> Tuple[str, bool]:
+    """What happens to a spending ledger kept outside the data directory when a backup is restored: ``(what was
+    decided, whether the backup's copy must be put in place)``. Spending history never goes backwards: a ledger in
+    place that holds everything the backup's holds is kept; any other ledger in place stops the restore."""
+    from .ai_policy import LedgerError, SpendLedger
+
+    if not ledger.is_file() or ledger.stat().st_size == 0:
+        return ("put in place from the backup: spending recorded after the backup was taken is not in it, and an "
+                "authorisation written against a later state of the ledger will serve nothing until it is rebound"), True
+    try:
+        mine, theirs = SpendLedger(ledger, create=False), SpendLedger(restored, create=False)
+    except LedgerError as exc:
+        raise RecoveryError(f"the spending ledger could not be compared, nothing was put in place: {exc}") from None
+    try:
+        problems = mine.verify(theirs.checkpoint())
+    finally:
+        mine.close()
+        theirs.close()
+    if problems:
+        raise RecoveryError(f"the spending ledger in place ({ledger}) is not the one in the backup, or holds less: "
+                            f"{'; '.join(problems)}. Nothing was put in place: a restore never replaces a ledger. "
+                            "Move it aside deliberately if the backup's ledger is the one to keep")
+    return "kept: the ledger in place holds everything the backup's ledger holds", False
+
+
 def restore(folder: Path, target: Path, key: Optional[bytes] = None,
-            on_file: Optional[Callable[[str], None]] = None) -> Dict[str, Any]:
+            on_file: Optional[Callable[[str], None]] = None, ledger: Optional[Path] = None) -> Dict[str, Any]:
     """Restore a backup into the new data directory ``target``. The backup is only read; the target appears only
-    if everything verified; an existing, non-empty target is never touched."""
+    if everything verified; an existing, non-empty target is never touched. ``ledger``: where the platform keeps
+    its spending ledger outside the data directory; a ledger in place is never replaced or taken back in time."""
     started = time.monotonic()
     folder, target = Path(folder).resolve(), Path(target).resolve()
     if target.exists() and (not target.is_dir() or any(target.iterdir())):
@@ -440,6 +492,18 @@ def restore(folder: Path, target: Path, key: Optional[bytes] = None,
         if counts != manifest.get("counts"):
             raise RecoveryError(f"the restored copy does not match the backup's record ({counts} instead of "
                                 f"{manifest.get('counts')}), nothing was put in place")
+        ledger_note = ""
+        if ledger is not None and (partial / LEDGER).is_file():
+            ledger = Path(ledger).resolve()
+            _single_file(partial / LEDGER)
+            ledger_note, place = _settle_ledger(partial / LEDGER, ledger)
+            _single_file(partial / LEDGER)
+            if place:
+                ledger.parent.mkdir(parents=True, exist_ok=True)
+                staged = ledger.parent / f".{ledger.name}.restoring-{os.getpid()}"
+                shutil.copyfile(partial / LEDGER, staged)
+                os.replace(staged, ledger)  # only ever onto a missing or empty file (checked above)
+            (partial / LEDGER).unlink()  # one ledger, in one place: never a second copy inside the data directory
         _private(partial)
         if target.exists():
             target.rmdir()
@@ -448,5 +512,6 @@ def restore(folder: Path, target: Path, key: Optional[bytes] = None,
         shutil.rmtree(partial, ignore_errors=True)
         raise
     return {"path": str(target), "from": str(folder), "created_at": manifest["created_at"],
+            **({"ledger": ledger_note} if ledger_note else {}),
             "files": len(manifest["files"]), "counts": counts, "not_included": manifest.get("not_included", []),
             "needs": manifest.get("needs", []), "seconds": round(time.monotonic() - started, 3)}

@@ -150,6 +150,67 @@
         ],
         "type": "object"
       },
+      "ConsistencyFinding": {
+        "additionalProperties": true,
+        "properties": {
+          "a_person_could": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "action": {
+            "type": "string"
+          },
+          "entity": {
+            "type": "string"
+          },
+          "finding": {
+            "type": "string"
+          },
+          "goal": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "goal_unreachable",
+              "open_exception",
+              "action_cannot_start",
+              "obligation_cannot_be_met",
+              "always_prohibited",
+              "outside_effect_ungoverned",
+              "state_never_reached"
+            ],
+            "type": "string"
+          },
+          "rule": {
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "type": "string"
+          },
+          "why": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "severity",
+          "finding",
+          "why",
+          "a_person_could"
+        ],
+        "type": "object"
+      },
       "Draft": {
         "additionalProperties": true,
         "properties": {
@@ -184,12 +245,41 @@
               "null"
             ]
           },
+          "consistency": {
+            "items": {
+              "$ref": "#/components/schemas/ConsistencyFinding"
+            },
+            "type": "array"
+          },
           "document": {
             "additionalProperties": true,
             "type": "object"
           },
           "note": {
             "type": "string"
+          },
+          "origin": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "additionalProperties": true,
+                "properties": {
+                  "proposal": {
+                    "type": "string"
+                  },
+                  "revision": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "proposal",
+                  "revision"
+                ],
+                "type": "object"
+              }
+            ]
           },
           "questions": {
             "items": {
@@ -226,6 +316,22 @@
           },
           "note": {
             "type": "string"
+          },
+          "origin": {
+            "additionalProperties": true,
+            "properties": {
+              "proposal": {
+                "type": "string"
+              },
+              "revision": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "proposal",
+              "revision"
+            ],
+            "type": "object"
           }
         },
         "required": [
@@ -1031,6 +1137,33 @@
             },
             "type": "array"
           },
+          "drafts": {
+            "items": {
+              "additionalProperties": true,
+              "properties": {
+                "at": {
+                  "type": "string"
+                },
+                "draft_revision": {
+                  "type": "integer"
+                },
+                "proposal_revision": {
+                  "type": "integer"
+                },
+                "saved_by": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "draft_revision",
+                "proposal_revision",
+                "saved_by",
+                "at"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
           "feedback": {
             "type": "string"
           },
@@ -1121,6 +1254,33 @@
           },
           "revision": {
             "type": "integer"
+          },
+          "source_index": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "brief",
+                    "answer",
+                    "source"
+                  ],
+                  "type": "string"
+                },
+                "question": {
+                  "type": "string"
+                },
+                "text": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "text"
+              ],
+              "type": "object"
+            },
+            "type": "object"
           },
           "suggestions": {
             "additionalProperties": true,
@@ -1318,6 +1478,30 @@
           "confidence": {
             "type": "number"
           },
+          "evidence": {
+            "items": {
+              "additionalProperties": true,
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "brief",
+                    "answer",
+                    "source"
+                  ],
+                  "type": "string"
+                },
+                "ref": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "ref",
+                "kind"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
           "id": {
             "type": "string"
           },
@@ -1337,6 +1521,17 @@
               "string",
               "null"
             ]
+          },
+          "origin": {
+            "enum": [
+              "brief",
+              "answers",
+              "sources",
+              "several",
+              "inference",
+              "unknown"
+            ],
+            "type": "string"
           },
           "provenance": {
             "additionalProperties": true,
@@ -1506,14 +1701,32 @@
                 "brief": {
                   "type": "string"
                 },
+                "cost_usd": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
                 "created_by": {
                   "type": "string"
                 },
                 "decisions": {
                   "type": "integer"
                 },
-                "generator": {
+                "drafts": {
+                  "items": {
+                    "type": "integer"
+                  },
+                  "type": "array"
+                },
+                "feedback": {
                   "type": "string"
+                },
+                "generator": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 },
                 "id": {
                   "type": "string"
@@ -1521,11 +1734,20 @@
                 "items": {
                   "type": "integer"
                 },
+                "model": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
                 "open_questions": {
                   "type": "integer"
                 },
                 "provider": {
-                  "type": "string"
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 },
                 "rejected": {
                   "type": "integer"
@@ -1535,6 +1757,9 @@
                 },
                 "revisions": {
                   "type": "integer"
+                },
+                "spent_usd": {
+                  "type": "number"
                 }
               },
               "required": [
@@ -1613,6 +1838,9 @@
       "ProposalRevision": {
         "additionalProperties": true,
         "properties": {
+          "ai": {
+            "type": "boolean"
+          },
           "answers": {
             "items": {
               "additionalProperties": true,
@@ -1623,14 +1851,41 @@
           "at": {
             "type": "string"
           },
+          "cost_usd": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
           "created_by": {
             "type": "string"
+          },
+          "feedback": {
+            "type": "string"
+          },
+          "generator": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "items": {
             "type": "integer"
           },
+          "model": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "open_questions": {
             "type": "integer"
+          },
+          "provider": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "rejected": {
             "type": "integer"
@@ -2531,6 +2786,12 @@
       "ValidationResult": {
         "additionalProperties": true,
         "properties": {
+          "consistency": {
+            "items": {
+              "$ref": "#/components/schemas/ConsistencyFinding"
+            },
+            "type": "array"
+          },
           "questions": {
             "items": {
               "$ref": "#/components/schemas/Question"

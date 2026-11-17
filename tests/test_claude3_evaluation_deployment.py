@@ -46,11 +46,20 @@ ARGS = ["--model", MODEL, "--monthly-usd", "25", "--per-request-usd", "1", "--ex
         "--decision", "test: an owner decision would be named here"]
 
 
+LEDGERS: dict = {}  # each deployment's spending ledger: outside the deployment, as the setup requires
+
+
+def ledger_of(out):
+    return LEDGERS.setdefault(str(out), Path(tempfile.mkdtemp()) / "ai_ledger.db")
+
+
 def setup(out, *extra):
     text = io.StringIO()
+    ledger = ledger_of(out)
+    first = [] if ledger.exists() else ["--new-ledger", "--opening-spent-usd", "0", "--opening-reference", "test"]
     with redirect_stdout(text), redirect_stderr(text):
         try:
-            code = evaluation_setup.main(["--out", str(out), *ARGS, *extra])
+            code = evaluation_setup.main(["--out", str(out), "--ledger", str(ledger), *first, *ARGS, *extra])
         except SystemExit as exc:
             code = exc.code
     return code, text.getvalue()
@@ -87,9 +96,14 @@ class DeploymentTests(unittest.TestCase):
         self.assertNotIn(KEY, written + said)  # the key was in the environment the whole time; it went nowhere
         self.assertIn("EVALUATION_AI_KEY (set here)", said)
         spec = json.loads((self.out / "platform.json").read_text())
+        binding = spec["ai_authorisations"][0].pop("ledger")
         self.assertEqual(spec["ai_authorisations"], [{
             "workspace": "evaluation", "provider": "anthropic", "model": MODEL, "data_classes": ["synthetic"],
             "max_budget_usd_per_month": 25.0, "expires": "2099-12-31", "decision": "test: an owner decision would be named here"}])
+        # the ceiling is counted in a ledger kept outside the deployment, which the authorisation names
+        self.assertEqual(spec["ai_ledger"], str(ledger_of(self.out).resolve()))
+        self.assertEqual((binding["entries"], binding["settled_usd"]), (0, 0.0))
+        self.assertFalse(any(p.name == "ai_ledger.db" for p in self.out.rglob("*")))
         setting = json.loads((self.out / "usecase" / "server.json").read_text())["ai"]
         policy = json.loads((self.out / "policy.json").read_text())["policy"]
         self.assertEqual(policy["credential"], {"ref": "env:EVALUATION_AI_KEY"})

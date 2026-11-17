@@ -110,8 +110,10 @@ export const api = {
   ontology: (path: string) => request<OntologySummary>("GET", `${path}/api/v1/ontology`),
   // model design: drafts never change what runs; the engine validates and decides
   draft: (path: string) => request<Draft>("GET", `${path}/api/v1/model/draft`),
-  saveDraft: (path: string, document: ModelDocument, expected_revision: number, note: string) =>
-    request<Draft>("POST", `${path}/api/v1/model/draft`, { document, expected_revision, note }),
+  // origin: the stored proposal revision the model was saved from; the engine checks it and records it with the draft
+  saveDraft: (path: string, document: ModelDocument, expected_revision: number, note: string,
+              origin?: { proposal: string; revision: number }) =>
+    request<Draft>("POST", `${path}/api/v1/model/draft`, { document, expected_revision, note, ...(origin ? { origin } : {}) }),
   validate: (path: string, document: ModelDocument) =>
     request<ValidationResult>("POST", `${path}/api/v1/model/validate`, { document }),
   // releases (REL-1a, STU-6): the platform decides who may propose, approve and activate
@@ -161,6 +163,9 @@ export const runs = {
   me: (path: string) => request<EngineMe>("GET", `${path}/api/v1/me`),
   objects: (path: string, type: string) =>
     request<{ items: ObjectRow[] }>("GET", `${path}/api/v1/objects?type=${enc(type)}&limit=100`),
+  // create or change one record: the engine checks the permission, the write rules and the revision that was read
+  upsert: (path: string, body: { type: string; id: string; attributes: Record<string, unknown>; expected_revision: number;
+                                 justification?: string }) => request<ObjectRow>("POST", `${path}/api/v1/objects`, body),
   list: (path: string) => request<{ items: RunRow[] }>("GET", `${path}/api/v1/runs?limit=50`),
   get: (path: string, id: string) => request<RunView>("GET", `${path}/api/v1/runs/${enc(id)}`),
   start: (path: string, body: { case_template: string; root: string; agent?: string; goal?: string }) =>
@@ -180,6 +185,9 @@ export interface SimulatedDecision { action: string; approved: boolean; as?: str
 // engine validates every proposed item, stores each revision, and decides what a simulation may do.
 export const architect = {
   list: (path: string) => request<ProposalList>("GET", `${path}/api/v1/architect/proposals`),
+  // a stored proposal, read again: the latest revision or a named one. Nothing is asked of any model
+  get: (path: string, id: string, revision?: number) =>
+    request<Proposal>("GET", `${path}/api/v1/architect/proposals/${enc(id)}${revision ? `?revision=${revision}` : ""}`),
   propose: (path: string, brief: string, document: ModelDocument) =>
     request<Proposal>("POST", `${path}/api/v1/architect/proposals`, { generator: "model", brief, document }),
   // answers to its questions and, optionally, what the person wants changed, in words (data for the architect)

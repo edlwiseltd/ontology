@@ -1024,7 +1024,7 @@ proposals, runs, signed audit trail and ledger: [evidence](evidence/claude-eval-
 ### Spending (durable ledger of the workspace)
 
 27 ledger entries: 22 settled as answered, 2 settled as answers outside the contract, 3 released (the refused
-canary attempts). **4.418874 USD spent, 5.581126 USD left of 10.** 33 requests reached the provider: 24 answered
+canary attempts). **4.418875 USD spent, 5.581125 USD left of 10** (first written here as 4.418874 and 5.581126: two rounded subtotals added by hand; corrected when the saved ledger was reconciled, see the next entry)**.** 33 requests reached the provider: 24 answered
 and billed, 9 refused before processing at no charge (3 canary attempts, 6 grammar checks, one per process start).
 No retry, no timeout, no reservation left open. To compare with the provider's invoice (owner).
 
@@ -1085,3 +1085,78 @@ the provider; no credential was added to CI.
 | `df28368` | [run 106](https://github.com/edlwiseltd/ontology/actions/runs/43973781621) | Success (the starting point) |
 | `a2b5cb7` | [run 107](https://github.com/edlwiseltd/ontology/actions/runs/44053036847) | **Success**, all five jobs: Python 3.10 and 3.13 with PostgreSQL (the whole suite, 964 tests, no test may be skipped there; coverage gate 95 % passed), `package`, `studio` (unit tests and browser checks), `quality` (ruff, mypy ratchet, dependency audit) |
 | `253544d` | [run 108](https://github.com/edlwiseltd/ontology/actions/runs/44053206605) | **Success**, all five jobs (the saved ledger and its documentation) |
+
+## 17 November 2026 — AI Architect reliability and evaluation stabilisation (no provider contacted)
+
+Directive: "AI Architect Reliability, Proposal Lifecycle & Evaluation Stabilization". Full account:
+[report](AUTOLOGY_AI_ARCHITECT_RELIABILITY_REPORT.md). Start `5585346` (verified: branch, clean tree, equal to the
+remote; CI runs 107 and 108 green on the two commits before it). **No request was sent to a provider and nothing
+was spent**: the third evaluation needs the owner's approval, which was not given.
+
+### A — the spending ledger outlives a deployment (P0, GAP-085)
+
+Before: the ledger lived in the deployment's data directory; a deployment written again counted from zero.
+Now: `"ai_ledger"` names a file outside the deployment; the owner's authorisation records the ledger's identity,
+entry count, fingerprint and settled amount; the platform never creates such a ledger and serves nothing when it
+is missing, empty, damaged, foreign, older or different; a new ledger needs `--new-ledger` and a stated opening
+balance; entries are never deleted, closed entries never change; a call a process died in becomes `uncertain`;
+backup carries the ledger and restore never takes it back in time; `python -m autology ai-ledger status|create|restore`.
+
+**Reconciliation.** The ledger of 17 November was put back from the deployment's own file and, separately, from
+the evidence copy: same identity (`adopted-32ec21e0feedb3cf79b65e96`), 27 entries, 24 settled, 3 released,
+4.418875 USD; every entry equals the evidence export; the evidence file is unchanged by being read. The deployment
+was written again on it and reports `authorised`, 4.418875 spent, 5.581125 left. The provider's invoice was not
+available to compare.
+
+**Two corrections.** (1) The new check first refused the real ledger: the entries hold 4.4188746, the checkpoint
+states 4.418875; the comparison now rounds as the checkpoint does (regression test). (2) The report of the first
+real run gave 4.418874 and 5.581126: two rounded subtotals added by hand. The ledger and the platform's view of
+that day say 4.418875 and 5.581125; the documents were corrected, saying so.
+
+### B — answers outside the contract (GAP-082): diagnosed, not decided
+
+The rule is unchanged. Added: `ai.violation_classes`, the closed list of allowed keys in the instructions
+(`ai.allowed_keys`), the reservation covering it, refused answers kept by `architect-eval --save`, the classes in
+the API error. [Decision record](AUTOLOGY_STRUCTURED_OUTPUT_DECISION_RECORD.md): four options. Effect on the loss
+rate not measured (needs paid calls).
+
+### C, D — a design session is resumed; an element says what it rests on (GAP-080, GAP-081)
+
+Engine: store schema 19 (`model_drafts.origin`, with its migration); each revision names its generator, provider
+and model; `source_index`; canonical references (`canonical`, `origin_of`); `release_design` links a release to
+its published draft and proposal. Studio: design sessions listed and reopened, revision comparison, "Why was this
+proposed?", origin carried into the draft. The engine class did not grow (its size limit held: the origin check
+lives in the architect service).
+
+### E, G — evaluation protocol version 2, proposed
+
+`architect_eval_v2.py`, eight held-out cases (four adversarial channels), behaviour-based injection measure,
+reliability as a measure, expert review form. Version 1 untouched and pinned. Replay of the 17 saved answers
+without any call: 0 executed, 1 incorporated, 1 for a person to read, 15 reported. Reference answers 17 of 17;
+template double 8 of 17; no model run.
+
+### F — simulation data and workflow validation
+
+`consistency.py` (findings beside validation; on the evidence it finds the weakness the stored run exposed, and
+not in release 3); Studio record editor through the engine's record API; multi-agent
+[design note](AUTOLOGY_MULTI_AGENT_COORDINATION_DESIGN.md) only.
+
+### Found while verifying, and fixed
+
+GAP-086 (internal error on a malformed model document), GAP-087 (Studio's graph invisible after an unrelated
+refresh; reproduced 1 in 3, then 8 of 8 visible), GAP-088 (the test suite left 27 GB of temporary folders).
+
+### Verification
+
+| Run | Result |
+|---|---|
+| Full Python suite, snapshot before increment F and the last additions (run C) | **1009 OK** (2 PostgreSQL tests skipped locally), **95.89 %** lines (16,971 statements, 697 missed) |
+| After it | `consistency.py`, the record editor, GAP-086, GAP-088 and 5 tests were added (1,014 in all). Every suite touched since was re-run and passes. The full run on the final tree is recorded in the next entry of this log |
+| ruff; mypy ratchet | clean; 198 (= baseline, not raised) |
+| Studio | typecheck clean, **58 unit tests**, build, **135/135 browser checks** |
+| Secrets | The provider key, the four identity tokens and the audit key searched for, by value, in every file committed: none found |
+| Provider | No request sent; nothing spent |
+
+### CI
+
+Recorded in the next entry of this log.

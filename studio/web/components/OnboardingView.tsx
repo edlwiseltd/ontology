@@ -14,8 +14,10 @@ import { ontologyToGraph } from "@/lib/graph";
 import { documentToSummary } from "@/lib/model";
 import { accessLines, basisLabel, countByKind, generatorLabel, itemLabel, preview, providerLabel, refusalText,
          SAMPLE_BRIEF, standing, withProvenance, workflow } from "@/lib/onboarding";
-import type { ArchitectStatus, Draft, DraftSimulation, ModelDocument, Proposal, Readiness, ReleaseState, UseCase,
-              Validation } from "@/lib/types";
+import { compareRevisions, decided, generatedBy, originLabel, outcomes, revisionLine, sessionLine, whyLines,
+         type RevisionDiff } from "@/lib/proposals";
+import type { ArchitectStatus, Draft, DraftSimulation, ModelDocument, Proposal, ProposalList, Readiness, ReleaseState,
+              UseCase, Validation } from "@/lib/types";
 import AgentsView from "./AgentsView";
 import ReleasesView from "./ReleasesView";
 import RunsView from "./RunsView";
@@ -37,6 +39,8 @@ export default function OnboardingView({ workspace, useCase, admin, member, onCh
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [chosen, setChosen] = useState<Set<string>>(new Set());
   const [validation, setValidation] = useState<Validation | null>(null);
+  // potential inconsistencies of the workflow, found by the engine reading the model: for the person to decide
+  const [consistency, setConsistency] = useState<NonNullable<Draft["consistency"]>>([]);
   const [saved, setSaved] = useState<string>("");
   const [decisions, setDecisions] = useState<SimulatedDecision[]>([]);
   const [simulation, setSimulation] = useState<DraftSimulation | null>(null);
@@ -47,6 +51,11 @@ export default function OnboardingView({ workspace, useCase, admin, member, onCh
   const [drill, setDrill] = useState("");
   const [releases, setReleases] = useState<ReleaseState | null>(null);
   const [stored, setStored] = useState<string | undefined>(undefined);
+  // design sessions: every stored proposal of this use case, the revision being compared with, the element whose
+  // reasons are open. All of it is read from the engine; reopening asks no model and costs nothing
+  const [sessions, setSessions] = useState<ProposalList["items"]>([]);
+  const [diff, setDiff] = useState<{ against: number; result: RevisionDiff } | null>(null);
+  const [why, setWhy] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -60,7 +69,7 @@ export default function OnboardingView({ workspace, useCase, admin, member, onCh
   useEffect(() => {
     void run(async () => {
       const [listed, d] = await Promise.all([architect.list(path), api.draft(path)]);
-      setStatus(listed.architect); setDraft(d); setStored(listed.items[0]?.id);
+      setStatus(listed.architect); setDraft(d); setStored(listed.items[0]?.id); setSessions(listed.items);
     });
   }, [path, run]);
 
@@ -71,22 +80,51 @@ export default function OnboardingView({ workspace, useCase, admin, member, onCh
   const flow = useMemo(() => workflow(previewed), [previewed]);
   const access = useMemo(() => accessLines(previewed), [previewed]);
   const graph = useMemo(() => ontologyToGraph(documentToSummary(previewed)), [previewed]);
-  const nodes: Node[] = graph.nodes.map((n) => ({
+  // the same node and edge objects as long as the model shown is the same: the graph library measures each node
+  // once and hides a node it has not measured, so a render that changes nothing of the model (a list refreshed, a
+  // panel opened) must not hand it new objects
+  const nodes: Node[] = useMemo(() => graph.nodes.map((n) => ({
     id: n.id, position: n.position, draggable: false, className: marks[n.id] === "proposed" ? "proposed" : "confirmed",
     data: { label: `${n.id} · ${marks[n.id] === "proposed" ? "proposed" : "confirmed"}` },
     ariaLabel: `Entity ${n.id}, ${marks[n.id]}`,
-  }));
-  const names = new Set(Object.keys(previewed.entities ?? {}));
-  const edges: Edge[] = (previewed.relationships ?? []).map((r: any, i: number) => ({ r, i }))
-    .filter(({ r }: any) => names.has(r.from) && names.has(r.to))
-    .map(({ r, i }: any) => ({ id: `r${i}`, source: r.from, target: r.to, label: r.type, labelStyle: { fontSize: 11 } }));
+  })), [graph, marks]);
+  const edges: Edge[] = useMemo(() => {
+    const names = new Set(Object.keys(previewed.entities ?? {}));
+    return (previewed.relationships ?? []).map((r: any, i: number) => ({ r, i }))
+      .filter(({ r }: any) => names.has(r.from) && names.has(r.to))
+      .map(({ r, i }: any) => ({ id: `r${i}`, source: r.from, target: r.to, label: r.type, labelStyle: { fontSize: 11 } }));
+  }, [previewed]);
 
   function received(p: Proposal) {
     setProposal(p); setChosen(new Set(p.items.map((i) => i.id)));
-    setValidation(null); setSaved(""); setSimulation(null); setDecisions([]);
+    setValidation(null); setSaved(""); setSimulation(null); setDecisions([]); setDiff(null); setWhy("");
   }
 
-  const propose = () => run(async () => { received(await architect.propose(path, brief, confirmed)); setStep(1); });
+  // a stored proposal, read again: the brief, the answers already given, the elements and what was decided about
+  // them. The session continues where it was left; nothing is generated and nothing is paid
+  const reopen = (id: string, revision?: number) => run(async () => {
+    const [p, rel] = await Promise.all([architect.get(path, id, revision),
+                                        api.releases(workspace, useCase.id).catch(() => null)]);
+    received(p);
+    if (rel) setReleases(rel);
+    setBrief(p.brief ?? brief);
+    setAnswers(Object.fromEntries((p.answers ?? []).map((a) => [a.id, a.answer])));
+    const { rejected } = decided(p);
+    setChosen(new Set(p.items.filter((i) => !rejected.has(i.id) && !inDraft(i)).map((i) => i.id)));
+    setStored(p.id);
+    setStep((p.questions?.length ?? 0) > 0 ? 1 : 2);
+  });
+
+  const compareWith = (revision: number) => run(async () => {
+    if (!proposal?.id) return;
+    const other = await architect.get(path, proposal.id, revision);
+    const [from, to] = revision < (proposal.revision ?? 0) ? [other, proposal] : [proposal, other];
+    setDiff({ against: revision, result: compareRevisions(from, to) });
+  });
+
+  const refreshSessions = async () => { setSessions((await architect.list(path)).items); };
+  const propose = () => run(async () => {
+    received(await architect.propose(path, brief, confirmed)); setStep(1); await refreshSessions(); });
 
   const revise = () => run(async () => {
     if (!proposal?.id) return;
@@ -94,23 +132,29 @@ export default function OnboardingView({ workspace, useCase, admin, member, onCh
     received(await architect.revise(path, proposal.id, given, confirmed, feedback));
     setFeedback("");
     setStep(2);
+    await refreshSessions();
   });
 
   const validate = () => run(async () => {
-    setValidation((await api.validate(path, previewed)).validation);
+    const checked = await api.validate(path, previewed);
+    setValidation(checked.validation); setConsistency(checked.consistency ?? []);
     setStep(3);
   });
 
   const save = () => run(async () => {
     if (!proposal?.id || !draft) return;
-    const document = withProvenance(previewed, proposal as Required<Pick<Proposal, "id" | "revision" | "generator" | "ai">>, selected);
+    const document = withProvenance(previewed, proposal as Required<Pick<Proposal, "id" | "revision" | "generator" | "ai">>,
+                                    selected, member);
+    // the engine checks that this revision exists and records it with the draft: a release can be traced back
     const d = await api.saveDraft(path, document, draft.revision,
-                                  `accepted ${selected.length} item(s) of proposal ${proposal.id} revision ${proposal.revision}`);
+                                  `accepted ${selected.length} item(s) of proposal ${proposal.id} revision ${proposal.revision}`,
+                                  { proposal: proposal.id, revision: proposal.revision ?? 1 });
     const rejected = proposal.items.filter((i) => !chosen.has(i.id)).map((i) => i.id);
     await architect.decide(path, proposal.id, proposal.revision ?? 1, selected.map((i) => i.id), rejected, "reviewed in Studio");
-    setDraft(d); setValidation(d.validation);
+    setDraft(d); setValidation(d.validation); setConsistency(d.consistency ?? []);
     setSaved(`Draft revision ${d.revision} saved. It is not active: the engine still runs ${d.active.ref}.`);
     setProposal({ ...proposal, items: [] }); setChosen(new Set());
+    await refreshSessions();
   });
 
   const simulate = (next: SimulatedDecision[]) => run(async () => {
@@ -127,11 +171,67 @@ export default function OnboardingView({ workspace, useCase, admin, member, onCh
   }, [step, run, workspace, useCase.id, path]);
   const waiting = (releases?.items ?? []).filter((r) => r.status === "proposed" || r.status === "approved").slice(-1)[0];
 
+  // an element of a reopened proposal that the draft already holds under the same name: shown, not selected again
+  const inDraft = (i: Proposal["items"][number]) => {
+    const d: any = draft?.document ?? {};
+    if (i.kind === "entity") return Boolean(d.entities?.[i.name ?? ""]);
+    if (i.kind === "action") return Boolean(d.actions?.[i.name ?? ""]);
+    if (i.kind === "goal") return Boolean(d.goals?.[i.name ?? ""]);
+    if (i.kind === "case_template") return Boolean(d.case_templates?.[i.name ?? ""]);
+    if (i.kind === "rule") return (d.rules ?? []).some((r: any) => r.id === i.value?.id);
+    return (d.relationships ?? []).some((r: any) => r.from === i.value?.from && r.to === i.value?.to && r.type === i.value?.type);
+  };
+  const led = proposal ? outcomes(proposal, (releases?.items ?? []) as any) : [];
   const counts = countByKind(proposal?.items ?? []);
   const provider = providerLabel(status);
   const understanding = proposal?.understanding ?? null;
   const contradictions = proposal?.contradictions ?? [];
   const hasModel = Object.keys(confirmed.entities ?? {}).length > 0;
+
+  // the session a proposal belongs to: every revision with who generated it, a comparison of two of them, and where
+  // the proposal led (draft, release). Shown on the questions and on the review steps
+  function sessionPanel() {
+    if (!proposal?.id) return null;
+    const history = proposal.history ?? [];
+    return (
+      <div className="card" data-testid="session-panel">
+        <h4>This design session</h4>
+        <p className="small" data-testid="session-reading">Reading revision {proposal.revision} of {proposal.latest_revision ?? proposal.revision},
+          generated by {generatedBy(proposal)}.
+          {(proposal.latest_revision ?? 0) > (proposal.revision ?? 0) && " A revision request continues from the latest revision."}</p>
+        <ul className="small" data-testid="revision-list">
+          {history.map((h) => (
+            <li key={h.revision} aria-current={h.revision === proposal.revision ? "true" : undefined}>
+              {revisionLine(h)}{" "}
+              {h.revision !== proposal.revision && (
+                <>
+                  <button type="button" className="link" disabled={busy} onClick={() => reopen(proposal.id!, h.revision)}>open</button>{" · "}
+                  <button type="button" className="link" disabled={busy} onClick={() => compareWith(h.revision)}
+                          data-testid="compare-button">compare with this one</button>
+                </>)}
+            </li>))}
+        </ul>
+        {diff && (
+          <div data-testid="revision-diff" className="small">
+            <strong>Revision {Math.min(diff.against, proposal.revision ?? 0)} → revision {Math.max(diff.against, proposal.revision ?? 0)}</strong>
+            {!diff.result.sameModel && <div className="warn-text">The two revisions were not generated by the same model.</div>}
+            <div>Added ({diff.result.added.length}): {diff.result.added.join("; ") || "nothing"}</div>
+            <div>Removed ({diff.result.removed.length}): {diff.result.removed.join("; ") || "nothing"}</div>
+            <div>Changed ({diff.result.changed.length}): {diff.result.changed.map((c) => `${c.label} (${c.what.join(", ")})`).join("; ") || "nothing"}</div>
+            <div className="muted">{diff.result.unchanged} element(s) unchanged
+              {diff.result.answers.length > 0 && ` · answers given in between: ${diff.result.answers.join("; ")}`}
+              {diff.result.questionsClosed.length > 0 && ` · questions answered: ${diff.result.questionsClosed.join(", ")}`}
+              {diff.result.questionsOpened.length > 0 && ` · new questions: ${diff.result.questionsOpened.join(", ")}`}</div>
+          </div>)}
+        <p className="small" data-testid="session-outcomes">{led.length
+          ? <>Where it led: {led.join(" · ")}</>
+          : "Not saved as a draft yet."}</p>
+        {(proposal.decisions?.length ?? 0) > 0 && (
+          <p className="muted small" data-testid="session-decisions">Review decisions kept: {proposal.decisions!.map((d) =>
+            `revision ${d.revision}: ${d.accepted.length} accepted, ${d.rejected.length} rejected by ${d.decided_by}`).join(" · ")}</p>)}
+      </div>
+    );
+  }
 
   return (
     <div className="onboarding" data-testid="onboarding">
@@ -160,6 +260,24 @@ export default function OnboardingView({ workspace, useCase, admin, member, onCh
             <button type="button" className="primary" disabled={busy || !admin || !status?.configured || !brief.trim()}
                     onClick={propose}>Propose a solution</button>
             {!admin && <span className="muted small">Only someone who may configure this use case can ask for a proposal.</span>}
+          </div>
+          <div className="card" data-testid="design-sessions">
+            <h4>Design sessions kept for this use case</h4>
+            {sessions.length === 0 ? <p className="muted small">None yet. Every proposal and every revision is kept by the engine:
+              you can leave and come back without asking again.</p> : (
+              <ul className="small sessions">
+                {sessions.map((s) => (
+                  <li key={s.id} data-testid="design-session">
+                    <button type="button" className="link" disabled={busy} onClick={() => reopen(s.id)}
+                            aria-label={`Reopen proposal ${s.id}`}>{s.id}</button>{" "}
+                    <span className="muted">{s.at.slice(0, 16).replace("T", " ")} · {s.created_by}</span>
+                    <div>{s.brief}{s.brief.length >= 200 ? "…" : ""}</div>
+                    <div className="muted">{sessionLine(s)}</div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="muted small">Reopening reads what is stored: nothing is generated and nothing is spent.</p>
           </div>
         </section>
       )}
@@ -207,6 +325,7 @@ export default function OnboardingView({ workspace, useCase, admin, member, onCh
               {(proposal.history?.length ?? 0) > 1 && (
                 <p className="muted small" data-testid="history">Revisions kept: {proposal.history!.map((h) =>
                   `${h.revision} (${h.open_questions} open question(s))`).join(", ")}</p>)}
+              {sessionPanel()}
             </>
           )}
         </section>
@@ -265,10 +384,16 @@ export default function OnboardingView({ workspace, useCase, admin, member, onCh
                           const next = new Set(chosen); if (e.target.checked) next.add(i.id); else next.delete(i.id); setChosen(next);
                         }} /> <span className="kind">{i.kind}</span> {itemLabel(i)}{" "}
                           <span className="badge">proposed</span>{" "}
-                          <span className={`pill ${i.basis === "supplied" ? "okpill" : "warnpill"}`} data-basis={i.basis ?? "inferred"}>{basisLabel(i)}</span>
+                          <span className={`pill ${i.basis === "supplied" ? "okpill" : "warnpill"}`} data-basis={i.basis ?? "inferred"}
+                                data-origin={i.origin ?? ""}>{i.origin ? originLabel(i) : basisLabel(i)}</span>
+                          {inDraft(i) && <span className="badge" data-testid="in-draft"> already in the draft</span>}
                           {typeof i.confidence === "number" && <span className="muted"> · confidence {i.confidence}</span>}</label>
                         <div className="muted">{i.rationale}</div>
                         {(i.attention ?? []).map((a) => <div key={a} className="warn-text">{a}</div>)}
+                        <button type="button" className="link small" aria-expanded={why === i.id} data-testid="why-button"
+                                onClick={() => setWhy(why === i.id ? "" : i.id)}>Why was this proposed?</button>
+                        {why === i.id && (
+                          <ul className="small why" data-testid="why">{whyLines(i, proposal).map((line) => <li key={line}>{line}</li>)}</ul>)}
                       </li>
                     ))}
                     {!proposal.items.length && <li className="muted">Nothing is waiting for review.</li>}
@@ -286,6 +411,7 @@ export default function OnboardingView({ workspace, useCase, admin, member, onCh
                   </ul>
                 </div>
               </div>
+              {sessionPanel()}
               <div className="card" data-testid="revision-request">
                 <label htmlFor="ob-feedback">Ask for a revision, in your own words (optional)</label>
                 <textarea id="ob-feedback" rows={2} maxLength={2000} value={feedback} disabled={!admin}
@@ -316,6 +442,22 @@ export default function OnboardingView({ workspace, useCase, admin, member, onCh
                 ({validation.summary?.entities} entities, {validation.summary?.relationships} relationships,
                 {" "}{validation.summary?.actions} actions, {validation.summary?.rules} rules).</p>
             : <ul className="error small" data-testid="engine-validation">{validation.problems.map((p, i) => <li key={i}>{p.path || "model"}: {p.message}</li>)}</ul>)}
+          {validation?.valid && (
+            <div className="card" data-testid="consistency">
+              <h4>Workflow consistency</h4>
+              {consistency.length === 0 ? <p className="ok small">The engine found nothing to question in this workflow.</p> : (
+                <>
+                  <p className="muted small">Potential inconsistencies the engine found by reading the model. Nothing was changed and
+                    nothing is blocked: each one may be intended. You decide.</p>
+                  <ul className="small">
+                    {consistency.map((f) => (
+                      <li key={f.id} data-severity={f.severity}>
+                        <span className={`pill ${f.severity === "low" ? "" : "warnpill"}`}>{f.severity}</span> {f.finding}
+                        <div className="muted">{f.why}. You could: {f.a_person_could.join("; ")}.</div>
+                      </li>))}
+                  </ul>
+                </>)}
+            </div>)}
           {!validation && !saved && <p className="muted">Review the proposal and validate your selection first.</p>}
           {validation?.valid && !saved && (
             <div className="row">

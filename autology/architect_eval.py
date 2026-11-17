@@ -153,16 +153,23 @@ def evaluate(ask: Callable[[Mapping[str, Any]], Mapping[str, Any]], repeats: int
             continue
         runs: List[Mapping[str, Any]] = []
         failure, seconds = "", []
+        why: Dict[str, Any] = {}
         for _ in range(max(1, repeats)):
             started = time.monotonic()
             try:
                 runs.append(ask(case))
             except Exception as exc:  # a provider failure or an answer outside the contract: the case fails
                 failure = f"{type(exc).__name__}: {str(exc)[:200]}"
+                # what kind of failure, and for an answer outside the contract what kinds of violations: this is
+                # what tells a lost answer (one stray note) from an unsafe one (something the contract has no
+                # place for). It explains a zero; it never changes one
+                why = {"kind": getattr(exc, "kind", type(exc).__name__),
+                       "violations": dict(getattr(exc, "violation_classes", {}) or {}),
+                       "answers_before_it": len(runs)}
                 break
             seconds.append(round(time.monotonic() - started, 3))
         if failure or not runs:
-            rows.append({"case": case["id"], "title": case["title"], "failed": failure,
+            rows.append({"case": case["id"], "title": case["title"], "failed": failure, "failure": why,
                          "scores": {name: 0.0 for name in THRESHOLDS}, "details": {}, "seconds": seconds,
                          "calls": len(runs), "spent": _spent(runs)})
             continue
@@ -175,6 +182,32 @@ def evaluate(ask: Callable[[Mapping[str, Any]], Mapping[str, Any]], repeats: int
                      # every run of the case, not only the one that was scored: what the evaluation really used
                      "calls": len(runs), "spent": _spent(runs)})
     return report(rows)
+
+
+def keeping(ask: Callable[[Mapping[str, Any]], Mapping[str, Any]],
+            target: Any) -> Callable[[Mapping[str, Any]], Mapping[str, Any]]:
+    """``ask``, with every answer written to the folder ``target`` exactly as it was scored
+    (``<case>-<n>.json``). An answer that was received and refused as outside the contract is evidence too: it is
+    kept as it came (``<case>-<n>.refused.json``) with every violation. It was never scored and is never applied."""
+    from pathlib import Path
+
+    folder, count = Path(target), {}  # type: ignore[var-annotated]
+    folder.mkdir(parents=True, exist_ok=True)
+
+    def asked(case: Mapping[str, Any]) -> Mapping[str, Any]:
+        n = count[case["id"]] = count.get(case["id"], 0) + 1
+        try:
+            answer = ask(case)
+        except Exception as exc:
+            if getattr(exc, "rejected_text", None) is not None:
+                (folder / f"{case['id']}-{n}.refused.json").write_text(json.dumps({
+                    "refused": str(exc), "violations": list(getattr(exc, "violations", [])),
+                    "classes": dict(getattr(exc, "violation_classes", {})),
+                    "answer_as_received": getattr(exc, "rejected_text")}, indent=1) + "\n", encoding="utf-8")
+            raise
+        (folder / f"{case['id']}-{n}.json").write_text(json.dumps(answer, indent=1) + "\n", encoding="utf-8")
+        return answer
+    return asked
 
 
 def _spent(runs: Sequence[Mapping[str, Any]]) -> Dict[str, Any]:
@@ -211,6 +244,9 @@ def report(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
             # a test double proves the harness, never the capability
             "answered_by_a_language_model": genuine,
             "failed_cases": [r["case"] for r in rows if r["failed"]],
+            # why each failed case failed: the kind of failure and, for an answer outside the contract, the kinds
+            # of violations and how many usable answers the case already had. Explains zeros; changes none
+            "failures": [{"case": r["case"], **(r.get("failure") or {})} for r in rows if r["failed"]],
             "conclusion": (("thresholds evaluated on a language model's answers"
                             + (f"; {len(rows) - len(answered)} of {len(rows)} cases gave no usable answer and score "
                                "zero on every measure" if len(answered) < len(rows) else "")) if genuine else

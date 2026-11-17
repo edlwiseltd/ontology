@@ -116,14 +116,21 @@ export function countByKind(items: ProposalItem[]): Record<string, number> {
 }
 
 /** Provenance kept in the draft for accepted items ("x-" keys are ignored by the engine's strict schema). */
-export function withProvenance(doc: ModelDocument, proposal: Pick<Proposal, "id" | "revision" | "generator" | "ai">,
-                               items: ProposalItem[]): ModelDocument {
+export function withProvenance(doc: ModelDocument,
+                               proposal: Pick<Proposal, "id" | "revision" | "generator" | "ai"> & { provider?: string; model?: string },
+                               items: ProposalItem[], acceptedBy = ""): ModelDocument {
   const d: ModelDocument = JSON.parse(JSON.stringify(doc));
   const studio = (d["x-studio"] ??= {});
   const record = (studio.provenance ??= {});
   for (const i of items) {
-    record[`${i.kind}:${itemLabel(i)}`] = { proposal: proposal.id, revision: proposal.revision,
-                                           generator: proposal.generator, ai: proposal.ai };
+    // what the element rests on travels with it into the draft and, from there, into the release: who generated
+    // it (a model is named exactly), where it comes from, what it cites, and who accepted it. An element whose
+    // origin was not established says so ("unknown"); nothing is filled in
+    record[`${i.kind}:${itemLabel(i)}`] = {
+      proposal: proposal.id, revision: proposal.revision, generator: proposal.generator, ai: proposal.ai,
+      ...(proposal.provider ? { provider: proposal.provider } : {}), ...(proposal.model ? { model: proposal.model } : {}),
+      basis: i.basis ?? "inferred", origin: i.origin ?? "unknown", evidence: i.evidence ?? [],
+      ...(acceptedBy ? { accepted_by: acceptedBy } : {}) };
   }
   return d;
 }
@@ -136,4 +143,22 @@ export function releaseAi(ai: { provider?: string | null; model?: string | null;
   const named = `${ai.provider} · ${ai.model ?? "no model named"} · policy terms ${ai.policy_terms ?? "not named"}${ai.content === "synthetic" ? " · synthetic data only" : ""}`;
   if (!standing) return named;
   return standing.served ? `${named} — served by the workspace's policy now` : `${named} — not served now: ${standing.reason}`;
+}
+
+// The spending ledger every ceiling is counted in, as the platform reports it. It is kept outside the deployment:
+// starting or rewriting a deployment never gives spent money back. Shown: where it stands and what this workspace
+// spent in each period; never another workspace's figures.
+type LedgerView = { available: boolean; problem?: string; id?: string | null; entries?: number | null;
+  outside_deployment: boolean; bound_to_authorisation: boolean;
+  history: { period: string; spent_usd: number; reserved_usd: number; carried_forward_usd?: number }[] };
+export function ledgerLine(view: { ledger?: LedgerView }): string {
+  const l = view.ledger;
+  if (!l) return "—";
+  if (!l.available) return `unavailable: ${l.problem || "it cannot be read"}. Nothing is sent without it`;
+  const where = l.outside_deployment
+    ? "kept outside this deployment" + (l.bound_to_authorisation ? ", named by the owner's authorisation" : "")
+    : "kept with this deployment's data (enough for the sandbox; a real provider needs one kept outside)";
+  const past = l.history.map((h) => `${h.period}: ${h.spent_usd} spent` + (h.reserved_usd ? `, ${h.reserved_usd} held` : "")
+    + (h.carried_forward_usd ? ` (${h.carried_forward_usd} carried forward)` : "")).join(" · ");
+  return `${(l.id ?? "").slice(0, 16)} · ${l.entries ?? 0} entries · ${where}` + (past ? ` · ${past}` : "");
 }

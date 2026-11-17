@@ -134,6 +134,25 @@ What this is and is not:
   release (approved with it, rolled back with it) is the production requirement; it is a change to release
   governance and waits for the owner (D34).
 
+### What a design is said to be
+
+The Engine computes six states for the saved design and returns them with the design (`governance`, on
+`GET /api/v1/application` and `GET /api/v1/application/draft`). Studio's designer and the running application print
+them as received; neither words a state of its own.
+
+| State | Supported by the Engine | True when |
+|---|---|---|
+| Design draft | yes | a design is saved (append-only, attributed) |
+| Validated design | yes | the saved design validates against what runs **now** (checked on every read) |
+| Configuration-bound design | yes | it was saved for the configuration that runs now |
+| Approved release artifact | **no** | never: a design is in no release and nobody approves it (owner decision D34) |
+| Simulation-ready | yes | validated, bound, the use case is in the simulation stage and runs are not refused |
+| Production authorized | **no** | never: production execution is disabled |
+
+A state the Engine does not have is reported as "not supported", not as "no": the difference between "this design
+was not approved" and "there is nothing here that could approve it" is the point. An application that opens in a
+browser is, at most, simulation-ready.
+
 ## 5. Permissions
 
 A manifest grants nothing, and the runtime adds no permission.
@@ -190,6 +209,7 @@ attachment; no localisation; no per-user layout; relationship pictures show one 
 | What | Where |
 |---|---|
 | Generator, validation, saving, binding, tailoring, isolation, D24 boundary, on three domains | `tests/test_app1_application_builder.py` |
+| The six states, a design planted behind the API, field and row rules through direct requests, who may decide, other workspaces, the configuration precondition in every shape | `tests/test_app2_application_integrity.py` |
 | Response schemas and routes | `tests/test_api_v1.py`, `tests/test_api_contract.py` |
 | Renderer helpers, designer edits, separation and safety of the runtime's source | `studio/web/tests/runtime.test.ts` |
 | Designer and runtime in a browser, three domains, release mismatch, pagination | `studio/web/e2e/apps.mjs` (`e2e/run_apps.sh`) |

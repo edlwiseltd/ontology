@@ -17,6 +17,10 @@
 .rt-pill { font-size: 11.5px; border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; white-space: nowrap; display: inline-block; }
 .rt-mode { border-color: var(--rt-accent); color: var(--rt-accent); margin-right: 6px; }
 .rt-ok { border-color: var(--ok); color: var(--ok); } .rt-bad { border-color: var(--bad); color: var(--bad); }
+.rt-status ul { list-style: none; margin: 4px 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 8px; }
+.rt-status li { font-size: 12px; border: 1px solid var(--line); border-radius: 6px; padding: 1px 8px; background: var(--panel); }
+.rt-status li.rt-none { border-style: dashed; color: var(--muted); }
+.rt-status-detail { color: var(--muted); }
 .rt-body { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 16px; padding: 16px; }
 .rt-nav ul { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 4px; }
 .rt-nav button { width: 100%; text-align: left; }

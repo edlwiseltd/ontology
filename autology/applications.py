@@ -77,6 +77,41 @@ class ApplicationService:
         return {"stage": policy["stage"] if policy else None, "runs_refused": self.engine._runs_refused() or None,
                 "production": False}
 
+    def governance(self, row: Any, check: Any) -> Dict[str, Any]:
+        """Where a design stands, in the six states a screen may show. Each is computed here, from what the Engine
+        knows; a state the Engine does not support is said to be unsupported, never shown as reached.
+
+        A design that is saved, valid and bound to what runs is exactly that. It is **not** an approved release
+        artifact: nobody approved it and no release contains it (owner decision D34)."""
+        e = self.engine
+        stage = self._stage()
+        saved, valid = row is not None, bool(check and check["valid"])
+        bound = saved and row["configuration"] == e.configuration_fingerprint
+        simulation = saved and valid and bound and stage["stage"] == "simulation" and not stage["runs_refused"]
+        return {
+            "design_draft": {"supported": True, "value": saved,
+                             "detail": f"revision {row['revision']} by {row['author']}" if saved else "no design is saved"},
+            "validated_design": {"supported": True, "value": saved and valid,
+                                 "detail": "the engine accepts it for the model and configuration that run" if saved and valid
+                                 else "not validated against what runs" if saved else "nothing to validate"},
+            "configuration_bound": {"supported": True, "value": bool(bound),
+                                    "detail": (f"saved for configuration {row['configuration'][:12]}"
+                                               + ("" if bound else f"; {e.configuration_fingerprint[:12]} runs now")) if saved else "nothing is bound"},
+            "approved_release_artifact": {"supported": False, "value": False,
+                                          "detail": "not supported: a design is not part of a governed release and nobody "
+                                                    "approves it (owner decision D34)"},
+            "simulation_ready": {"supported": True, "value": bool(simulation),
+                                 "detail": "the use case is in Simulation and runs are allowed: synthetic records, simulated tools" if simulation
+                                 else stage["runs_refused"] or f"the use case is in {stage['stage'] or 'no stage'}" if saved and valid and bound
+                                 else "needs a saved, valid design bound to what runs"},
+            "production_authorized": {"supported": False, "value": False,
+                                      "detail": "not authorised: production execution is disabled"},
+            # one sentence a screen can show as it is; it never says "release" or "deployed" of a design
+            "summary": ("no application design" if not saved else
+                        "design draft, " + ("validated, " if valid else "not valid for what runs, ")
+                        + ("bound to the configuration that runs" if bound else "saved for another configuration")
+                        + "; not an approved release artifact; production not authorised")}
+
     # -- designing (Studio) ------------------------------------------------------------------------------
     def generate(self, user: Any, body: Mapping[str, Any]) -> Dict[str, Any]:
         """A draft manifest generated from what runs. Nothing is saved."""
@@ -105,10 +140,12 @@ class ApplicationService:
         row = e.store.application_draft()
         history = e.store.application_draft_history()
         if row is None:
-            return {"revision": 0, "manifest": None, "validation": None, "history": history, "running": self.running()}
+            return {"revision": 0, "manifest": None, "validation": None, "history": history, "running": self.running(),
+                    "governance": self.governance(None, None)}
+        check = self._check(row["manifest"])
         return {"revision": row["revision"], "author": row["author"], "at": row["at"], "note": row["note"],
-                "manifest": row["manifest"], "validation": self._check(row["manifest"]), "history": history,
-                "running": self.running()}
+                "manifest": row["manifest"], "validation": check, "history": history,
+                "running": self.running(), "governance": self.governance(row, check)}
 
     def save(self, user: Any, body: Mapping[str, Any]) -> Dict[str, Any]:
         """Save a design draft over the revision the designer read. An invalid manifest is never stored."""
@@ -159,6 +196,7 @@ class ApplicationService:
         return {
             "manifest": manifest, "revision": row["revision"], "digest": check["digest"], "running": running,
             "status": "design preview: not part of a governed release", **self._stage(),
+            "governance": self.governance(row, check),
             # what the Engine will let this caller do; a screen shows it, the Engine enforces it on each request
             "you": {"name": user.name, "kind": user.kind, "permissions": sorted(can),
                     "may": {"read_records": "read" in can or "admin" in can,

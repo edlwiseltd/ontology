@@ -27,6 +27,10 @@ const words = (n) => { const s = n.replace(/[_-]/g, " ").replace(/([a-z0-9])([A-
 const browser = await pw.chromium.launch();
 const errors = [];
 const page = async (viewport = { width: 1280, height: 900 }) => { const p = await browser.newPage({ viewport }); p.on("pageerror", (e) => errors.push(String(e))); return p; };
+const states = (p, id) => p.$$eval(`[data-testid=${id}] li`, (els) => Object.fromEntries(els.map((e) => [e.dataset.state, e.dataset.value])));
+const AS_DESIGNED = { design_draft: "yes", validated_design: "yes", configuration_bound: "yes", approved_release_artifact: "not supported",
+  simulation_ready: "yes", production_authorized: "not supported" };
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const noScroll = (p) => p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
 
 async function demo(ws) {
@@ -115,6 +119,10 @@ async function demo(ws) {
       (await studio.textContent("[data-testid=app-message]")).includes("not part of a governed release") &&
       (await studio.locator("[data-testid=app-history] li").count()) === 1 &&
       (await studio.textContent("[data-testid=app-cannot]")).includes("owner decision D24"));
+  const designed = await states(studio, "app-governance");
+  say("the designer says what the saved design is in the engine's six states: a validated draft bound to what runs, not a release artifact, not for production",
+      same(designed, AS_DESIGNED) && (await studio.textContent("[data-testid=app-governance-summary]")).includes("not an approved release artifact") &&
+      (await studio.textContent("[data-testid=app-governance] li[data-state=approved_release_artifact]")).includes("owner decision D34"), JSON.stringify(designed));
   await studio.screenshot({ path: `${OUT}/app-${ws}-designer.png`, fullPage: true });
 
   // ---- the application, at its own address, as the person who does the work
@@ -126,6 +134,10 @@ async function demo(ws) {
       (await app.getAttribute("[data-testid=rt-app]", "data-accent")) === d.accent &&
       bar.includes("synthetic records") && bar.includes("Production: unavailable") && bar.includes(generated.binding.model) &&
       bar.includes(generated.binding.configuration.slice(0, 12)) && bar.includes("stage simulation") && bar.includes("starts work"));
+  const shown = await states(app, "rt-status");
+  say("the application tells its user the same six states, and calls itself neither a release nor a production system",
+      same(shown, AS_DESIGNED) && (await app.textContent("[data-testid=rt-status-summary]")).includes("design draft, validated, bound to the configuration that runs; not an approved release artifact; production not authorised"),
+      JSON.stringify(shown));
   const nav = await app.textContent("[data-testid=rt-nav]");
   say("navigation is generated from the design, and a kind of record this person can never see is not in it",
       nav.includes(`${words(d.root)} (all)`) && nav.includes("Audit trail") && (d.hiddenLabel ? !nav.includes(d.hiddenLabel) : true) &&
@@ -320,6 +332,10 @@ try {
   await v.studio.click(`.uc-list button:has-text('${v.d.name}')`);
   await v.studio.click("role=tab[name='Application']");
   await v.studio.waitForSelector("[data-testid=app-stale]");
+  const afterRelease = await states(v.studio, "app-governance");
+  check("after a new release the same saved design is reported as a draft that is valid for nothing that runs and not ready for simulation",
+        same(afterRelease, { ...AS_DESIGNED, validated_design: "no", configuration_bound: "no", simulation_ready: "no" }) &&
+        (await v.studio.textContent("[data-testid=app-governance-summary]")).includes("saved for another configuration"), JSON.stringify(afterRelease));
   await v.studio.click("[data-testid=app-generate]");
   await v.studio.waitForFunction(() => document.querySelector("[data-testid=app-validation]")?.textContent.includes("accepts"));
   await v.studio.click("[data-testid=app-save]");

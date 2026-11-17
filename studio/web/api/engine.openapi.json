@@ -89,6 +89,9 @@
           "digest": {
             "type": "string"
           },
+          "governance": {
+            "$ref": "#/components/schemas/ApplicationGovernance"
+          },
           "manifest": {
             "additionalProperties": true,
             "type": "object"
@@ -129,7 +132,8 @@
           "running",
           "status",
           "production",
-          "you"
+          "you",
+          "governance"
         ],
         "type": "object"
       },
@@ -187,6 +191,9 @@
               "string",
               "null"
             ]
+          },
+          "governance": {
+            "$ref": "#/components/schemas/ApplicationGovernance"
           },
           "history": {
             "items": {
@@ -268,6 +275,144 @@
           "validation",
           "saved",
           "generator"
+        ],
+        "type": "object"
+      },
+      "ApplicationGovernance": {
+        "additionalProperties": false,
+        "properties": {
+          "approved_release_artifact": {
+            "additionalProperties": false,
+            "properties": {
+              "detail": {
+                "type": "string"
+              },
+              "supported": {
+                "type": "boolean"
+              },
+              "value": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "supported",
+              "value",
+              "detail"
+            ],
+            "type": "object"
+          },
+          "configuration_bound": {
+            "additionalProperties": false,
+            "properties": {
+              "detail": {
+                "type": "string"
+              },
+              "supported": {
+                "type": "boolean"
+              },
+              "value": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "supported",
+              "value",
+              "detail"
+            ],
+            "type": "object"
+          },
+          "design_draft": {
+            "additionalProperties": false,
+            "properties": {
+              "detail": {
+                "type": "string"
+              },
+              "supported": {
+                "type": "boolean"
+              },
+              "value": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "supported",
+              "value",
+              "detail"
+            ],
+            "type": "object"
+          },
+          "production_authorized": {
+            "additionalProperties": false,
+            "properties": {
+              "detail": {
+                "type": "string"
+              },
+              "supported": {
+                "type": "boolean"
+              },
+              "value": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "supported",
+              "value",
+              "detail"
+            ],
+            "type": "object"
+          },
+          "simulation_ready": {
+            "additionalProperties": false,
+            "properties": {
+              "detail": {
+                "type": "string"
+              },
+              "supported": {
+                "type": "boolean"
+              },
+              "value": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "supported",
+              "value",
+              "detail"
+            ],
+            "type": "object"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "validated_design": {
+            "additionalProperties": false,
+            "properties": {
+              "detail": {
+                "type": "string"
+              },
+              "supported": {
+                "type": "boolean"
+              },
+              "value": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "supported",
+              "value",
+              "detail"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "design_draft",
+          "validated_design",
+          "configuration_bound",
+          "approved_release_artifact",
+          "simulation_ready",
+          "production_authorized",
+          "summary"
         ],
         "type": "object"
       },

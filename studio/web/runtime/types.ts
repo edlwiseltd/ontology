@@ -24,9 +24,14 @@ export interface Manifest {
   presentation: { accent: string; density: string };
 }
 export interface May { read_records: boolean; start_runs: boolean; decide_reviews: boolean; read_audit: boolean; write_records: boolean }
+export type GovernanceState = "design_draft" | "validated_design" | "configuration_bound" | "approved_release_artifact"
+  | "simulation_ready" | "production_authorized";
+/** Computed by the Engine. "supported: false" means the Engine has no such state, whatever a screen would like to say. */
+export type Governance = Record<GovernanceState, { supported: boolean; value: boolean; detail: string }> & { summary: string };
 export interface Application {
   manifest: Manifest; revision: number; digest: string; status: string; stage: string | null; runs_refused: string | null;
   production: boolean; running: Manifest["binding"]; you: { name: string; kind: string; permissions: string[]; may: May };
+  governance: Governance;
 }
 export interface RecordRow { id: string; type: string; attributes: Record<string, unknown>; revision?: number;
   links?: { kind: string; direction: "out" | "in"; id: string; type: string }[] }

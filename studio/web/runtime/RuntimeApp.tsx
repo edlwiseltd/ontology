@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { call, enginePath, EngineError, getToken, setToken, type Caller } from "./client";
 import { short, supported, unsupportedViews } from "./model";
+import DesignStatus from "./status";
 import type { Application, Manifest, May, Mode, RuleInfo, View } from "./types";
 import { MODE_LABEL } from "./types";
 import { ApprovalInbox, AuditTimeline, Dashboard, EntityDetail, EntityList, RecordForm, Relationships, Workflow, type Ctx } from "./views";
@@ -115,6 +116,8 @@ export default function RuntimeApp({ workspace, useCase, preview }: { workspace:
           Model {manifest.binding.model} · configuration {short(manifest.binding.configuration)}
           {app ? ` · stage ${app.stage ?? "none"} · design revision ${app.revision} (${app.status})` : " · a design that is not saved yet"}
         </div>
+        {app && <details className="small"><summary data-testid="rt-status-summary">Status of this design: {app.governance.summary}</summary>
+          <DesignStatus governance={app.governance} testid="rt-status" /></details>}
         {app && (
           <div className="small row">
             <span data-testid="rt-you">{app.you.name}: {[may.read_records && "reads records", may.start_runs && "starts work", may.decide_reviews && "decides reviews",

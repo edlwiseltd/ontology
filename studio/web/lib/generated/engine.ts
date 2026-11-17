@@ -1211,6 +1211,7 @@ export interface components {
         };
         Application: {
             digest: string;
+            governance: components["schemas"]["ApplicationGovernance"];
             manifest: {
                 [key: string]: unknown;
             };
@@ -1243,6 +1244,7 @@ export interface components {
         ApplicationDraft: {
             at?: string | null;
             author?: string | null;
+            governance?: components["schemas"]["ApplicationGovernance"];
             history: {
                 [key: string]: unknown;
             }[];
@@ -1271,6 +1273,39 @@ export interface components {
             validation: components["schemas"]["ApplicationCheck"];
         } & {
             [key: string]: unknown;
+        };
+        ApplicationGovernance: {
+            approved_release_artifact: {
+                detail: string;
+                supported: boolean;
+                value: boolean;
+            };
+            configuration_bound: {
+                detail: string;
+                supported: boolean;
+                value: boolean;
+            };
+            design_draft: {
+                detail: string;
+                supported: boolean;
+                value: boolean;
+            };
+            production_authorized: {
+                detail: string;
+                supported: boolean;
+                value: boolean;
+            };
+            simulation_ready: {
+                detail: string;
+                supported: boolean;
+                value: boolean;
+            };
+            summary: string;
+            validated_design: {
+                detail: string;
+                supported: boolean;
+                value: boolean;
+            };
         };
         ApplicationRunning: {
             configuration: string;

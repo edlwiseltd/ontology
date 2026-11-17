@@ -8,7 +8,7 @@ import type { AccessReview, ActivationResult, AiView, ApiErrorBody, CheckResult,
   TokenIssuedOrRequested, UseCase, ValidationResult } from "./types";
 // (run shapes are hand-typed in lib/runs.ts: the engine's run routes answer open objects)
 import type { EngineMe, ObjectRow, ReviewView, RunAudit, RunRow, RunView } from "./runs";
-import type { Manifest } from "@/runtime/types";
+import type { Governance, Manifest } from "@/runtime/types";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string, public data: Record<string, unknown> = {}) {
@@ -184,7 +184,7 @@ export const runs = {
 export interface AppCheck { valid: boolean; problems: { path: string; message: string }[]; digest?: string | null }
 export interface AppDraft { revision: number; manifest: Manifest | null; validation: AppCheck | null; author?: string | null;
   at?: string | null; note?: string | null; history: { revision: number; author: string; at: string; note: string; configuration: string }[];
-  running: Manifest["binding"]; saved?: boolean }
+  running: Manifest["binding"]; saved?: boolean; governance: Governance }
 export const application = {
   draft: (path: string) => request<AppDraft>("GET", `${path}/api/v1/application/draft`),
   generate: (path: string) => request<{ manifest: Manifest; validation: AppCheck; generator: { kind: string; ai: boolean; note: string } }>(

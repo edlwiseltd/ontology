@@ -11,6 +11,7 @@ import { ACCENTS, BASIS_TEXT, basisCounts, describe, inNavigation, moveNavigatio
   setTitle, toggleNavigation } from "@/lib/appdesign";
 import { short, unsupportedViews } from "@/runtime/model";
 import RuntimeApp from "@/runtime/RuntimeApp";
+import DesignStatus from "@/runtime/status";
 import type { Basis, Manifest } from "@/runtime/types";
 import type { OntologySummary, UseCase } from "@/lib/types";
 
@@ -95,6 +96,11 @@ export default function ApplicationDesigner({ workspace, useCase, admin, ontolog
             <button type="button" onClick={validate} disabled={!manifest} data-testid="app-validate">Validate with the engine</button>
           </div>
         </div>
+        {draft?.governance && (
+          <div className="small" data-testid="app-governance-box">
+            <p className="muted">What the saved design is, as the engine reports it{dirty ? " (your unsaved changes are not part of it)" : ""}: <span data-testid="app-governance-summary">{draft.governance.summary}</span>.</p>
+            <DesignStatus governance={draft.governance} testid="app-governance" />
+          </div>)}
         {stale && !dirty && <p className="warn" data-testid="app-stale">The saved design was made for another configuration than the one that runs now. The application is not shown to its users until a design made for what runs is saved: generate again, check it, save.</p>}
         {check && (
           <div data-testid="app-validation" className={check.valid ? "" : "error"}>

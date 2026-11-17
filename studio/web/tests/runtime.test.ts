@@ -6,6 +6,7 @@ import { basisCounts, moveNavigation, renameNavigation, setColumns, toggleNaviga
 import { FORWARDED_HEADERS } from "../lib/forward";
 import { call, EngineError } from "../runtime/client";
 import { cell, countBy, filterLoaded, formProblems, formRecord, graph, linked, outcome, runLabel, supported, timeline, unsupportedViews } from "../runtime/model";
+import { DESIGN_STATES, stateWord } from "../runtime/status";
 import type { Manifest, RecordRow, View } from "../runtime/types";
 import { VIEW_TYPES } from "../runtime/types";
 
@@ -67,6 +68,25 @@ describe("the runtime is a renderer and nothing else", () => {
     for (const t of VIEW_TYPES) expect(shell).toContain(`case "${t}"`);
     expect(supported({ type: "ScriptView" })).toBe(false);
     expect(unsupportedViews({ views: [list, { ...list, id: "x", type: "MapView" }] }).map((v) => v.type)).toEqual(["MapView"]);
+  });
+});
+
+describe("what a design is said to be", () => {
+  it("has the Engine's six states, in order, and three words for them", () => {
+    expect(DESIGN_STATES.map(([key]) => key)).toEqual(["design_draft", "validated_design", "configuration_bound",
+      "approved_release_artifact", "simulation_ready", "production_authorized"]);
+    expect([stateWord({ supported: true, value: true }), stateWord({ supported: true, value: false }),
+      stateWord({ supported: false, value: false }), stateWord({ supported: false, value: true })]).toEqual(["yes", "no", "not supported", "not supported"]);
+  });
+
+  it("is never worded by a screen as released, deployed or in production", () => {
+    for (const f of [...RUNTIME, join(ROOT, "lib", "appdesign.ts"), join(ROOT, "components", "ApplicationDesigner.tsx")]) {
+      const text = readFileSync(f, "utf8").split("\n").filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line)).join("\n");
+      expect(text, f).not.toMatch(/\b(deployed|published|operational|go(es)? live|is live|released application|application release)\b/i);
+      // production is named only to say it is unavailable, or as the Engine's state that is not supported
+      const said = text.split("\n").filter((line) => /production/i.test(line));
+      for (const line of said) expect(line, f).toMatch(/Production: unavailable|"Production authorized"|production_authorized|production: boolean/);
+    }
   });
 });
 

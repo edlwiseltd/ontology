@@ -1265,3 +1265,58 @@ separate proposal for narrow record rights. Register: 103 entries (61 fixed, 18 
 | `5cebf90` | [run 117](https://github.com/edlwiseltd/ontology/actions/runs/44182152537) | **Failed** (the same pin, not yet corrected) |
 | `45d3a27` | [run 118](https://github.com/edlwiseltd/ontology/actions/runs/44183051876) | **Failed** in the two Python jobs: a test that pinned the relay's two forwarded headers. `studio`, `package`, `quality` did not fail |
 
+
+## 17 November 2026 — Application Builder stabilisation, governed applications and AI Architect readiness (no provider contacted)
+
+Directive: stabilise the Application Builder MVP, close its engineering uncertainties, prepare the governance
+changes that need the owner, and build a reproducible end-to-end evaluation path, without any paid call. Report:
+[AUTOLOGY_APPLICATION_BUILDER_STABILIZATION_AND_AI_READINESS_REPORT.md](AUTOLOGY_APPLICATION_BUILDER_STABILIZATION_AND_AI_READINESS_REPORT.md).
+No credential was read, the spending ledger was not written (27 entries, 4.418875 USD, as before), nothing was
+deployed, and no owner decision was taken or implied.
+
+### Baseline (increment 0)
+
+HEAD `18e8b17`, clean, equal to the remote. CI run 119 on `d9448b4` had failed on the relay-header pin; **run 120 on
+`18e8b17` succeeded** in all five jobs. Local full suite on that commit: 1,077 tests, all passed, coverage 96.01 %.
+The two pins corrected at the end of the previous sprint still assert exact values; no test was removed.
+
+### What was done
+
+| Increment | Commit | Content |
+|---|---|---|
+| 1 Security and runtime integrity | `be5b21b` | The Engine computes six states for a design (two of them "not supported": approved release artifact, production) and both screens print them. `tests/test_app2_application_integrity.py`: a design planted behind the API, field and row rules through relationships and counts, who decides, other workspaces, the configuration precondition in eight shapes. **No Engine defect found** |
+| 2 Governance decision packages | `30d6229` | D24: twelve operations, three proposed rights, `autology/operation_policy.py` (not in force). D34: a lifecycle, the reviewer's record, seven owner questions, `autology/design_governance.py` (not in force, no default policy). D35: assessment, three planes, six migration steps; an unwired relay rule |
+| 3 Usability | `2d62473` | "About this application" (version, bound configuration, active release reported by the Engine, stage, mode, states, capabilities, restrictions, last answer by the screen's own clock); grouped menu; record provenance; preview label |
+| 4 End-to-end evaluation harness | `316da27`, `a9dd173` (a packaging pin) | `autology/chain_eval.py` (protocol chain-v1): twelve steps, three results, no total. Two reserved briefs. Replay of the kept answers. A reserved draft hosted through the platform's API and rendered in a browser |
+| 5 Final verification | this commit | Registers, roadmap, WIP, report |
+
+### Findings
+
+GAP-104: replayed through the whole chain, 1 of 4 kept real-provider answers gives a draft the Engine accepts
+without a person's confirmations; 4 of 4 with every inferred element assumed confirmed. GAP-105: the draft
+simulation's sample case does not reach `<` thresholds. The reserved briefs match the industry-neutral "request and
+approval" template by two generic words (stated in the report and asserted by a test). Register: 105 entries (61
+fixed, 19 open, 13 partly, 7 owner decision, 5 external evidence); no status changed. Decisions: D24 not approved,
+D34 pending, D35 awaiting confirmation, all others as they were.
+
+### Verification
+
+| Run | Result |
+|---|---|
+| Full Python suite, local, increment 1 (`be5b21b`) | 1,083 tests, all passed; 96.01 % |
+| Full Python suite, local, increment 3 (`2d62473`) | 1,102 tests, all passed; 96.07 % |
+| Full Python suite, local, increment 4 (`316da27`) | 1,113 tests: **1,112 passed, 1 failed** (an older packaging test pinned the exact list of data folders the package ships; increment 4 added one). The pin was corrected in `a9dd173` to the exact new list |
+| Full Python suite, local, **final code** (`a9dd173`) | **1,113 tests, all passed**, 2 skipped locally; coverage **96.11 %** (17,980 statements, 700 missed) |
+| Secrets | Six known values searched for, by value, in 1,636 files: none found |
+| ruff; mypy ratchet | clean; 198 (= baseline, not raised) |
+| Studio | typecheck clean, **80 unit tests**, build; browser: **135/135**, **56/56**, **108/108** |
+| Provider calls; credentials read; ledger writes | None; none; none |
+
+### CI
+
+| Commit | Run | Result |
+|---|---|---|
+| `18e8b17` | [run 120](https://github.com/edlwiseltd/ontology/actions/runs/44184862851) | **Success** (baseline) |
+| `30d6229` | [run 121](https://github.com/edlwiseltd/ontology/actions/runs/44189543152) | **Success** |
+| `316da27` | [run 122](https://github.com/edlwiseltd/ontology/actions/runs/44191809695) | **Failed** in the two Python jobs (the packaging pin); `package`, `studio`, `quality` did not fail |
+| `a9dd173` (final code) | [run 123](https://github.com/edlwiseltd/ontology/actions/runs/44193229434) | **Success**, all five jobs |

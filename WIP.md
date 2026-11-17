@@ -1,6 +1,6 @@
 # Work in progress — Autology
 
-*Updated 17 November 2026 (Application Builder sprint). Branch `claude/autology-ontology-agent-4ajjer`.*
+*Updated 17 November 2026 (Application Builder stabilisation sprint). Branch `claude/autology-ontology-agent-4ajjer`.*
 
 ## Done in this directive
 
@@ -193,3 +193,23 @@ No call to a provider; nothing spent. Synthetic data and simulated tools only. R
 
 Waiting for the owner: D24 (with the new record-rights proposal), D26, D30 (f), (g), (h), D31, D32, D33, D34, D35.
 **R2 is not closed.**
+
+## Application Builder stabilisation, governed applications and AI Architect readiness (17 November 2026)
+
+No call to a provider; nothing spent; no credential read. Synthetic data and simulated tools only. Report:
+[planning/AUTOLOGY_APPLICATION_BUILDER_STABILIZATION_AND_AI_READINESS_REPORT.md](planning/AUTOLOGY_APPLICATION_BUILDER_STABILIZATION_AND_AI_READINESS_REPORT.md).
+
+| Item | Status | Evidence |
+|---|---|---|
+| Baseline: the Application Builder's final commit under green CI | **Done** | CI run 120 on `18e8b17`; local full suite 1,077 tests, 96.01 % |
+| Final code under green CI | **Done** | CI run 123 on `a9dd173` (run 122 had failed on a packaging pin, corrected); local full suite 1,113 tests, 96.11 % |
+| What a design is said to be: six Engine-computed states | **Done** | `autology/applications.py`; `tests/test_app2_application_integrity.py` |
+| Integrity through direct requests (planted design, field and row rules, who decides, other workspaces, configuration precondition) | **Verified**; no Engine defect found | Same tests (S3 to S8) |
+| D24: twelve operations, three proposed rights | **Proposal + inactive prototype. Not approved, not active** | [proposal](planning/AUTOLOGY_D24_APPLICATION_PERMISSIONS_PROPOSAL.md); `autology/operation_policy.py` |
+| D34: governed application designs | **Proposal + inactive prototype + seven owner questions. Pending** | [proposal](planning/AUTOLOGY_D34_GOVERNED_APPLICATION_DESIGN_PROPOSAL.md); `autology/design_governance.py` |
+| D35: runtime separation | **Assessment and migration plan. No deployment changed** | [assessment](planning/AUTOLOGY_D35_RUNTIME_SEPARATION_ASSESSMENT.md) |
+| Application status transparency, grouped menu, record provenance | **Done** on three domains | `studio/web/runtime/about.tsx`; browser checks |
+| End-to-end chain evaluation, three separate results | **Done** with reference answers and replayed evidence; **no real-provider run** | `autology/chain_eval.py`; [chain evaluation](docs/chain-evaluation.md) |
+
+Waiting for the owner: D24, D26, D30 (f), (g), (h), D31, D32, D33, D34, D35. **R2 is not closed.**
+

@@ -50,7 +50,8 @@ from .test_workspaces import Client
 PACKS = ROOT / "examples" / "domains"
 TOKENS = {f"{ws}_TOKEN_{name.upper()}": f"{ws.lower()}-{name}"
           for ws, names in (("CRISIS", ("carla", "rosa", "omar", "dana", "alex")),
-                            ("NETINTEL", ("nora", "ravi", "alan", "cleo", "alex"))) for name in names}
+                            ("NETINTEL", ("nora", "ravi", "alan", "cleo", "alex")),
+                            ("VENUES", ("vera", "vito", "viv", "val"))) for name in names}
 
 DOMAINS = {
     "crisis": {
@@ -107,8 +108,8 @@ class Journey:
     """The onboarding journey of one domain. The code is the same for every domain: only ``DOMAINS[ws]`` differs.
     ``trace`` is the sequence of routes used, with identifiers replaced, so that two journeys can be compared."""
 
-    def __init__(self, test, client, ws):
-        self.t, self.c, self.ws, self.d = test, client, ws, DOMAINS[ws]
+    def __init__(self, test, client, ws, spec=None):
+        self.t, self.c, self.ws, self.d = test, client, ws, spec or DOMAINS[ws]
         self.WS = f"/platform/v1/workspaces/{ws}"
         self.UC = f"{self.WS}/use-cases/{self.d['use_case']}"
         self.E = f"/w/{ws}/u/{self.d['use_case']}/api/v1"
@@ -210,7 +211,7 @@ class Hosted(unittest.TestCase):
         return super().run(result) if self._testMethodName != "run" else None
 
     def service(self, ws):
-        return self.pf.workspaces[ws].use_cases[DOMAINS[ws]["use_case"]].service
+        return self.pf.workspaces[ws].use_cases[self.j[ws].d["use_case"]].service
 
 
 class SharedJourneyTests(Hosted):

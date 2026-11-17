@@ -187,7 +187,7 @@ class MigrationTests(unittest.TestCase):
         db.close()
         store = Store(path)
         self.addCleanup(store.close)
-        self.assertEqual(store.migrated, [12, 13, 14, 15, 16, 17, 18, 19])
+        self.assertEqual(store.migrated, [12, 13, 14, 15, 16, 17, 18, 19, 20])
         self.assertEqual(store._query("SELECT run_key FROM runs WHERE run_id=?", (done,))[0]["run_key"], "kept")
 
     def test_a_new_store_and_the_statement_splitter(self):  # M6

@@ -56,6 +56,7 @@ from .automation import Automation, Automator, Firing, load_automations
 from .governance import REDACTED, GovernanceLayer, Principal
 
 JUSTIFY = "***justification required***"
+from . import applications
 from .graph import Instance, KnowledgeGraph, build_case, snapshot
 from .integrity import record_refusal
 from .ontology import Ontology, OntologyError, type_ok
@@ -1999,6 +2000,7 @@ class ApiExchange:
                     limiter.hit("auth_failures", self.client)
                 raise
             self._user = user
+            applications.expect_configuration(service, self.headers)  # a request may name the configuration it expects
             parts = path.split("/")[2:]
             # counted per identity whichever use case, version or entry point is used; then per tenant
             who = service.limit_scope + user.name
@@ -2058,6 +2060,14 @@ class ApiExchange:
                 return self._send(200, service.configuring.suggest_solution(user, body))
             if parts == ["tools", "catalog"] and method == "GET":
                 return self._send(200, service.configuring.tool_catalog(user))
+            if parts and parts[0] == "application":  # the Application Builder: manifests of what runs
+                apps = applications.of(service)
+                served = {("GET", ()): lambda: apps.application(user), ("GET", ("draft",)): lambda: apps.draft(user),
+                          ("POST", ("draft",)): lambda: apps.save(user, body),
+                          ("POST", ("generate",)): lambda: apps.generate(user, body),
+                          ("POST", ("validate",)): lambda: apps.validate(user, body)}
+                if (method, tuple(parts[1:])) in served:
+                    return self._send(200, served[(method, tuple(parts[1:]))]())
             if parts == ["architect", "proposals"] and method in ("GET", "POST"):
                 return self._send(200, service.architect_proposals(user, body) if method == "POST"
                                   else service.architect.list_proposals(user))

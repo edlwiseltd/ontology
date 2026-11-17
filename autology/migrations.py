@@ -152,6 +152,10 @@ def _v19(store: Any, db: Any) -> None:
     _add(db, "model_drafts", "origin", "TEXT")
 
 
+def _v20(store: Any, db: Any) -> None:
+    """New table only: application design drafts (created with the rest of the schema in the same transaction)."""
+
+
 MIGRATIONS: List[Tuple[int, str, Callable[[Any, Any], None]]] = [
     (4, "who started each run", _v4),
     (5, "write-back snapshots and conflicts; automation failure counts", _v5),
@@ -165,6 +169,7 @@ MIGRATIONS: List[Tuple[int, str, Callable[[Any, Any], None]]] = [
     (17, "executable configuration in model drafts", _v17),
     (18, "synthetic sample records are marked", _v18),
     (19, "a draft records the architect proposal it was saved from", _v19),
+    (20, "application design drafts", _v20),
 ]
 
 

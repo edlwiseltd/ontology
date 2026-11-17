@@ -41,7 +41,7 @@ from .audit import GENESIS, AuditLog
 from .graph import KnowledgeGraph
 from .ontology import Ontology, OntologyError
 
-SCHEMA_VERSION = 19
+SCHEMA_VERSION = 20
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -132,6 +132,13 @@ CREATE TRIGGER IF NOT EXISTS model_drafts_no_update BEFORE UPDATE ON model_draft
     BEGIN SELECT RAISE(ABORT, 'model drafts are append-only'); END;
 CREATE TRIGGER IF NOT EXISTS model_drafts_no_delete BEFORE DELETE ON model_drafts
     BEGIN SELECT RAISE(ABORT, 'model drafts are append-only'); END;
+CREATE TABLE IF NOT EXISTS application_drafts (
+    revision INTEGER PRIMARY KEY, manifest TEXT NOT NULL, author TEXT NOT NULL, note TEXT NOT NULL, at TEXT NOT NULL,
+    configuration TEXT NOT NULL);
+CREATE TRIGGER IF NOT EXISTS application_drafts_no_update BEFORE UPDATE ON application_drafts
+    BEGIN SELECT RAISE(ABORT, 'application drafts are append-only'); END;
+CREATE TRIGGER IF NOT EXISTS application_drafts_no_delete BEFORE DELETE ON application_drafts
+    BEGIN SELECT RAISE(ABORT, 'application drafts are append-only'); END;
 CREATE TABLE IF NOT EXISTS architect_proposals (
     id TEXT NOT NULL, revision INTEGER NOT NULL, created_by TEXT NOT NULL, at TEXT NOT NULL, brief TEXT NOT NULL,
     answers TEXT NOT NULL, result TEXT NOT NULL, PRIMARY KEY (id, revision));
@@ -383,6 +390,29 @@ class Store:
         """The draft revisions saved from architect proposal ``pid`` (or carried over from one), oldest first."""
         return [{"draft_revision": r["revision"], "proposal_revision": r["origin"]["revision"], "saved_by": r["author"],
                  "at": r["at"]} for r in self.draft_history() if (r["origin"] or {}).get("proposal") == pid]
+
+    # -- application design drafts (the Application Builder): append-only, each bound to a configuration -------
+    def save_application_draft(self, manifest: Dict[str, Any], author: str, note: str, expected_revision: int,
+                               configuration: str) -> int:
+        with self._tx() as db:
+            row = db.execute("SELECT MAX(revision) AS r FROM application_drafts").fetchone()
+            current = row["r"] or 0
+            if current != expected_revision:
+                raise RecordConflict("application design", f"the design was saved meanwhile (revision {current}, "
+                                                           f"expected {expected_revision})", revision=current)
+            db.execute("INSERT INTO application_drafts VALUES (?, ?, ?, ?, ?, ?)",
+                       (current + 1, json.dumps(manifest, default=str), author, note[:500], _now(), configuration))
+            return current + 1
+
+    def application_draft(self, revision: Optional[int] = None) -> Optional[Dict[str, Any]]:
+        sql = "SELECT * FROM application_drafts " + ("WHERE revision=?" if revision else "ORDER BY revision DESC LIMIT 1")
+        args: Tuple[Any, ...] = (revision,) if revision else ()
+        rows = self._query(sql, args)
+        return {**dict(rows[0]), "manifest": json.loads(rows[0]["manifest"])} if rows else None
+
+    def application_draft_history(self) -> List[Dict[str, Any]]:
+        return [dict(r) for r in self._query(
+            "SELECT revision, author, note, at, configuration FROM application_drafts ORDER BY revision")]
 
     # -- architect proposals: every revision and every review decision is kept (append-only) -----------------
     def add_architect_revision(self, pid: str, created_by: str, brief: str, answers: List[Dict[str, Any]],

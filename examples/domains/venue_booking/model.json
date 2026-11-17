@@ -1,0 +1,177 @@
+{
+ "name": "venue-booking",
+ "version": "0.1.0",
+ "description": "Requests to book a room for an event (synthetic)",
+ "entities": {
+  "BookingRequest": {
+   "description": "A request to book a room",
+   "states": [
+    "submitted",
+    "checked",
+    "confirmed",
+    "closed"
+   ],
+   "attributes": {
+    "reference": "string",
+    "event_title": "string",
+    "attendees": "number",
+    "event_date": "date",
+    "catering": "boolean",
+    "note": "string"
+   }
+  },
+  "Room": {
+   "description": "A room that can be booked",
+   "states": [
+    "open",
+    "closed"
+   ],
+   "attributes": {
+    "label": "string",
+    "capacity": "number",
+    "floor": "number"
+   }
+  },
+  "Organiser": {
+   "description": "Who asks for the booking",
+   "states": [
+    "active"
+   ],
+   "attributes": {
+    "display_name": "string",
+    "department": "string"
+   }
+  },
+  "EquipmentItem": {
+   "description": "Equipment lent with a room",
+   "states": [
+    "available",
+    "reserved"
+   ],
+   "attributes": {
+    "label": "string",
+    "quantity": "number"
+   }
+  },
+  "Deposit": {
+   "description": "A deposit asked for a booking",
+   "states": [
+    "requested",
+    "received"
+   ],
+   "attributes": {
+    "amount": "number",
+    "due_on": "date"
+   }
+  }
+ },
+ "relationships": [
+  {
+   "from": "Organiser",
+   "to": "BookingRequest",
+   "type": "requests",
+   "cardinality": "1..*"
+  },
+  {
+   "from": "BookingRequest",
+   "to": "Room",
+   "type": "room",
+   "cardinality": "1..*"
+  },
+  {
+   "from": "BookingRequest",
+   "to": "EquipmentItem",
+   "type": "equipment",
+   "cardinality": "1..*"
+  },
+  {
+   "from": "BookingRequest",
+   "to": "Deposit",
+   "type": "deposit",
+   "cardinality": "1..*"
+  }
+ ],
+ "actions": {
+  "check_availability": {
+   "description": "Check that the room is free and large enough",
+   "capability": "rooms.check",
+   "requires": [
+    "BookingRequest.status == 'submitted'"
+   ],
+   "effects": {
+    "BookingRequest": {
+     "status": "checked"
+    }
+   },
+   "side_effect": "none"
+  },
+  "confirm_booking": {
+   "description": "Confirm the booking to the organiser",
+   "capability": "bookings.confirm",
+   "requires": [
+    "BookingRequest.status == 'checked'"
+   ],
+   "effects": {
+    "BookingRequest": {
+     "status": "confirmed"
+    }
+   },
+   "side_effect": "non_idempotent"
+  },
+  "close_request": {
+   "description": "Close the request",
+   "capability": "bookings.close",
+   "requires": [
+    "BookingRequest.status == 'confirmed'"
+   ],
+   "effects": {
+    "BookingRequest": {
+     "status": "closed"
+    }
+   },
+   "side_effect": "idempotent"
+  }
+ },
+ "rules": [
+  {
+   "id": "V-LARGE-EVENT",
+   "type": "human_review",
+   "description": "A facilities manager approves bookings for 200 people or more",
+   "action": "confirm_booking",
+   "reviewer": "facilities_manager",
+   "when": "BookingRequest.attendees >= 200"
+  },
+  {
+   "id": "V-CLOSED-ROOM",
+   "type": "prohibition",
+   "description": "A closed room is never booked",
+   "action": "confirm_booking",
+   "when": "Room.status == 'closed'"
+  },
+  {
+   "id": "V-CONFIRM-ROLE",
+   "type": "action_access",
+   "description": "Only a booking clerk confirms",
+   "action": "confirm_booking",
+   "roles": [
+    "booking_clerk"
+   ]
+  }
+ ],
+ "goals": {
+  "request_closed": {
+   "description": "The request is closed",
+   "target": "BookingRequest.status == 'closed'"
+  }
+ },
+ "case_templates": {
+  "booking_case": {
+   "description": "A request with its room",
+   "root": "BookingRequest",
+   "entities": {
+    "BookingRequest": "self",
+    "Room": "room"
+   }
+  }
+ }
+}

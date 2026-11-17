@@ -16,6 +16,14 @@
    ],
    "description": "An empty model with the sandbox architect and the network investigation templates (synthetic; no language model)",
    "config": "network_intelligence/server.json"
+  },
+  "venues-blank": {
+   "name": "Blank solution (no template)",
+   "workspaces": [
+    "venues"
+   ],
+   "description": "An empty model with no template at all (synthetic)",
+   "config": "venue_booking/server.json"
   }
  },
  "workspaces": {
@@ -75,6 +83,32 @@
     {
      "name": "alex",
      "token_env": "NETINTEL_TOKEN_ALEX"
+    }
+   ],
+   "use_cases": {}
+  },
+  "venues": {
+   "name": "Venue Booking (synthetic, third domain)",
+   "release_approvers": [
+    "vito"
+   ],
+   "members": [
+    {
+     "name": "vera",
+     "token_env": "VENUES_TOKEN_VERA",
+     "workspace_admin": true
+    },
+    {
+     "name": "vito",
+     "token_env": "VENUES_TOKEN_VITO"
+    },
+    {
+     "name": "viv",
+     "token_env": "VENUES_TOKEN_VIV"
+    },
+    {
+     "name": "val",
+     "token_env": "VENUES_TOKEN_VAL"
     }
    ],
    "use_cases": {}

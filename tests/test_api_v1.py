@@ -183,6 +183,16 @@ class SchemaConformanceTests(V1Base):  # V5
                                                      {"approved": True, "comment": "checked"}, "acme-ivan"),
             ("POST", "/api/runs/{id}/cancel"): ("POST", f"{E}/v1/runs/{waiting[1]['run_id']}/cancel",
                                                 {"reason": "withdrawn"}, "acme-hana")})
+        # the Application Builder: a manifest generated from what runs, validated, saved, then read as an application
+        status, _, generated = self.raw("POST", f"{E}/v1/application/generate", body={})
+        self.assertEqual(status, 200, generated)
+        calls.update({
+            ("POST", "/api/application/generate"): ("POST", f"{E}/v1/application/generate", {"id": "claims-desk"}),
+            ("POST", "/api/application/validate"): ("POST", f"{E}/v1/application/validate", {"manifest": generated["manifest"]}),
+            ("GET", "/api/application/draft"): ("GET", f"{E}/v1/application/draft", None),
+            ("POST", "/api/application/draft"): ("POST", f"{E}/v1/application/draft", {
+                "manifest": generated["manifest"], "expected_revision": 0, "note": "v1"}),
+            ("GET", "/api/application"): ("GET", f"{E}/v1/application", None)})
         self.assertEqual(set(calls), set(RESPONSES))  # every typed engine response is exercised
         for key, (method, path, body, *who) in calls.items():
             with self.subTest(route=key):

@@ -102,6 +102,15 @@ ROUTES: List[Tuple[str, str, str, str, Tuple[str, ...]]] = [
      "One proposal: a revision with its provenance, validation, history and review decisions", ("revision",)),
     ("POST", "/api/architect/proposals/{id}/decision", "configure",
      "Record which provisional items a person accepted or rejected (changes no model)", ()),
+    ("GET", "/api/application", "read",
+     "The application designed for what runs, as this caller may use it; 409 when another configuration runs", ()),
+    ("POST", "/api/application/generate", "read or configure",
+     "A draft application manifest generated from the released model and agents (deterministic; nothing saved)", ()),
+    ("POST", "/api/application/validate", "read or configure",
+     "Validate an application manifest against the model and configuration that run", ()),
+    ("GET", "/api/application/draft", "read or configure", "The saved application design, its validation and history", ()),
+    ("POST", "/api/application/draft", "configure",
+     "Save an application design over the revision read (an invalid manifest is never stored)", ()),
 ]
 
 # -- response envelope of API v1 (the same handlers serve /api and /api/v1) -----------------------------------
@@ -399,6 +408,28 @@ SCHEMAS: Dict[str, Any] = {
         ("items", "architect")),
     "ProposalDecisionRequest": _obj({"revision": I, "accepted": {"type": "array", "items": S},
                                      "rejected": {"type": "array", "items": S}, "note": S}),
+    # the Application Builder: a manifest is described by autology.appspec.SCHEMA (closed and versioned); these
+    # envelopes carry it
+    "ApplicationCheck": _obj({"valid": {"type": "boolean"}, "problems": {"type": "array", "items": _obj({"path": S, "message": S})},
+                              "by": S, "manifest_version": I, "digest": NS}, ("valid", "problems")),
+    "ApplicationRunning": _obj({"model": S, "model_fingerprint": S, "configuration": S, "engine_api": S,
+                                "workspace": S, "use_case": S}, ("model", "model_fingerprint", "configuration")),
+    "ApplicationGenerated": _obj({"manifest": ANY, "validation": REF("ApplicationCheck"), "saved": {"type": "boolean"},
+                                  "generator": ANY}, ("manifest", "validation", "saved", "generator")),
+    "ApplicationValidation": _obj({"validation": REF("ApplicationCheck"), "running": REF("ApplicationRunning")},
+                                  ("validation", "running")),
+    "ApplicationDraft": _obj({"revision": I, "manifest": {"type": ["object", "null"]},
+                              "validation": {"anyOf": [REF("ApplicationCheck"), {"type": "null"}]},
+                              "history": {"type": "array", "items": ANY}, "running": REF("ApplicationRunning"),
+                              "author": NS, "at": NS, "note": NS, "saved": {"type": "boolean"}},
+                             ("revision", "manifest", "validation", "history", "running")),
+    "Application": _obj({"manifest": ANY, "revision": I, "digest": S, "running": REF("ApplicationRunning"), "status": S,
+                         "stage": NS, "runs_refused": NS, "production": {"type": "boolean"}, "you": ANY},
+                        ("manifest", "revision", "digest", "running", "status", "production", "you")),
+    "ApplicationGenerateRequest": _obj({"id": S}),
+    "ApplicationValidateRequest": _obj({"manifest": ANY}, ("manifest",)),
+    "ApplicationSave": _obj({"manifest": ANY, "expected_revision": {"type": "integer", "minimum": 0}, "note": S},
+                            ("manifest", "expected_revision")),
     "DraftSave": _obj({"document": ANY, "expected_revision": {"type": "integer", "minimum": 0},
                        "note": S,
                        # the stored architect proposal revision this model was saved from, checked by the engine
@@ -432,7 +463,10 @@ RESPONSES = {("GET", "/api/health"): "Health", ("GET", "/api/me"): "Me", ("GET",
              ("GET", "/api/runs"): "RunList", ("POST", "/api/runs"): "Run", ("GET", "/api/runs/{id}"): "Run",
              ("GET", "/api/runs/{id}/audit"): "RunAudit", ("POST", "/api/runs/{id}/cancel"): "Run",
              ("GET", "/api/reviews"): "ReviewList", ("GET", "/api/reviews/{id}"): "Review",
-             ("POST", "/api/reviews/{id}/decision"): "Run"}
+             ("POST", "/api/reviews/{id}/decision"): "Run",
+             ("GET", "/api/application"): "Application", ("POST", "/api/application/generate"): "ApplicationGenerated",
+             ("POST", "/api/application/validate"): "ApplicationValidation",
+             ("GET", "/api/application/draft"): "ApplicationDraft", ("POST", "/api/application/draft"): "ApplicationDraft"}
 REQUESTS = {("POST", "/api/model/draft"): "DraftSave", ("POST", "/api/model/validate"): "ValidateRequest",
             ("POST", "/api/architect/proposals"): "ProposalRequest", ("POST", "/api/objects"): "ObjectWrite",
             ("POST", "/api/architect/proposals/{id}/decision"): "ProposalDecisionRequest",
@@ -440,7 +474,10 @@ REQUESTS = {("POST", "/api/model/draft"): "DraftSave", ("POST", "/api/model/vali
             ("POST", "/api/solution/draft"): "SolutionSave", ("POST", "/api/solution/validate"): "SolutionCheck",
             ("POST", "/api/solution/suggest"): "SolutionCheck",
             ("POST", "/api/runs"): "RunStart", ("POST", "/api/runs/{id}/cancel"): "RunCancel",
-            ("POST", "/api/reviews/{id}/decision"): "ReviewDecision"}
+            ("POST", "/api/reviews/{id}/decision"): "ReviewDecision",
+            ("POST", "/api/application/generate"): "ApplicationGenerateRequest",
+            ("POST", "/api/application/validate"): "ApplicationValidateRequest",
+            ("POST", "/api/application/draft"): "ApplicationSave"}
 
 
 def _operation_id(method: str, path: str) -> str:

@@ -460,7 +460,77 @@ pack("network_intelligence", "network-intelligence", {
                       tool("write_summary", "summary written from the case's records")]}},
         "sample_data": {"instances": net_rows, "links": net_links}}})
 
-# the platform that hosts both applications: two workspaces, separate people, templates offered to one workspace each
+# ---------------------------------------------------------------------------------------------------------------
+# C. Venue booking: a third, unrelated domain with NO template. A complete model and its configuration, written by
+#    hand and saved through the API: what the Application Builder is given is "an already validated ontology"
+# ---------------------------------------------------------------------------------------------------------------
+venue_model = {
+    "name": "venue-booking", "version": "0.1.0", "description": "Requests to book a room for an event (synthetic)",
+    "entities": {
+        "BookingRequest": {"description": "A request to book a room", "states": ["submitted", "checked", "confirmed", "closed"],
+                           "attributes": {"reference": "string", "event_title": "string", "attendees": "number",
+                                          "event_date": "date", "catering": "boolean", "note": "string"}},
+        "Room": {"description": "A room that can be booked", "states": ["open", "closed"],
+                 "attributes": {"label": "string", "capacity": "number", "floor": "number"}},
+        "Organiser": {"description": "Who asks for the booking", "states": ["active"],
+                      "attributes": {"display_name": "string", "department": "string"}},
+        "EquipmentItem": {"description": "Equipment lent with a room", "states": ["available", "reserved"],
+                          "attributes": {"label": "string", "quantity": "number"}},
+        "Deposit": {"description": "A deposit asked for a booking", "states": ["requested", "received"],
+                    "attributes": {"amount": "number", "due_on": "date"}}},
+    "relationships": [
+        {"from": "Organiser", "to": "BookingRequest", "type": "requests", "cardinality": "1..*"},
+        {"from": "BookingRequest", "to": "Room", "type": "room", "cardinality": "1..*"},
+        {"from": "BookingRequest", "to": "EquipmentItem", "type": "equipment", "cardinality": "1..*"},
+        {"from": "BookingRequest", "to": "Deposit", "type": "deposit", "cardinality": "1..*"}],
+    "actions": {
+        "check_availability": {"description": "Check that the room is free and large enough", "capability": "rooms.check",
+                               "requires": ["BookingRequest.status == 'submitted'"],
+                               "effects": {"BookingRequest": {"status": "checked"}}, "side_effect": "none"},
+        "confirm_booking": {"description": "Confirm the booking to the organiser", "capability": "bookings.confirm",
+                            "requires": ["BookingRequest.status == 'checked'"],
+                            "effects": {"BookingRequest": {"status": "confirmed"}}, "side_effect": "non_idempotent"},
+        "close_request": {"description": "Close the request", "capability": "bookings.close",
+                          "requires": ["BookingRequest.status == 'confirmed'"],
+                          "effects": {"BookingRequest": {"status": "closed"}}, "side_effect": "idempotent"}},
+    "rules": [
+        {"id": "V-LARGE-EVENT", "type": "human_review", "description": "A facilities manager approves bookings for 200 people or more",
+         "action": "confirm_booking", "reviewer": "facilities_manager", "when": "BookingRequest.attendees >= 200"},
+        {"id": "V-CLOSED-ROOM", "type": "prohibition", "description": "A closed room is never booked",
+         "action": "confirm_booking", "when": "Room.status == 'closed'"},
+        {"id": "V-CONFIRM-ROLE", "type": "action_access", "description": "Only a booking clerk confirms",
+         "action": "confirm_booking", "roles": ["booking_clerk"]}],
+    "goals": {"request_closed": {"description": "The request is closed", "target": "BookingRequest.status == 'closed'"}},
+    "case_templates": {"booking_case": {"description": "A request with its room", "root": "BookingRequest",
+                                        "entities": {"BookingRequest": "self", "Room": "room"}}}}
+venue_rows, venue_links = [
+    {"type": "Organiser", "id": "ORG-1", "status": "active", "display_name": "Events team (fictional)", "department": "Communications"},
+    {"type": "Room", "id": "ROOM-A", "status": "open", "label": "Auditorium A (fictional)", "capacity": 300, "floor": 0},
+    {"type": "Room", "id": "ROOM-B", "status": "closed", "label": "Seminar room B (fictional, closed for works)", "capacity": 40, "floor": 2},
+    {"type": "EquipmentItem", "id": "EQ-1", "status": "available", "label": "Projector (fictional)", "quantity": 2},
+    {"type": "Deposit", "id": "DEP-1", "status": "requested", "amount": 500, "due_on": "2026-12-01"},
+], [["BKG-4002", "equipment", "EQ-1"], ["BKG-4002", "deposit", "DEP-1"]]
+for number, room, facts in ((4001, "ROOM-A", {"event_title": "Team meeting", "attendees": 30}),
+                            (4002, "ROOM-A", {"event_title": "Annual conference", "attendees": 260, "catering": True}),
+                            (4003, "ROOM-B", {"event_title": "Workshop", "attendees": 20})):
+    venue_rows.append({"type": "BookingRequest", "id": f"BKG-{number}", "status": "submitted", "reference": f"BKG-{number}",
+                       "event_date": "2026-12-10", "catering": False, "note": "", **facts})
+    venue_links += [["ORG-1", "requests", f"BKG-{number}"], [f"BKG-{number}", "room", room]]
+home = HERE / "venue_booking"
+home.mkdir(exist_ok=True)
+(home / "ontology.json").write_text(json.dumps({"name": "venue-booking", "version": "0.0.1"}, indent=1) + "\n")
+(home / "server.json").write_text(json.dumps({"ontology": "ontology.json", "store": "autology.db", "users": [],
+                                              "ai": {"provider": "sandbox"}}, indent=1) + "\n")
+(home / "model.json").write_text(json.dumps(venue_model, indent=1) + "\n")
+(home / "solution.json").write_text(json.dumps({
+    "agents": {"booking_agent": {
+        "purpose": "Takes a booking request to closure, within the policy", "responsibilities": ["Check", "Confirm", "Close"],
+        "roles": ["booking_clerk"], "goals": ["request_closed"], "autonomy": {"mode": "policy"},
+        "tools": [tool("check_availability", "availability checked"), tool("confirm_booking", "booking confirmed"),
+                  tool("close_request", "request closed")]}},
+    "sample_data": {"instances": venue_rows, "links": venue_links}}, indent=1) + "\n")
+
+# the platform that hosts the applications: one workspace each, separate people, templates offered to one workspace each
 (HERE / "platform.json").write_text(json.dumps({
     "data_dir": "data",
     "templates": {
@@ -469,7 +539,9 @@ pack("network_intelligence", "network-intelligence", {
                                         "(synthetic; no language model)", "config": "crisis_management/server.json"},
         "netintel-blank": {"name": "Blank solution (network intelligence pack)", "workspaces": ["netintel"],
                            "description": "An empty model with the sandbox architect and the network investigation "
-                                          "templates (synthetic; no language model)", "config": "network_intelligence/server.json"}},
+                                          "templates (synthetic; no language model)", "config": "network_intelligence/server.json"},
+        "venues-blank": {"name": "Blank solution (no template)", "workspaces": ["venues"],
+                         "description": "An empty model with no template at all (synthetic)", "config": "venue_booking/server.json"}},
     "workspaces": {
         "crisis": {"name": "Autology Crisis Management (synthetic)", "release_approvers": ["rosa"],
                    "members": [{"name": "carla", "token_env": "CRISIS_TOKEN_CARLA", "workspace_admin": True},
@@ -484,5 +556,11 @@ pack("network_intelligence", "network-intelligence", {
                                  {"name": "alan", "token_env": "NETINTEL_TOKEN_ALAN"},
                                  {"name": "cleo", "token_env": "NETINTEL_TOKEN_CLEO"},
                                  {"name": "alex", "token_env": "NETINTEL_TOKEN_ALEX"}],
-                     "use_cases": {}}}}, indent=1) + "\n")
+                     "use_cases": {}},
+        "venues": {"name": "Venue Booking (synthetic, third domain)", "release_approvers": ["vito"],
+                   "members": [{"name": "vera", "token_env": "VENUES_TOKEN_VERA", "workspace_admin": True},
+                               {"name": "vito", "token_env": "VENUES_TOKEN_VITO"},
+                               {"name": "viv", "token_env": "VENUES_TOKEN_VIV"},
+                               {"name": "val", "token_env": "VENUES_TOKEN_VAL"}],
+                   "use_cases": {}}}}, indent=1) + "\n")
 print("written:", sorted(str(p.relative_to(HERE)) for p in HERE.rglob("*.json")))

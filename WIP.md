@@ -151,5 +151,5 @@ No call to a provider; nothing spent. Report:
 | F — record editor, consistency findings, several agents | Editor: partial (needs the unrestricted permission; D24). Findings: done. Several agents: [design only](planning/AUTOLOGY_MULTI_AGENT_COORDINATION_DESIGN.md) | `tests/test_stab5_workflow_consistency.py` (5); 8 browser checks |
 | Third real evaluation | **Not run. Ready for controlled re-evaluation — awaiting owner authorization** | Report §4 |
 
-Waiting for the owner: D30 (f), (g), (h); D31; D32; D24; D26; two independent reviewers; the provider's invoice.
+Commit `8c9fe94`; CI run 110 green. Waiting for the owner: D30 (f), (g), (h); D31; D32; D24; D26; two independent reviewers; the provider's invoice.
 **R2 is not closed.**

@@ -1159,4 +1159,11 @@ refresh; reproduced 1 in 3, then 8 of 8 visible), GAP-088 (the test suite left 2
 
 ### CI
 
-Recorded in the next entry of this log.
+| Commit | Run | Result |
+|---|---|---|
+| `5585346` | [run 109](https://github.com/edlwiseltd/ontology/actions/runs/44054616055) | Success (the starting point) |
+| `8c9fe94` | [run 110](https://github.com/edlwiseltd/ontology/actions/runs/44086874836) | **Success**, all five jobs: Python 3.10 and 3.13 with PostgreSQL (the whole suite, no test may be skipped there; coverage gate 95 % passed), `package` (wheel with both sets of evaluation cases), `studio` (unit tests and browser checks), `quality` (ruff, mypy ratchet, dependency audit) |
+
+**Full run on the final tree (local):** 1,014 OK (2 PostgreSQL tests skipped locally), 95.92 % lines (17,068
+statements, 697 missed). After that run, variables were renamed in `consistency.py` for the type check; its tests
+were re-run, and run 110 ran everything on the committed tree.

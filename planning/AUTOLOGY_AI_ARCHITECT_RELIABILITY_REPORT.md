@@ -19,11 +19,11 @@ proposed (held-out cases, hostile instructions through four channels, an injecti
 | | |
 |---|---|
 | Starting revision | `5585346` (CI runs 107 and 108 green on the two commits before it; verified) |
-| Ending revision | the commit that carries this report (named in the implementation log with its CI run) |
-| Python suite | Full suite on the tree before increment F and the evaluation protocol's last additions: **1009 tests, all passing** (2 PostgreSQL tests skipped locally), **95.89 %** line coverage (16,971 statements, 697 missed). The 5 tests added after it, and every suite touched since, pass; the full run on the final tree is recorded in the implementation log |
+| Ending revision | `8c9fe94` (the work); the commit after it only records this line and the CI result |
+| Python suite | **1,014 tests, all passing** (2 PostgreSQL tests skipped locally; 964 before the sprint), **95.92 %** line coverage (17,068 statements, 697 missed). After that run, variables were renamed in `consistency.py` for the type check (no behaviour change): its tests were re-run locally and the whole suite ran in CI on the committed tree |
 | Static analysis | ruff clean; mypy 198 errors, equal to the baseline (not raised) |
 | Studio | typecheck clean; 58 unit tests (42 before); build; **135 of 135 browser checks** (119 before) |
-| CI | recorded in the implementation log once the run of this commit has finished |
+| CI | [Run 110](https://github.com/edlwiseltd/ontology/actions/runs/44086874836) on `8c9fe94`: **success**, all five jobs (Python 3.10 and 3.13 with PostgreSQL and the coverage gate, `package`, `studio`, `quality`). Run 109 on the starting revision `5585346`: success |
 | Real provider calls | **None.** No test contacts a provider; no credential was added to CI |
 
 **Commits.** The increments share files (the ledger, the proposal views and the contract touch the same

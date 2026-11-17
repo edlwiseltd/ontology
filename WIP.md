@@ -133,5 +133,5 @@ a month. The key was in the environment from 07:47 UTC.
 | Spending | 4.418874 USD recorded, 5.581126 USD left; 33 requests, 24 answers | `spending-ledger.json` |
 
 Defects: GAP-072 to GAP-079 fixed; GAP-080, GAP-081 open; GAP-082, GAP-083 wait for the owner (D30 f, g).
-**GAP-052 is partly fixed, R2 is not closed.** Nothing further is sent to the provider without the owner's word.
+Commits `a2b5cb7`, `253544d`; CI runs 107 and 108 green. **GAP-052 is partly fixed, R2 is not closed.** Nothing further is sent to the provider without the owner's word.
 Report: [planning/AUTOLOGY_FIRST_REAL_CLAUDE_EVALUATION_REPORT.md](planning/AUTOLOGY_FIRST_REAL_CLAUDE_EVALUATION_REPORT.md).

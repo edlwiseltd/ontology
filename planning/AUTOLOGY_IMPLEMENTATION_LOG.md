@@ -1083,4 +1083,5 @@ the provider; no credential was added to CI.
 | Commit | Run | Result |
 |---|---|---|
 | `df28368` | [run 106](https://github.com/edlwiseltd/ontology/actions/runs/43973781621) | Success (the starting point) |
-| The commit that carries this entry | Recorded in the commit that follows it | — |
+| `a2b5cb7` | [run 107](https://github.com/edlwiseltd/ontology/actions/runs/44053036847) | **Success**, all five jobs: Python 3.10 and 3.13 with PostgreSQL (the whole suite, 964 tests, no test may be skipped there; coverage gate 95 % passed), `package`, `studio` (unit tests and browser checks), `quality` (ruff, mypy ratchet, dependency audit) |
+| `253544d` | [run 108](https://github.com/edlwiseltd/ontology/actions/runs/44053206605) | **Success**, all five jobs (the saved ledger and its documentation) |

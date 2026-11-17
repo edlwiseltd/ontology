@@ -12,7 +12,7 @@ export interface ActionSpec { action: string; label: string; rules: string[]; ba
 export interface View {
   id: string; type: string; title: string; basis: Basis; entity?: string;
   columns?: Field[]; title_field?: string; page_size?: number; fields?: Field[]; related?: Related[];
-  case_template?: string; agent?: string; states?: string[]; actions?: ActionSpec[]; rules?: string[];
+  case_template?: string; agent?: { name: string; basis: Basis }; states?: string[]; actions?: ActionSpec[]; rules?: string[];
   tiles?: { entity: string; label: string; basis: Basis }[];
   available?: boolean; unavailable_because?: string;
 }

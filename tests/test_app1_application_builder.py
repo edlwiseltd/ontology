@@ -135,6 +135,7 @@ class GeneratorTests(Apps):
                 choices = [c for v in manifest["views"] for key in ("columns", "fields", "related", "actions", "tiles")
                            for c in v.get(key, [])] + manifest["navigation"]
                 self.assertTrue(all(c["basis"] in ("ontology", "configuration", "default") for c in choices))
+                self.assertEqual(by_type["WorkflowView"][0]["agent"], {"name": self.j[ws].d["agent"], "basis": "configuration"})
                 self.assertIn("default", {c["basis"] for c in choices})   # presentation defaults are named as such
                 self.assertIn("ontology", {c["basis"] for c in choices})
                 self.assertNotIn("confirmed", {v["basis"] for v in manifest["views"]})  # nobody confirmed anything yet
@@ -207,7 +208,7 @@ class ValidationTests(Apps):
         self.refused(ws, lambda m: m["views"][detail]["related"][0].update(relationship="owns"), "no relationship")
         self.refused(ws, lambda m: m["views"][detail]["related"][0].update(direction="in" if m["views"][detail]["related"][0]["direction"] == "out" else "out"), "no relationship")
         self.refused(ws, lambda m: m["views"][work].update(case_template="other_case"), "no case template")
-        self.refused(ws, lambda m: m["views"][work].update(agent="root_agent"), "no agent 'root_agent'")
+        self.refused(ws, lambda m: m["views"][work]["agent"].update(name="root_agent"), "no agent 'root_agent'")
         self.refused(ws, lambda m: m["views"][work]["actions"][0].update(action="delete_everything"), "no action")
         self.refused(ws, lambda m: m["views"][work]["actions"][0].update(rules=["R-NONE"]), "no rule 'R-NONE'")
         self.refused(ws, lambda m: m["views"][work].update(states=["approved_by_me"]), "not states of")

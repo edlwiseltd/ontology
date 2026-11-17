@@ -1,6 +1,6 @@
 # Work in progress — Autology
 
-*Updated 17 November 2026 (R2 cross-domain validation). Branch `claude/autology-ontology-agent-4ajjer`.*
+*Updated 17 November 2026 (Application Builder sprint). Branch `claude/autology-ontology-agent-4ajjer`.*
 
 ## Done in this directive
 
@@ -174,3 +174,22 @@ Waiting for the owner: D30 (f), (g), (h); D31; D32; D24; D26; D33 (four general 
 (application contract gaps); reviewers for both demonstrator domains. **R2 is not closed.**
 
 Commits `c202a68`, `d046b8d`, `84c2725`; CI run 112 green, run 113 failed on one racy new browser check (corrected), run 114 green on the final code.
+
+## Application Builder: from a released model to a business application (17 November 2026)
+
+No call to a provider; nothing spent. Synthetic data and simulated tools only. Report:
+[planning/AUTOLOGY_APPLICATION_BUILDER_MVP_REPORT.md](planning/AUTOLOGY_APPLICATION_BUILDER_MVP_REPORT.md).
+
+| Item | Status | Evidence |
+|---|---|---|
+| Application manifest (closed, versioned), deterministic generator, validation, per-caller tailoring | **Done** | `autology/appspec.py`; `tests/test_app1_application_builder.py` (14) |
+| Designs saved by the Engine, bound to a configuration; refused on any other; requests may name their configuration | **Done** as design drafts; **not part of a release** (GAP-101, D34) | `autology/applications.py`; store schema 20 |
+| Application runtime, separate from Studio, eight view components | **Done**; served with Studio (GAP-103) | `studio/web/runtime/`; `studio/web/tests/runtime.test.ts` (15) |
+| Studio Application Designer | **Done** | `components/ApplicationDesigner.tsx` |
+| Three demonstrations (crisis, network intelligence, venue booking without a template) | **Done** in a browser | `studio/web/e2e/apps.mjs` (87 checks) |
+| Creating or changing records from an application | **Not available**: forms are previews | [record rights proposal](planning/AUTOLOGY_D24_APPLICATION_PERMISSIONS_PROPOSAL.md) |
+| Application registry, event feed | Contracts only | [D34 package](planning/AUTOLOGY_D34_APPLICATION_PLATFORM_DECISION_PACKAGE.md) |
+| A language model anywhere in this | **None.** Generation is deterministic; the AI Architect is unchanged and unproven | Report, G.11 |
+
+Waiting for the owner: D24 (with the new record-rights proposal), D26, D30 (f), (g), (h), D31, D32, D33, D34, D35.
+**R2 is not closed.**

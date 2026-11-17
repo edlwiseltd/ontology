@@ -90,7 +90,8 @@ VIEW = _obj({
     "fields": _arr(_obj({"field": S, "label": S, "basis": BASIS, "input": {"type": "string", "enum": sorted(set(INPUTS.values()) | {"select"})},
                          "options": _arr(S, 40)}, optional=("input", "options"))),  # detail and form
     "related": _arr(RELATED),                              # EntityDetailView, RelationshipView
-    "case_template": S, "agent": S, "states": _arr(S, 40),  # WorkflowView
+    "case_template": S, "states": _arr(S, 40),             # WorkflowView
+    "agent": _obj({"name": S, "basis": BASIS}),            # the approved agent that does the work
     "actions": _arr(_obj({"action": S, "label": S, "rules": _arr(S, 20), "basis": BASIS})),
     "rules": _arr(S, 40),                                  # ApprovalInboxView: the review rules it explains
     "tiles": _arr(_obj({"entity": S, "label": S, "basis": BASIS}), 12),  # DashboardView: records by state
@@ -172,7 +173,7 @@ def generate(ontology: Any, agents: Mapping[str, Mapping[str, Any]], binding: Ma
                                    if r.params.get("action") == a.name or r.params.get("before") == a.name]}
                         for a in touching]}
         if agent is not None:
-            view["agent"] = agent
+            view["agent"] = {"name": agent, "basis": "configuration"}  # read from the approved configuration
         else:
             view["basis"] = "unresolved"  # the model has work to do and no approved agent to do it
         add(view)
@@ -312,8 +313,8 @@ def validate(manifest: Any, ontology: Any, agents: Mapping[str, Any], running: M
             template = ontology.case_templates.get(view["case_template"])
             if template is None or template.root != entity.name:
                 bad(f"{where}.case_template", f"no case template {view['case_template']!r} starts from {entity.name}")
-            if "agent" in view and view["agent"] not in agents:
-                bad(f"{where}.agent", f"no agent {view['agent']!r} is part of what runs")
+            if "agent" in view and view["agent"]["name"] not in agents:
+                bad(f"{where}.agent", f"no agent {view['agent']['name']!r} is part of what runs")
             if set(view.get("states", [])) - set(entity.states):
                 bad(f"{where}.states", f"not states of {entity.name}")
             for j, action in enumerate(view["actions"]):

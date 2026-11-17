@@ -18,6 +18,7 @@ export function basisCounts(manifest: Manifest): Record<Basis, number> {
   for (const n of manifest.navigation) count(n.basis);
   for (const v of manifest.views) {
     count(v.basis);
+    if (v.agent) count(v.agent.basis);
     for (const key of ["columns", "fields", "related", "actions", "tiles"] as const) for (const c of v[key] ?? []) count(c.basis);
   }
   return out;
@@ -64,7 +65,7 @@ export function describe(view: View): string {
   const parts = [view.entity ? `records of ${view.entity}` : "",
     view.columns ? `${view.columns.length} column(s)` : "", view.fields ? `${view.fields.length} field(s)` : "",
     view.related?.length ? `${view.related.length} relationship(s)` : "", view.actions ? `${view.actions.length} action(s)` : "",
-    view.case_template ? `case ${view.case_template}` : "", view.agent ? `agent ${view.agent}` : "",
+    view.case_template ? `case ${view.case_template}` : "", view.agent ? `agent ${view.agent.name}` : "",
     view.rules ? `${view.rules.length} review rule(s)` : "", view.tiles ? `${view.tiles.length} tile(s)` : ""];
   return parts.filter(Boolean).join(" · ");
 }

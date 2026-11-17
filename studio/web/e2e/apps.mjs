@@ -14,13 +14,13 @@ const check = (name, ok, detail = "") => { results.push({ name, ok }); console.l
 
 const APPS = {
   crisis: { uc: "flood", name: "crisis demonstrator", admin: "carla", approver: "rosa", operator: "omar", reviewer: "dana",
-            root: "IncidentReport", roots: 5, alone: "INC-2001", refused: "INC-2003", waits: "INC-2002", hiddenLabel: null },
+            accent: "amber", root: "IncidentReport", roots: 5, alone: "INC-2001", refused: "INC-2003", waits: "INC-2002", hiddenLabel: null },
   netintel: { uc: "cases", name: "netintel demonstrator", admin: "nora", approver: "ravi", operator: "alan", reviewer: "cleo",
-              root: "CaseFile", roots: 3, alone: "CASE-3001", refused: "CASE-3003", waits: "CASE-3002", hiddenLabel: "Bank account",
+              accent: "violet", root: "CaseFile", roots: 3, alone: "CASE-3001", refused: "CASE-3003", waits: "CASE-3002", hiddenLabel: "Bank account",
               lists: [["Association", ["observed_fact", "confirmed_assertion", "inference", "unresolved_hypothesis"]],
                       ["Hypothesis", ["freight agent"]], ["Evidence", ["unverified", "primary"]]] },
   venues: { uc: "bookings", name: "Bookings", admin: "vera", approver: "vito", operator: "viv", reviewer: "val",
-            root: "BookingRequest", roots: 3, alone: "BKG-4001", refused: "BKG-4003", waits: "BKG-4002", hiddenLabel: null },
+            accent: "teal", root: "BookingRequest", roots: 3, alone: "BKG-4001", refused: "BKG-4003", waits: "BKG-4002", hiddenLabel: null },
 };
 const words = (n) => { const s = n.replace(/[_-]/g, " ").replace(/([a-z0-9])([A-Z])/g, "$1 $2").trim(); return s[0].toUpperCase() + s.slice(1).toLowerCase(); };
 
@@ -75,13 +75,15 @@ async function demo(ws) {
       (await studio.locator("[data-testid=app-screens] tbody tr").count()) === generated.views.length,
       `${generated.views.length} screens, ${generated.navigation.length} in navigation`);
   const basisText = await studio.textContent("[data-testid=app-basis]");
-  say("every choice says where it comes from: the model, or a presentation default nobody confirmed",
-      basisText.includes("from the model") && basisText.includes("a presentation default") && !basisText.includes("confirmed by a person"), basisText.slice(0, 120));
+  say("every choice says where it comes from: the model, the approved configuration, or a presentation default nobody confirmed",
+      basisText.includes("from the model") && basisText.includes("1 from the approved configuration") &&
+      basisText.includes("a presentation default") && !basisText.includes("confirmed by a person"), basisText.slice(0, 140));
   await studio.click(`tr[data-view=${listView.id}] button.link`);
   await studio.waitForSelector("[data-testid=app-columns]");
   await studio.uncheck(`[data-testid=app-columns] input[data-column=${dropped.field}]`);
   await studio.fill(`input[aria-label='Label of ${listView.id}']`, `${words(d.root)} (all)`);
   await studio.fill("#app-title", `${generated.title} desk`);
+  await studio.selectOption("#app-accent", d.accent);
   steps.push("configure");
   say("the designer chooses the attributes a list shows and relabels a screen; what a person changed is marked",
       (await studio.locator("[data-testid=app-columns] input:checked").count()) === listView.columns.length - 1 &&
@@ -121,6 +123,7 @@ async function demo(ws) {
   const bar = await app.textContent(".rt-bar");
   say("the application says which solution it renders, that its data is synthetic and that production is unavailable",
       (await app.textContent("[data-testid=rt-title]")) === `${generated.title} desk` && bar.includes("Engine-backed simulation") &&
+      (await app.getAttribute("[data-testid=rt-app]", "data-accent")) === d.accent &&
       bar.includes("synthetic records") && bar.includes("Production: unavailable") && bar.includes(generated.binding.model) &&
       bar.includes(generated.binding.configuration.slice(0, 12)) && bar.includes("stage simulation") && bar.includes("starts work"));
   const nav = await app.textContent("[data-testid=rt-nav]");

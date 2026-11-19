@@ -1375,3 +1375,53 @@ they now record the review and assert the refusal. Three schema pins moved from 
 | `5e290be` | [run 124](https://github.com/edlwiseltd/ontology/actions/runs/44195281888) | **Success** (baseline) |
 | `fe37691` (final code) | [run 125](https://github.com/edlwiseltd/ontology/actions/runs/44625037181) | **Success**, all five jobs |
 
+
+## 19 November 2026 — R2: provenance integrity, human review in Studio, governed operations
+
+Directive: "R2 — Provenance Integrity, Human Review UX & Governed Operations". Repository engineering only;
+synthetic data and simulated tools; **no provider call, no credential read, the ledger not written**. No approval
+of D24, D30, D34, D35 or D36 was found and none was assumed. Report:
+[AUTOLOGY_R2_PROVENANCE_HUMAN_REVIEW_GOVERNED_OPERATIONS_REPORT.md](AUTOLOGY_R2_PROVENANCE_HUMAN_REVIEW_GOVERNED_OPERATIONS_REPORT.md).
+
+### What was done
+
+| Increment | Content |
+|---|---|
+| 0 Baseline | `b0e1fca` = remote; CI run 126 success on it; run 125 belongs to `fe37691`. Threat model written before the code |
+| 1 GAP-107 | `proposal_review.classify`: the Engine establishes the provenance of every draft against every stored proposal, with or without a named origin. Modes `architect_proposal`, `manual_authoring`, `derived_revision`, `imported_configuration` (reserved), `legacy_unknown` (reported). Store schema 22 (`model_drafts.provenance`, additive). `Platform.publish_draft` refuses a revision without established provenance |
+| 2 GAP-108 | Studio: Accept, Correct, Reject per element through the existing decision route; side-by-side structured editor; history; `expected_version` (a decision over a stale review is refused) |
+| 3 Traceability | `chain_eval.trace` (eleven links, missing written as missing), `provenance_cases`, `deploy/make_chain_evidence.py`, six replay scenarios kept in `planning/evidence/provenance-2026-11-19/`; review rubric and evidence package (not carried out) |
+| 4 D36 | Decision sheets for D36 a–e and the new defaults D37 a–e ([package](AUTOLOGY_D36_RATIFICATION_PACKAGE.md)). Nothing ratified |
+| 5 D24 / D34 | Not approved: inactive. One refusal added to each prototype; the directive's test lists mapped |
+| 6 D35 | Verification plan per boundary. Nothing deployed |
+| 7 Regression | This entry, registers, roadmap, WIP, report |
+
+### Findings
+
+GAP-107 fixed for identical content; GAP-108 fixed. New: GAP-109 (content retyped by hand cannot be proven; owner
+decision D37 d), GAP-110 (no draft import route; the mode is reserved), GAP-111 (the kept journey's 40 elements
+have no source link; shown as missing), GAP-112 (a configuration saved before any model draft had no provenance;
+found while documenting the entry points, fixed). Register: 112 entries (65 fixed, 21 open, 13 partly, 8 owner
+decision, 5 external evidence). Decisions: D37 added (five engineering defaults); D36 a recorded as strengthened;
+all others unchanged.
+
+The first full run with the gate in force failed 21 tests and errored 1, in four modules: their fixtures saved an
+unreviewed proposal as a draft. Two fixtures now record the review; nothing was removed. Three schema pins moved
+from 21 to 22 with their exact lists.
+
+### Verification
+
+| Run | Result |
+|---|---|
+| Full Python suite, local, final tree | **1,155 tests, all passed**, 2 skipped locally; coverage **96.19 % (18,391 statements, 701 missed)** |
+| Secrets | Six known values searched for, by value, in 1,656 files: none found |
+| ruff; mypy ratchet | clean; 198 (= baseline, not raised) |
+| Studio | typecheck clean, **85 unit tests**, build; browser: **135/135**, **76/76**, **108/108** |
+| Provider calls; credentials read; ledger writes | None; none; none (27 entries, last written 17 November) |
+
+### CI
+
+| Commit | Run | Result |
+|---|---|---|
+| `b0e1fca` | [run 126](https://github.com/edlwiseltd/ontology/actions/runs/44626769503) | **Success** (baseline) |
+| `334b3e5` (final code) | [run 127](https://github.com/edlwiseltd/ontology/actions/runs/44636770979) | **Success**, all five jobs |

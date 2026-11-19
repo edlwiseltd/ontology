@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import time
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence
@@ -103,7 +104,7 @@ def _governed(document: Mapping[str, Any]) -> Dict[str, Any]:
     """What governed work does with the draft, in a draft simulation: stub tools, nothing stored, no silent decision."""
     out: Dict[str, Any] = {"default": None, "steps": 0, "review_requested": False, "reviewers": [], "with_approval": None,
                            "with_refusal": None, "decision_by_another_role_refused": None, "without_any_role": None, "why": "",
-                           "audit": None}
+                           "audit": None, "executed": []}
     try:
         first = simulate(document)
     except (SimulationError, ValueError, KeyError) as exc:
@@ -111,6 +112,7 @@ def _governed(document: Mapping[str, Any]) -> Dict[str, Any]:
         return out
     out.update(default=first["status"], steps=len(first.get("steps") or []))
     events = [e["event"] for e in first["audit"]["events"]]
+    out["executed"] = [str(step["action"]) for step in first.get("steps") or []]
     out["audit"] = {"events": len(events), "kinds": sorted(set(events)),
                     "every_step_left_an_event": len(events) >= len(first.get("steps") or []) and bool(events),
                     "signed_chain": False, "note": first["audit"]["note"]}
@@ -161,7 +163,7 @@ def run_case(case: Mapping[str, Any], ask: Ask, decisions: Any = None) -> Dict[s
         step("A", False, a["failure"])
         while len(steps) < len(STEPS):
             step("harness", None, "not reached: no proposal")
-        out.update(elapsed_seconds=round(time.monotonic() - started, 3), reproducibility=_digest(out))
+        out.update(elapsed_seconds=round(time.monotonic() - started, 3), reproducibility=_digest(out), trace=None)
         return out
     items, rejected = list(proposal.get("items") or []), list(proposal.get("rejected") or [])
     questions = list(proposal.get("questions") or [])
@@ -237,10 +239,112 @@ def run_case(case: Mapping[str, Any], ask: Ask, decisions: Any = None) -> Dict[s
         step("C", work["default"] in ("completed", "awaiting_review"), f"default run: {work['default'] or work['why']}"
              + (f"; review by {', '.join(work['reviewers'])}: approved -> {work['with_approval']}, refused -> {work['with_refusal']}"
                 if work["review_requested"] else ""))
+    out["trace"] = trace(case, proposal, chosen["review"], out, manifest if onto is not None else None)
     out["elapsed_seconds"] = round(time.monotonic() - started, 3)
     out["reproducibility"] = _digest(out)
     step("harness", True, f"digest {out['reproducibility']['digest'][:16]}")
     return out
+
+
+LINKS = ("source", "suggestion", "evidence", "clarification", "decision", "draft", "validation", "release", "application",
+         "simulated_action", "audit")
+MISSING = "missing: "
+
+
+def trace(case: Mapping[str, Any], proposal: Mapping[str, Any], review: Mapping[str, Any], result: Mapping[str, Any],
+          manifest: Optional[Mapping[str, Any]]) -> Dict[str, Any]:
+    """One line per element, from the sentence it rests on to the screen that shows it and the run that used it.
+    A link that does not exist is written as missing, with the reason; none is filled in. Element names only: no
+    record and no value of a record is in a trace."""
+    items = {i["id"]: i for i in proposal.get("items") or []}
+    work = result["C"].get("governed_work") or {}
+    accepted = bool(result["C"].get("draft_accepted"))
+    evidence = dict(case.get("evidence") or {})
+    views = list((manifest or {}).get("views") or [])
+
+    def screens(e: Mapping[str, Any]) -> List[str]:
+        name, kind, value = e["name"], e["kind"], e["value"]
+        if kind == "entity":
+            return [v["id"] for v in views if v.get("entity") == name]
+        if kind == "action":
+            return [v["id"] for v in views if any(a.get("action") == name for a in v.get("actions") or [])]
+        if kind == "rule":
+            return [v["id"] for v in views if value.get("id") in (v.get("rules") or [])
+                    or any(value.get("id") in (a.get("rules") or []) for a in v.get("actions") or [])]
+        if kind == "relationship":
+            return [v["id"] for v in views if any(r.get("relationship") == value.get("type") for r in v.get("related") or [])]
+        if kind == "case_template":
+            return [v["id"] for v in views if v.get("case_template") == name]
+        return []
+
+    lines = []
+    for e in review["elements"]:
+        item = items[e["id"]]
+        cited = [x.get("ref") for x in item.get("evidence") or [] if x.get("ref")]
+        answers = [c for c in cited if str(c).startswith("answer:")]
+        bound = screens(e) if e["kept"] and accepted else []
+        ran = e["kind"] == "action" and e["name"] in (work.get("executed") or [])
+        line = {
+            "element": e["id"],
+            "source": cited[0] if cited else MISSING + "the element cites nothing that was given",
+            "suggestion": f"{e['basis']}: {item.get('rationale') or 'no rationale given'}",
+            "evidence": cited or MISSING + "none",
+            "clarification": answers or "none cited",
+            "decision": (f"{e['decision']} by {e['by']}" if e["decision"] else "none needed: stated by the description" if e["kept"]
+                         else MISSING + "inferred, and nobody confirmed it"),
+            "draft": "in the draft" if e["kept"] else MISSING + "not in the draft",
+            "validation": ("accepted by the strict loader" if accepted else MISSING + "the strict loader refused the draft") if e["kept"]
+            else MISSING + "not validated: not in the draft",
+            "release": (f"release {evidence['release']}" if evidence.get("release") and e["kept"] else
+                        MISSING + "this evaluation releases nothing (a hosted draft is released by two people: tests C8)"),
+            "application": bound or MISSING + ("no screen is bound to this kind of element" if e["kept"] and accepted else "no application"),
+            "simulated_action": ("executed in the default simulated run" if ran else
+                                 MISSING + "not executed in the default simulated run" if e["kind"] == "action" else "not an action"),
+            "audit": (f"{(work.get('audit') or {}).get('events', 0)} events in the simulation's in-memory trace (not a signed chain)"
+                      if ran else MISSING + "no audit event for this element"),
+        }
+        line["missing"] = [k for k in LINKS if str(line[k]).startswith(MISSING)]
+        lines.append(line)
+    return {"links": list(LINKS), "elements": lines,
+            "summary": {"elements": len(lines), "with_no_missing_link": sum(1 for x in lines if not x["missing"]),
+                        "missing_by_link": {k: sum(1 for x in lines if k in x["missing"]) for k in LINKS}},
+            "holds": "element names, never a record or a value of a record"}
+
+
+def provenance_cases(models: Mapping[str, Mapping[str, Any]]) -> List[Dict[str, Any]]:
+    """Models that carry no architect proposal, through the builder and the Engine: one authored by hand, and the
+    same as a legacy draft whose provenance was never established. The architect is not involved and is not judged."""
+    out = []
+    for name, document in models.items():
+        found = proposal_review.classify(document, {"name": document.get("name"), "version": document.get("version")}, [], "author")
+        case = {"id": name, "title": "A model authored by hand", "synthetic": True, "brief": "(no description: authored by hand)"}
+        authored = _as_authored(document)
+        chained = run_case(case, lambda c: authored, {})
+        for mode in ("manual_authoring", "legacy_unknown"):
+            established = mode == "manual_authoring"
+            out.append({"case": name, "provenance": mode, "architect": "not applicable: no architect proposal",
+                        "established_by_engine": established,
+                        "may_be_published": established and bool(chained["C"].get("draft_accepted")),
+                        "why": "attributed to the authenticated author; published only by a second person" if established
+                               else "the provenance was never established: the Engine refuses to publish it until it is saved again and classified",
+                        "authored_elements": found["record"]["elements"]["authored_by_hand"],
+                        "draft_accepted": chained["C"].get("draft_accepted"), "manifest_valid": chained["B"].get("valid"),
+                        "screens": chained["B"].get("screens"),
+                        "simulation": (chained["C"].get("governed_work") or {}).get("default")})
+    return out
+
+
+def _as_authored(document: Mapping[str, Any]) -> Dict[str, Any]:
+    """A hand-written model as a list of stated elements, so that the same chain runs on it. No architect answered."""
+    items = []
+    for kind, section in proposal_review.SECTIONS.items():
+        held = document.get(section) or ({} if kind not in ("relationship", "rule") else [])
+        pairs = held.items() if isinstance(held, Mapping) else [(None, v) for v in held]
+        for name, value in pairs:
+            label = name or (value.get("id") if kind == "rule" else f"{value.get('from')}-{value.get('type')}-{value.get('to')}")
+            items.append({"id": f"model:{kind}:{label}", "kind": kind, "name": name, "value": value, "basis": "supplied",
+                          "origin": "manual_authoring", "evidence": [], "rationale": "authored by hand", "validation": "passed"})
+    return {"items": items, "rejected": [], "questions": [], "generator": "none", "ai": False, "provider": None, "model": None}
 
 
 def _label(item: Mapping[str, Any]) -> str:
@@ -261,7 +365,9 @@ def journey(folder: Any, proposal_file: str = "proposal-revision-2.json", model_
     record = (model.get("x-studio") or {}).get("provenance") or {}
     taken = {key for key, entry in record.items() if entry.get("proposal") == proposal["id"] and entry.get("revision") == proposal["revision"]}
     accepted = [i["id"] for i in proposal["items"] if _label(i) in taken]
-    return {"case": {"id": Path(folder).name, "title": "A Studio journey kept as evidence", "synthetic": True, "brief": proposal["brief"]},
+    number = int(re.sub(r"\D", "", model_file) or 0) or None
+    return {"case": {"id": Path(folder).name, "title": "A Studio journey kept as evidence", "synthetic": True, "brief": proposal["brief"],
+                     "evidence": {"release": number, "model": model_file}},
             "ask": lambda case: proposal,
             "recorded": {"confirm": [i for i in accepted], "drop": [i["id"] for i in proposal["items"] if _label(i) not in taken],
                          "by": f"{proposal.get('created_by')}: the elements recorded as accepted in the released model's provenance "
@@ -379,4 +485,4 @@ def render(result: Mapping[str, Any]) -> str:
 
 
 __all__ = ["PROTOCOL", "STEPS", "COMPONENTS", "CONFIRM_ALL", "SCENARIOS", "reserved", "reference", "replay", "journey", "run_case",
-           "evaluate", "scenarios", "render", "render_scenarios"]
+           "evaluate", "scenarios", "render", "render_scenarios", "trace", "provenance_cases", "LINKS"]

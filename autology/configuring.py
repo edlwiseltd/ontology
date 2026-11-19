@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional
 
+from . import proposal_review
 from . import solution as solutions
 from .server import ApiError, User
 from .store import RecordConflict
@@ -201,10 +202,13 @@ class ConfigurationService:
             if problems:  # an invalid configuration is never stored: there is nothing to publish from it
                 raise ApiError(400, "the configuration is not valid: " + "; ".join(p["message"] for p in problems[:3]),
                                {"problems": problems})
+        # a configuration saved before any draft of the model: the first draft holds the model that runs, unchanged,
+        # and its provenance says exactly that (it is derived from the active model, and nobody authored anything)
+        first = None if draft["saved"] else draft["document"]
+        runs = None if first is None else proposal_review.classify(first, first, [], user.name)["record"]
         try:
-            e.store.save_draft(None if draft["saved"] else draft["document"], user.name,
-                               str(body.get("note") or "configuration saved from Studio")[:500], expected,
-                               solution=candidate)
+            e.store.save_draft(first, user.name, str(body.get("note") or "configuration saved from Studio")[:500],
+                               expected, solution=candidate, provenance=runs)
         except RecordConflict as exc:
             raise ApiError(409, f"{exc}; reload the draft and apply your changes again",
                            {"revision": exc.revision}) from None

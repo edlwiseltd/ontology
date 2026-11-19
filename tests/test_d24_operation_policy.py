@@ -20,8 +20,9 @@ from autology.operation_policy import NEW_RIGHTS, OPERATIONS, decide, in_force
 
 ROOT = Path(__file__).resolve().parent.parent
 MODEL = {"entities": {
-    "Ticket": {"properties": ["title", "size", "verdict", "note"], "decision_critical": ["size", "verdict"],
-               "write_access": {"size": ["estimator"], "note": ["auditor"]}, "archivable": True},
+    "Ticket": {"properties": ["title", "size", "verdict", "note", "salary_band"], "decision_critical": ["size", "verdict"],
+               "write_access": {"size": ["estimator"], "note": ["auditor"]}, "read_access": {"salary_band": ["payroll"]},
+               "archivable": True},
     "Owner": {"properties": ["label"], "decision_critical": [], "write_access": {}}}}
 
 
@@ -279,4 +280,13 @@ class WriteContractTests(unittest.TestCase):
                 out = decide(request, grants, MODEL)
                 self.assertEqual((out["status"], out["check"]), (status, check), out["reason"])
                 self.assertEqual((out["in_force"], out["audit"]["outcome"]), (False, "accepted" if status == 200 else "refused"))
+
+    def test_a_field_hidden_from_the_caller_is_not_written_by_the_caller(self):
+        wide = grant("records.update", entities=["Ticket"], properties={"Ticket": ["title", "salary_band"]})
+        hidden = decide(ask("records.update", properties=["salary_band"]), [wide], MODEL)
+        self.assertEqual((hidden["status"], hidden["check"], hidden["outcome"]), (403, "rule", "refused"))
+        self.assertIn("not shown to this identity", hidden["reason"])
+        seen = decide(ask("records.update", properties=["salary_band"], identity={"roles": ["payroll"]}), [wide], MODEL)
+        self.assertEqual(seen["outcome"], "accepted")
+        self.assertEqual(decide(ask("records.update", properties=["salary_band"]), [ADMIN], MODEL)["status"], 403)  # the unrestricted permission too
 

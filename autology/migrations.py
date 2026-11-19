@@ -160,6 +160,12 @@ def _v21(store: Any, db: Any) -> None:
     """New table only: a person's corrections of proposed elements (created with the rest of the schema)."""
 
 
+def _v22(store: Any, db: Any) -> None:
+    """Where the engine established a draft's model comes from. Existing rows get no value: their provenance was
+    never established, and none is made up for them (they are reported as legacy, unknown)."""
+    _add(db, "model_drafts", "provenance", "TEXT")
+
+
 MIGRATIONS: List[Tuple[int, str, Callable[[Any, Any], None]]] = [
     (4, "who started each run", _v4),
     (5, "write-back snapshots and conflicts; automation failure counts", _v5),
@@ -175,6 +181,7 @@ MIGRATIONS: List[Tuple[int, str, Callable[[Any, Any], None]]] = [
     (19, "a draft records the architect proposal it was saved from", _v19),
     (20, "application design drafts", _v20),
     (21, "a person's corrections of proposed elements", _v21),
+    (22, "the provenance the engine established for a draft", _v22),
 ]
 
 

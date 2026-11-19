@@ -140,7 +140,10 @@ button.danger-inline { color: var(--bad); border-color: var(--bad); } .context s
 .onboarding .question { margin-bottom: 10px; }
 .notice { border-left: 3px solid var(--accent); padding: 6px 10px; background: var(--panel); margin: 0; }
 .onboarding-canvas { height: 300px; }
-.review-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); }
+.review-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--gap); }
+/* while an element is being corrected, the review column takes the room the two panes of the editor need */
+.review-grid:has(.element-editor) { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); }
+.review-grid > * { min-width: 0; overflow-x: auto; }
 .review-grid table { width: 100%; border-collapse: collapse; }
 .review-grid th, .review-grid td, .onboarding table th, .onboarding table td { text-align: left; vertical-align: top; padding: 3px 6px; border-bottom: 1px solid var(--line); }
 .react-flow__node.proposed { border-style: dashed; border-color: var(--accent); }
@@ -198,3 +201,10 @@ button.danger-inline { color: var(--bad); border-color: var(--bad); } .context s
 .appdesign a.button { border: 1px solid var(--line); border-radius: var(--radius); padding: 6px 10px; text-decoration: none; color: var(--ink); background: var(--panel); }
 .app-preview { border: 2px dashed var(--line); border-radius: 8px; margin-top: 10px; overflow: hidden; }
 .app-preview .rt { min-height: 0; }
+
+/* correcting one proposed element: as proposed beside as corrected */
+.element-editor { margin: 6px 0; border-left: 3px solid var(--accent); }
+.editor-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 12px; }
+.editor-grid pre { white-space: pre-wrap; overflow-wrap: anywhere; background: var(--bg); padding: 6px; border: 1px solid var(--line); border-radius: 6px; margin: 0; }
+.editor-grid textarea, .editor-grid input { width: 100%; font-family: ui-monospace, monospace; font-size: 12.5px; }
+@media (max-width: 760px) { .editor-grid { grid-template-columns: 1fr; } }

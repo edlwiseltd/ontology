@@ -118,9 +118,9 @@ async function journey(ws) {
       (await admin.locator("[data-testid=proposed-items] input:checked").count()) === 0 &&
       (await admin.isDisabled("button:has-text('Validate my selection with the engine')")) &&
       (await admin.textContent("[data-testid=proposed-items]")).includes("inferred: needs your confirmation"), beforeSelecting);
-  const shot = async (name) => {
-    const box = await admin.locator("[data-testid=element-review]").boundingBox();
-    if (box) await admin.screenshot({ path: `${OUT}/xdom-${ws}-${name}.png`, fullPage: true, clip: { x: 0, y: Math.max(0, box.y - 60), width: 1280, height: 720 } });
+  const shot = async (name, selector = "[data-testid=element-review]") => {  // the part of the page around what is being shown
+    const top = await admin.evaluate((s) => { const el = document.querySelector(s); return el ? el.getBoundingClientRect().top + window.scrollY : null; }, selector);
+    if (top !== null) await admin.screenshot({ path: `${OUT}/xdom-${ws}-${name}.png`, fullPage: true, clip: { x: 0, y: Math.max(0, top - 80), width: 1280, height: 720 } });
   };
   await shot("review-waiting");
   await selectInferred(admin);
@@ -128,6 +128,75 @@ async function journey(ws) {
   say("selecting the inferred elements is one explicit act, and each is then listed for the review that is recorded on saving",
       (await admin.locator("[data-testid=proposed-items] input:checked").count()) === waitingFor &&
       (await admin.locator("[data-testid=select-inferred]").count()) === 0);
+
+  // ---- review, element by element (GAP-108): accept, reject, see what it broke, accept again, correct, a second reviewer
+  const itemsList = "[data-testid=proposed-items] > li";
+  const recorded = (word) => admin.waitForFunction((w) => document.querySelector("[data-testid=review-recorded]")?.textContent.includes(w), word);
+  const relation = admin.locator(itemsList).filter({ has: admin.locator(".kind", { hasText: /^relationship$/ }) }).first();
+  await relation.locator("[data-testid=el-accept]").click();
+  await recorded("accepted");
+  const needs = [...(await relation.locator("[data-testid=element-detail]").textContent()).matchAll(/model:entity:(\w+)/g)].map((m) => m[1]);
+  const itemOf = (name) => admin.locator(itemsList).filter({ has: admin.locator("label", { hasText: new RegExp(`entity\\s*${name}\\s`) }) }).first();
+  for (const name of needs) {  // the relationship is whole only once the entities it joins are confirmed, each by name
+    await itemOf(name).locator("[data-testid=el-accept]").click();
+    await admin.waitForFunction((n) => document.querySelector("[data-testid=review-recorded]")?.textContent.includes(`accepted model:entity:${n}.`), name);
+  }
+  await admin.waitForFunction(() => !document.querySelector("[data-testid=review-dependencies]"));
+  const needed = needs[0];
+  const entity = itemOf(needed);
+  await entity.locator("[data-testid=el-reject]").click();
+  await recorded("rejected");
+  const broke = (await admin.locator("[data-testid=review-dependencies]").count()) ? await admin.textContent("[data-testid=review-dependencies]") : "";
+  say("rejecting one element is recorded by the engine at once, unselects it, and the review names the accepted element that now lacks it",
+      (await entity.locator("[data-testid=standing]").getAttribute("data-standing")) === "rejected" && !(await entity.locator("input[type=checkbox]").isChecked()) &&
+      broke.includes(`needs model:entity:${needed}`) && (await entity.locator("[data-testid=element-history]").textContent()).includes(`rejected by ${d.admin}`), broke.slice(0, 140));
+  await shot("review-rejected", "[data-testid=standing][data-standing=rejected]");
+  await entity.locator("[data-testid=el-accept]").click();
+  await recorded("accepted");
+  await admin.waitForFunction(() => !document.querySelector("[data-testid=review-dependencies]"));
+  const history = await entity.locator("[data-testid=element-history]").textContent();
+  await shot("review-history", "[data-testid=review-recorded]");
+  say("accepting it again is a new decision beside the earlier ones: the history keeps all three in order, with who and when",
+      (await entity.locator("[data-testid=standing]").getAttribute("data-standing")) === "accepted" && history.includes(`rejected by ${d.admin}`) &&
+      history.indexOf("accepted by") < history.indexOf("rejected by") && history.indexOf("rejected by") < history.lastIndexOf("accepted by") &&
+      (history.match(/ by /g) ?? []).length === 3 && /\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(history), history.slice(0, 200));
+  await entity.locator("[data-testid=el-correct]").click();
+  await admin.waitForSelector("[data-testid=element-editor]");
+  const proposedText = await admin.inputValue("#ed-description");
+  const submitOff = await admin.isDisabled("[data-testid=editor-submit]");
+  await admin.fill("#ed-description", `${proposedText} (corrected in review)`);
+  const editorLine = await admin.textContent("[data-testid=element-editor] [aria-live=polite]");
+  await shot("review-correcting", "[data-testid=element-editor]");
+  await admin.click("[data-testid=editor-submit]");
+  await recorded("corrected");
+  const corrected = (await as(d.admin, "GET", `${ENG}/architect/proposals`)).body.items[0];
+  const stored = (await as(d.admin, "GET", `${ENG}/architect/proposals/${corrected.id}`)).body;
+  const heldAs = stored.review.elements.find((e) => e.id === `model:entity:${needed}`);
+  say("a correction is made in fields beside the proposed content, submitted deliberately, and shown only once the engine has recorded it under the reviewer's name",
+      submitOff && editorLine.includes("1 part(s) changed: description") && (await admin.locator("[data-testid=element-editor]").count()) === 0 &&
+      (await entity.locator("[data-testid=standing]").getAttribute("data-standing")) === "corrected" && heldAs.decision === "corrected" &&
+      heldAs.by === d.admin && heldAs.value.description === `${proposedText} (corrected in review)` && stored.corrections.length === 1 &&
+      stored.items.find((i) => i.id === heldAs.id).value.description === proposedText, editorLine);
+  // a second reviewer decides meanwhile (sent to the engine directly): the next decision made on this screen is not recorded
+  const elsewhere = stored.review.elements.find((e) => e.kind === "entity" && e.id !== heldAs.id);
+  const outOfBand = await as(d.admin, "POST", `${ENG}/architect/proposals/${stored.id}/decision`, { revision: stored.revision, accepted: [elsewhere.id], note: "another reviewer" });
+  await relation.locator("[data-testid=el-accept]").click();
+  await admin.waitForSelector("[data-testid=onboarding-error]");
+  const conflict = await admin.textContent("[data-testid=onboarding-error]");
+  await shot("review-conflict", "[data-testid=onboarding-error]");
+  const afterConflict = (await as(d.admin, "GET", `${ENG}/architect/proposals/${stored.id}`)).body.review.version;
+  await relation.locator("[data-testid=el-accept]").click();
+  await recorded("accepted");
+  say("when someone else reviewed meanwhile, the decision made here is refused, the review is read again, and deciding again works",
+      outOfBand.status === 200 && conflict.includes("Someone else reviewed this proposal meanwhile") && afterConflict === outOfBand.body.review.version &&
+      (await as(d.admin, "GET", `${ENG}/architect/proposals/${stored.id}`)).body.review.version === afterConflict + 1, conflict.slice(0, 90));
+  const outsider = await as(`${OTHER[ws]}-${other.admin}`, "POST", `${ENG}/architect/proposals/${stored.id}/decision`, { accepted: [elsewhere.id] });
+  const reader = await as(d.operator, "POST", `${ENG}/architect/proposals/${stored.id}/decision`, { accepted: [elsewhere.id] });
+  say("a member of another workspace and a member without the right decide nothing about this proposal",
+      [403, 404].includes(outsider.status) && [403, 404].includes(reader.status), `${outsider.status} ${reader.status}`);
+  await admin.focus(`${itemsList} >> nth=0 >> [data-testid=el-accept]`);
+  say("the three decisions of an element are buttons reachable by keyboard, each named for the element it decides",
+      (await admin.evaluate(() => document.activeElement?.closest("[role=group]")?.getAttribute("aria-label") ?? "")).startsWith("Decide "));
   // 3. generate and 4. inspect
   await admin.waitForSelector("[data-testid=onboarding-canvas] .react-flow__node");
   await admin.waitForSelector("[data-testid=workflow] tbody tr");
@@ -162,6 +231,20 @@ async function journey(ws) {
       (await admin.locator("[data-testid=consistency]").count()) === 1, await admin.textContent("[data-testid=engine-validation]"));
   await admin.click("button:has-text('as a draft')");
   await admin.waitForSelector("[data-testid=saved]");
+  const kept = (await as(d.admin, "GET", `${ENG}/architect/proposals`)).body.items[0];
+  const reviewedNow = (await as(d.admin, "GET", `${ENG}/architect/proposals/${kept.id}`)).body;
+  const savedDraft = (await as(d.admin, "GET", `${ENG}/model/draft`)).body;
+  const carriedFix = reviewedNow.review.elements.find((e) => e.decision === "corrected");
+  say("after saving, the engine holds the review and the draft together: every inferred element confirmed by name, the correction carried to the new revision, and the draft's provenance established by the engine",
+      reviewedNow.review.counts.unresolved === 0 && reviewedNow.review.counts.confirmed === reviewedNow.review.counts.inferred && !!carriedFix &&
+      carriedFix.by === d.admin && savedDraft.provenance.mode === "architect_proposal" && savedDraft.provenance.author === d.admin &&
+      savedDraft.provenance.proposals.some((p) => p.proposal === kept.id) && savedDraft.provenance.elements.from_a_proposal_confirmed === reviewedNow.items.length &&
+      savedDraft.document.entities[carriedFix.name].description.endsWith("(corrected in review)"),
+      JSON.stringify(savedDraft.provenance.elements));
+  const again = (await as(d.admin, "GET", `${ENG}/architect/proposals/${kept.id}`)).body;
+  say("read again from the engine, the review is as it was left: the same decisions, by the same person",
+      again.review.version === reviewedNow.review.version && JSON.stringify(again.review.elements.map((e) => [e.id, e.decision, e.by])) ===
+      JSON.stringify(reviewedNow.review.elements.map((e) => [e.id, e.decision, e.by])));
   // 7. configure agents, tools and permissions
   await admin.click("text=Configure agents and tools");
   await admin.waitForSelector("[data-testid=suggest-config]");

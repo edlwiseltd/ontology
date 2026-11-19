@@ -234,3 +234,23 @@ approval was found for D24, D30, D34 or D35, and none was assumed. Report:
 
 Waiting for the owner: D24, D26, D30 (f), (g), (h), D31, D32, D33, D34, D35, D36. **R2 is not closed.**
 
+
+## Provenance integrity, human review in Studio and governed operations (19 November 2026)
+
+No call to a provider; nothing spent; the ledger not written. Synthetic data and simulated tools only. No owner
+approval was found for D24, D30, D34, D35 or D36, and none was assumed. Report:
+[planning/AUTOLOGY_R2_PROVENANCE_HUMAN_REVIEW_GOVERNED_OPERATIONS_REPORT.md](planning/AUTOLOGY_R2_PROVENANCE_HUMAN_REVIEW_GOVERNED_OPERATIONS_REPORT.md).
+
+| Item | Status | Evidence |
+|---|---|---|
+| GAP-107: the Engine establishes the provenance of every draft; naming no proposal escapes nothing | **Fixed, in force** for identical content (defaults D36 a, D37 a–c) | `proposal_review.classify`; `tests/test_gap107_draft_origin.py` (10) |
+| Content retyped by hand or brought from outside | **Cannot be proven**; attributed, flagged, published by a second person (GAP-109; D37 d is the owner's) | [proposal review](docs/proposal-review.md) |
+| A draft of unknown provenance (older than schema 22) | **Not published**; classified again when saved | Same tests; migration test |
+| GAP-108: accept, correct and reject single elements in Studio | **Fixed** through the existing route; history, concurrency, the Engine's answer as the only success | `ElementEditor.tsx`; browser checks in two domains |
+| End-to-end trace per element (eleven links), six replay scenarios | **Done**; missing links written as missing | `chain_eval.trace`; `planning/evidence/provenance-2026-11-19/` |
+| Independent semantic review of a proposed model | **None has taken place.** Rubric and evidence package prepared | [expert review requirements](planning/AUTOLOGY_DOMAIN_EXPERT_REVIEW_REQUIREMENTS.md) Part C |
+| D36 a–e, D37 a–e | **Decision sheets prepared. Not ratified** | [ratification package](planning/AUTOLOGY_D36_RATIFICATION_PACKAGE.md) |
+| D24 create/update; D34 designs as release artifacts; D35 separation | **Inactive.** Prototypes gained one case each; forms stay previews; designs stay drafts; nothing deployed | `autology/operation_policy.py`, `autology/design_governance.py` (not in force) |
+| A real-model run of the chain on the reserved briefs | **Not run: not authorised** | — |
+
+Waiting for the owner: D24, D26, D30 (f), (g), (h), D31, D32, D33, D34, D35, D36, D37. **R2 is not closed.**

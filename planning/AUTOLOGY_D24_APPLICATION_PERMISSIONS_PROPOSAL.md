@@ -117,7 +117,7 @@ The revision is checked after the grant and visibility, so a caller without righ
 ## 6. Tests
 
 **Run now, against the proposal (not in force; non-production evidence):** `tests/test_d24_operation_policy.py`,
-15 tests, the module covered line by line. They prove the *semantics*; they do not prove an implementation, because
+16 tests, the module covered line by line. They prove the *semantics*; they do not prove an implementation, because
 there is none. The twelve cases of the security acceptance list are one test, by name:
 
 | Case | Expected | Step that decides |
@@ -134,6 +134,28 @@ there is none. The twelve cases of the security acceptance list are one test, by
 | Stale version | 409 | revision |
 | Concurrent update | 409 for the second writer | revision |
 | Audit integrity | One deterministic record per decision, names only | — |
+
+**Added on 19 November (provenance sprint; still not in force):** a property that a field rule hides from the
+caller (`read_access`) is not written by the caller either: 403, "not shown to this identity, and is not written
+by it" (`test_a_field_hidden_from_the_caller_is_not_written_by_the_caller`). The file now holds 16 tests.
+
+The test list asked for by the provenance directive, and where each item is covered **in the prototype**:
+
+| Item | Test |
+|---|---|
+| Authorised and unauthorised create and update | `test_each_operation_with_exactly_the_right_it_needs`; `test_the_twelve_cases_of_the_security_acceptance_list` |
+| Entity and property scope | `test_scope`; `test_rules_stand_above_grants` |
+| Relationship scope | `test_workflow_state_and_open_work` (a grant that names no such relationship); the twelve cases |
+| Hidden record; hidden field | the twelve cases (404, visibility); `test_a_field_hidden_from_the_caller_is_not_written_by_the_caller` |
+| Stale and concurrent revisions | `test_a_stale_version_and_two_writers_of_the_same_revision` |
+| State and business-rule validation | `test_workflow_state_and_open_work`; `test_rules_stand_above_grants` |
+| Cross-workspace | `test_scope`; the twelve cases |
+| Audit attribution | `test_every_decision_leaves_one_record_with_names_and_no_value` |
+| An application user without the unrestricted permission | `test_no_right_implies_another`; `test_the_unrestricted_permission_passes_where_it_does_today_and_no_further` |
+| Simulated outcome kept apart from a persisted one | `test_a_requested_change_is_accepted_refused_or_simulated_and_never_confused` |
+
+None of these is evidence about a running system: no route calls the policy. Delete and archive are not exposed
+anywhere and are not part of D24 a.
 
 **In force today, and kept:** `tests/test_app1_application_builder.py` B9 (an application user's write is 403; a
 grant naming a proposed right or `operate` is 400), `tests/test_app2_application_integrity.py`.

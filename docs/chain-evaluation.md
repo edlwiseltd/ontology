@@ -125,6 +125,60 @@ What this supports: on the one real answer with decisions on record, selective c
 into an accepted one. What it does not support: that the confirmed elements are right. Nobody qualified in the
 domain reviewed them.
 
+## The whole chain, element by element (added 19 November 2026, provenance sprint)
+
+`run_case` now returns a `trace`: one line per proposed element across eleven links. It extends
+`proposal_review.traceability` (which ends at the person's decision) through the draft, the Engine's validation,
+the release, the application screens that show the element, the simulated action and the audit trail.
+
+| Link | What the line says | Written as missing when |
+|---|---|---|
+| source | Where the element's statement comes from: the brief, an answer, a supplied source | The answer kept no source (answers recorded before evidence was kept) |
+| suggestion | The architect's element and its basis (stated or inferred) | — |
+| evidence | What the element cites | Nothing is cited |
+| clarification | The answer of a person it rests on | (reported as "none cited", which is not a defect) |
+| decision | The person's decision, by whom | Inferred and nobody confirmed it; rejected |
+| draft | In the draft, or not | Not kept |
+| validation | The strict loader's verdict on the draft | The loader refused the draft |
+| release | The release number, when the answer comes from a released journey | The evaluation releases nothing, and says so |
+| application | The screens of the generated application bound to the element | No screen is bound; no application |
+| simulated action | Executed by the default simulated run | An action the default run did not reach |
+| audit | Events of the simulation's trace (**in memory, not a signed chain**) | No event concerns the element |
+
+A missing link is written as `missing: <why>`; nothing is filled in. The trace holds element names, never a
+record or a value of a record, so it shows nothing a field or row rule hides; the records themselves stay behind
+the Engine's API and its permissions. Evidence: `tests/test_chain1_end_to_end_evaluation.py` (class `TraceTests`).
+
+What the traces show on the kept evidence:
+
+| Answer | Elements | Without any missing link | Links missing (number of elements) |
+|---|---|---|---|
+| Reserved brief `museum-loans`, reference answer, the synthetic reviewer's decisions | 13 | 0 | release 13 (the evaluation releases nothing); audit 11 (only the two actions the default run executed leave an event); application 2; decision, draft and validation 1 each (the inferred rule nobody confirmed); simulated action 1 (an action the default run did not reach) |
+| The kept ground-handling journey (a real model), the decisions on record | 40 | 0 | source 40 and evidence 40: the proposal was stored before evidence was kept, and none is reconstructed (GAP-111); audit 40 and simulated action 14: the default simulated run of this model completes without executing any action; application 20; draft, validation and release 1 each (the one element not accepted) |
+
+The audit link is written as missing for every element that no executed step concerns: a simulation records
+events for steps, not for entities or rules. That is a limit of what a simulated run can attest, stated rather
+than papered over.
+
+### Six replay scenarios (`deploy/make_chain_evidence.py`; `planning/evidence/provenance-2026-11-19/`)
+
+| # | Scenario | Result on `museum-loans` (a reference answer, not a model) |
+|---|---|---|
+| 1 | No element confirmed | 0 of 3 confirmed; draft accepted (the brief states enough); simulation completes |
+| 2 | Only the recorded, attributable confirmations (a synthetic reviewer, written with the case) | 2 of 3; accepted; the simulation waits for a review |
+| 3 | Hypothetical: all confirmed (**a counterfactual**) | 3 of 3; accepted; waits for a review |
+| 4a | A rejection | The rejected entity leaves two elements without what they need; both are named; the Engine **refuses** the draft; no manifest |
+| 4b | A correction | One correction, validated again; accepted |
+| 5 | A model authored by hand, no architect proposal | Provenance `manual_authoring`, established by the Engine; A is not applicable; B and C as for any model |
+| 6 | The same as a legacy draft of unknown provenance | `legacy_unknown`; **may not be published** until saved again and classified |
+
+Scenarios 4a and 4b use decisions written with the evidence script and labelled "no person made them". The kept
+journey gives 0 of 23 (draft refused), 22 of 23 (accepted) and 23 of 23 (counterfactual; accepted). Run 2's kept
+answers are unchanged: 1 of 4 drafts accepted alone, 4 of 4 as a counterfactual, and no scenario 2 because no
+decision is on record. A test compares the files kept in the repository with what the harness gives today.
+
+No score recorded earlier was changed, no held-out case was modified, and no provider was called.
+
 ## What it cannot show
 
 * Whether a model is right for a real organisation: independent domain reviewers judge that, separately.

@@ -200,10 +200,20 @@ SCHEMAS: Dict[str, Any] = {
     "Question": _obj({"id": S, "kind": S, "severity": {"type": "string", "enum": ["high", "medium", "low"]},
                       "question": S, "why": S, "evidence": S, "node": S, "action": S, "rule": I},
                      ("id", "kind", "severity", "question", "why", "evidence")),
+    "DraftProvenance": _obj({"mode": {"type": "string", "enum": ["architect_proposal", "manual_authoring", "derived_revision",
+                                                                  "imported_configuration", "legacy_unknown"]},
+                             "established_by": S, "author": S, "parent": ANY, "declared_origin": {},
+                             "proposals": {"type": "array", "items": _obj({"proposal": S, "revision": I}, ("proposal", "revision"))},
+                             "elements": {"type": "object", "additionalProperties": I},
+                             "confirmed": {"type": "array", "items": ANY}, "authored": {"type": "array", "items": S},
+                             "flags": {"type": "array", "items": ANY}, "reestablished_from_legacy": B,
+                             "includes_unknown": B, "model_changed": B, "cannot_prove": S, "note": S}, ("mode",)),
     "Draft": _obj({"revision": I, "document": ANY, "author": NS, "at": NS, "note": S,
                    # the architect proposal revision this model was saved from; null: not recorded (unknown)
                    "origin": {"oneOf": [{"type": "null"}, _obj({"proposal": S, "revision": I},
                                                                ("proposal", "revision"))]},
+                   # where the engine established the model of this draft comes from (null: no draft saved)
+                   "provenance": {"oneOf": [{"type": "null"}, REF("DraftProvenance")]},
                    "active": _obj({"ref": S, "fingerprint": S}, ("ref", "fingerprint")),
                    "validation": REF("Validation"), "questions": {"type": "array", "items": REF("Question")},
                    "consistency": {"type": "array", "items": REF("ConsistencyFinding")},
@@ -411,7 +421,7 @@ SCHEMAS: Dict[str, Any] = {
                            "reason": S}, ("configured", "generators", "state"))},
         ("items", "architect")),
     # where every element of one revision stands after people's decisions (autology.proposal_review)
-    "ProposalReview": _obj({"revision": I, "policy": S, "elements": {"type": "array", "items": _obj(
+    "ProposalReview": _obj({"revision": I, "policy": S, "version": I, "elements": {"type": "array", "items": _obj(
                                 {"id": S, "kind": S, "name": NS, "basis": NS, "origin": NS,
                                  "needs_confirmation": B, "decision": NS, "by": NS, "at": NS, "kept": B,
                                  "flags": {"type": "array", "items": S}, "depends_on": {"type": "array", "items": S},
@@ -429,6 +439,8 @@ SCHEMAS: Dict[str, Any] = {
                             "validation", "ready_for_draft")),
     "ProposalDecisionRequest": _obj({"revision": I, "accepted": {"type": "array", "items": S},
                                      "rejected": {"type": "array", "items": S}, "note": S,
+                                     # the review version the decision was made over (optional): 409 when it moved on
+                                     "expected_version": {"type": "integer", "minimum": 0},
                                      # an element with the content a person gives it instead of the proposed one
                                      "corrected": {"type": "array", "maxItems": 100, "items": _obj(
                                          {"id": S, "value": {"type": "object"}}, ("id", "value"), extra=False)}}),

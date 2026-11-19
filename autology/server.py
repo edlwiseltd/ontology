@@ -925,7 +925,7 @@ class AutologyService:
         self.require_any(user, "read", "configure")
         row = self.store.draft()
         doc = row["document"] if row else self._active_document()
-        return {"revision": row["revision"] if row else 0, "document": doc, "origin": (row or {}).get("origin"),
+        return {"revision": row["revision"] if row else 0, "document": doc, **self.architect.draft_provenance(row),
                 "author": row["author"] if row else None, "at": row["at"] if row else None,
                 "note": row["note"] if row else "the active model (no draft saved yet)",
                 "active": {"ref": self.ontology.ref, "fingerprint": self.ontology.fingerprint},

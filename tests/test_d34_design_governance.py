@@ -152,6 +152,9 @@ class PathTests(unittest.TestCase):
                               ({"model_fingerprint": "x" * 64}, "another model or configuration")):
                 self.refused(text, rules, ("bind", ADA, {"release": release(**bad)}), design=approved)
             self.refused("not approved", rules, ("bind", ADA, {}), design=approved)
+            for scope, text in (("workspace", "another workspace"), ("use_case", "another use case")):   # a foreign release
+                self.refused(text, rules, ("bind", ADA, {"release": release(**{scope: "elsewhere"})}), design=approved)
+            self.assertEqual(path(rules, ("bind", ADA, {"release": release(workspace="w1", use_case="u1")}), design=approved)["state"], "bound")
             swapped = {**approved, "version": {"design_revision": 1, "digest": "swapped-after-approval"}}  # edited behind the lifecycle
             self.refused("approval is of another version", rules, "bind", design=swapped)
             # stage and activation

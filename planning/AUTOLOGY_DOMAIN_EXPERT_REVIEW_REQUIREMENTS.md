@@ -89,3 +89,66 @@ Each reviewer fills the general form per proposal and answers the questions of t
 reviewers' forms are compared with `architect_eval_v2.agreement`; disagreements are kept, not averaged away. The
 result is stored beside the evidence of the evaluation it belongs to, with the reviewers' roles (not their names,
 unless they agree).
+
+---
+
+## Part C — Semantic review of a proposed model: rubric and evidence package (added 19 November 2026)
+
+*Status: **prepared; not carried out.** No independent domain expert has reviewed any model proposed by the
+architect, any reference answer or any generated application. Nothing below is a result. The engineering team
+does not fill this rubric in and does not stand in for a reviewer.*
+
+Why it is needed: the Engine's acceptance of a model says the model loads, is internally consistent and can run.
+A member's confirmation of an inferred element says a member confirmed it. Neither says the model describes the
+business correctly. Only people qualified in the domain can say that.
+
+### Who
+
+Two reviewers per domain, independent of the project and of each other, with operational experience of the domain
+of the brief. Neither reviews software. For the reserved briefs (`museum-loans`, `harbour-pilotage`): a museum
+registrar or collections manager; a harbour master's officer or marine pilot.
+
+### The evidence package a reviewer receives
+
+| Item | Where it is | What it is, and is not |
+|---|---|---|
+| The brief | `autology/evaluation_reserved/<case>.json` (`brief`) | Synthetic; written by an engineer |
+| The proposed model, element by element | `python -m autology chain-eval --reference --json`, or a stored proposal | For the reserved briefs today: a **hand-written reference answer, not a model's output**. No real model has answered them |
+| Each element's basis and what it cites | The element trace (`docs/chain-evaluation.md`); `planning/evidence/provenance-2026-11-19/` | Stated or inferred, as the Engine classified it |
+| The decisions recorded | The same trace: who accepted, corrected or rejected what | For the reserved briefs: a synthetic reviewer written with the case. For the kept journey: a project member, not a domain expert |
+| What the Engine refused, and why | The proposal's `rejected` list | The strict loader's words |
+| The six scenarios | `six-scenarios-and-traces.txt` | Scenario 3 is a counterfactual |
+| The generated application | Screenshots of the hosted application; the manifest | Simulation; invented records |
+| The general form | [AUTOLOGY_ARCHITECT_EXPERT_REVIEW_FORM.md](AUTOLOGY_ARCHITECT_EXPERT_REVIEW_FORM.md) | To be filled per proposal |
+
+### Rubric (per element, then per model)
+
+Scale for every criterion: **0** wrong or harmful · **1** misleading or materially incomplete · **2** acceptable
+with corrections · **3** correct as it stands · **n/a**. A reviewer writes one sentence for every 0 or 1.
+
+| # | Criterion (per element) | Question |
+|---|---|---|
+| S1 | Existence | Does this thing, relation, action or rule exist in the business as described? |
+| S2 | Naming | Is it called what practitioners call it? |
+| S3 | Content | Are its properties, states, conditions and limits right? |
+| S4 | Basis | Is "stated" really stated in the brief, and "inferred" a reasonable inference from it? |
+| S5 | Authority | For a rule: is the role that decides the one that holds that authority in practice? |
+| S6 | Safety | Could acting on this element as modelled cause harm, loss or a breach of duty? |
+
+| # | Criterion (per model) | Question |
+|---|---|---|
+| M1 | Completeness | What is missing that the business cannot work without? |
+| M2 | Process fidelity | Do the actions and states follow the order work really takes, including exceptions? |
+| M3 | Approvals | Are the decisions reserved for a person the right ones? Which are missing; which are needless? |
+| M4 | Clarification | Did the questions asked cover what a practitioner would have asked first? |
+| M5 | Confirmed inferences | Of the inferred elements a member confirmed: which should not have been? |
+| M6 | Fitness of the application | Would a practitioner recognise their work in the screens? |
+
+### Rules of the review
+
+* Reviewers work apart. Disagreements are kept and reported, not averaged (`architect_eval_v2.agreement`).
+* A review is of one stored proposal revision and its recorded decisions, named by identifier. A changed model
+  is a new review.
+* The result is stored beside the evidence it concerns, with the reviewers' roles and declarations of
+  independence. It changes no recorded score of an earlier evaluation and no threshold.
+* Until a review exists, every report says: **technical acceptance only; no independent semantic review**.

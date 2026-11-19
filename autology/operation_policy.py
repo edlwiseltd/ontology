@@ -211,6 +211,9 @@ def _write(operation: str, request: Dict[str, Any], grant: Optional[Dict[str, An
     for prop in properties:
         if prop not in (shape.get("properties") or []):
             return 400, "properties", f"{entity} has no property {prop}"
+        readers = (shape.get("read_access") or {}).get(prop)
+        if readers is not None and not roles & set(readers):  # what a caller may not read, it does not write blind
+            return 403, "rule", f"{entity}.{prop} is not shown to this identity, and is not written by it"
         writers = (shape.get("write_access") or {}).get(prop)
         if prop in (shape.get("decision_critical") or []) and not writers:
             return 403, "rule", f"{entity}.{prop} is decision-critical and no rule names who may write it"

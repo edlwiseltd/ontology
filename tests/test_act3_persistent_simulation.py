@@ -42,6 +42,11 @@ class SimulationBase(ReleaseBase):
                                      body={"generator": "model", "brief": BRIEF, "document": draft["document"]})
         self.assertEqual(status, 200, proposal)
         self.proposal = proposal
+        # the engine keeps an inferred element out of a draft until a person's decision on it is recorded
+        inferred = [i["id"] for i in proposal["items"] if i["basis"] == "inferred"]
+        status, out = self.call("POST", f"{ENGINE}/architect/proposals/{proposal['id']}/decision",
+                                body={"accepted": inferred, "note": "the reference design, reviewed"})
+        self.assertEqual(status, 200, out)
         document = architect.apply(draft["document"], proposal["items"])
         self.draft(document)
         status, suggested = self.call("POST", f"{ENGINE}/solution/suggest", body={"proposal": proposal["id"]})

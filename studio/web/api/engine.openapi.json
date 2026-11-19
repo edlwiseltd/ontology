@@ -721,6 +721,16 @@
               }
             ]
           },
+          "provenance": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DraftProvenance"
+              }
+            ]
+          },
           "questions": {
             "items": {
               "$ref": "#/components/schemas/Question"
@@ -740,6 +750,96 @@
           "active",
           "validation",
           "questions"
+        ],
+        "type": "object"
+      },
+      "DraftProvenance": {
+        "additionalProperties": true,
+        "properties": {
+          "author": {
+            "type": "string"
+          },
+          "authored": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "cannot_prove": {
+            "type": "string"
+          },
+          "confirmed": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "declared_origin": {},
+          "elements": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "established_by": {
+            "type": "string"
+          },
+          "flags": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "includes_unknown": {
+            "type": "boolean"
+          },
+          "mode": {
+            "enum": [
+              "architect_proposal",
+              "manual_authoring",
+              "derived_revision",
+              "imported_configuration",
+              "legacy_unknown"
+            ],
+            "type": "string"
+          },
+          "model_changed": {
+            "type": "boolean"
+          },
+          "note": {
+            "type": "string"
+          },
+          "parent": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "proposals": {
+            "items": {
+              "additionalProperties": true,
+              "properties": {
+                "proposal": {
+                  "type": "string"
+                },
+                "revision": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "proposal",
+                "revision"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "reestablished_from_legacy": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "mode"
         ],
         "type": "object"
       },
@@ -1941,6 +2041,10 @@
             "maxItems": 100,
             "type": "array"
           },
+          "expected_version": {
+            "minimum": 0,
+            "type": "integer"
+          },
           "note": {
             "type": "string"
           },
@@ -2488,6 +2592,9 @@
               "problems"
             ],
             "type": "object"
+          },
+          "version": {
+            "type": "integer"
           },
           "why_not": {
             "items": {

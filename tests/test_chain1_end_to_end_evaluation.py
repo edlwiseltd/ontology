@@ -314,6 +314,98 @@ class ScenarioTests(unittest.TestCase):
         self.assertEqual((broken["C"]["draft_accepted"], broken["C"]["validated_elements"]), (False, 0))
 
 
+class TraceTests(unittest.TestCase):
+    def test_every_element_is_traced_and_a_missing_link_is_written_as_missing(self):  # C2, C3
+        case = next(c for c in chain_eval.reserved() if c["id"] == "museum-loans")
+        row = chain_eval.run_case(case, chain_eval.reference)
+        trace = row["trace"]
+        self.assertEqual(trace["links"], ["source", "suggestion", "evidence", "clarification", "decision", "draft", "validation",
+                                          "release", "application", "simulated_action", "audit"])
+        self.assertEqual((trace["summary"]["elements"], len(trace["elements"])), (13, 13))
+        by = {line["element"]: line for line in trace["elements"]}
+        rule = by["model:rule:R-VALUE"]                       # inferred, confirmed by the synthetic reviewer
+        self.assertEqual((rule["source"], rule["evidence"], rule["draft"], rule["validation"]),
+                         ("brief", ["brief"], "in the draft", "accepted by the strict loader"))
+        self.assertIn("accepted by a synthetic reviewer", rule["decision"])
+        self.assertEqual(rule["application"], ["work-loan_case", "reviews"])    # the screens that show this rule
+        left = by["model:rule:R-VALUATION"]                   # inferred, and nobody confirmed it: every later link is missing, and says why
+        self.assertEqual(left["missing"], ["decision", "draft", "validation", "release", "application", "audit"])
+        self.assertEqual(left["decision"], "missing: inferred, and nobody confirmed it")
+        entity = by["model:entity:LoanRequest"]
+        self.assertEqual((entity["decision"], sorted(entity["application"])[:2]), ("none needed: stated by the description", ["detail-loanrequest", "form-loanrequest"]))
+        first = by["model:action:check_request"]              # executed by the default simulated run before it waits for a person
+        self.assertEqual(first["simulated_action"], "executed in the default simulated run")
+        self.assertIn("not a signed chain", first["audit"])
+        self.assertEqual(by["model:action:issue_agreement"]["simulated_action"], "missing: not executed in the default simulated run")
+        # nothing is released by the evaluation, and it says so for every element instead of implying a release
+        self.assertEqual(trace["summary"]["missing_by_link"]["release"], 13)
+        self.assertIn("releases nothing", entity["release"])
+        self.assertEqual(trace["holds"], "element names, never a record or a value of a record")
+        self.assertNotIn("Team one", json.dumps(trace))
+
+    def test_a_kept_journey_shows_what_its_record_lacks(self):  # C6
+        kept = chain_eval.journey(JOURNEY)
+        trace = chain_eval.run_case(kept["case"], kept["ask"], kept["recorded"])["trace"]
+        missing = trace["summary"]["missing_by_link"]
+        self.assertEqual((trace["summary"]["elements"], missing["source"], missing["evidence"]), (40, 40, 40))  # recorded before evidence was kept
+        self.assertEqual((missing["decision"], missing["draft"], missing["release"]), (0, 1, 1))
+        self.assertEqual({line["release"] for line in trace["elements"] if "release" not in line["missing"]}, {"release 3"})
+        self.assertEqual(trace["summary"]["with_no_missing_link"], 0)
+
+    def test_a_failed_answer_has_no_trace_and_a_refused_draft_says_so(self):
+        case = chain_eval.reserved()[0]
+
+        def failing(_):
+            raise RuntimeError("no answer")
+
+        self.assertIsNone(chain_eval.run_case(case, failing)["trace"])
+        broken = chain_eval.run_case(case, chain_eval.reference, {"confirm": [], "drop": [i["id"] for i in chain_eval.reference(case)["items"] if i["kind"] == "entity"][:1], "by": "x"})
+        self.assertFalse(broken["C"]["draft_accepted"])
+        kept = [line for line in broken["trace"]["elements"] if line["draft"] == "in the draft"]
+        self.assertTrue(kept and all(line["validation"] == "missing: the strict loader refused the draft" and "application" in line["missing"] for line in kept))
+
+    def test_models_that_carry_no_proposal_authored_by_hand_or_of_unknown_provenance(self):  # C6
+        document = json.loads((ROOT / "examples" / "domains" / "venue_booking" / "model.json").read_text())
+        manual, legacy = chain_eval.provenance_cases({"venue-booking": document})
+        self.assertEqual((manual["provenance"], manual["established_by_engine"], manual["may_be_published"], manual["architect"]),
+                         ("manual_authoring", True, True, "not applicable: no architect proposal"))
+        self.assertEqual((manual["draft_accepted"], manual["manifest_valid"], manual["screens"], manual["simulation"]), (True, True, 24, "awaiting_review"))
+        self.assertEqual((legacy["provenance"], legacy["established_by_engine"], legacy["may_be_published"]), ("legacy_unknown", False, False))
+        self.assertIn("never established", legacy["why"])
+        self.assertEqual(manual["authored_elements"], 17)
+
+    def test_the_six_replay_scenarios_kept_as_evidence_are_what_the_harness_gives_today(self):  # C6
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("make_chain_evidence", ROOT / "deploy" / "make_chain_evidence.py")
+        script = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(script)
+        out = script.build()
+        six = {row["scenario"]: row for row in out["six_scenarios_reserved_brief_museum_loans"]}
+        self.assertEqual(sorted(six), ["1", "2", "3", "4a", "4b", "5", "6"])
+        self.assertEqual([six[n]["confirmation_rate"] for n in ("1", "2", "3")], ["0 of 3", "2 of 3", "3 of 3"])
+        # a rejection names what depended on the rejected element, and the Engine refuses the draft that lacks it
+        rejected = six["4a"]
+        self.assertEqual((rejected["rejected_by_a_person"], rejected["C_engine"]["draft_accepted"], rejected["B_builder"]["manifest_valid"]),
+                         (["model:entity:Borrower"], False, None))
+        self.assertEqual(sorted(f["element"] for f in rejected["dependency_failures"]),
+                         ["model:case_template:loan_case", "model:relationship:Borrower-submits-LoanRequest"])
+        # a correction is validated again and enters the draft as corrected; nobody is named who did not decide
+        self.assertEqual((six["4b"]["corrections"], six["4b"]["C_engine"]["draft_accepted"]), (1, True))
+        self.assertTrue(all("no person made them" in six[n]["decided_by"] for n in ("4a", "4b")))
+        self.assertEqual((six["5"]["provenance"], six["5"]["may_be_published"], six["6"]["provenance"], six["6"]["may_be_published"]),
+                         ("manual_authoring", True, "legacy_unknown", False))
+        journey = out["kept_journey_ground_handling"]
+        self.assertEqual([(journey[n]["confirmation_rate"], journey[n]["C_engine"]["draft_accepted"]) for n in ("1", "2", "3")],
+                         [("0 of 23", False), ("22 of 23", True), ("23 of 23", True)])
+        accepted = [row["draft_accepted"] for row in out["kept_answers_run_2"] if row["run"] and row["answered"]]
+        self.assertEqual((accepted[0::2].count(True), accepted[1::2].count(True)), (1, 4))  # 1 of 4 alone; 4 of 4 as a counterfactual
+        self.assertEqual(out["provider_calls"], 0)
+        # the files kept in the repository are this output, not an edited copy
+        kept = json.loads((ROOT / "planning" / "evidence" / "provenance-2026-11-19" / "six-scenarios-and-traces.json").read_text())
+        self.assertEqual(kept, json.loads(json.dumps(out, sort_keys=True, default=str)))
+
+
 class CommandTests(unittest.TestCase):
     def test_the_command_has_no_way_to_call_a_provider(self):  # C7
         import contextlib

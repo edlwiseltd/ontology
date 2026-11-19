@@ -309,22 +309,41 @@ class ArchitectService:
                                 f"{origin['proposal']!r} in this use case")
         return {"proposal": origin["proposal"], "revision": origin["revision"]}
 
+    @staticmethod
+    def draft_provenance(row: Optional[Mapping[str, Any]]) -> Dict[str, Any]:
+        """A draft's recorded origin and the provenance the engine established for it. A draft from before the
+        engine established any is reported as unknown; with no draft there is nothing to report."""
+        return {"origin": (row or {}).get("origin"), "provenance": None if row is None else row.get("provenance") or {
+            "mode": "legacy_unknown", "includes_unknown": True,
+            "note": "this draft predates the engine's classification: where its elements come from was never established"}}
+
     def save_draft(self, document: Dict[str, Any], author: str, note: str, expected: int, origin: Any) -> int:
-        """Save a draft revision of the model with the proposal it was saved from (checked first). A draft that
-        names a proposal may not contain an element of it that was rejected, or inferred and never confirmed: an
-        assumption does not become part of a model by being carried along."""
+        """Save a draft revision of the model. Where its elements come from is established here, by the engine,
+        from the stored proposals and their reviews (:func:`autology.proposal_review.classify`): a draft may not
+        take an element of any proposal that was rejected, or inferred and never confirmed, **whether or not it
+        names a proposal**. What a client says about origin is checked and proves nothing."""
         checked = self.draft_origin(origin)
-        if checked is not None:
-            store = self.engine.store
-            elements = proposal_review.standing(self._revisions(checked["proposal"]), store.architect_decisions(checked["proposal"]),
-                                                store.architect_corrections(checked["proposal"]), checked["revision"])
-            unconfirmed = proposal_review.draft_problems(document, elements)
-            if unconfirmed:
-                raise ApiError(409, f"the draft contains {len(unconfirmed)} element(s) of proposal {checked['proposal']} "
-                                    f"revision {checked['revision']} that nobody confirmed, or that were rejected "
-                                    f"(first: {unconfirmed[0]['element']}, {unconfirmed[0]['why']}). Record the review "
-                                    "of these elements first; nothing was saved", {"unconfirmed": unconfirmed[:50]})
-        return self.engine.store.save_draft(document, author, note, expected, origin=checked)
+        store = self.engine.store
+        row = store.draft()
+        # a draft of unknown provenance is not built upon: everything it holds beyond what runs is classified again
+        legacy = row is not None and row.get("provenance") is None
+        parent = self.engine._active_document() if row is None or legacy else row["document"]
+        proposals = [{"id": pid, "revisions": self._revisions(pid), "decisions": store.architect_decisions(pid),
+                      "corrections": store.architect_corrections(pid)} for pid in store.architect_proposal_ids()]
+        found = proposal_review.classify(document, parent, proposals, author, checked, (row or {}).get("provenance"),
+                                         row["revision"] if row else 0, legacy)
+        if found["refused"]:
+            first = found["refused"][0]
+            raise ApiError(409, f"the draft cannot be saved: {len(found['refused'])} element(s) of a stored proposal are "
+                                f"not confirmed for it (first: {first['element'] or 'the origin it names'}, proposal "
+                                f"{first['proposal']}: {first['why']}). Record the review of these elements first; "
+                                "nothing was saved", {"unconfirmed": found["refused"][:50]})
+        # the origin recorded is the one the engine found (a named revision that is stale is not taken on trust)
+        # "origin" stays what it was: the proposal this revision's model was saved from, as the engine found it
+        # (none for a model changed by hand). What the model rests on over all its revisions is in the provenance
+        # record, which the engine carries forward and no request can shorten
+        return store.save_draft(document, author, note, expected, origin=found["origin"] or checked,
+                                provenance=found["record"])
 
     # -- a person's review --------------------------------------------------------------------------------
     def decide_proposal(self, user: User, pid: str, body: Dict[str, Any]) -> Dict[str, Any]:
@@ -340,6 +359,13 @@ class ArchitectService:
             raise ApiError(404, f"proposal {pid} has no revision {revision!r}")
         accepted, rejected = self._ids(body.get("accepted"), "accepted"), self._ids(body.get("rejected"), "rejected")
         corrected = self._corrections(body.get("corrected"))
+        # two reviewers at once: a decision made over a review that has moved on is not recorded; the reviewer is
+        # shown the review as it is now and decides again
+        seen, now = body.get("expected_version"), len(e.store.architect_decisions(pid)) + len(e.store.architect_corrections(pid))
+        if seen is not None and (isinstance(seen, bool) or not isinstance(seen, int) or seen != now):
+            raise ApiError(409, f"this proposal was reviewed meanwhile (the review is at version {now}, you decided over "
+                                f"{seen!r}); nothing was recorded. Read the review again and decide",
+                           {"version": now, "review": self.review(pid, rows, row["revision"])})
         known = {i["id"] for i in row["result"]["items"]}
         unknown = sorted((set(accepted) | set(rejected) | set(corrected)) - known)
         if unknown or set(accepted) & set(rejected) or set(corrected) & set(rejected) or not (accepted or rejected or corrected):

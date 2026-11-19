@@ -6,6 +6,7 @@
 // who may decide, and computes readiness; the platform governs releases. No language model is involved until the
 // owner approves a provider (the sandbox architect answers), and every tool is simulated.
 
+import ElementEditor from "@/components/ElementEditor";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Background, Controls, ReactFlow, type Edge, type Node } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
@@ -56,6 +57,8 @@ export default function OnboardingView({ workspace, useCase, admin, member, onCh
   const [sessions, setSessions] = useState<ProposalList["items"]>([]);
   const [diff, setDiff] = useState<{ against: number; result: RevisionDiff } | null>(null);
   const [why, setWhy] = useState("");
+  const [editing, setEditing] = useState("");     // the element being corrected
+  const [reviewed, setReviewed] = useState("");   // what the engine last recorded, in words
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -74,7 +77,10 @@ export default function OnboardingView({ workspace, useCase, admin, member, onCh
   }, [path, run]);
 
   const confirmed: ModelDocument = useMemo(() => draft?.document ?? {}, [draft]);
-  const selected = useMemo(() => (proposal?.items ?? []).filter((i) => chosen.has(i.id)), [proposal, chosen]);
+  const selected = useMemo(() => (proposal?.items ?? []).filter((i) => chosen.has(i.id)).map((i) => {
+    const held = proposal?.review?.elements.find((e) => e.id === i.id);
+    return held?.decision === "corrected" && held.value ? { ...i, value: held.value } : i;
+  }), [proposal, chosen]);
   const previewed = useMemo(() => preview(confirmed, selected), [confirmed, selected]);
   const marks = useMemo(() => standing(confirmed, previewed), [confirmed, previewed]);
   const flow = useMemo(() => workflow(previewed), [previewed]);
@@ -98,6 +104,30 @@ export default function OnboardingView({ workspace, useCase, admin, member, onCh
   const standingOf = (id: string) => proposal?.review?.elements.find((e) => e.id === id);
   // inferred elements shown that are not selected and that nobody rejected: selecting them is the person's own act
   const unselected = (proposal?.review?.elements ?? []).filter((e) => e.needs_confirmation && e.decision !== "rejected" && !chosen.has(e.id)).map((e) => e.id);
+
+  // One decision about one element, sent to the engine's decision route and shown only as the engine answers it.
+  // It is made over the review this screen shows: when someone else reviewed meanwhile the engine refuses, and the
+  // review is read again. No provider is asked.
+  const decideOne = (id: string, what: "accept" | "reject" | "correct", value?: Record<string, unknown>, note = "") => run(async () => {
+    if (!proposal?.id) return;
+    const revision = proposal.revision ?? 1;
+    try {
+      const p = await architect.decide(path, proposal.id, revision, what === "accept" ? [id] : [], what === "reject" ? [id] : [],
+                                       note || "reviewed in Studio", what === "correct" && value ? [{ id, value }] : [], proposal.review?.version);
+      setProposal(p); setEditing(""); setValidation(null);
+      const next = new Set(chosen);
+      if (what === "reject") next.delete(id); else next.add(id);
+      setChosen(next);
+      setReviewed(`The engine recorded: ${what === "accept" ? "accepted" : what === "reject" ? "rejected" : "corrected"} ${id}.`);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409) {
+        setProposal(await architect.get(path, proposal.id, revision)); setEditing("");
+        setReviewed("");
+        throw new Error("Someone else reviewed this proposal meanwhile. The review was read again and is shown as it is now; your decision was not recorded. Decide again.");
+      }
+      throw e;
+    }
+  });
 
   function received(p: Proposal) {
     setProposal(p); setChosen(keptByReview(p));
@@ -152,8 +182,12 @@ export default function OnboardingView({ workspace, useCase, admin, member, onCh
     // the engine checks that this revision exists and records it with the draft: a release can be traced back
     // the review first, element by element as selected here; the engine then refuses a draft that takes an element
     // of this proposal nobody confirmed
-    const rejected = proposal.items.filter((i) => !chosen.has(i.id)).map((i) => i.id);
-    await architect.decide(path, proposal.id, proposal.revision ?? 1, selected.map((i) => i.id), rejected, "reviewed in Studio");
+    const stands = new Map((proposal.review?.elements ?? []).map((e) => [e.id, e.decision]));
+    const accepted = selected.map((i) => i.id).filter((id) => !["accepted", "corrected"].includes(stands.get(id) ?? ""));
+    const rejected = proposal.items.filter((i) => !chosen.has(i.id) && stands.get(i.id) !== "rejected").map((i) => i.id);
+    if (accepted.length || rejected.length) {
+      await architect.decide(path, proposal.id, proposal.revision ?? 1, accepted, rejected, "reviewed in Studio", [], proposal.review?.version);
+    }
     const d = await api.saveDraft(path, document, draft.revision,
                                   `accepted ${selected.length} item(s) of proposal ${proposal.id} revision ${proposal.revision}`,
                                   { proposal: proposal.id, revision: proposal.revision ?? 1 });
@@ -394,6 +428,11 @@ export default function OnboardingView({ workspace, useCase, admin, member, onCh
                   {(proposal.review?.dependency_failures?.length ?? 0) > 0 && (
                     <p className="warn-text small" data-testid="review-dependencies">
                       Kept elements that need an element which is not kept: {proposal.review!.dependency_failures.map((f: any) => `${f.element} needs ${f.needs.join(", ")}`).join("; ")}</p>)}
+                  {reviewed && <p role="status" className="small" data-testid="review-recorded">{reviewed}</p>}
+                  {proposal.review && !proposal.review.validation.valid && (
+                    <p className="warn-text small" data-testid="review-invalid">What is kept does not make a model the engine accepts: {proposal.review.validation.problems.join("; ")}</p>)}
+                  {proposal.review && <p className="small muted" data-testid="review-provider-note">Accepting, correcting and rejecting ask no provider and change no model.
+                    Only asking the architect for a new revision (answers or feedback above) is a provider call. A review is not a release approval: a draft still needs a second person.</p>}
                   <ul className="items small" data-testid="proposed-items">
                     {proposal.items.map((i) => (
                       <li key={i.id} className="provisional-item">
@@ -408,6 +447,23 @@ export default function OnboardingView({ workspace, useCase, admin, member, onCh
                           {typeof i.confidence === "number" && <span className="muted"> · confidence {i.confidence}</span>}</label>
                         <div className="muted">{i.rationale}</div>
                         {(i.attention ?? []).map((a) => <div key={a} className="warn-text">{a}</div>)}
+                        {standingOf(i.id) && (
+                          <div className="small muted" data-testid="element-detail">
+                            {standingOf(i.id)!.depends_on.length > 0 && <span>Needs: {standingOf(i.id)!.depends_on.join(", ")}. </span>}
+                            {(standingOf(i.id)!.history ?? []).length > 0 && <span data-testid="element-history">Decisions: {(standingOf(i.id)!.history as any[]).map((h) =>
+                              `${h.decision} by ${h.by} on revision ${h.revision} (${String(h.at).slice(0, 16).replace("T", " ")})`).join("; ")}.</span>}
+                          </div>)}
+                        {admin && proposal.review && (
+                          <div className="row" role="group" aria-label={`Decide ${itemLabel(i)}`}>
+                            <button type="button" className="small" disabled={busy} data-testid="el-accept" onClick={() => decideOne(i.id, "accept")}>Accept</button>
+                            <button type="button" className="small" disabled={busy} data-testid="el-correct" aria-expanded={editing === i.id}
+                                    onClick={() => setEditing(editing === i.id ? "" : i.id)}>Correct…</button>
+                            <button type="button" className="small" disabled={busy} data-testid="el-reject" onClick={() => decideOne(i.id, "reject")}>Reject</button>
+                          </div>)}
+                        {editing === i.id && (
+                          <ElementEditor label={`${i.kind} ${itemLabel(i)}`} busy={busy} onCancel={() => setEditing("")}
+                                         original={(standingOf(i.id)?.decision === "corrected" && standingOf(i.id)?.value ? standingOf(i.id)!.value : i.value) as Record<string, unknown>}
+                                         onSubmit={(value, note) => decideOne(i.id, "correct", value, note)} />)}
                         <button type="button" className="link small" aria-expanded={why === i.id} data-testid="why-button"
                                 onClick={() => setWhy(why === i.id ? "" : i.id)}>Why was this proposed?</button>
                         {why === i.id && (

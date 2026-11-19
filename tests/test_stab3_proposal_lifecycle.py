@@ -319,7 +319,7 @@ class MigrationTests(unittest.TestCase):
         db.close()
         store = Store(str(path))
         self.addCleanup(store.close)
-        self.assertEqual((store.migrated, SCHEMA_VERSION), ([19, 20, 21], 21))  # 20: application design drafts; 21: corrections of proposed elements
+        self.assertEqual((store.migrated, SCHEMA_VERSION), ([19, 20, 21, 22], 22))  # 20: application design drafts; 21: corrections of proposed elements
         self.assertEqual((store.draft()["origin"], store.draft_history()[0]["origin"], store.drafts_from("P-1")),
                          (None, None, []))
         store.save_draft({"name": "m", "version": "0.2.0"}, "ada", "second", 1, origin={"proposal": "P-1", "revision": 3})

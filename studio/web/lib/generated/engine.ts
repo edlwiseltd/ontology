@@ -1401,9 +1401,43 @@ export interface components {
             } & {
                 [key: string]: unknown;
             });
+            provenance?: null | components["schemas"]["DraftProvenance"];
             questions: components["schemas"]["Question"][];
             revision: number;
             validation: components["schemas"]["Validation"];
+        } & {
+            [key: string]: unknown;
+        };
+        DraftProvenance: {
+            author?: string;
+            authored?: string[];
+            cannot_prove?: string;
+            confirmed?: {
+                [key: string]: unknown;
+            }[];
+            declared_origin?: unknown;
+            elements?: {
+                [key: string]: number;
+            };
+            established_by?: string;
+            flags?: {
+                [key: string]: unknown;
+            }[];
+            includes_unknown?: boolean;
+            /** @enum {string} */
+            mode: "architect_proposal" | "manual_authoring" | "derived_revision" | "imported_configuration" | "legacy_unknown";
+            model_changed?: boolean;
+            note?: string;
+            parent?: {
+                [key: string]: unknown;
+            };
+            proposals?: ({
+                proposal: string;
+                revision: number;
+            } & {
+                [key: string]: unknown;
+            })[];
+            reestablished_from_legacy?: boolean;
         } & {
             [key: string]: unknown;
         };
@@ -1783,6 +1817,7 @@ export interface components {
                 id: string;
                 value: Record<string, never>;
             }[];
+            expected_version?: number;
             note?: string;
             rejected?: string[];
             revision?: number;
@@ -1938,6 +1973,7 @@ export interface components {
             } & {
                 [key: string]: unknown;
             };
+            version?: number;
             why_not?: string[];
         } & {
             [key: string]: unknown;

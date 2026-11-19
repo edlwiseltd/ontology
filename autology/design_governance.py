@@ -94,6 +94,9 @@ def _release(design: Dict[str, Any], release: Optional[Dict[str, Any]], rules: D
         raise Refused("the release is not approved")
     if release["approved_by"] == release.get("proposed_by"):
         raise Refused("the release was approved by its proposer")
+    for scope in ("workspace", "use_case"):  # a design never leaves the workspace and the use case it was made in
+        if release.get(scope) is not None and release[scope] != design.get(scope):
+            raise Refused(f"the release belongs to another {scope.replace('_', ' ')}")
     if (release.get("configuration") != design["configuration_fingerprint"]
             or release.get("model_fingerprint") != design["ontology_fingerprint"]):
         raise Refused("the release is for another model or configuration than the design")

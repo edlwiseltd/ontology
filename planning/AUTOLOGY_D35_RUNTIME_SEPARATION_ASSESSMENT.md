@@ -103,6 +103,29 @@ its own use case's versioned API; it is opened without an opener; one address is
 format or Engine API it does not know (`studio/web/tests/runtime.test.ts`, `forward.test.ts`). Simulation works as
 before: 108 application browser checks.
 
+## 4b. State after the provenance sprint (19 November; nothing deployed, nothing changed in identity)
+
+Verified again in this sprint, unchanged: the runtime's separate token key, its own versioned-API-only requests,
+the opener-free link, the manifest and API compatibility check, and the restricted relay rule that nothing uses
+(`studio/web/tests/runtime.test.ts`, `forward.test.ts`; 108 application browser checks).
+
+Verification plan for the target, by boundary. Each row is a test to write **with** the step of §4 that makes it
+possible; none can pass today, because there is one origin:
+
+| Boundary | What would be verified | Where it would run |
+|---|---|---|
+| Origins | A token stored by Studio is absent from the application origin's storage, and the reverse | Browser, two origins |
+| Sessions | Signing out of one plane leaves the other signed in; a tab that used both planes holds one token per origin | Browser |
+| Token scope | A token issued for the application plane is refused (403) by every `/platform/` route, whatever its holder's office | Engine API tests; needs the identity decision of step 6 |
+| Relay | The application origin answers 404 or 403 for `/platform/…` and for the unversioned API | HTTP tests against the runtime role |
+| Content security policy | The application origin serves no inline script and allows no framing; a violation is reported | Browser, response headers |
+| Runtime and manifest versions | An unsupported manifest format or Engine API is refused with its reason (**in force today**) | `runtime.test.ts` |
+| Rollback | Starting the single role again restores today's behaviour, and the three demonstrations pass unchanged | Browser suites |
+
+Every application still states its mode as "Simulation: tools are simulated. Production: unavailable."
+(`studio/web/runtime/about.tsx`). No identity policy was modified, and none is to be
+before D35 is ratified.
+
 ## 5. What this assessment does not claim
 
 * It does not claim the runtime is isolated: it is not, in the browser.

@@ -1383,6 +1383,12 @@ class Platform:
         if row["author"] == member.name:
             raise LifecycleError(403, "you saved this draft revision: another person with release authority must "
                                       "publish it (a model's access rules never change on one person's say-so)")
+        # where the draft's model comes from must have been established by the engine: a draft from before that
+        # (or written around it) is not published on trust. Saving it again has the engine classify every element
+        if row.get("provenance") is None:
+            raise LifecycleError(409, "the provenance of this draft revision was never established (it predates the "
+                                      "check, or was not saved through the engine). Save the draft again: the engine "
+                                      "then classifies each element against the stored proposals; nothing is published")
         verdict = validate(row["document"])
         if not verdict["valid"]:
             raise LifecycleError(409, "the draft is not valid: " + "; ".join(p["message"] for p in verdict["problems"]))

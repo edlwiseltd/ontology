@@ -196,6 +196,26 @@ and is tested for "all of them, as drafts, none approved".
 | Add automatic self-approval | The author, a service identity and the same person twice are refused |
 | Enable production activation | Refused at two steps, under every policy |
 
+### Added on 19 November (provenance sprint; still not in force)
+
+A release that belongs to another workspace or another use case than the design is refused when a design is bound
+to it ("the release belongs to another workspace / use case"). The negative cases asked for by the provenance
+directive, and where each is covered **in the prototype**:
+
+| Case | Test |
+|---|---|
+| Self-approval | `test_what_is_refused_whatever_the_choices` |
+| Approval by a service identity | the same test |
+| A manifest changed after approval | the same test (a design changed after it was submitted) |
+| A stale release | the same test (a release that is not the active one) |
+| Rollback | `test_a_rollback_shows_the_design_of_the_release_it_restores_or_nothing`; `test_rollback_and_versioning_as_they_would_work` |
+| Suspension and resumption | `test_suspension_resumption_and_revocation` |
+| A foreign workspace | `test_what_is_refused_whatever_the_choices` (added case) |
+| Production | the same test (refused at two steps, under every policy) |
+
+Migration-ready means: the record of §3, the release structure of §3a and the migration of Q7 are specified and
+exercised on fixtures. It does not mean a table, a route or a screen exists: none does.
+
 ## 7. Decision requested
 
 | # | Question | Recommended | If no answer |

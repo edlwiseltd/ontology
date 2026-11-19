@@ -198,8 +198,8 @@ class ApiTests(LifecycleBase):
         origin = {"proposal": first["id"], "revision": 2}
         save = {"document": document, "expected_revision": 0, "note": "x", "origin": origin}
         status, out = self.call("POST", f"{ENGINE}/model/draft", "acme-ada", save)
-        self.assertEqual((status, out["error"]["details"]["unconfirmed"]),
-                         (409, [{"element": tug["id"], "why": "it is inferred and nobody confirmed it"}]))
+        self.assertEqual((status, out["error"]["details"]["unconfirmed"]), (409, [
+            {"element": "entity:Tug", "proposal": first["id"], "revision": 2, "why": "it is inferred and nobody confirmed it"}]))
         # who may decide: a person who may configure; not a reader, not a service identity
         robot = self.add("intake", kind="service")
         for token in ("acme-hana", robot, "nw-nadia"):
@@ -214,6 +214,16 @@ class ApiTests(LifecycleBase):
         self.assertEqual((by[other["id"]]["decision"], by[other["id"]]["by"], by[other["id"]]["value"]), ("corrected", "ada", corrected))
         self.assertEqual(after["corrections"][0]["item"], other["id"])
         self.assertEqual(len(self.double.calls), 2)       # a correction asked no provider
+        # two reviewers at once: a decision over a review that has moved on is not recorded, and the reviewer is shown why
+        version = after["review"]["version"]
+        self.assertEqual((second["review"]["version"], version), (0, 2))
+        status, stale = self.decide(second, accepted=[tug["id"]], expected_version=0)
+        self.assertEqual((status, stale["error"]["details"]["version"]), (409, version))
+        self.assertEqual({e["id"]: e["decision"] for e in stale["error"]["details"]["review"]["elements"]}[tug["id"]], "rejected")
+        self.assertEqual(self.call("GET", f"{ENGINE}/architect/proposals/{first['id']}")[1]["review"]["version"], version)
+        self.assertEqual(self.decide(second, accepted=[stated[0]], expected_version=True)[0], 409)
+        status, fresh = self.decide(second, accepted=[stated[0]], expected_version=version)
+        self.assertEqual((status, fresh["review"]["version"]), (200, version + 1))
         for bad in ({"corrected": [{"id": tug["id"], "value": {}}], "rejected": [tug["id"]]}, {"corrected": [{"id": "model:entity:Nope", "value": {}}]},
                     {"corrected": [{"id": tug["id"]}]}, {"corrected": "all"}, {}):
             self.assertEqual(self.decide(second, **bad)[0], 400, bad)
@@ -225,7 +235,7 @@ class ApiTests(LifecycleBase):
         status, read = self.call("GET", f"{ENGINE}/architect/proposals/{first['id']}")
         self.assertEqual(status, 200)
         self.assertEqual({e["id"]: (e["decision"], e["by"]) for e in read["review"]["elements"]},
-                         {e["id"]: (e["decision"], e["by"]) for e in after["review"]["elements"]})
+                         {e["id"]: (e["decision"], e["by"]) for e in fresh["review"]["elements"]})
         self.assertEqual([h["decision"] for h in next(e for e in read["review"]["elements"] if e["id"] == tug["id"])["history"]], ["rejected"])
         # the model proposes the same elements again: the rejected one is still rejected, and flagged; the correction carries
         status, third = self.call("POST", f"{ENGINE}/architect/proposals", "acme-ada", {"generator": "model", "revises": first["id"], "feedback": "again"})

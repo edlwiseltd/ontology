@@ -207,6 +207,11 @@ class ArchitectCapabilityTests(unittest.TestCase):
         self.double.answer = answer
         out = self.ask()
         document = architect.apply({"name": "novel", "version": "0.1.0"}, out["items"])
+        with self.assertRaises(ApiError) as unreviewed:  # inferred elements nobody confirmed do not enter a draft
+            self.svc.save_model_draft(self.clara, {"document": document, "expected_revision": 0, "note": "accepted"})
+        self.assertEqual(unreviewed.exception.status, 409)
+        self.svc.architect.decide_proposal(self.clara, out["id"], {
+            "accepted": [i["id"] for i in out["items"] if i["basis"] == "inferred"]})
         self.svc.save_model_draft(self.clara, {"document": document, "expected_revision": 0, "note": "accepted"})
         suggested = self.svc.configuring.suggest_solution(self.clara, {"proposal": out["id"]})
         self.assertEqual((suggested["source"], suggested["state"], suggested["saved"]), ("architect descriptions", "validated", False))

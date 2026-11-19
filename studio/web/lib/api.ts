@@ -210,9 +210,13 @@ export const architect = {
   revise: (path: string, id: string, answers: { id: string; answer: string }[], document: ModelDocument, feedback = "") =>
     request<Proposal>("POST", `${path}/api/v1/architect/proposals`,
                       { generator: "model", revises: id, answers, document, ...(feedback.trim() ? { feedback } : {}) }),
-  decide: (path: string, id: string, revision: number, accepted: string[], rejected: string[], note: string) =>
+  // corrected: an element with the content a person gives it; expected_version: the review the person decided over
+  // (the engine refuses, 409, when someone else reviewed meanwhile)
+  decide: (path: string, id: string, revision: number, accepted: string[], rejected: string[], note: string,
+           corrected: { id: string; value: Record<string, unknown> }[] = [], expected_version?: number) =>
     request<Proposal>("POST", `${path}/api/v1/architect/proposals/${enc(id)}/decision`,
-                      { revision, accepted, rejected, note }),
+                      { revision, accepted, rejected, note, ...(corrected.length ? { corrected } : {}),
+                        ...(expected_version === undefined ? {} : { expected_version }) }),
   simulate: (path: string, document: ModelDocument, approvals: SimulatedDecision[]) =>
     request<DraftSimulation>("POST", `${path}/api/v1/model/draft/simulate`, { document, approvals }),
 };

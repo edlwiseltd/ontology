@@ -1320,3 +1320,58 @@ D34 pending, D35 awaiting confirmation, all others as they were.
 | `30d6229` | [run 121](https://github.com/edlwiseltd/ontology/actions/runs/44189543152) | **Success** |
 | `316da27` | [run 122](https://github.com/edlwiseltd/ontology/actions/runs/44191809695) | **Failed** in the two Python jobs (the packaging pin); `package`, `studio`, `quality` did not fail |
 | `a9dd173` (final code) | [run 123](https://github.com/edlwiseltd/ontology/actions/runs/44193229434) | **Success**, all five jobs |
+
+## 19 November 2026 — AI Architect reliability and governed business operations (no provider contacted)
+
+Directive: make AI-generated proposals systematically reviewable, correctable and measurable; prepare governed
+record operations (D24), governed application releases (D34) and runtime separation (D35) without activating
+anything that needs the owner. Report:
+[AUTOLOGY_GOVERNED_OPERATIONS_AND_AI_ARCHITECT_RELIABILITY_REPORT.md](AUTOLOGY_GOVERNED_OPERATIONS_AND_AI_ARCHITECT_RELIABILITY_REPORT.md).
+No credential was read; the spending ledger was not written (27 entries, file unmodified since 17 November); no
+approval of D24, D30, D34 or D35 was found in the repository and none was assumed.
+
+### Baseline (increment 0)
+
+HEAD `5e290be`, clean, equal to the remote; CI run 124 successful. Local full suite on it: 1,113 tests, all
+passed, coverage 96.11 %.
+
+### What was done
+
+| Increment | Content |
+|---|---|
+| 1 AI clarification lifecycle | `autology/proposal_review.py`: where each element stands after people's decisions (an inferred element is confirmed only by an explicit acceptance or correction; the last decision wins; a decision holds while the element is unchanged; a rejection carries). Corrections stored append-only (store schema 21). `ArchitectService.save_draft` refuses a draft that takes an unconfirmed or rejected element from the proposal it names. Studio no longer selects inferred elements and records the review before the draft |
+| 2 Deterministic reliability | Twelve kinds of defect evaluated against the existing authorities; one new consistency case (an action that waits for a state only it produces); the review carries the consistency findings. GAP-082 recovery stays inactive |
+| 3 Evaluation harness | `chain_eval`: three treatments of inferred elements, a kept Studio journey with its recorded decisions, measures per component and for the person's step; the harness uses the Engine's own review rules |
+| 4 Governed operations (D24) | Inactive prototype: accepted / refused / simulated, revision checks, one audit record per decision; the twelve acceptance cases |
+| 5 Governed releases (D34) | Inactive prototype: the release structure with a combined fingerprint; a release without a design keeps today's fingerprint |
+| 6 Runtime separation (D35) | Contracts of the target; the runtime refuses a manifest format or Engine API it was not built for (in force) |
+| 7 Verification | This entry, registers, roadmap, WIP, report |
+
+### Findings
+
+GAP-106 (fixed): unconfirmed inferred elements could reach a draft. GAP-107 (open): a draft that names no proposal
+is not checked. GAP-108 (open): Studio cannot correct an element. GAP-104 updated: on the one kept real-model
+answer with decisions on record, the draft is refused with no confirmation and accepted with the recorded ones;
+the four kept V1 answers have no decision on record. Decisions: D36 added (five engineering defaults, reversible);
+all others unchanged. Register: 108 entries (62 fixed, 21 open, 13 partly, 7 owner decision, 5 external evidence).
+
+Two existing tests saved a draft naming a proposal without any recorded review of an inferred element it took;
+they now record the review and assert the refusal. Three schema pins moved from 20 to 21 with their exact lists.
+
+### Verification
+
+| Run | Result |
+|---|---|
+| Full Python suite, local, final code (`fe37691`) | **1,139 tests, all passed**, 2 skipped locally; coverage **96.12 %** (18,250 statements, 708 missed) |
+| Secrets | Six known values searched for, by value, in 1,648 files: none found |
+| ruff; mypy ratchet | clean; 198 (= baseline, not raised) |
+| Studio | typecheck clean, **81 unit tests**, build; browser: **135/135**, **60/60**, **108/108** |
+| Provider calls; credentials read; ledger writes | None; none; none |
+
+### CI
+
+| Commit | Run | Result |
+|---|---|---|
+| `5e290be` | [run 124](https://github.com/edlwiseltd/ontology/actions/runs/44195281888) | **Success** (baseline) |
+| `fe37691` (final code) | [run 125](https://github.com/edlwiseltd/ontology/actions/runs/44625037181) | **Success**, all five jobs |
+

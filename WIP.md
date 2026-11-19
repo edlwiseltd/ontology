@@ -1,6 +1,6 @@
 # Work in progress — Autology
 
-*Updated 17 November 2026 (Application Builder stabilisation sprint). Branch `claude/autology-ontology-agent-4ajjer`.*
+*Updated 19 November 2026 (governed-operations and architect-reliability sprint). Branch `claude/autology-ontology-agent-4ajjer`.*
 
 ## Done in this directive
 
@@ -212,4 +212,25 @@ No call to a provider; nothing spent; no credential read. Synthetic data and sim
 | End-to-end chain evaluation, three separate results | **Done** with reference answers and replayed evidence; **no real-provider run** | `autology/chain_eval.py`; [chain evaluation](docs/chain-evaluation.md) |
 
 Waiting for the owner: D24, D26, D30 (f), (g), (h), D31, D32, D33, D34, D35. **R2 is not closed.**
+
+## AI Architect reliability and governed business operations (19 November 2026)
+
+No call to a provider; nothing spent; the ledger not written. Synthetic data and simulated tools only. No owner
+approval was found for D24, D30, D34 or D35, and none was assumed. Report:
+[planning/AUTOLOGY_GOVERNED_OPERATIONS_AND_AI_ARCHITECT_RELIABILITY_REPORT.md](planning/AUTOLOGY_GOVERNED_OPERATIONS_AND_AI_ARCHITECT_RELIABILITY_REPORT.md).
+
+| Item | Status | Evidence |
+|---|---|---|
+| Review of a proposal element by element (accept, correct, reject; persisted, attributed) | **Done, in force** (default D36) | `autology/proposal_review.py`; `tests/test_rev1_proposal_review.py`; [proposal review](docs/proposal-review.md) |
+| The Engine refuses a draft that takes an unconfirmed or rejected element from the proposal it names | **Done, in force** | `ArchitectService.save_draft`; GAP-106 fixed |
+| Studio: inferred elements are not selected for the person; the review is recorded before the draft | **Done** | browser checks (cross-domain suite, 60) |
+| Diagnostics on twelve kinds of defect, one authority each | **Evaluated**; one new consistency case | `tests/test_rev2_proposal_diagnostics.py` |
+| Chain evaluation: three treatments of inferred elements, measures per component | **Done**, replayed on kept evidence | `autology/chain_eval.py`; `planning/evidence/chain-eval-2026-11-19/` |
+| D24 governed write contract and twelve acceptance cases | **Prototype, inactive.** Forms stay previews | `autology/operation_policy.py`; 15 tests |
+| D34 release structure with a combined fingerprint | **Prototype, inactive.** Designs stay drafts | `autology/design_governance.py`; 12 tests |
+| D35 runtime contracts | Version check **in force**; the rest designed | `studio/web/runtime/model.ts`; assessment §4a |
+| Correcting an element in Studio | **Not built** (API only; GAP-108) | — |
+| A real-model run of the chain on the reserved briefs | **Not run: not authorised** | — |
+
+Waiting for the owner: D24, D26, D30 (f), (g), (h), D31, D32, D33, D34, D35, D36. **R2 is not closed.**
 

@@ -37,7 +37,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Mapping, Optional
 
 POLICY = "governed-design-v1 (proposed, not in force)"
 STATES = ("draft", "validated", "in_review", "approved", "bound", "simulation", "active", "suspended", "superseded", "revoked")
@@ -191,6 +191,43 @@ def advance(design: Dict[str, Any], event: str, actor: Dict[str, Any], rules: Di
     return new
 
 
+RELEASE_PARTS = ("ontology", "rules", "agents", "application", "runtime")
+
+
+def release_structure(snapshot: Mapping[str, Any], manifest: Optional[Mapping[str, Any]] = None,
+                      approval: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
+    """What a governed release would be made of if a design were one of its parts: each part with its own
+    fingerprint, and one fingerprint over them all.
+
+    ``snapshot`` is a release snapshot as the platform makes it today. Without a manifest the combined fingerprint
+    **is today's**: a release that has no application part is exactly the release it was, so no existing release
+    changes identity. With a manifest, the fingerprint covers it: the design cannot change under an approved
+    release, and approving the release is approving these parts and no others."""
+    from .releases import fingerprint_of
+
+    def part(value: Any) -> Optional[str]:
+        return None if value is None else hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+    held = snapshot.get("ontology")
+    document: Mapping[str, Any] = held if isinstance(held, Mapping) else {}
+    binding = (manifest or {}).get("binding") or {}
+    parts = {"ontology": part({k: v for k, v in document.items() if k != "rules"} or None),
+             "rules": part(document.get("rules")), "agents": part(snapshot.get("solution") or snapshot.get("agents")),
+             "application": None if manifest is None else digest(dict(manifest)),
+             "runtime": None if manifest is None else part({"manifest_version": manifest.get("manifest_version"),
+                                                           "engine_api": binding.get("engine_api")})}
+    combined = fingerprint_of(dict(snapshot)) if manifest is None else fingerprint_of({**snapshot, "application": dict(manifest)})
+    problems = []
+    if manifest is not None and binding.get("configuration") not in (None, fingerprint_of(dict(snapshot))):
+        problems.append("the design is bound to another configuration than this release's")
+    evidence = dict(approval or {})
+    if evidence and evidence.get("approved_by") == evidence.get("proposed_by"):
+        problems.append("the release was approved by its proposer")
+    return {"parts": parts, "fingerprint": combined, "same_as_today": manifest is None,
+            "approval": {k: evidence.get(k) for k in ("proposed_by", "approved_by", "at")},
+            "audit": list(evidence.get("audit") or []), "problems": problems, "policy": POLICY, "in_force": False}
+
+
 def served(designs: List[Dict[str, Any]], active_release: Optional[int]) -> Optional[Dict[str, Any]]:
     """The one design shown for the release that runs (after an activation or a rollback), or None: nothing is shown."""
     mine = [d for d in designs if (d.get("release") or {}).get("number") == active_release and d["state"] in SERVED]
@@ -214,4 +251,5 @@ def migrate(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return out
 
 
-__all__ = ["POLICY", "STATES", "OPTIONS", "Refused", "policy", "artifact", "advance", "served", "needs_new_release", "migrate", "digest"]
+__all__ = ["POLICY", "STATES", "OPTIONS", "Refused", "policy", "artifact", "advance", "served", "needs_new_release", "migrate", "digest", "release_structure",
+           "RELEASE_PARTS"]

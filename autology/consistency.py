@@ -73,8 +73,9 @@ def findings(document: Any) -> Dict[str, Any]:
         for pair in needs[name]:
             leaves.setdefault(pair, []).append(name)
 
-    def reachable(entity: str, state: str) -> bool:
-        return bool(sets.get((entity, state))) or first_state(entity) == state
+    def reachable(entity: str, state: str, without: str = "") -> bool:
+        # ``without``: an action that needs the state cannot be the one that brings it about
+        return any(a != without for a in sets.get((entity, state)) or []) or first_state(entity) == state
 
     def add(kind: str, severity: str, finding: str, why: str, could: List[str], **where: Any) -> None:
         out.append({"id": f"{kind}:{':'.join(str(v) for v in where.values())}", "kind": kind, "severity": severity,
@@ -87,7 +88,7 @@ def findings(document: Any) -> Dict[str, Any]:
         for entity, state in pairs:
             by_entity.setdefault(entity, []).append(state)
         for entity, wanted in by_entity.items():
-            if entity in states and not any(reachable(entity, s) for s in wanted):
+            if entity in states and not any(reachable(entity, s, name) for s in wanted):
                 cannot_start.add(name)
                 add("action_cannot_start", "medium",
                     f"{name} needs a {entity} in state {', '.join(sorted(set(wanted)))}, which no action brings about",

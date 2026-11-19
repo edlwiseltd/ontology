@@ -85,6 +85,24 @@ Both, in two steps: B, then C. D is a separate decision.
 
 Steps 1 to 3 need no Engine change and no data migration. Each step is reversible by configuration.
 
+## 4a. Contracts of the target (added 19 November; designed, not deployed)
+
+| Contract | Design | State |
+|---|---|---|
+| **Separate origins** | Studio on origin A, applications on origin B; the designer's "open the application" link points to B | Not deployed |
+| **Restricted application relay** | Origin B forwards `GET` and `POST` under `/w/<workspace>/u/<use-case>/api/v1/` only: no `/platform/`, no unversioned API | Rule written and tested (`runtimeForwardable`); **wired to nothing** |
+| **Session separation** | Each origin has its own session storage: the browser, not a naming convention, keeps the tokens apart | Follows from separate origins |
+| **Token scope** | A token issued for the application plane is refused by administration routes, whatever its holder's office | An identity decision; **not started** |
+| **CSP boundaries** | Origin B: same-origin connections, no framing, no inline script once a nonce is in place; Studio's policy is no longer the runtime's | Not deployed |
+| **Deployment roles** | One artefact started as `studio` or as `runtime`; each role answers 404 for the other's pages | Not built |
+| **Version compatibility** | The runtime states the manifest formats and Engine API versions it draws, and draws nothing else | **Built and in force:** `runtime/model.ts` `incompatibility`; the refusal is shown instead of the application; "About this application" states both versions |
+| **Migration and rollback** | Each step of §4 is a configuration change; rolling back is starting the single role again | Plan only |
+
+Regression tests that exist today: the runtime imports nothing of Studio's; it has its own token key; it asks only
+its own use case's versioned API; it is opened without an opener; one address is set once; it refuses a manifest
+format or Engine API it does not know (`studio/web/tests/runtime.test.ts`, `forward.test.ts`). Simulation works as
+before: 108 application browser checks.
+
 ## 5. What this assessment does not claim
 
 * It does not claim the runtime is isolated: it is not, in the browser.

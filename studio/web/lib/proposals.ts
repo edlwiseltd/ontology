@@ -124,3 +124,31 @@ export function decided(proposal: Pick<Proposal, "decisions" | "revision">): { a
   }
   return { accepted, rejected };
 }
+
+// -- the review of a proposal, element by element, as the engine reports it (autology/proposal_review.py) ----------
+type Review = NonNullable<Proposal["review"]>;
+type Standing = Review["elements"][number];
+
+/** What is selected when a proposal is opened: what the engine's review keeps, that is the elements the description
+ *  states and the inferred ones a person already confirmed. An inferred element is never selected for the person. */
+export function keptByReview(p: Pick<Proposal, "items" | "review">): Set<string> {
+  if (!p.review) return new Set(p.items.filter((i) => i.basis === "supplied").map((i) => i.id));
+  return new Set(p.review.elements.filter((e) => e.kept).map((e) => e.id));
+}
+
+/** Where one element stands, in a phrase. */
+export function standingLabel(e: Standing): string {
+  const flags = e.flags.length ? ` (${e.flags.join("; ")})` : "";
+  if (e.decision === "rejected") return `rejected by ${e.by}${flags}`;
+  if (e.decision === "corrected") return `corrected by ${e.by}${flags}`;
+  if (e.decision === "accepted") return `${e.needs_confirmation ? "confirmed" : "accepted"} by ${e.by}${flags}`;
+  return (e.needs_confirmation ? "inferred: needs your confirmation" : "stated: no confirmation needed") + flags;
+}
+
+/** The review in one line: how many elements are stated, inferred, confirmed, waiting and rejected. */
+export function reviewLine(r: Review): string {
+  const c = r.counts;
+  return `${c.stated} stated · ${c.inferred} inferred: ${c.confirmed} confirmed, ${c.unresolved} waiting for a person, ${c.rejected} rejected`
+    + (c.proposed_again_after_rejection ? ` · ${c.proposed_again_after_rejection} proposed again after a rejection` : "") + ".";
+}
+

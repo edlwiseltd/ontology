@@ -435,7 +435,7 @@ class MigrationTests(unittest.TestCase):
         db.close()
         store = Store(str(path))
         self.addCleanup(store.close)
-        self.assertEqual((store.migrated, SCHEMA_VERSION), ([20], 20))
+        self.assertEqual((store.migrated, SCHEMA_VERSION), ([20, 21], 21))
         self.assertEqual((store.draft()["revision"], store.application_draft(), store.application_draft_history()), (1, None, []))
         self.assertEqual(store.save_application_draft({"id": "a"}, "ada", "first design", 0, "c" * 64), 1)
         self.assertEqual(store.application_draft()["manifest"], {"id": "a"})

@@ -1,6 +1,6 @@
 // "About this application": what it is, what it runs on and what its user can do, as the Engine reports it.
 // Every line is printed from the Engine's answer, except one, which is this screen's own clock and says so.
-import { capabilities, short } from "./model";
+import { capabilities, RENDERS, short } from "./model";
 import DesignStatus from "./status";
 import type { Application } from "./types";
 
@@ -24,6 +24,7 @@ export default function About({ app, lastAnswer }: { app: Application; lastAnswe
             : "None recorded: this engine is not hosted by a platform that governs releases"}</dd></div>
         <div><dt>Environment</dt>
           <dd data-testid="rt-about-stage">Stage: {app.stage ?? "none"}{app.runs_refused ? `. Runs are refused: ${app.runs_refused}` : ""}</dd></div>
+        <div><dt>Renderer</dt><dd data-testid="rt-about-renderer">Draws manifest format {RENDERS.manifest_versions.join(", ")} for Engine API {RENDERS.engine_apis.join(", ")}; this design is format {manifest.manifest_version}, API {manifest.binding.engine_api}</dd></div>
         <div><dt>Mode</dt><dd data-testid="rt-about-mode">Simulation: tools are simulated. Production: unavailable.</dd></div>
         <div><dt>Last answer from the Engine</dt>
           <dd data-testid="rt-about-last">{lastAnswer

@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { basisCounts, moveNavigation, renameNavigation, setColumns, toggleNavigation } from "../lib/appdesign";
 import { FORWARDED_HEADERS } from "../lib/forward";
 import { call, EngineError } from "../runtime/client";
-import { capabilities, cell, countBy, filterLoaded, formProblems, formRecord, graph, groupNavigation, linked, NAV_FILTER_FROM, NAV_GROUPS, outcome, runLabel, supported, timeline, unsupportedViews } from "../runtime/model";
+import { capabilities, incompatibility, RENDERS, cell, countBy, filterLoaded, formProblems, formRecord, graph, groupNavigation, linked, NAV_FILTER_FROM, NAV_GROUPS, outcome, runLabel, supported, timeline, unsupportedViews } from "../runtime/model";
 import { DESIGN_STATES, stateWord } from "../runtime/status";
 import type { Manifest, RecordRow, View } from "../runtime/types";
 import { VIEW_TYPES } from "../runtime/types";
@@ -119,6 +119,20 @@ describe("the menu and what a person can do", () => {
     await call(who, "GET", "/me", undefined, ok);
     await expect(call(who, "GET", "/me", undefined, no)).rejects.toBeInstanceOf(EngineError);
     expect(heard).toBe(1);
+  });
+});
+
+describe("what this renderer draws and what it refuses", () => {
+  it("draws only the manifest format and Engine API it was built for, and says why it shows nothing otherwise", () => {
+    expect(RENDERS).toEqual({ manifest_versions: [1], engine_apis: ["1"] });
+    expect(incompatibility(manifest)).toBeNull();
+    expect(incompatibility({ ...manifest, manifest_version: 2 })).toContain("manifest format 2; this renderer draws format 1. It is not shown.");
+    expect(incompatibility({ ...manifest, binding: { ...manifest.binding, engine_api: "2" } })).toContain("Engine API 2");
+    for (const odd of [{}, { manifest_version: "1" }, { manifest_version: 1 }, { manifest_version: null, binding: {} }]) {
+      expect(incompatibility(odd as never), JSON.stringify(odd)).not.toBeNull();   // anything it cannot place is refused, not guessed
+    }
+    const shell = readFileSync(join(ROOT, "runtime", "RuntimeApp.tsx"), "utf8");
+    expect(shell).toMatch(/!manifest \|\| !current \|\| incompatible/);  // refused before anything is drawn
   });
 });
 

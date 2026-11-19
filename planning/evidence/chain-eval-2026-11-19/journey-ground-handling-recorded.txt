@@ -1,0 +1,22 @@
+End-to-end chain evaluation, protocol chain-v1. Answers: the stored proposal of the journey kept in planning/evidence/claude-eval-2026-11-17/ground-handling; the decisions recorded with it
+
+A. AI Architect: answered 1 of 1; language model answers 1; elements proposed 40; elements refused by engine 0; inferred elements needing confirmation 23; cost usd recorded with the answers 0.288631
+B. Application Builder: manifests generated 1 of 1; manifests valid 1 of 1; deterministic 1 of 1
+C. Autology Engine: drafts accepted 1 of 1; runs that proceed 1 of 1; reviews requested 0; decisions by another role refused 0 of 0
+
+ground-handling:
+   1. [harness] ok  an unfamiliar business description: 473 characters, synthetic
+   2. [      A] ok  clarification questions: 7 question(s)
+   3. [      A] ok  a structured proposal: 40 element(s) proposed
+   4. [      C] ok  validation by the Engine: 40 accepted, 0 refused by the strict loader
+   5. [      C] ok  rejected elements and their reasons: none refused
+   6. [harness] ok  only authorised corrections and confirmations: 39 kept, 0 inferred and not confirmed, 1 dropped, 0 corrected; by owner: the elements recorded as accepted in the released model's provenance (a member's acceptance in Studio, not a domain expert's review)
+   7. [      C] ok  a governed draft: accepted by the strict loader
+   8. [      B] ok  an application manifest: 32 screens, 11 menu entries
+   9. [      B] ok  validation of the manifest: valid
+  10. [      B] ok  rendering in simulation: every screen is of a view type the renderer draws; no browser was run here
+  11. [      C] ok  governed actions, refusals and approvals: default run: completed
+  12. [harness] ok  a reproducible report: digest 67c23b3580249c8b
+
+Not measured: whether a model is right for a real organisation (independent domain reviewers); a browser's rendering (the browser suite does that for hosted applications); a real provider beyond the answers already kept
+No total is computed: the three components are reported apart.

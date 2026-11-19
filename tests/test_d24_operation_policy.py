@@ -32,8 +32,9 @@ def grant(permission, member="pat", **more):
 
 def ask(operation, **more):
     identity = {"name": "pat", "kind": "person", "roles": ["worker"], **more.pop("identity", {})}
+    record = {"visible": True, "state": "open", "revision": 3, **more.pop("record", {})}
     return {"workspace": "w1", "use_case": "u1", "operation": operation, "identity": identity, "entity": "Ticket",
-            "record": {"visible": True, "state": "open"}, **more}
+            "record": record, "expected_revision": 0 if operation == "records.create" else 3, **more}
 
 
 CREATE = grant("records.create", entities=["Ticket"], properties={"Ticket": ["title"]})
@@ -197,9 +198,85 @@ class InputTests(unittest.TestCase):
         source = inspect.getsource(operation_policy).split('"""', 2)[2]
         read = set(re.findall(r'request(?:\.get\(|\[)"(\w+)"', source))  # everything the function reads of a request
         self.assertEqual(read, {"operation", "identity", "workspace", "use_case", "target", "approves_own", "entity",
-                                "record", "review", "properties", "links", "sets_state"})
+                                "record", "review", "properties", "links", "sets_state", "expected_revision", "simulate"})
         for word in ("manifest", "screen", "header"):
             self.assertNotIn(word, source.lower(), word)
         with_form = ask("records.create", properties=["title"], form={"submit": True}, manifest={"grants": ["admin"]})
         self.assertEqual(decide(with_form, [], MODEL)["allowed"], False)
         self.assertEqual(decide(with_form, [CREATE], MODEL)["reason"], decide(ask("records.create", properties=["title"]), [CREATE], MODEL)["reason"])
+
+
+class WriteContractTests(unittest.TestCase):
+    """The governed write contract (directive C3, C4), against the inactive prototype: non-production evidence."""
+
+    def test_a_requested_change_is_accepted_refused_or_simulated_and_never_confused(self):
+        accepted = decide(ask("records.update", properties=["title"]), [UPDATE], MODEL)
+        refused = decide(ask("records.update", properties=["verdict"]), [UPDATE], MODEL)
+        rehearsed = decide(ask("records.update", properties=["title"], simulate=True), [UPDATE], MODEL)
+        self.assertEqual([(d["outcome"], d["written"], d["allowed"]) for d in (accepted, refused, rehearsed)],
+                         [("accepted", True, True), ("refused", False, False), ("simulated", False, True)])
+        self.assertEqual(operation_policy.OUTCOMES, ("accepted", "refused", "simulated"))
+        for d in (accepted, refused, rehearsed):
+            self.assertEqual(d["requested"], {"operation": "records.update", "entity": "Ticket", "properties": [d["requested"]["properties"][0]], "links": []})
+        # a rehearsal of a change that would be refused is refused: it does not report a preview as possible
+        self.assertEqual(decide(ask("records.update", properties=["verdict"], simulate=True), [UPDATE], MODEL)["outcome"], "refused")
+
+    def test_a_stale_version_and_two_writers_of_the_same_revision(self):
+        self.assertEqual(decide(ask("records.update", properties=["title"], expected_revision=2), [UPDATE], MODEL)["status"], 409)
+        for missing in (None, True, -1, "3"):
+            out = decide(ask("records.update", properties=["title"], expected_revision=missing), [UPDATE], MODEL)
+            self.assertEqual((out["status"], out["check"]), (400, "revision"), missing)
+        # two people read revision 3 and both change the title: the first is written, the second is told, nothing is lost
+        record = {"visible": True, "state": "open", "revision": 3}
+        first = decide(ask("records.update", properties=["title"], record=record), [UPDATE], MODEL)
+        self.assertTrue(first["written"])
+        record = {**record, "revision": 4}  # what the first write leaves
+        second = decide(ask("records.update", properties=["title"], record=record), [UPDATE], MODEL)
+        self.assertEqual((second["outcome"], second["status"], second["check"]), ("refused", 409, "revision"))
+        self.assertIn("revision 4, you sent 3", second["reason"])
+        self.assertEqual(decide(ask("records.archive", expected_revision=2), [ARCHIVE], MODEL)["status"], 409)
+        # creating over an existing identifier, or with a revision other than 0
+        self.assertEqual(decide(ask("records.create", properties=["title"], record={"exists": True}), [CREATE], MODEL)["status"], 409)
+        self.assertEqual(decide(ask("records.create", properties=["title"], expected_revision=1), [CREATE], MODEL)["status"], 409)
+        # the revision comes after the grant and visibility: a stranger learns nothing from it
+        self.assertEqual(decide(ask("records.update", properties=["title"], expected_revision=2), [], MODEL)["check"], "grant")
+        self.assertEqual(decide(ask("records.update", properties=["title"], expected_revision=2, record={"visible": False}), [UPDATE], MODEL)["status"], 404)
+
+    def test_every_decision_leaves_one_record_with_names_and_no_value(self):
+        requests = [ask("records.create", properties=["title"]), ask("records.update", properties=["verdict"]),
+                    ask("records.update", properties=["title"], workspace="w2"), ask("records.update", properties=["title"], links=["owns"]),
+                    ask("records.update", properties=["title"], record={"visible": False}), ask("records.update", properties=["title"], simulate=True)]
+        trail = [decide(r, [CREATE, UPDATE], MODEL)["audit"] for r in requests]
+        self.assertEqual([a["outcome"] for a in trail], ["accepted", "refused", "refused", "refused", "refused", "simulated"])
+        self.assertEqual([a["check"] for a in trail], ["grant", "rule", "grant", "properties", "visibility", "grant"])
+        for record in trail:
+            self.assertEqual(sorted(record), ["check", "entity", "kind", "links", "operation", "outcome", "properties", "reason",
+                                              "record_revision", "right", "use_case", "who", "workspace"])
+            self.assertEqual((record["who"], record["kind"]), ("pat", "person"))
+        again = [decide(r, [CREATE, UPDATE], MODEL)["audit"] for r in requests]
+        self.assertEqual(trail, again)  # the same request gives the same record: nothing depends on a clock or an order
+        text = repr(decide({**ask("records.update", properties=["title"]), "values": {"title": "secret text"}}, [UPDATE], MODEL))
+        self.assertNotIn("secret text", text)
+
+    def test_the_twelve_cases_of_the_security_acceptance_list(self):
+        cases = {
+            "authorized creation": (ask("records.create", properties=["title"]), [CREATE], 200, "grant"),
+            "unauthorized creation": (ask("records.create", properties=["title"], identity={"name": "sam"}), [CREATE], 403, "grant"),
+            "property-level restriction": (ask("records.update", properties=["verdict"]), [grant("records.update", entities=["Ticket"], properties={"Ticket": ["title"]})], 403, "rule"),
+            "entity-level restriction": (ask("records.update", entity="Owner", properties=["label"]), [UPDATE], 403, "entity"),
+            "cross-workspace modification": (ask("records.update", properties=["title"], workspace="w2"), [UPDATE], 403, "grant"),
+            "hidden record modification": (ask("records.update", properties=["title"], record={"visible": False}), [UPDATE], 404, "visibility"),
+            "invalid workflow state": (ask("records.update", properties=["title"], record={"state": "done"}), [UPDATE], 409, "workflow"),
+            "attempted relationship escalation": (ask("records.update", properties=["title"], links=["owns"]), [UPDATE], 403, "properties"),
+            "missing grant": (ask("records.update", properties=["title"]), [], 403, "grant"),
+            "stale version": (ask("records.update", properties=["title"], expected_revision=1), [UPDATE], 409, "revision"),
+            "concurrent update": (ask("records.update", properties=["title"], record={"revision": 4}), [UPDATE], 409, "revision"),
+            "audit integrity": (ask("records.update", properties=["title"]), [UPDATE], 200, "grant"),
+        }
+        self.assertEqual(len(cases), 12)
+        for name, (request, grants, status, check) in cases.items():
+            with self.subTest(case=name):
+                out = decide(request, grants, MODEL)
+                self.assertEqual((out["status"], out["check"]), (status, check), out["reason"])
+                self.assertEqual((out["in_force"], out["audit"]["outcome"]), (False, "accepted" if status == 200 else "refused"))
+

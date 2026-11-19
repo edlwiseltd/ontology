@@ -1,0 +1,11 @@
+Three treatments of inferred elements, protocol chain-v1. Answers: the reserved briefs' hand-written reference answers (not a model)
+
+harbour-pilotage       scenario 1                  confirmed 0 of 2; unresolved 2; dependency failures 0; draft accepted; manifest valid; simulation completed
+harbour-pilotage       scenario 2                  confirmed 1 of 2; unresolved 1; dependency failures 0; draft accepted; manifest valid; simulation completed
+harbour-pilotage       scenario 3 (counterfactual) confirmed 2 of 2; unresolved 0; dependency failures 0; draft accepted; manifest valid; simulation escalated
+museum-loans           scenario 1                  confirmed 0 of 3; unresolved 3; dependency failures 0; draft accepted; manifest valid; simulation completed
+museum-loans           scenario 2                  confirmed 2 of 3; unresolved 1; dependency failures 0; draft accepted; manifest valid; simulation awaiting_review
+museum-loans           scenario 3 (counterfactual) confirmed 3 of 3; unresolved 0; dependency failures 0; draft accepted; manifest valid; simulation awaiting_review
+
+Scenario 3 assumes confirmations nobody gave. Technical acceptance in any scenario says the Engine can load and run the model; it says nothing about whether the model is right for the business. No domain expert reviewed any of these models.
+No total is computed.

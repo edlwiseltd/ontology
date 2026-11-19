@@ -14,7 +14,7 @@ import { ontologyToGraph } from "@/lib/graph";
 import { documentToSummary } from "@/lib/model";
 import { accessLines, basisLabel, countByKind, generatorLabel, itemLabel, preview, providerLabel, refusalText,
          SAMPLE_BRIEF, standing, withProvenance, workflow } from "@/lib/onboarding";
-import { compareRevisions, decided, generatedBy, originLabel, outcomes, revisionLine, sessionLine, whyLines,
+import { compareRevisions, decided, generatedBy, keptByReview, originLabel, outcomes, reviewLine, revisionLine, sessionLine, standingLabel, whyLines,
          type RevisionDiff } from "@/lib/proposals";
 import type { ArchitectStatus, Draft, DraftSimulation, ModelDocument, Proposal, ProposalList, Readiness, ReleaseState,
               UseCase, Validation } from "@/lib/types";
@@ -95,8 +95,12 @@ export default function OnboardingView({ workspace, useCase, admin, member, onCh
       .map(({ r, i }: any) => ({ id: `r${i}`, source: r.from, target: r.to, label: r.type, labelStyle: { fontSize: 11 } }));
   }, [previewed]);
 
+  const standingOf = (id: string) => proposal?.review?.elements.find((e) => e.id === id);
+  // inferred elements shown that are not selected and that nobody rejected: selecting them is the person's own act
+  const unselected = (proposal?.review?.elements ?? []).filter((e) => e.needs_confirmation && e.decision !== "rejected" && !chosen.has(e.id)).map((e) => e.id);
+
   function received(p: Proposal) {
-    setProposal(p); setChosen(new Set(p.items.map((i) => i.id)));
+    setProposal(p); setChosen(keptByReview(p));
     setValidation(null); setSaved(""); setSimulation(null); setDecisions([]); setDiff(null); setWhy("");
   }
 
@@ -109,8 +113,8 @@ export default function OnboardingView({ workspace, useCase, admin, member, onCh
     if (rel) setReleases(rel);
     setBrief(p.brief ?? brief);
     setAnswers(Object.fromEntries((p.answers ?? []).map((a) => [a.id, a.answer])));
-    const { rejected } = decided(p);
-    setChosen(new Set(p.items.filter((i) => !rejected.has(i.id) && !inDraft(i)).map((i) => i.id)));
+    const kept = keptByReview(p);
+    setChosen(new Set(p.items.filter((i) => kept.has(i.id) && !inDraft(i)).map((i) => i.id)));
     setStored(p.id);
     setStep((p.questions?.length ?? 0) > 0 ? 1 : 2);
   });
@@ -146,11 +150,13 @@ export default function OnboardingView({ workspace, useCase, admin, member, onCh
     const document = withProvenance(previewed, proposal as Required<Pick<Proposal, "id" | "revision" | "generator" | "ai">>,
                                     selected, member);
     // the engine checks that this revision exists and records it with the draft: a release can be traced back
+    // the review first, element by element as selected here; the engine then refuses a draft that takes an element
+    // of this proposal nobody confirmed
+    const rejected = proposal.items.filter((i) => !chosen.has(i.id)).map((i) => i.id);
+    await architect.decide(path, proposal.id, proposal.revision ?? 1, selected.map((i) => i.id), rejected, "reviewed in Studio");
     const d = await api.saveDraft(path, document, draft.revision,
                                   `accepted ${selected.length} item(s) of proposal ${proposal.id} revision ${proposal.revision}`,
                                   { proposal: proposal.id, revision: proposal.revision ?? 1 });
-    const rejected = proposal.items.filter((i) => !chosen.has(i.id)).map((i) => i.id);
-    await architect.decide(path, proposal.id, proposal.revision ?? 1, selected.map((i) => i.id), rejected, "reviewed in Studio");
     setDraft(d); setValidation(d.validation); setConsistency(d.consistency ?? []);
     setSaved(`Draft revision ${d.revision} saved. It is not active: the engine still runs ${d.active.ref}.`);
     setProposal({ ...proposal, items: [] }); setChosen(new Set());
@@ -377,6 +383,17 @@ export default function OnboardingView({ workspace, useCase, admin, member, onCh
                 </div>
                 <div>
                   <h4>Proposed items</h4>
+                  {proposal.review && (
+                    <p className="small" data-testid="element-review">
+                      {reviewLine(proposal.review)}{" "}
+                      {unselected.length > 0 && admin && (
+                        <button type="button" className="small" data-testid="select-inferred"
+                                onClick={() => setChosen(new Set([...chosen, ...unselected]))}>
+                          Select the {unselected.length} inferred element(s) not yet selected, to confirm them</button>)}
+                    </p>)}
+                  {(proposal.review?.dependency_failures?.length ?? 0) > 0 && (
+                    <p className="warn-text small" data-testid="review-dependencies">
+                      Kept elements that need an element which is not kept: {proposal.review!.dependency_failures.map((f: any) => `${f.element} needs ${f.needs.join(", ")}`).join("; ")}</p>)}
                   <ul className="items small" data-testid="proposed-items">
                     {proposal.items.map((i) => (
                       <li key={i.id} className="provisional-item">
@@ -386,6 +403,7 @@ export default function OnboardingView({ workspace, useCase, admin, member, onCh
                           <span className="badge">proposed</span>{" "}
                           <span className={`pill ${i.basis === "supplied" ? "okpill" : "warnpill"}`} data-basis={i.basis ?? "inferred"}
                                 data-origin={i.origin ?? ""}>{i.origin ? originLabel(i) : basisLabel(i)}</span>
+                          {standingOf(i.id) && <span className="muted" data-testid="standing" data-standing={standingOf(i.id)!.decision ?? "none"}> · {standingLabel(standingOf(i.id)!)}</span>}
                           {inDraft(i) && <span className="badge" data-testid="in-draft"> already in the draft</span>}
                           {typeof i.confidence === "number" && <span className="muted"> · confidence {i.confidence}</span>}</label>
                         <div className="muted">{i.rationale}</div>

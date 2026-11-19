@@ -381,6 +381,10 @@ SCHEMAS: Dict[str, Any] = {
                       "cost_usd": {"type": "number"}, "unpriced_tokens": I,
                       "history": {"type": "array", "items": REF("ProposalRevision")},
                       "decisions": {"type": "array", "items": REF("ProposalDecision")},
+                      "corrections": {"type": "array", "items": _obj(
+                          {"revision": I, "item": S, "value": {"type": "object"}, "corrected_by": S, "at": S, "note": S},
+                          ("revision", "item", "value", "corrected_by", "at"))},
+                      "review": REF("ProposalReview"),
                       "source_index": {"type": "object", "additionalProperties": _obj(
                           {"kind": {"type": "string", "enum": ["brief", "answer", "source"]}, "text": S,
                            "question": S}, ("kind", "text"))},
@@ -406,8 +410,28 @@ SCHEMAS: Dict[str, Any] = {
                            "state": {"type": "string", "enum": ["none", "sandbox", "authorised", "not_authorised"]},
                            "reason": S}, ("configured", "generators", "state"))},
         ("items", "architect")),
+    # where every element of one revision stands after people's decisions (autology.proposal_review)
+    "ProposalReview": _obj({"revision": I, "policy": S, "elements": {"type": "array", "items": _obj(
+                                {"id": S, "kind": S, "name": NS, "basis": NS, "origin": NS,
+                                 "needs_confirmation": B, "decision": NS, "by": NS, "at": NS, "kept": B,
+                                 "flags": {"type": "array", "items": S}, "depends_on": {"type": "array", "items": S},
+                                 "value": {"type": "object"}, "value_digest": S, "history": {"type": "array", "items": ANY}},
+                                ("id", "kind", "needs_confirmation", "decision", "kept", "flags", "depends_on"))},
+                            "counts": {"type": "object", "additionalProperties": I},
+                            "unresolved": {"type": "array", "items": S},
+                            "dependency_failures": {"type": "array", "items": ANY},
+                            "validation": _obj({"valid": B, "problems": {"type": "array", "items": S}, "by": S},
+                                               ("valid", "problems")),
+                            "consistency": {"type": "array", "items": ANY},
+                            "ready_for_draft": B, "why_not": {"type": "array", "items": S},
+                            "decided_by": {"type": "array", "items": S}},
+                           ("revision", "policy", "elements", "counts", "unresolved", "dependency_failures",
+                            "validation", "ready_for_draft")),
     "ProposalDecisionRequest": _obj({"revision": I, "accepted": {"type": "array", "items": S},
-                                     "rejected": {"type": "array", "items": S}, "note": S}),
+                                     "rejected": {"type": "array", "items": S}, "note": S,
+                                     # an element with the content a person gives it instead of the proposed one
+                                     "corrected": {"type": "array", "maxItems": 100, "items": _obj(
+                                         {"id": S, "value": {"type": "object"}}, ("id", "value"), extra=False)}}),
     # the Application Builder: a manifest is described by autology.appspec.SCHEMA (closed and versioned); these
     # envelopes carry it
     "ApplicationCheck": _obj({"valid": {"type": "boolean"}, "problems": {"type": "array", "items": _obj({"path": S, "message": S})},

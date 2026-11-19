@@ -218,6 +218,14 @@ class DraftAndReleaseTests(LifecycleBase):
                     "accepted_by": "ada"}
         return document
 
+    def review(self, proposal):
+        """The person's review, recorded before the draft is saved: the three elements, accepted by name."""
+        ids = [i["id"] for i in proposal["items"] if i["name"] in ("Vessel", "Berth", "Tug")]
+        status, out = self.call("POST", f"{ENGINE}/architect/proposals/{proposal['id']}/decision", "acme-ada",
+                                {"revision": proposal["revision"], "accepted": ids, "note": "reviewed"})
+        self.assertEqual(status, 200, out)
+        return ids
+
     def test_a_draft_records_the_proposal_it_was_saved_from(self):  # P3
         first, second = self.session()
         document = self.accepted_document(second)
@@ -226,6 +234,12 @@ class DraftAndReleaseTests(LifecycleBase):
                     {"proposal": first["id"], "revision": 2, "note": "extra"}, "P-1"):
             status, out = self.save(document, bad)
             self.assertEqual(status, 400, bad)
+        # an inferred element nobody confirmed does not enter a draft that names the proposal: the review comes first
+        status, refused = self.save(document, {"proposal": first["id"], "revision": 2})
+        self.assertEqual(status, 409, refused)
+        self.assertIn("inferred and nobody confirmed it", refused["error"]["message"])
+        self.assertEqual(self.call("GET", f"{ENGINE}/model/draft")[1]["revision"], 0)
+        self.review(second)
         status, draft = self.save(document, {"proposal": first["id"], "revision": 2})
         self.assertEqual(status, 200, draft)
         self.assertEqual((draft["revision"], draft["origin"]), (1, {"proposal": first["id"], "revision": 2}))
@@ -254,6 +268,7 @@ class DraftAndReleaseTests(LifecycleBase):
         berth = next(i for i in second["items"] if i["name"] == "Berth")
         self.call("POST", f"{ENGINE}/architect/proposals/{first['id']}/decision",
                   body={"accepted": [berth["id"]], "note": "confirmed with the harbour master"})
+        self.review(second)  # every element the draft takes from the proposal is confirmed by a person, by name
         status, draft = self.save(self.accepted_document(second), {"proposal": first["id"], "revision": 2})
         self.assertEqual(status, 200, draft)
         self.assertTrue(draft["validation"]["valid"], draft["validation"])  # the engine's check, on the saved model
@@ -304,7 +319,7 @@ class MigrationTests(unittest.TestCase):
         db.close()
         store = Store(str(path))
         self.addCleanup(store.close)
-        self.assertEqual((store.migrated, SCHEMA_VERSION), ([19, 20], 20))  # 20: application design drafts, a new table
+        self.assertEqual((store.migrated, SCHEMA_VERSION), ([19, 20, 21], 21))  # 20: application design drafts; 21: corrections of proposed elements
         self.assertEqual((store.draft()["origin"], store.draft_history()[0]["origin"], store.drafts_from("P-1")),
                          (None, None, []))
         store.save_draft({"name": "m", "version": "0.2.0"}, "ada", "second", 1, origin={"proposal": "P-1", "revision": 3})

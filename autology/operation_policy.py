@@ -31,7 +31,7 @@ it today.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Mapping, Optional
 
 POLICY = "operations-v1 (proposed, not in force)"
 UNRESTRICTED = "admin"
@@ -91,10 +91,27 @@ def in_force(grant: Dict[str, Any]) -> bool:
                 and grant.get("approver_kind", "person") == "person")
 
 
-def _answer(allowed: bool, status: int, check: str, reason: str, operation: str) -> Dict[str, Any]:
+#: What became of a requested change. Whoever shows it may say "saved" for ``accepted`` and for nothing else.
+OUTCOMES = ("accepted", "refused", "simulated")
+
+
+def _answer(allowed: bool, status: int, check: str, reason: str, operation: str,
+            request: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
     spec = OPERATIONS.get(operation, {})
+    request = request or {}
+    who = request.get("identity") or {}
+    rehearsal = bool(request.get("simulate"))
+    outcome = "refused" if not allowed else "simulated" if rehearsal else "accepted"
+    requested = {"operation": operation, "entity": request.get("entity"), "properties": sorted(request.get("properties") or []),
+                 "links": sorted(request.get("links") or [])}
     return {"allowed": allowed, "status": status, "check": check, "reason": reason, "operation": operation,
-            "would_be_enforced_in": spec.get("enforced"), "policy": POLICY, "in_force": False}
+            "would_be_enforced_in": spec.get("enforced"), "policy": POLICY, "in_force": False,
+            # the request, and what became of it: never one without the other
+            "requested": requested, "outcome": outcome, "written": outcome == "accepted",
+            # one record per decision, refused ones included; names only, never a value
+            "audit": {"who": who.get("name"), "kind": who.get("kind"), "workspace": request.get("workspace"),
+                      "use_case": request.get("use_case"), **requested, "right": spec.get("right"), "outcome": outcome,
+                      "check": check, "reason": reason, "record_revision": (request.get("record") or {}).get("revision")}}
 
 
 def decide(request: Dict[str, Any], grants: List[Dict[str, Any]], model: Dict[str, Any]) -> Dict[str, Any]:
@@ -102,7 +119,7 @@ def decide(request: Dict[str, Any], grants: List[Dict[str, Any]], model: Dict[st
     operation = str(request.get("operation"))
 
     def no(status: int, check: str, reason: str) -> Dict[str, Any]:
-        return _answer(False, status, check, reason, operation)
+        return _answer(False, status, check, reason, operation, request)
 
     spec = OPERATIONS.get(operation)
     if spec is None:
@@ -122,14 +139,14 @@ def decide(request: Dict[str, Any], grants: List[Dict[str, Any]], model: Dict[st
             return no(403, "grant", "needs the workspace administrator's office")
         if request.get("target") == name or request.get("approves_own"):
             return no(403, "separation", "nobody proposes for themselves or approves what they proposed")
-        return _answer(True, 200, "office", "an administrator proposes; a second person approves", operation)
+        return _answer(True, 200, "office", "an administrator proposes; a second person approves", operation, request)
     held = [g for g in mine if g.get("use_case") == use_case]
     unrestricted = any(g.get("permission") == UNRESTRICTED and g.get("unrestricted") is True for g in held)
     grant: Optional[Dict[str, Any]] = next((g for g in held if g.get("permission") == spec["right"]), None)
     if operation == "data.administer":
         if not unrestricted:
             return no(403, "grant", "needs the unrestricted permission, acknowledged by two people")
-        return _answer(True, 200, "grant", "unrestricted, as today", operation)
+        return _answer(True, 200, "grant", "unrestricted, as today", operation, request)
     if grant is None and not (unrestricted and operation in RECORD_WRITES[:2]):
         return no(403, "grant", f"no grant in force gives {spec['right']} on {workspace}/{use_case}")
 
@@ -146,6 +163,9 @@ def decide(request: Dict[str, Any], grants: List[Dict[str, Any]], model: Dict[st
         if exists and not record.get("visible", False):
             return no(404, "visibility", "no such record")  # hidden and absent are the same answer
         if operation in RECORD_WRITES:
+            stale = _revision(operation, request, record)
+            if stale:
+                return no(stale[0], "revision", stale[1])
             refusal = _write(operation, request, grant, shape, roles, record)
             if refusal:
                 return no(refusal[0], refusal[1], refusal[2])
@@ -158,7 +178,20 @@ def decide(request: Dict[str, Any], grants: List[Dict[str, Any]], model: Dict[st
         if not set(review.get("reviewer_roles") or []) & set(who.get("reviewer_roles") or []):
             return no(403, "role", "the review rule names a reviewer role this person does not hold")
     return _answer(True, 200, "grant" if grant is not None else "unrestricted",
-                   f"{spec['right']} in force" if grant is not None else "unrestricted, as today", operation)
+                   f"{spec['right']} in force" if grant is not None else "unrestricted, as today", operation, request)
+
+
+def _revision(operation: str, request: Mapping[str, Any], record: Mapping[str, Any]) -> Optional[tuple]:
+    """The record's revision as the writer read it. A change is made over that revision or not at all."""
+    expected = request.get("expected_revision")
+    if isinstance(expected, bool) or not isinstance(expected, int) or expected < 0:
+        return 400, "the revision you read is required (0: the record must not exist yet)"
+    if operation == "records.create":
+        return (409, "a record with this identifier exists already") if record.get("exists") or expected != 0 else None
+    current = record.get("revision")
+    if current != expected:
+        return 409, f"the record was changed since you read it (revision {current}, you sent {expected}); nothing is written"
+    return None
 
 
 def _write(operation: str, request: Dict[str, Any], grant: Optional[Dict[str, Any]], shape: Dict[str, Any],
@@ -198,4 +231,4 @@ def _write(operation: str, request: Dict[str, Any], grant: Optional[Dict[str, An
     return None
 
 
-__all__ = ["POLICY", "OPERATIONS", "NEW_RIGHTS", "decide", "in_force"]
+__all__ = ["POLICY", "OPERATIONS", "NEW_RIGHTS", "OUTCOMES", "decide", "in_force"]

@@ -22,10 +22,11 @@ belongs to.
 
 from __future__ import annotations
 
+import json
 import uuid
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
-from . import architect
+from . import architect, proposal_review
 from .ai import DATA_CLASSES, ModelGateway, ProviderError, WorkspaceAI
 from .ai_policy import terms_fingerprint
 from .modeling import library
@@ -261,6 +262,9 @@ class ArchitectService:
                 "created_by": row["created_by"], "at": row["at"], "brief": row["brief"], **row["result"],
                 "answers": row["answers"], "history": [self._counts(r) for r in rows],
                 "decisions": e.store.architect_decisions(pid),
+                "corrections": e.store.architect_corrections(pid),
+                # where every element stands after people's decisions, and what the kept elements make
+                "review": self.review(pid, rows, row["revision"]),
                 # what an element's references point to, so that "why was this proposed" can be read: the brief,
                 # each answer with the question it answered. Only what this revision was given
                 "source_index": self._source_index(rows, row),
@@ -279,6 +283,17 @@ class ArchitectService:
                                               "text": str(answer["answer"])[:500]}
         return index
 
+    def review(self, pid: str, rows: List[Dict[str, Any]], revision: int) -> Dict[str, Any]:
+        """The review of one revision (:mod:`autology.proposal_review`), against the model being designed: the
+        draft if there is one, else what runs."""
+        e = self.engine
+        draft = e.store.draft()
+        base = draft["document"] if draft else e._active_document()
+        out = proposal_review.report(base, rows, e.store.architect_decisions(pid), e.store.architect_corrections(pid),
+                                     revision)
+        out.pop("document")  # the model the kept elements make is validated here; a caller reads the model where it lives
+        return out
+
     def draft_origin(self, origin: Any) -> Optional[Dict[str, Any]]:
         """The architect proposal a draft says its model was saved from, checked: the revision must exist in this
         use case. Recorded with the draft, so that a draft and what is released from it can be traced back; a
@@ -295,8 +310,21 @@ class ArchitectService:
         return {"proposal": origin["proposal"], "revision": origin["revision"]}
 
     def save_draft(self, document: Dict[str, Any], author: str, note: str, expected: int, origin: Any) -> int:
-        """Save a draft revision of the model with the proposal it was saved from (checked first)."""
-        return self.engine.store.save_draft(document, author, note, expected, origin=self.draft_origin(origin))
+        """Save a draft revision of the model with the proposal it was saved from (checked first). A draft that
+        names a proposal may not contain an element of it that was rejected, or inferred and never confirmed: an
+        assumption does not become part of a model by being carried along."""
+        checked = self.draft_origin(origin)
+        if checked is not None:
+            store = self.engine.store
+            elements = proposal_review.standing(self._revisions(checked["proposal"]), store.architect_decisions(checked["proposal"]),
+                                                store.architect_corrections(checked["proposal"]), checked["revision"])
+            unconfirmed = proposal_review.draft_problems(document, elements)
+            if unconfirmed:
+                raise ApiError(409, f"the draft contains {len(unconfirmed)} element(s) of proposal {checked['proposal']} "
+                                    f"revision {checked['revision']} that nobody confirmed, or that were rejected "
+                                    f"(first: {unconfirmed[0]['element']}, {unconfirmed[0]['why']}). Record the review "
+                                    "of these elements first; nothing was saved", {"unconfirmed": unconfirmed[:50]})
+        return self.engine.store.save_draft(document, author, note, expected, origin=checked)
 
     # -- a person's review --------------------------------------------------------------------------------
     def decide_proposal(self, user: User, pid: str, body: Dict[str, Any]) -> Dict[str, Any]:
@@ -311,13 +339,28 @@ class ArchitectService:
         if row is None:
             raise ApiError(404, f"proposal {pid} has no revision {revision!r}")
         accepted, rejected = self._ids(body.get("accepted"), "accepted"), self._ids(body.get("rejected"), "rejected")
+        corrected = self._corrections(body.get("corrected"))
         known = {i["id"] for i in row["result"]["items"]}
-        unknown = sorted((set(accepted) | set(rejected)) - known)
-        if unknown or set(accepted) & set(rejected) or not (accepted or rejected):
-            raise ApiError(400, "accepted and rejected: distinct ids of this revision's provisional items"
-                           + (f" (unknown: {unknown[:5]})" if unknown else ""))
-        e.store.add_architect_decision(pid, row["revision"], user.name, accepted, rejected, str(body.get("note") or ""))
+        unknown = sorted((set(accepted) | set(rejected) | set(corrected)) - known)
+        if unknown or set(accepted) & set(rejected) or set(corrected) & set(rejected) or not (accepted or rejected or corrected):
+            raise ApiError(400, "accepted, rejected and corrected: ids of this revision's provisional items, none both "
+                                "rejected and accepted or corrected" + (f" (unknown: {unknown[:5]})" if unknown else ""))
+        # a correction is the acceptance of the element as the person wrote it: it is not also listed as accepted
+        accepted = [i for i in accepted if i not in corrected]
+        e.store.add_architect_decision(pid, row["revision"], user.name, accepted, rejected, str(body.get("note") or ""),
+                                       corrected)
         return self.get_proposal(user, pid, row["revision"])
+
+    @staticmethod
+    def _corrections(value: Any) -> Dict[str, Any]:
+        """``[{"id": element, "value": {...}}]``: the content a person gives an element instead of the proposed one."""
+        if value is None:
+            return {}
+        if not (isinstance(value, list) and len(value) <= 100 and all(
+                isinstance(c, dict) and set(c) == {"id", "value"} and isinstance(c["id"], str)
+                and isinstance(c["value"], dict) and len(json.dumps(c["value"], default=str)) <= 20_000 for c in value)):
+            raise ApiError(400, 'corrected: a list of {"id": element id, "value": the element\'s content as an object}')
+        return {c["id"]: c["value"] for c in value}
 
     # -- trying a model before it is published ---------------------------------------------------------------
     def simulate_draft(self, user: User, body: Dict[str, Any]) -> Dict[str, Any]:

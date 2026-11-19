@@ -146,3 +146,16 @@ export function capabilities(may: May): { can: string[]; cannot: { what: string;
            cannot: CAPABILITIES.filter(([k]) => !may[k]).map(([, what, why]) => ({ what, why })) };
 }
 
+// -- what this renderer draws. A runtime deployed on its own must refuse what it was not built for (D35, step 5).
+export const RENDERS = { manifest_versions: [1], engine_apis: ["1"] };
+/** Why this renderer does not draw a manifest, or null. It draws nothing of a format it does not know: no best effort. */
+export function incompatibility(manifest: { manifest_version?: unknown; binding?: { engine_api?: unknown } }): string | null {
+  if (!RENDERS.manifest_versions.includes(manifest.manifest_version as number)) {
+    return `This application was designed in manifest format ${String(manifest.manifest_version)}; this renderer draws format ${RENDERS.manifest_versions.join(", ")}. It is not shown.`;
+  }
+  if (!RENDERS.engine_apis.includes(manifest.binding?.engine_api as string)) {
+    return `This application was designed for Engine API ${String(manifest.binding?.engine_api)}; this renderer speaks API ${RENDERS.engine_apis.join(", ")}. It is not shown.`;
+  }
+  return null;
+}
+

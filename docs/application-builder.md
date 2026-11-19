@@ -173,6 +173,9 @@ manifest, and every line but one is printed from the Engine's answer:
 A record's page states the revision the Engine holds and when the screen read it; "where this record came from"
 asks the Engine for the recorded loads (`GET /objects/{id}/lineage`) and says plainly when there is none.
 
+The runtime draws only the manifest format and Engine API version it was built for (format 1, API 1). For any
+other it shows a refusal and draws nothing: no best effort (`runtime/model.ts`, `incompatibility`).
+
 The menu is grouped by what a screen is for (Overview, Work, Records, Evidence). The groups come from the view
 types of the schema, never from a name; a menu with more than nine entries gets a box to find a screen.
 

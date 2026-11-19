@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { call, enginePath, EngineError, getToken, setToken, type Caller } from "./client";
 import About from "./about";
-import { groupNavigation, NAV_FILTER_FROM, short, supported, unsupportedViews } from "./model";
+import { groupNavigation, incompatibility, NAV_FILTER_FROM, short, supported, unsupportedViews } from "./model";
 import DesignStatus from "./status";
 import type { Application, Manifest, May, Mode, RuleInfo, View } from "./types";
 import { MODE_LABEL } from "./types";
@@ -94,12 +94,13 @@ export default function RuntimeApp({ workspace, useCase, preview }: { workspace:
       </main>);
   }
   if (state === "loading") return <main className="signin"><p role="status">Asking the Engine for the application…</p></main>;
-  if (state === "refused" || !manifest || !current) {
+  const incompatible = manifest ? incompatibility(manifest) : null;
+  if (state === "refused" || !manifest || !current || incompatible) {
     const mismatch = refusal?.status === 409;
     return (
       <main className="signin" data-testid="rt-refused">
         <h1>{mismatch ? "This application is not shown" : refusal?.status === 404 ? "No application here" : "The Engine refused"}</h1>
-        <p className={mismatch ? "warn" : "error"} role="alert" data-testid="rt-refusal">{refusal?.message ?? "The design has no screen this renderer supports."}</p>
+        <p className={mismatch ? "warn" : "error"} role="alert" data-testid="rt-refusal">{incompatible ?? refusal?.message ?? "The design has no screen this renderer supports."}</p>
         {mismatch && typeof refusal?.details.running === "string" && (
           <p className="muted small" data-testid="rt-refusal-detail">Designed for configuration {short(String(refusal.details.designed_for ?? refusal.details.expected ?? ""))};
             running now: {short(String(refusal.details.running))}. Nothing is shown until a designer has checked the application against what runs.</p>)}

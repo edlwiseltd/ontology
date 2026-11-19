@@ -1565,6 +1565,40 @@
             },
             "type": "array"
           },
+          "corrections": {
+            "items": {
+              "additionalProperties": true,
+              "properties": {
+                "at": {
+                  "type": "string"
+                },
+                "corrected_by": {
+                  "type": "string"
+                },
+                "item": {
+                  "type": "string"
+                },
+                "note": {
+                  "type": "string"
+                },
+                "revision": {
+                  "type": "integer"
+                },
+                "value": {
+                  "type": "object"
+                }
+              },
+              "required": [
+                "revision",
+                "item",
+                "value",
+                "corrected_by",
+                "at"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
           "cost_usd": {
             "type": "number"
           },
@@ -1691,6 +1725,9 @@
           },
           "request_id": {
             "type": "string"
+          },
+          "review": {
+            "$ref": "#/components/schemas/ProposalReview"
           },
           "revision": {
             "type": "integer"
@@ -1882,6 +1919,26 @@
             "items": {
               "type": "string"
             },
+            "type": "array"
+          },
+          "corrected": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "value": {
+                  "type": "object"
+                }
+              },
+              "required": [
+                "id",
+                "value"
+              ],
+              "type": "object"
+            },
+            "maxItems": 100,
             "type": "array"
           },
           "note": {
@@ -2273,6 +2330,182 @@
             "type": "string"
           }
         },
+        "type": "object"
+      },
+      "ProposalReview": {
+        "additionalProperties": true,
+        "properties": {
+          "consistency": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "decided_by": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "dependency_failures": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "elements": {
+            "items": {
+              "additionalProperties": true,
+              "properties": {
+                "at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "basis": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "by": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "decision": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "depends_on": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "flags": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "history": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "kept": {
+                  "type": "boolean"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "needs_confirmation": {
+                  "type": "boolean"
+                },
+                "origin": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "value": {
+                  "type": "object"
+                },
+                "value_digest": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "needs_confirmation",
+                "decision",
+                "kept",
+                "flags",
+                "depends_on"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "policy": {
+            "type": "string"
+          },
+          "ready_for_draft": {
+            "type": "boolean"
+          },
+          "revision": {
+            "type": "integer"
+          },
+          "unresolved": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "validation": {
+            "additionalProperties": true,
+            "properties": {
+              "by": {
+                "type": "string"
+              },
+              "problems": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "valid": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "valid",
+              "problems"
+            ],
+            "type": "object"
+          },
+          "why_not": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "revision",
+          "policy",
+          "elements",
+          "counts",
+          "unresolved",
+          "dependency_failures",
+          "validation",
+          "ready_for_draft"
+        ],
         "type": "object"
       },
       "ProposalRevision": {

@@ -41,7 +41,7 @@ from .audit import GENESIS, AuditLog
 from .graph import KnowledgeGraph
 from .ontology import Ontology, OntologyError
 
-SCHEMA_VERSION = 20
+SCHEMA_VERSION = 21
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -153,6 +153,13 @@ CREATE TRIGGER IF NOT EXISTS architect_decisions_no_update BEFORE UPDATE ON arch
     BEGIN SELECT RAISE(ABORT, 'architect decisions are append-only'); END;
 CREATE TRIGGER IF NOT EXISTS architect_decisions_no_delete BEFORE DELETE ON architect_decisions
     BEGIN SELECT RAISE(ABORT, 'architect decisions are append-only'); END;
+CREATE TABLE IF NOT EXISTS architect_corrections (
+    seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL, revision INTEGER NOT NULL, item TEXT NOT NULL,
+    value TEXT NOT NULL, corrected_by TEXT NOT NULL, at TEXT NOT NULL, note TEXT NOT NULL);
+CREATE TRIGGER IF NOT EXISTS architect_corrections_no_update BEFORE UPDATE ON architect_corrections
+    BEGIN SELECT RAISE(ABORT, 'architect corrections are append-only'); END;
+CREATE TRIGGER IF NOT EXISTS architect_corrections_no_delete BEFORE DELETE ON architect_corrections
+    BEGIN SELECT RAISE(ABORT, 'architect corrections are append-only'); END;
 CREATE TABLE IF NOT EXISTS write_back_log (
     run_id TEXT NOT NULL, at TEXT NOT NULL, outcome TEXT NOT NULL, run_version TEXT, instances TEXT NOT NULL,
     conflicts TEXT NOT NULL);
@@ -438,11 +445,23 @@ class Store:
                 for r in self._query(sql + " ORDER BY at, id, revision", args)]
 
     def add_architect_decision(self, pid: str, revision: int, decided_by: str, accepted: List[str],
-                              rejected: List[str], note: str) -> None:
+                              rejected: List[str], note: str, corrected: Optional[Dict[str, Any]] = None) -> None:
+        """One review, in one transaction: what was accepted and rejected, and each element a person corrected
+        with the content they wrote. Nothing here is ever changed afterwards."""
         with self._tx() as db:
-            db.execute("INSERT INTO architect_decisions (id, revision, decided_by, at, accepted, rejected, note) "
-                       "VALUES (?, ?, ?, ?, ?, ?, ?)", (pid, revision, decided_by, _now(), json.dumps(accepted),
-                                                        json.dumps(rejected), note[:500]))
+            at = _now()
+            if accepted or rejected:
+                db.execute("INSERT INTO architect_decisions (id, revision, decided_by, at, accepted, rejected, note) "
+                           "VALUES (?, ?, ?, ?, ?, ?, ?)", (pid, revision, decided_by, at, json.dumps(accepted),
+                                                            json.dumps(rejected), note[:500]))
+            for item, value in (corrected or {}).items():
+                db.execute("INSERT INTO architect_corrections (id, revision, item, value, corrected_by, at, note) "
+                           "VALUES (?, ?, ?, ?, ?, ?, ?)", (pid, revision, item, json.dumps(value), decided_by, at, note[:500]))
+
+    def architect_corrections(self, pid: str) -> List[Dict[str, Any]]:
+        return [{"revision": r["revision"], "item": r["item"], "value": json.loads(r["value"]),
+                 "corrected_by": r["corrected_by"], "at": r["at"], "note": r["note"]}
+                for r in self._query("SELECT * FROM architect_corrections WHERE id=? ORDER BY seq", (pid,))]
 
     def architect_decisions(self, pid: str) -> List[Dict[str, Any]]:
         return [{"revision": r["revision"], "decided_by": r["decided_by"], "at": r["at"],

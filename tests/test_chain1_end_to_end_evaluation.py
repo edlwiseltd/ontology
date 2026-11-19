@@ -236,6 +236,84 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(set(row["A"]["v1_measures"]), set(architect_eval.THRESHOLDS) - {"repeatability"})
 
 
+JOURNEY = ROOT / "planning" / "evidence" / "claude-eval-2026-11-17" / "ground-handling"
+
+
+class ScenarioTests(unittest.TestCase):
+    def rows(self, result):
+        return {(r["case"], r["scenario"]): r for r in result["table"]}
+
+    def test_three_treatments_of_inferred_elements_side_by_side(self):  # C3, C6
+        out = chain_eval.scenarios(chain_eval.reserved(), chain_eval.reference, source="reference answers")
+        self.assertEqual(sorted(out["scenarios"]), ["1", "2", "3"])
+        self.assertIn("counterfactual", out["scenarios"]["3"])
+        self.assertIsNone(out["aggregate"])
+        rows = self.rows(out)
+        loans = [rows[("museum-loans", n)] for n in "123"]
+        self.assertEqual([r["confirmation_rate"] for r in loans], ["0 of 3", "2 of 3", "3 of 3"])
+        self.assertEqual([r["unresolved"] for r in loans], [3, 1, 0])
+        self.assertEqual([(r["draft_accepted"], r["manifest_valid"], r["simulation"]) for r in loans],
+                         [(True, True, "completed"), (True, True, "awaiting_review"), (True, True, "awaiting_review")])
+        self.assertEqual([r["counterfactual"] for r in loans], [False, False, True])
+        self.assertIn("synthetic reviewer", loans[1]["decided_by"])
+        self.assertIn("an assumption of the replay", loans[2]["decided_by"])
+        text = chain_eval.render_scenarios(out)
+        self.assertIn("(counterfactual)", text)
+        self.assertIn("No domain expert reviewed any of these models", text)
+        self.assertIn("No total is computed", text)
+
+    def test_kept_real_answers_have_no_scenario_two_unless_a_decision_is_on_record(self):  # C6
+        out = chain_eval.scenarios(architect_eval.cases(), chain_eval.replay(EVIDENCE), source="run 2")
+        rows = self.rows(out)
+        for case in architect_eval.cases():
+            self.assertEqual((rows[(case["id"], "2")]["run"], rows[(case["id"], "2")]["why"]),
+                             (False, "no recorded decision exists for this answer; none is invented"))
+        answered = [c["id"] for c in architect_eval.cases() if rows[(c["id"], "1")]["answered"]]
+        self.assertEqual(len(answered), 4)
+        self.assertEqual(([rows[(c, "1")]["draft_accepted"] for c in answered].count(True),
+                          [rows[(c, "3")]["draft_accepted"] for c in answered].count(True)), (1, 4))
+        self.assertEqual(sum(rows[(c, "1")]["dependency_failures"] for c in answered), 10)  # which decision broke what, by name
+        self.assertEqual(rows[("airline-disruption", "3")]["simulation"], "not run")
+
+    def test_a_journey_kept_as_evidence_is_replayed_with_the_decisions_on_record(self):  # C6
+        before = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(JOURNEY.glob("*.json"))}
+        kept = chain_eval.journey(JOURNEY)
+        proposal = kept["ask"](kept["case"])
+        self.assertEqual((proposal["provider"], proposal["model"], proposal["ai"], len(proposal["items"])), ("anthropic", "claude-opus-5-5", True, 40))
+        self.assertEqual((len(kept["recorded"]["confirm"]), len(kept["recorded"]["drop"])), (39, 1))
+        self.assertIn("not a domain expert's review", kept["recorded"]["by"])
+        out = chain_eval.scenarios([kept["case"]], kept["ask"], {kept["case"]["id"]: kept["recorded"]}, source="journey")
+        one, two, three = (self.rows(out)[("ground-handling", n)] for n in "123")
+        self.assertEqual((one["confirmation_rate"], one["draft_accepted"], one["dependency_failures"], one["simulation"]), ("0 of 23", False, 4, "not run"))
+        self.assertEqual((two["confirmation_rate"], two["unresolved"], two["rejected_by_a_person"], two["draft_accepted"], two["manifest_valid"],
+                          two["simulation_ready"]), ("22 of 23", 0, 1, True, True, True))
+        self.assertEqual((three["confirmation_rate"], three["draft_accepted"], three["counterfactual"]), ("23 of 23", True, True))
+        self.assertEqual(before, {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(JOURNEY.glob("*.json"))})
+
+    def test_what_is_measured_for_each_component_and_for_the_persons_step(self):  # C2
+        case = next(c for c in chain_eval.reserved() if c["id"] == "museum-loans")
+        fixed = {"description": "Only a registrar records the valuation", "id": "R-VALUATION", "type": "write_access",
+                 "field": "LoanRequest.valuation", "roles": ["registrar", "director"]}
+        row = chain_eval.run_case(case, chain_eval.reference, {**case["authorised_decisions"], "correct": {"model:rule:R-VALUATION": fixed}})
+        self.assertEqual((row["A"]["inferred_elements_requiring_review"], row["A"]["clarification_coverage"], row["A"]["model_completeness"]),
+                         (3, 1.0, {"entity_recall": 1.0, "relationship_recall": 1.0, "rule_coverage": 1.0}))
+        review = row["review"]
+        self.assertEqual((review["confirmation_rate"], review["human_corrections"], review["corrected"], review["not_applied_unconfirmed"]),
+                         ("3 of 3", 1, ["model:rule:R-VALUATION"], []))
+        self.assertIn("not a component's performance", review["step"])
+        self.assertIn(fixed, row["draft"]["rules"])  # the person's content, not the proposed one
+        self.assertEqual((row["C"]["validated_elements"], row["C"]["draft_accepted"], row["B"]["screens"]), (13, True, 16))
+        audit = row["C"]["governed_work"]["audit"]
+        self.assertEqual((audit["every_step_left_an_event"], audit["signed_chain"]), (True, False))
+        self.assertIn("not a stored signed audit chain", audit["note"])
+        # a rejected element that others need: the failure is named before the loader refuses
+        broken = chain_eval.run_case(case, chain_eval.reference, {"confirm": ["model:case_template:loan_case"], "drop": ["model:entity:Borrower"], "by": "x"})
+        self.assertEqual([(f["element"], f["because"]) for f in broken["review"]["dependency_failures"]], [
+            ("model:relationship:Borrower-submits-LoanRequest", {"model:entity:Borrower": "rejected"}),
+            ("model:case_template:loan_case", {"model:entity:Borrower": "rejected"})])
+        self.assertEqual((broken["C"]["draft_accepted"], broken["C"]["validated_elements"]), (False, 0))
+
+
 class CommandTests(unittest.TestCase):
     def test_the_command_has_no_way_to_call_a_provider(self):  # C7
         import contextlib
@@ -258,6 +336,10 @@ class CommandTests(unittest.TestCase):
         self.assertIn("no decision of a person", strict)
         self.assertIn("drafts accepted 4 of 4", assumed)
         self.assertIn("an assumption of the replay", assumed)
+        compared = run("--journey", str(JOURNEY), "--scenarios")
+        self.assertIn("scenario 2                  confirmed 22 of 23", compared)
+        self.assertIn("drafts accepted 1 of 1", run("--journey", str(JOURNEY)))
+        self.assertEqual(json.loads(run("--replay", str(EVIDENCE), "--scenarios", "--json"))["aggregate"], None)
         for flag in ("--platform", "--provider", "--workspace", "--model"):  # no such option exists
             with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
                 main(["chain-eval", "--reference", flag, "x"])

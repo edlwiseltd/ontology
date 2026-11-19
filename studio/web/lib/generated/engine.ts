@@ -1672,6 +1672,16 @@ export interface components {
             } & {
                 [key: string]: unknown;
             })[];
+            corrections?: ({
+                at: string;
+                corrected_by: string;
+                item: string;
+                note?: string;
+                revision: number;
+                value: Record<string, never>;
+            } & {
+                [key: string]: unknown;
+            })[];
             cost_usd?: number;
             created_by?: string;
             decisions?: components["schemas"]["ProposalDecision"][];
@@ -1708,6 +1718,7 @@ export interface components {
                 [key: string]: unknown;
             })[];
             request_id?: string;
+            review?: components["schemas"]["ProposalReview"];
             revision?: number;
             source_index?: {
                 [key: string]: {
@@ -1768,6 +1779,10 @@ export interface components {
         };
         ProposalDecisionRequest: {
             accepted?: string[];
+            corrected?: {
+                id: string;
+                value: Record<string, never>;
+            }[];
             note?: string;
             rejected?: string[];
             revision?: number;
@@ -1877,6 +1892,53 @@ export interface components {
             /** @enum {string} */
             generator?: "blueprint" | "model";
             revises?: string;
+        } & {
+            [key: string]: unknown;
+        };
+        ProposalReview: {
+            consistency?: {
+                [key: string]: unknown;
+            }[];
+            counts: {
+                [key: string]: number;
+            };
+            decided_by?: string[];
+            dependency_failures: {
+                [key: string]: unknown;
+            }[];
+            elements: ({
+                at?: string | null;
+                basis?: string | null;
+                by?: string | null;
+                decision: string | null;
+                depends_on: string[];
+                flags: string[];
+                history?: {
+                    [key: string]: unknown;
+                }[];
+                id: string;
+                kept: boolean;
+                kind: string;
+                name?: string | null;
+                needs_confirmation: boolean;
+                origin?: string | null;
+                value?: Record<string, never>;
+                value_digest?: string;
+            } & {
+                [key: string]: unknown;
+            })[];
+            policy: string;
+            ready_for_draft: boolean;
+            revision: number;
+            unresolved: string[];
+            validation: {
+                by?: string;
+                problems: string[];
+                valid: boolean;
+            } & {
+                [key: string]: unknown;
+            };
+            why_not?: string[];
         } & {
             [key: string]: unknown;
         };

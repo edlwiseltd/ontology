@@ -56,10 +56,35 @@ alone opens exactly its own operation). **`admin` is the right of operation 9 on
 | 4 | Tenant/workspace, use case and the grant | 403: no grant **in force** (approved by a person who is neither its proposer nor its holder) names this workspace, this use case and this right |
 | 5 | Entity type, properties, relationship names, workflow states named by the grant | 403 (409 for a state): outside the grant |
 | 6 | Record visibility (the model's row rules) | 404: a hidden record and an absent one are the same answer |
+| 6a | The revision the writer read (writes only) | 400 without one; 409 when the record changed since: nothing is written |
 | 7 | The model's rules, **above every grant** | 403: a state is never written; a decision-critical property needs its writer rule; a `write_access` rule; one's own request |
 
 It does not read a form, a manifest, a screen or a request header (tested by listing what it reads). **A generated
 form is never an authorisation**: the same request is decided the same way whether or not a form exists for it.
+
+## 3a. The governed write contract (added 19 November; prototype only)
+
+A write is a **request**, and the answer says what became of it. The prototype returns, for every decision:
+
+| Field | Content |
+|---|---|
+| `requested` | The operation, the entity type, the property names and relationship names asked for |
+| `outcome` | `accepted`, `refused` or `simulated`. Nothing else. A rehearsal (`simulate`) of a change that would be refused is `refused` |
+| `written` | True for `accepted` only. **No interface may say "saved" for anything else**: a preview is `simulated`, and says so |
+| `status`, `check`, `reason` | Which step decided, in words a person can act on |
+| `audit` | One record per decision, refused ones included: who, kind of identity, workspace, use case, operation, right, entity, property and relationship names, outcome, the step, the record's revision. **Names only, never a value** |
+
+| Requirement of the contract | How |
+|---|---|
+| Creating an authorised record | `records.create`: named entity type and properties; `expected_revision` 0; refused if the identifier exists |
+| Updating permitted properties | `records.update`: named properties, in the states the grant names |
+| Detecting stale record versions | Every write names the revision it was made over; a mismatch is 409 and nothing is written. Two writers of the same revision: the first is written, the second is told |
+| Reporting validation failures | The strict loader and the model's rules, in their own words (400, or 403 with the rule) |
+| Rejecting unauthorised relationship modifications | A relationship is changed only if the grant names it |
+| Preserving provenance | The record's lineage and revision history are the Engine's, unchanged; the access log gains the right that allowed the write |
+| Recording successful changes in the authoritative audit trail | In an implementation: the Engine's signed access log. The prototype's `audit` record is the content; **it signs nothing and stores nothing** |
+
+The revision is checked after the grant and visibility, so a caller without rights learns nothing from it.
 
 ## 4. Implementation plan (to run only after approval)
 
@@ -91,8 +116,24 @@ form is never an authorisation**: the same request is decided the same way wheth
 
 ## 6. Tests
 
-**Run now, against the proposal (not in force):** `tests/test_d24_operation_policy.py`, 11 tests, the module covered
-line by line. They prove the *semantics*; they do not prove an implementation, because there is none.
+**Run now, against the proposal (not in force; non-production evidence):** `tests/test_d24_operation_policy.py`,
+15 tests, the module covered line by line. They prove the *semantics*; they do not prove an implementation, because
+there is none. The twelve cases of the security acceptance list are one test, by name:
+
+| Case | Expected | Step that decides |
+|---|---|---|
+| Authorized creation | accepted | grant |
+| Unauthorized creation | 403 | grant |
+| Property-level restriction | 403 | rule (a decision-critical property) or the grant's property list |
+| Entity-level restriction | 403 | entity |
+| Cross-workspace modification | 403 | grant (no grant names that workspace) |
+| Hidden record modification | 404 | visibility |
+| Invalid workflow state | 409 | workflow |
+| Attempted relationship escalation | 403 | properties (the grant names no such relationship) |
+| Missing grant | 403 | grant |
+| Stale version | 409 | revision |
+| Concurrent update | 409 for the second writer | revision |
+| Audit integrity | One deterministic record per decision, names only | — |
 
 **In force today, and kept:** `tests/test_app1_application_builder.py` B9 (an application user's write is 403; a
 grant naming a proposed right or `operate` is 400), `tests/test_app2_application_integrity.py`.

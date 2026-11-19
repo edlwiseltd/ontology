@@ -17,7 +17,7 @@ import unittest
 from pathlib import Path
 
 from autology import applications, design_governance
-from autology.design_governance import Refused, advance, artifact, digest, migrate, needs_new_release, policy, served
+from autology.design_governance import Refused, advance, artifact, digest, migrate, needs_new_release, policy, release_structure, served
 
 ROOT = Path(__file__).resolve().parent.parent
 MANIFEST = {"manifest_version": 1, "id": "work-desk", "title": "Work desk",
@@ -220,3 +220,59 @@ class RollbackAndMigrationTests(unittest.TestCase):
         self.assertEqual([r["audit"] for r in records][0], [{"event": "migrated", "by": "ada", "at": T, "from": None, "to": "draft", "note": "first"}])
         self.assertEqual(migrate([]), [])
         self.assertIsNone(served(records, 1))
+
+
+class ReleaseStructureTests(unittest.TestCase):
+    """A release with a design as one of its parts (directive D1): a structure for review, computed and not in force."""
+    SNAPSHOT = {"ontology": {"name": "work", "version": "0.1.0", "entities": {"Ticket": {}}, "rules": [{"id": "R-1"}]},
+                "solution": {"agents": {"a": {}}}, "ai": None}
+
+    def bound(self, **more):
+        from autology.releases import fingerprint_of
+
+        return {**MANIFEST, "binding": {**MANIFEST["binding"], "configuration": fingerprint_of(self.SNAPSHOT)}, **more}
+
+    def test_a_release_without_a_design_is_the_release_it_is_today(self):
+        from autology.releases import fingerprint_of
+
+        plain = release_structure(self.SNAPSHOT)
+        self.assertEqual((plain["fingerprint"], plain["same_as_today"]), (fingerprint_of(self.SNAPSHOT), True))
+        self.assertEqual((plain["parts"]["application"], plain["parts"]["runtime"], plain["in_force"]), (None, None, False))
+        self.assertEqual(sorted(plain["parts"]), sorted(design_governance.RELEASE_PARTS))
+        self.assertTrue(all(plain["parts"][k] for k in ("ontology", "rules", "agents")))
+
+    def test_the_combined_fingerprint_covers_the_design_and_each_part_has_its_own(self):
+        one, same = release_structure(self.SNAPSHOT, self.bound()), release_structure(self.SNAPSHOT, self.bound())
+        relabelled = release_structure(self.SNAPSHOT, self.bound(title="Work desk, renamed"))
+        self.assertEqual(one["fingerprint"], same["fingerprint"])                 # deterministic
+        self.assertNotEqual(one["fingerprint"], release_structure(self.SNAPSHOT)["fingerprint"])
+        self.assertNotEqual(one["fingerprint"], relabelled["fingerprint"])        # a label change is a change of the release
+        self.assertNotEqual(one["parts"]["application"], relabelled["parts"]["application"])
+        for unchanged in ("ontology", "rules", "agents", "runtime"):               # and of no other part
+            self.assertEqual(one["parts"][unchanged], relabelled["parts"][unchanged], unchanged)
+        other_rules = {**self.SNAPSHOT, "ontology": {**self.SNAPSHOT["ontology"], "rules": [{"id": "R-2"}]}}
+        changed = release_structure(other_rules, self.bound())
+        self.assertNotEqual(changed["parts"]["rules"], one["parts"]["rules"])
+        self.assertEqual(changed["parts"]["ontology"], one["parts"]["ontology"])
+        self.assertEqual(changed["problems"], ["the design is bound to another configuration than this release's"])
+
+    def test_approval_evidence_is_carried_and_checked_not_created(self):
+        ok = release_structure(self.SNAPSHOT, self.bound(), {"proposed_by": "ada", "approved_by": "bo", "at": T, "audit": ["admin-log:41", "admin-log:42"]})
+        self.assertEqual((ok["approval"], ok["audit"], ok["problems"]),
+                         ({"proposed_by": "ada", "approved_by": "bo", "at": T}, ["admin-log:41", "admin-log:42"], []))
+        own = release_structure(self.SNAPSHOT, self.bound(), {"proposed_by": "ada", "approved_by": "ada"})
+        self.assertEqual(own["problems"], ["the release was approved by its proposer"])
+        none = release_structure(self.SNAPSHOT, self.bound())
+        self.assertEqual(none["approval"], {"proposed_by": None, "approved_by": None, "at": None})  # nothing is filled in
+
+    def test_rollback_and_versioning_as_they_would_work(self):
+        # release 1 without a design, release 2 with one, release 3 with a relabelled one: three identities
+        r1, r2 = release_structure(self.SNAPSHOT), release_structure(self.SNAPSHOT, self.bound())
+        r3 = release_structure(self.SNAPSHOT, self.bound(title="Second"))
+        self.assertEqual(len({r1["fingerprint"], r2["fingerprint"], r3["fingerprint"]}), 3)
+        self.assertTrue(needs_new_release(WITH))
+        # rolling back to release 2 restores exactly its design: the fingerprint says which
+        self.assertEqual(release_structure(self.SNAPSHOT, self.bound())["parts"]["application"], r2["parts"]["application"])
+        # rolling back to release 1 restores a release with no design: nothing is shown as governed
+        self.assertIsNone(served([], 1))
+

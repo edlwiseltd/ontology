@@ -67,6 +67,9 @@ a request; it exists so that the chain can be exercised and the harness tested.
     python -m autology chain-eval --replay <folder>               # kept answers, no decision of a person
     python -m autology chain-eval --replay <folder> --assume-confirmed
     python -m autology chain-eval --reference --json
+    python -m autology chain-eval --reference --scenarios          # the three treatments, side by side
+    python -m autology chain-eval --replay <folder> --scenarios
+    python -m autology chain-eval --journey <folder> --scenarios   # a kept Studio journey and its recorded decisions
 
 There is deliberately **no option that calls a provider**. When the owner authorises an evaluation, the same
 `evaluate(cases, ask)` takes the `ask` that `architect-eval --platform` builds for the authorised workspace, under
@@ -83,6 +86,44 @@ that authorisation's model, budget and ledger; nothing else changes.
 The second and third rows cost nothing: the answers were paid for on 17 November (0.799479 USD for these four) and
 are read from disk. They say something real about the chain: **the architect's usable output depends on a person
 confirming inferred elements**, and the builder and the Engine handled every draft they were given.
+
+## Three treatments of inferred elements (added 19 November 2026)
+
+`python -m autology chain-eval … --scenarios` runs every case three ways and puts them side by side
+(`chain_eval.scenarios`). Step 6 uses the Engine's own review rules (`autology/proposal_review.py`), so the harness
+and the Engine cannot disagree about what a confirmation is.
+
+| Scenario | What enters the draft | What it is evidence of |
+|---|---|---|
+| **1. No additional confirmation** | The elements the description states | What the answer gives on its own |
+| **2. Explicit selective confirmation** | Also the inferred elements that **recorded, attributable** decisions accepted or corrected | What a person's actual decisions made of it. A case with no decision on record has no scenario 2: none is invented |
+| **3. Hypothetical full confirmation** | Every inferred element | **A counterfactual.** It shows what the Engine would do if everything were confirmed. It is not evidence that any element is right |
+
+Where recorded decisions come from: a reserved brief carries a synthetic reviewer's decisions, written with the
+case and labelled so. A Studio journey kept as evidence (`--journey <folder>`) carries the decisions recorded in
+its released model's provenance: which elements a member accepted in the design tool. That is a member's
+acceptance, not a domain expert's review.
+
+### Measures, per component and for the person's step
+
+| Where | Measure |
+|---|---|
+| **A. AI Architect** | Clarification coverage and model completeness against the case's reference expectations (V1's scorer, unchanged); inferred elements requiring review; elements refused by the Engine; cost and time as recorded |
+| **The person's step** (not a component's performance) | Confirmation rate; elements rejected; corrections; dependency failures (which decision broke what) |
+| **B. Application Builder** | Manifest validation; generated screens |
+| **C. Engine** | Validated elements; accepted governed drafts; governed action outcomes; audit completeness of the simulated run (every step leaves an event; **a draft simulation's trace is not a signed chain**, and the result says so) |
+
+### Results on the kept evidence (19 November 2026; `planning/evidence/chain-eval-2026-11-19/`; no call made)
+
+| Answers | Scenario 1 | Scenario 2 | Scenario 3 (counterfactual) |
+|---|---|---|---|
+| Reserved briefs, reference answers (not a model): 2 cases | 2 drafts accepted, 2 manifests valid; both simulations complete | Synthetic reviewer: 2 accepted, 2 valid; one completes, one waits for a review | 2 accepted, 2 valid; one waits for a review, one escalates |
+| Run 2's kept answers (a real model): 4 answered of 5 | **1 of 4** drafts accepted; 10 dependency failures named across the other three | **Not run: no decision is on record for these answers** | 4 of 4 accepted, 4 manifests valid; 3 of 4 simulations proceed |
+| The ground-handling journey (a real model; 40 elements, 23 inferred) | Draft **refused**: 4 dependency failures | The decisions on record (39 elements accepted, 1 not; 22 of 23 inferred confirmed): draft **accepted**, manifest valid, simulation completes | Accepted, valid; the simulation waits for a review |
+
+What this supports: on the one real answer with decisions on record, selective confirmation turns a refused draft
+into an accepted one. What it does not support: that the confirmed elements are right. Nobody qualified in the
+domain reviewed them.
 
 ## What it cannot show
 

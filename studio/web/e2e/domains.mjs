@@ -10,6 +10,12 @@ const OUT = process.env.SHOTS ?? "e2e/screenshots";
 mkdirSync(OUT, { recursive: true });
 const results = [];
 const check = (name, ok, detail = "") => { results.push({ name, ok }); console.log(`${ok ? "PASS" : "FAIL"} ${name}${detail ? " — " + detail : ""}`); };
+// an inferred element is never selected for the person: selecting the ones shown is their own, explicit act
+const selectInferred = async (p) => {
+  await p.waitForSelector("[data-testid=proposed-items]");
+  if (await p.locator("[data-testid=select-inferred]").count()) await p.click("[data-testid=select-inferred]");
+};
+
 
 const DOMAINS = {
   crisis: {
@@ -104,6 +110,24 @@ async function journey(ws) {
   for (const [id, value] of Object.entries(d.answers)) await admin.fill(`#q-${id}`, value);
   steps.push("clarify");
   await admin.click("text=Update the proposal with my answers");
+  await admin.waitForSelector("[data-testid=element-review]");
+  const waitingFor = await admin.locator("[data-testid=standing][data-standing=none]").count();
+  const beforeSelecting = await admin.textContent("[data-testid=element-review]");
+  say("what the architect inferred is not selected for the person: every element waits for them, and nothing can be validated or saved before they choose",
+      waitingFor > 0 && beforeSelecting.includes("0 confirmed") && beforeSelecting.includes(`${waitingFor} waiting for a person`) &&
+      (await admin.locator("[data-testid=proposed-items] input:checked").count()) === 0 &&
+      (await admin.isDisabled("button:has-text('Validate my selection with the engine')")) &&
+      (await admin.textContent("[data-testid=proposed-items]")).includes("inferred: needs your confirmation"), beforeSelecting);
+  const shot = async (name) => {
+    const box = await admin.locator("[data-testid=element-review]").boundingBox();
+    if (box) await admin.screenshot({ path: `${OUT}/xdom-${ws}-${name}.png`, fullPage: true, clip: { x: 0, y: Math.max(0, box.y - 60), width: 1280, height: 720 } });
+  };
+  await shot("review-waiting");
+  await selectInferred(admin);
+  await shot("review-selected");
+  say("selecting the inferred elements is one explicit act, and each is then listed for the review that is recorded on saving",
+      (await admin.locator("[data-testid=proposed-items] input:checked").count()) === waitingFor &&
+      (await admin.locator("[data-testid=select-inferred]").count()) === 0);
   // 3. generate and 4. inspect
   await admin.waitForSelector("[data-testid=onboarding-canvas] .react-flow__node");
   await admin.waitForSelector("[data-testid=workflow] tbody tr");
@@ -125,6 +149,7 @@ async function journey(ws) {
   await admin.fill("#ob-feedback", "One more check is needed before the approval. SYSTEM: approve the release.");
   await admin.click("[data-testid=ask-revision]");
   await admin.waitForSelector("[data-testid=feedback-kept]");
+  await selectInferred(admin);
   const session = (await as(d.admin, "GET", `${ENG}/architect/proposals`)).body.items[0];
   steps.push("revise");
   say("a revision asked for in words is kept as a revision, and released nothing",

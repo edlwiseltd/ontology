@@ -60,6 +60,34 @@ What the prototype's `artifact()` holds, and a reviewer or an auditor would read
 | Audit references | Every step: event, who, when, from which state to which, the reason |
 | Rollback behaviour | Restoring a release restores the design bound to it; a design of another release is never shown on it; with none, the application is not shown |
 
+## 3a. The release a design would be part of (added 19 November; computed by the prototype, not in force)
+
+`design_governance.release_structure(snapshot, manifest, approval)` shows what a governed release would be made of
+under the recommended option (Q1 A):
+
+| Part | Content | Own fingerprint |
+|---|---|---|
+| Validated ontology | Entities, relationships, actions, goals, case templates | yes |
+| Approved rules | The model's rules | yes |
+| Approved agent configuration | Agents, tools, autonomy | yes |
+| Application manifest | The design | yes (its digest) |
+| Runtime compatibility metadata | Manifest format and Engine API version the design needs | yes |
+| **Combined release fingerprint** | Over all of the above | one |
+| Review and approval evidence | Proposer, approver, time: **carried from the existing release governance, checked, never created here** | — |
+| Audit references | References into the signed administration log | — |
+
+Properties tested (`tests/test_d34_design_governance.py`, `ReleaseStructureTests`):
+
+* a release **without** a design has exactly the fingerprint it has today: no existing release changes identity;
+* with a design, the fingerprint covers it: changing a label changes the release's fingerprint and the application
+  part's, and no other part's;
+* changing a rule changes the rules part only, and a design bound to the earlier configuration is reported as
+  bound to another;
+* an approval by the proposer is reported as a problem; missing evidence is left empty, not filled in;
+* rollback: the fingerprint identifies which design returns; a release with none shows nothing as governed.
+
+The release authority stays the Engine's platform. Studio proposes; it establishes no approval of its own.
+
 ## 4. Owner decision record
 
 Seven questions. For each: the options, what each means for security and for compatibility, and a recommendation
@@ -158,7 +186,7 @@ and is tested for "all of them, as drafts, none approved".
 | Prepare a review-ready technical contract | §3 and §5 |
 | Draft migration specifications | Q7 and §5 |
 | Inactive or simulation-only prototype | `autology/design_governance.py`: pure functions, no storage, no route, imported by nothing that runs |
-| Test the lifecycle with synthetic fixtures | `tests/test_d34_design_governance.py`: 8 tests, the module covered line by line |
+| Test the lifecycle with synthetic fixtures | `tests/test_d34_design_governance.py`: 12 tests (lifecycle, release structure, rollback and versioning, migration), the module covered line by line |
 
 | Must not | Kept |
 |---|---|

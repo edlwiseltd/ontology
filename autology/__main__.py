@@ -336,6 +336,11 @@ def _build_parser() -> argparse.ArgumentParser:
     how.add_argument("--reference", action="store_true",
                      help="the two reserved briefs with their hand-written reference answers: checks the chain, not a model")
     how.add_argument("--replay", metavar="FOLDER", help="answers kept by an earlier, authorised evaluation; nothing is asked again")
+    how.add_argument("--journey", metavar="FOLDER", help="a Studio journey kept as evidence: its stored proposal, with the "
+                                                       "decisions recorded in the released model's provenance")
+    ce.add_argument("--scenarios", action="store_true",
+                    help="three treatments of inferred elements side by side: none confirmed; the recorded decisions only; "
+                         "all assumed confirmed (a counterfactual)")
     ce.add_argument("--assume-confirmed", action="store_true",
                     help="with --replay: as if a reviewer had confirmed every inferred element (stated in the report)")
     ce.add_argument("--json", action="store_true", help="print the full report as JSON")
@@ -712,14 +717,29 @@ def main(argv=None) -> int:
     if args.command == "chain-eval":
         from . import architect_eval, chain_eval
 
-        if args.replay:
-            chained = chain_eval.evaluate(architect_eval.cases(), chain_eval.replay(args.replay),
-                                         chain_eval.CONFIRM_ALL if args.assume_confirmed else {},
-                                         f"answers kept in {args.replay}; " + (chain_eval.CONFIRM_ALL if args.assume_confirmed
-                                                                              else "no decision of a person"))
+        if args.journey:
+            kept = chain_eval.journey(args.journey)
+            cases, ask, recorded = [kept["case"]], kept["ask"], {kept["case"]["id"]: kept["recorded"]}
+            source = f"the stored proposal of the journey kept in {args.journey}"
+        elif args.replay:
+            cases, ask, recorded = architect_eval.cases(), chain_eval.replay(args.replay), {}
+            source = f"answers kept in {args.replay}"
         else:
-            chained = chain_eval.evaluate(chain_eval.reserved(), chain_eval.reference, None,
-                                         "the reserved briefs' hand-written reference answers (not a model)")
+            cases, ask, recorded = chain_eval.reserved(), chain_eval.reference, {}
+            source = "the reserved briefs' hand-written reference answers (not a model)"
+        if args.scenarios:
+            compared = chain_eval.scenarios(cases, ask, recorded, source)
+            print(json.dumps(compared, indent=1, default=str) if args.json else chain_eval.render_scenarios(compared))
+            return 0
+        if args.journey:
+            decisions: Any = kept["recorded"]
+            source += "; the decisions recorded with it"
+        elif args.replay:
+            decisions = chain_eval.CONFIRM_ALL if args.assume_confirmed else {}
+            source += "; " + (chain_eval.CONFIRM_ALL if args.assume_confirmed else "no decision of a person")
+        else:
+            decisions = None
+        chained = chain_eval.evaluate(cases, ask, decisions, source)
         print(json.dumps(chained, indent=1, default=str) if args.json else chain_eval.render(chained))
         return 0
     if args.command == "openapi":

@@ -34,7 +34,7 @@ import time
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence
 
-from . import appspec, architect, architect_eval
+from . import appspec, architect_eval, proposal_review
 from .ontology import Ontology, OntologyError
 from .simulation import SimulationError, simulate
 
@@ -70,36 +70,50 @@ def replay(folder: Any, number: int = 1) -> Ask:
     return ask
 
 
-def _decide(items: Sequence[Mapping[str, Any]], decisions: Any) -> Dict[str, Any]:
-    """Which elements enter the draft. Stated elements are kept; an inferred one needs an explicit confirmation."""
+def _decide(case_id: str, proposal: Mapping[str, Any], decisions: Any) -> Dict[str, Any]:
+    """Which elements enter the draft, by the Engine's own review rules (:mod:`autology.proposal_review`): a stated
+    element is kept; an inferred one needs an explicit confirmation or correction; a rejected one never enters."""
+    items = list(proposal.get("items") or [])
     known = {i["id"] for i in items}
     confirm_all = decisions == CONFIRM_ALL
     given = decisions if isinstance(decisions, Mapping) else {}
     confirm, drop = set(given.get("confirm") or []), set(given.get("drop") or [])
-    kept, unconfirmed, dropped = [], [], []
-    for item in items:
-        if item["id"] in drop:
-            dropped.append(item["id"])
-        elif item.get("basis") == "supplied" or confirm_all or item["id"] in confirm:
-            kept.append(item)
-        else:
-            unconfirmed.append(item["id"])
-    return {"kept": kept, "confirmed": sorted(confirm & known) if not confirm_all else sorted(i["id"] for i in items if i.get("basis") != "supplied"),
-            "dropped": dropped, "not_applied_unconfirmed": unconfirmed,
-            "decisions_naming_no_element": sorted((confirm | drop) - known),
-            "by": CONFIRM_ALL if confirm_all else given.get("by") or "nobody: no decision was given"}
+    correct = dict(given.get("correct") or {})
+    by = CONFIRM_ALL if confirm_all else given.get("by") or "nobody: no decision was given"
+    if confirm_all:
+        confirm = {i["id"] for i in items if i.get("basis") != "supplied"}
+    rows = [{"revision": 1, "result": proposal}]
+    recorded = [{"revision": 1, "decided_by": by, "at": "", "accepted": sorted(confirm & known), "rejected": sorted(drop & known), "note": ""}]
+    fixes = [{"revision": 1, "item": k, "value": v, "corrected_by": by, "at": "", "note": ""} for k, v in sorted(correct.items()) if k in known]
+    review = proposal_review.report({"name": case_id, "version": "0.1.0"}, rows, recorded, fixes, 1)
+    counts, elements = review["counts"], review["elements"]
+    return {"document": review["document"], "review": review,
+            "summary": {"confirmed": sorted(e["id"] for e in elements if e["needs_confirmation"] and e["decision"] in ("accepted", "corrected")),
+                        "corrected": sorted(e["id"] for e in elements if e["decision"] == "corrected"),
+                        "dropped": [e["id"] for e in elements if e["decision"] == "rejected"],
+                        "not_applied_unconfirmed": review["unresolved"],
+                        "decisions_naming_no_element": sorted((confirm | drop | set(correct)) - known),
+                        "dependency_failures": review["dependency_failures"],
+                        "inferred_requiring_review": counts["inferred"],
+                        "confirmation_rate": f"{counts['confirmed']} of {counts['inferred']}",
+                        "human_corrections": counts["corrected"], "kept": counts["kept"], "by": by}}
 
 
 def _governed(document: Mapping[str, Any]) -> Dict[str, Any]:
     """What governed work does with the draft, in a draft simulation: stub tools, nothing stored, no silent decision."""
     out: Dict[str, Any] = {"default": None, "steps": 0, "review_requested": False, "reviewers": [], "with_approval": None,
-                           "with_refusal": None, "decision_by_another_role_refused": None, "without_any_role": None, "why": ""}
+                           "with_refusal": None, "decision_by_another_role_refused": None, "without_any_role": None, "why": "",
+                           "audit": None}
     try:
         first = simulate(document)
     except (SimulationError, ValueError, KeyError) as exc:
         out["why"] = str(exc)[:200]
         return out
     out.update(default=first["status"], steps=len(first.get("steps") or []))
+    events = [e["event"] for e in first["audit"]["events"]]
+    out["audit"] = {"events": len(events), "kinds": sorted(set(events)),
+                    "every_step_left_an_event": len(events) >= len(first.get("steps") or []) and bool(events),
+                    "signed_chain": False, "note": first["audit"]["note"]}
     pending = first.get("pending_review")
     if pending:
         out.update(review_requested=True, reviewers=list(pending["reviewers"]))
@@ -166,15 +180,20 @@ def run_case(case: Mapping[str, Any], ask: Ask, decisions: Any = None) -> Dict[s
         measures = architect_eval.score(case, proposal)
         details = measures.pop("details")
         a.update(v1_measures=measures, missing_concepts=details["entities_missing"], planted_instruction_found=details["planted_markers_found"])
+    a["inferred_elements_requiring_review"] = len(inferred)
+    if "v1_measures" in a:  # against the case's own reference expectations; V1's scorer, unchanged
+        a["clarification_coverage"] = a["v1_measures"]["question_coverage"]
+        a["model_completeness"] = {k: a["v1_measures"][k] for k in ("entity_recall", "relationship_recall", "rule_coverage")}
     step("A", len(questions) > 0, f"{len(questions)} question(s)")
     step("A", len(items) > 0, f"{len(items) + len(rejected)} element(s) proposed")
     step("C", True, f"{len(items)} accepted, {len(rejected)} refused by the strict loader")
     step("C", True, "; ".join(f"{r['kind']} {r['name']}: {r['problem']}" for r in rejected)[:300] or "none refused")
-    chosen = _decide(items, decisions)
-    out["corrections"] = {k: v for k, v in chosen.items() if k != "kept"}
-    step("harness", not chosen["decisions_naming_no_element"],
-         f"{len(chosen['kept'])} kept, {len(chosen['not_applied_unconfirmed'])} inferred and not confirmed, {len(chosen['dropped'])} dropped; by {chosen['by']}")
-    document = architect.apply({"name": str(case["id"]), "version": "0.1.0"}, chosen["kept"])
+    chosen = _decide(str(case["id"]), proposal, decisions)
+    summary = out["corrections"] = chosen["summary"]
+    step("harness", not summary["decisions_naming_no_element"],
+         f"{summary['kept']} kept, {len(summary['not_applied_unconfirmed'])} inferred and not confirmed, {len(summary['dropped'])} dropped, "
+         f"{summary['human_corrections']} corrected; by {summary['by']}")
+    document = chosen["document"]
     onto: Optional[Ontology] = None
     try:
         onto = Ontology.from_dict(dict(document))
@@ -182,6 +201,10 @@ def run_case(case: Mapping[str, Any], ask: Ask, decisions: Any = None) -> Dict[s
     except OntologyError as exc:
         c.update(draft_accepted=False, problems=[str(exc)[:300]])
     c["refused_elements"] = len(rejected)
+    c["validated_elements"] = summary["kept"] if c["draft_accepted"] else 0
+    out["review"] = {"step": "a person's decisions (not a component's performance)", **{k: summary[k] for k in (
+        "inferred_requiring_review", "confirmation_rate", "confirmed", "corrected", "dropped", "not_applied_unconfirmed",
+        "dependency_failures", "human_corrections", "by")}}
     step("C", c["draft_accepted"], "accepted by the strict loader" if onto else c["problems"][0])
     out["draft"] = document
     if onto is None:
@@ -218,6 +241,84 @@ def run_case(case: Mapping[str, Any], ask: Ask, decisions: Any = None) -> Dict[s
     out["reproducibility"] = _digest(out)
     step("harness", True, f"digest {out['reproducibility']['digest'][:16]}")
     return out
+
+
+def _label(item: Mapping[str, Any]) -> str:
+    value = item["value"]
+    if item["kind"] == "relationship":
+        return f"relationship:{value.get('from')} —{value.get('type')}→ {value.get('to')}"
+    return f"{item['kind']}:{item.get('name') or value.get('id')}"
+
+
+def journey(folder: Any, proposal_file: str = "proposal-revision-2.json", model_file: str = "active-model-release-3.json") -> Dict[str, Any]:
+    """A Studio journey kept as evidence: the stored proposal as a case, and the decisions **recorded** with it.
+
+    The record is the released model's provenance: which elements of that proposal a member accepted into the
+    draft that was released. It says who accepted in the design tool. It is not a domain expert's judgement, and
+    this function adds nothing to it."""
+    proposal = json.loads((Path(folder) / proposal_file).read_text(encoding="utf-8"))
+    model = json.loads((Path(folder) / model_file).read_text(encoding="utf-8"))
+    record = (model.get("x-studio") or {}).get("provenance") or {}
+    taken = {key for key, entry in record.items() if entry.get("proposal") == proposal["id"] and entry.get("revision") == proposal["revision"]}
+    accepted = [i["id"] for i in proposal["items"] if _label(i) in taken]
+    return {"case": {"id": Path(folder).name, "title": "A Studio journey kept as evidence", "synthetic": True, "brief": proposal["brief"]},
+            "ask": lambda case: proposal,
+            "recorded": {"confirm": [i for i in accepted], "drop": [i["id"] for i in proposal["items"] if _label(i) not in taken],
+                         "by": f"{proposal.get('created_by')}: the elements recorded as accepted in the released model's provenance "
+                               "(a member's acceptance in Studio, not a domain expert's review)"}}
+
+
+SCENARIOS = {"1": "no additional confirmation", "2": "explicit selective confirmation: recorded, attributable decisions only",
+             "3": "hypothetical full confirmation: a counterfactual, not evidence that any element is right"}
+
+
+def scenarios(cases: Sequence[Mapping[str, Any]], ask: Ask, recorded: Optional[Mapping[str, Any]] = None, source: str = "") -> Dict[str, Any]:
+    """Every case under the three treatments of inferred elements, side by side. ``recorded``: the decisions on
+    record per case id; a case with none has no scenario 2 of its own, and the table says so instead of inventing one."""
+    recorded = recorded or {}
+    table = []
+    for case in cases:
+        given = recorded.get(case["id"], case.get("authorised_decisions"))
+        runs = {"1": run_case(case, ask, {}), "2": run_case(case, ask, given) if given else None,
+                "3": run_case(case, ask, CONFIRM_ALL)}
+        for number, row in runs.items():
+            if row is None:
+                table.append({"case": case["id"], "scenario": number, "what": SCENARIOS[number], "run": False,
+                              "why": "no recorded decision exists for this answer; none is invented"})
+                continue
+            work = row["C"].get("governed_work") or {}
+            table.append({
+                "case": case["id"], "scenario": number, "what": SCENARIOS[number], "run": True,
+                "counterfactual": number == "3", "answered": row["A"].get("answered", False),
+                "decided_by": (row.get("corrections") or {}).get("by"),
+                "confirmation_rate": (row.get("review") or {}).get("confirmation_rate"),
+                "unresolved": len((row.get("review") or {}).get("not_applied_unconfirmed") or []),
+                "rejected_by_a_person": len((row.get("review") or {}).get("dropped") or []),
+                "refused_by_engine": row["C"].get("refused_elements"),
+                "dependency_failures": len((row.get("review") or {}).get("dependency_failures") or []),
+                "draft_accepted": row["C"].get("draft_accepted"), "manifest_valid": row["B"].get("valid"),
+                "screens": row["B"].get("screens"),
+                "simulation": work.get("default") or ("not run" if not row["C"].get("draft_accepted") else work.get("why")),
+                "simulation_ready": work.get("default") in ("completed", "awaiting_review")})
+    return {"protocol": PROTOCOL, "source_of_answers": source, "scenarios": SCENARIOS, "table": table,
+            "reading": "Scenario 3 assumes confirmations nobody gave. Technical acceptance in any scenario says the Engine can "
+                       "load and run the model; it says nothing about whether the model is right for the business. "
+                       "No domain expert reviewed any of these models.",
+            "aggregate": None}
+
+
+def render_scenarios(result: Mapping[str, Any]) -> str:
+    lines = [f"Three treatments of inferred elements, protocol {result['protocol']}. Answers: {result['source_of_answers']}", ""]
+    for row in result["table"]:
+        if not row["run"]:
+            lines.append(f"{row['case']:<22} scenario {row['scenario']}: not run ({row['why']})")
+            continue
+        lines.append(f"{row['case']:<22} scenario {row['scenario']}{' (counterfactual)' if row['counterfactual'] else '':<17} "
+                     f"confirmed {row['confirmation_rate']}; unresolved {row['unresolved']}; dependency failures {row['dependency_failures']}; "
+                     f"draft {'accepted' if row['draft_accepted'] else 'refused' if row['answered'] else 'none: no answer'}; "
+                     f"manifest {'valid' if row['manifest_valid'] else 'none'}; simulation {row['simulation']}")
+    lines += ["", result["reading"], "No total is computed."]
+    return "\n".join(lines)
 
 
 def _digest(result: Mapping[str, Any]) -> Dict[str, Any]:
@@ -277,4 +378,5 @@ def render(result: Mapping[str, Any]) -> str:
     return "\n".join(lines)
 
 
-__all__ = ["PROTOCOL", "STEPS", "COMPONENTS", "CONFIRM_ALL", "reserved", "reference", "replay", "run_case", "evaluate", "render"]
+__all__ = ["PROTOCOL", "STEPS", "COMPONENTS", "CONFIRM_ALL", "SCENARIOS", "reserved", "reference", "replay", "journey", "run_case",
+           "evaluate", "scenarios", "render", "render_scenarios"]

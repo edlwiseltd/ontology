@@ -1,0 +1,180 @@
+Chain evaluation, protocol chain-v1. Provider calls: 0.
+Three components are reported apart: A the AI Architect, B the Application Builder, C the Engine. Acceptance by the Engine means the model loads and runs; it does not mean the model is right for the business. No independent domain expert reviewed any model here. No total is computed.
+
+Six scenarios on the reserved brief museum-loans (a hand-written reference answer, not a model)
+  1   No element confirmed: confirmed 0 of 3; corrections 0; rejected 0; dependency failures 0; C draft accepted; B manifest valid; simulation completed
+  2   Only the recorded, attributable confirmations (a synthetic reviewer, written with the case): confirmed 2 of 3; corrections 0; rejected 0; dependency failures 0; C draft accepted; B manifest valid; simulation awaiting_review
+  3   Hypothetical: every inferred element confirmed (a counterfactual; nobody confirmed them): confirmed 3 of 3; corrections 0; rejected 0; dependency failures 0; C draft accepted; B manifest valid; simulation awaiting_review
+  4a  A rejection, and what depended on the rejected element: confirmed 2 of 3; corrections 0; rejected 1; dependency failures 2; C draft refused; B manifest none; simulation not run
+        dependency: {"because": {"model:entity:Borrower": "rejected"}, "element": "model:relationship:Borrower-submits-LoanRequest", "needs": ["model:entity:Borrower"]}
+        dependency: {"because": {"model:entity:Borrower": "rejected"}, "element": "model:case_template:loan_case", "needs": ["model:entity:Borrower"]}
+  4b  A correction, validated again by the Engine: confirmed 2 of 3; corrections 1; rejected 0; dependency failures 0; C draft accepted; B manifest valid; simulation awaiting_review
+  5   A model authored by hand, with no architect proposal: provenance manual_authoring; established by the Engine: True; may be published: True (attributed to the authenticated author; published only by a second person); draft accepted True; manifest valid True; A: not applicable: no architect proposal
+  6   The same model as a legacy draft whose provenance was never established: provenance legacy_unknown; established by the Engine: False; may be published: False (the provenance was never established: the Engine refuses to publish it until it is saved again and classified); draft accepted True; manifest valid True; A: not applicable: no architect proposal
+
+The kept ground-handling journey (a real model's stored proposal; decisions recorded in the released model)
+  1   no additional confirmation: confirmed 0 of 23; dependency failures 4; C draft refused; B manifest none; simulation not run
+  2   explicit selective confirmation: recorded, attributable decisions only: confirmed 22 of 23; dependency failures 0; C draft accepted; B manifest valid; simulation completed
+  3   hypothetical full confirmation: a counterfactual, not evidence that any element is right: confirmed 23 of 23; dependency failures 0; C draft accepted; B manifest valid; simulation awaiting_review
+
+Element traces, museum-loans with the recorded decisions (one line per element; a missing link is written as missing)
+  model:entity:LoanRequest
+      source            brief
+      suggestion        supplied: A request to borrow one object
+      evidence          ['brief']
+      clarification     none cited
+      decision          none needed: stated by the description
+      draft             in the draft
+      validation        accepted by the strict loader
+      release           missing: this evaluation releases nothing (a hosted draft is released by two people: tests C8)
+      application       ['work-loan_case', 'list-loanrequest', 'detail-loanrequest', 'links-loanrequest', 'form-loanrequest']
+      simulated_action  not an action
+      audit             missing: no audit event for this element
+  model:entity:CollectionObject
+      source            brief
+      suggestion        supplied: An object of the collection
+      evidence          ['brief']
+      clarification     none cited
+      decision          none needed: stated by the description
+      draft             in the draft
+      validation        accepted by the strict loader
+      release           missing: this evaluation releases nothing (a hosted draft is released by two people: tests C8)
+      application       ['list-collectionobject', 'detail-collectionobject', 'links-collectionobject', 'form-collectionobject']
+      simulated_action  not an action
+      audit             missing: no audit event for this element
+  model:entity:Borrower
+      source            brief
+      suggestion        supplied: An institution that borrows
+      evidence          ['brief']
+      clarification     none cited
+      decision          none needed: stated by the description
+      draft             in the draft
+      validation        accepted by the strict loader
+      release           missing: this evaluation releases nothing (a hosted draft is released by two people: tests C8)
+      application       ['list-borrower', 'detail-borrower', 'links-borrower', 'form-borrower']
+      simulated_action  not an action
+      audit             missing: no audit event for this element
+  model:relationship:Borrower-submits-LoanRequest
+      source            brief
+      suggestion        supplied: Borrower submits LoanRequest
+      evidence          ['brief']
+      clarification     none cited
+      decision          none needed: stated by the description
+      draft             in the draft
+      validation        accepted by the strict loader
+      release           missing: this evaluation releases nothing (a hosted draft is released by two people: tests C8)
+      application       ['detail-loanrequest', 'links-loanrequest', 'detail-borrower', 'links-borrower']
+      simulated_action  not an action
+      audit             missing: no audit event for this element
+  model:relationship:CollectionObject-requested_in-LoanRequest
+      source            brief
+      suggestion        supplied: CollectionObject requested_in LoanRequest
+      evidence          ['brief']
+      clarification     none cited
+      decision          none needed: stated by the description
+      draft             in the draft
+      validation        accepted by the strict loader
+      release           missing: this evaluation releases nothing (a hosted draft is released by two people: tests C8)
+      application       ['detail-loanrequest', 'links-loanrequest', 'detail-collectionobject', 'links-collectionobject']
+      simulated_action  not an action
+      audit             missing: no audit event for this element
+  model:action:check_request
+      source            brief
+      suggestion        supplied: The registrar checks the request
+      evidence          ['brief']
+      clarification     none cited
+      decision          none needed: stated by the description
+      draft             in the draft
+      validation        accepted by the strict loader
+      release           missing: this evaluation releases nothing (a hosted draft is released by two people: tests C8)
+      application       ['work-loan_case']
+      simulated_action  executed in the default simulated run
+      audit             17 events in the simulation's in-memory trace (not a signed chain)
+  model:action:write_condition_report
+      source            brief
+      suggestion        supplied: The conservator writes a condition report
+      evidence          ['brief']
+      clarification     none cited
+      decision          none needed: stated by the description
+      draft             in the draft
+      validation        accepted by the strict loader
+      release           missing: this evaluation releases nothing (a hosted draft is released by two people: tests C8)
+      application       ['work-loan_case']
+      simulated_action  executed in the default simulated run
+      audit             17 events in the simulation's in-memory trace (not a signed chain)
+  model:action:issue_agreement
+      source            brief
+      suggestion        supplied: Issue the loan agreement
+      evidence          ['brief']
+      clarification     none cited
+      decision          none needed: stated by the description
+      draft             in the draft
+      validation        accepted by the strict loader
+      release           missing: this evaluation releases nothing (a hosted draft is released by two people: tests C8)
+      application       ['work-loan_case']
+      simulated_action  missing: not executed in the default simulated run
+      audit             missing: no audit event for this element
+  model:rule:R-VALUE
+      source            brief
+      suggestion        inferred: The director approves loans above the valuation limit
+      evidence          ['brief']
+      clarification     none cited
+      decision          accepted by a synthetic reviewer, written with the case
+      draft             in the draft
+      validation        accepted by the strict loader
+      release           missing: this evaluation releases nothing (a hosted draft is released by two people: tests C8)
+      application       ['work-loan_case', 'reviews']
+      simulated_action  not an action
+      audit             missing: no audit event for this element
+  model:rule:R-FRAGILE
+      source            brief
+      suggestion        supplied: A fragile object never travels
+      evidence          ['brief']
+      clarification     none cited
+      decision          none needed: stated by the description
+      draft             in the draft
+      validation        accepted by the strict loader
+      release           missing: this evaluation releases nothing (a hosted draft is released by two people: tests C8)
+      application       ['work-loan_case']
+      simulated_action  not an action
+      audit             missing: no audit event for this element
+  model:rule:R-VALUATION
+      source            brief
+      suggestion        inferred: Only a registrar records the valuation
+      evidence          ['brief']
+      clarification     none cited
+      decision          missing: inferred, and nobody confirmed it
+      draft             missing: not in the draft
+      validation        missing: not validated: not in the draft
+      release           missing: this evaluation releases nothing (a hosted draft is released by two people: tests C8)
+      application       missing: no application
+      simulated_action  not an action
+      audit             missing: no audit event for this element
+  model:goal:loan_agreed
+      source            brief
+      suggestion        supplied: The loan agreement is issued
+      evidence          ['brief']
+      clarification     none cited
+      decision          none needed: stated by the description
+      draft             in the draft
+      validation        accepted by the strict loader
+      release           missing: this evaluation releases nothing (a hosted draft is released by two people: tests C8)
+      application       missing: no screen is bound to this kind of element
+      simulated_action  not an action
+      audit             missing: no audit event for this element
+  model:case_template:loan_case
+      source            brief
+      suggestion        inferred: A loan request with its borrower and its object
+      evidence          ['brief']
+      clarification     none cited
+      decision          accepted by a synthetic reviewer, written with the case
+      draft             in the draft
+      validation        accepted by the strict loader
+      release           missing: this evaluation releases nothing (a hosted draft is released by two people: tests C8)
+      application       ['work-loan_case']
+      simulated_action  not an action
+      audit             missing: no audit event for this element
+
+Kept journey, links missing per element kind of link: {"source": 12, "suggestion": 0, "evidence": 12, "clarification": 0, "decision": 0, "draft": 1, "validation": 1, "release": 1, "application": 20, "simulated_action": 14, "audit": 40}
+Kept journey, elements whose source and evidence are the label stored with the answer (cited at the time; not re-checked): 28 of 40
+No total is computed.

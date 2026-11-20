@@ -33,7 +33,7 @@ import json
 import re
 import time
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from . import appspec, architect_eval, proposal_review
 from .ontology import Ontology, OntologyError
@@ -249,13 +249,29 @@ def run_case(case: Mapping[str, Any], ask: Ask, decisions: Any = None) -> Dict[s
 LINKS = ("source", "suggestion", "evidence", "clarification", "decision", "draft", "validation", "release", "application",
          "simulated_action", "audit")
 MISSING = "missing: "
+CITED_THEN = "cited at the time; not re-checked"
+
+
+def _cites(item: Mapping[str, Any]) -> Tuple[List[Any], bool]:
+    """What an element cites, as the answer holds it, and whether that is only the label stored at the time.
+
+    An answer holds structured evidence entries (``evidence``: what the Engine matched against what was given).
+    An answer stored before that field existed holds the older one instead (``sources``: the citation the model
+    gave then). Those labels are shown as they are stored and marked: the Engine does not check them again here,
+    and nothing is derived from them. An element with neither cites nothing."""
+    checked = [x.get("ref") for x in item.get("evidence") or [] if x.get("ref")]
+    if checked:
+        return checked, False
+    stored = [f"{label} ({CITED_THEN})" for label in item.get("sources") or [] if label]
+    return stored, bool(stored)
 
 
 def trace(case: Mapping[str, Any], proposal: Mapping[str, Any], review: Mapping[str, Any], result: Mapping[str, Any],
           manifest: Optional[Mapping[str, Any]]) -> Dict[str, Any]:
     """One line per element, from the sentence it rests on to the screen that shows it and the run that used it.
-    A link that does not exist is written as missing, with the reason; none is filled in. Element names only: no
-    record and no value of a record is in a trace."""
+    A link that does not exist is written as missing, with the reason; none is filled in. A citation that an older
+    answer stored without structured evidence is shown as stored, marked as not re-checked (:func:`_cites`).
+    Element names only: no record and no value of a record is in a trace."""
     items = {i["id"]: i for i in proposal.get("items") or []}
     work = result["C"].get("governed_work") or {}
     accepted = bool(result["C"].get("draft_accepted"))
@@ -280,7 +296,7 @@ def trace(case: Mapping[str, Any], proposal: Mapping[str, Any], review: Mapping[
     lines = []
     for e in review["elements"]:
         item = items[e["id"]]
-        cited = [x.get("ref") for x in item.get("evidence") or [] if x.get("ref")]
+        cited, stored_label_only = _cites(item)
         answers = [c for c in cited if str(c).startswith("answer:")]
         bound = screens(e) if e["kept"] and accepted else []
         ran = e["kind"] == "action" and e["name"] in (work.get("executed") or [])
@@ -304,10 +320,13 @@ def trace(case: Mapping[str, Any], proposal: Mapping[str, Any], review: Mapping[
                       if ran else MISSING + "no audit event for this element"),
         }
         line["missing"] = [k for k in LINKS if str(line[k]).startswith(MISSING)]
+        line["cited_at_the_time_not_rechecked"] = stored_label_only
         lines.append(line)
     return {"links": list(LINKS), "elements": lines,
             "summary": {"elements": len(lines), "with_no_missing_link": sum(1 for x in lines if not x["missing"]),
-                        "missing_by_link": {k: sum(1 for x in lines if k in x["missing"]) for k in LINKS}},
+                        "missing_by_link": {k: sum(1 for x in lines if k in x["missing"]) for k in LINKS},
+                        # elements whose source and evidence are the label stored with an older answer: shown, not verified
+                        "cited_at_the_time_not_rechecked": sum(1 for x in lines if x["cited_at_the_time_not_rechecked"])},
             "holds": "element names, never a record or a value of a record"}
 
 

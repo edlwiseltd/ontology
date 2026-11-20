@@ -133,10 +133,10 @@ the release, the application screens that show the element, the simulated action
 
 | Link | What the line says | Written as missing when |
 |---|---|---|
-| source | Where the element's statement comes from: the brief, an answer, a supplied source | The answer kept no source (answers recorded before evidence was kept) |
+| source | Where the element's statement comes from: the brief, an answer, a supplied source. For an answer stored before structured evidence was kept: the label the model cited then, written `<label> (cited at the time; not re-checked)` | The element cites nothing: no structured evidence entry and no stored label |
 | suggestion | The architect's element and its basis (stated or inferred) | — |
-| evidence | What the element cites | Nothing is cited |
-| clarification | The answer of a person it rests on | (reported as "none cited", which is not a defect) |
+| evidence | What the element cites: the structured evidence entries the Engine matched against what was given; or, for an older answer, the stored labels, each marked `(cited at the time; not re-checked)` | Nothing is cited |
+| clarification | The answer of a person it rests on (for an older answer: a stored label that names an answer, marked in the same way) | (reported as "none cited", which is not a defect) |
 | decision | The person's decision, by whom | Inferred and nobody confirmed it; rejected |
 | draft | In the draft, or not | Not kept |
 | validation | The strict loader's verdict on the draft | The loader refused the draft |
@@ -149,18 +149,37 @@ A missing link is written as `missing: <why>`; nothing is filled in. The trace h
 record or a value of a record, so it shows nothing a field or row rule hides; the records themselves stay behind
 the Engine's API and its permissions. Evidence: `tests/test_chain1_end_to_end_evaluation.py` (class `TraceTests`).
 
+**Citations stored with older answers (20 November 2026, GAP-113).** The answers stored on 17 November 2026 were
+recorded before the structured field `evidence` existed. They hold an older field, `sources`: the citation the
+model gave at the time (for these answers always the brief as a whole, never a passage). Until 20 November the
+trace read only `evidence` and so wrote source and evidence as missing for every element of those answers, which
+understated what is stored. The trace now shows the stored label, and marks it:
+
+* `brief (cited at the time; not re-checked)` means: the file holds this label for the element. The Engine did
+  not match it again against what was given, and the trace does not say the citation is right. It is **not**
+  verified evidence, and nothing is reconstructed or inferred from it.
+* Structured evidence, where an answer holds it, is shown as before and is never replaced by a stored label.
+* An element with neither is still written `missing: the element cites nothing that was given`.
+* Each line carries `cited_at_the_time_not_rechecked` (true or false), and the summary counts those elements, so
+  a stored label is never counted with checked evidence without saying so.
+
 What the traces show on the kept evidence:
 
 | Answer | Elements | Without any missing link | Links missing (number of elements) |
 |---|---|---|---|
 | Reserved brief `museum-loans`, reference answer, the synthetic reviewer's decisions | 13 | 0 | release 13 (the evaluation releases nothing); audit 11 (only the two actions the default run executed leave an event); application 2; decision, draft and validation 1 each (the inferred rule nobody confirmed); simulated action 1 (an action the default run did not reach) |
-| The kept ground-handling journey (a real model), the decisions on record | 40 | 0 | source 40 and evidence 40: the proposal was stored before evidence was kept, and none is reconstructed (GAP-111); audit 40 and simulated action 14: the default simulated run of this model completes without executing any action; application 20; draft, validation and release 1 each (the one element not accepted) |
+| The kept ground-handling journey (a real model), the decisions on record | 40 | 0 | source 12 and evidence 12: the elements that cite nothing. The other 28 show the stored label `brief`, marked as cited at the time and not re-checked; none cites an answer; no passage was recorded and none is reconstructed (GAP-111, GAP-113); audit 40 and simulated action 14: the default simulated run of this model completes without executing any action; application 20; draft, validation and release 1 each (the one element not accepted) |
+| Run 2's kept answers (a real model; seven files, no decision on record) | 26 to 38 per answer | 0 | source 0 and evidence 0: every element shows the stored label `brief`, marked as cited at the time and not re-checked; the other links depend on the scenario (with no decision, 1 of 4 first answers gives an accepted draft) |
+
+The figures reported on 19 November ("source 40 and evidence 40" for the journey) are kept as they were reported
+in `planning/evidence/provenance-2026-11-19/`. They were what the trace wrote then; the stored file has not
+changed. The figures above are in `planning/evidence/chain-trace-2026-11-20/`.
 
 The audit link is written as missing for every element that no executed step concerns: a simulation records
 events for steps, not for entities or rules. That is a limit of what a simulated run can attest, stated rather
 than papered over.
 
-### Six replay scenarios (`deploy/make_chain_evidence.py`; `planning/evidence/provenance-2026-11-19/`)
+### Six replay scenarios (`deploy/make_chain_evidence.py`; `planning/evidence/chain-trace-2026-11-20/`, and as reported on 19 November in `planning/evidence/provenance-2026-11-19/`)
 
 | # | Scenario | Result on `museum-loans` (a reference answer, not a model) |
 |---|---|---|
@@ -175,7 +194,10 @@ than papered over.
 Scenarios 4a and 4b use decisions written with the evidence script and labelled "no person made them". The kept
 journey gives 0 of 23 (draft refused), 22 of 23 (accepted) and 23 of 23 (counterfactual; accepted). Run 2's kept
 answers are unchanged: 1 of 4 drafts accepted alone, 4 of 4 as a counterfactual, and no scenario 2 because no
-decision is on record. A test compares the files kept in the repository with what the harness gives today.
+decision is on record. A test compares the files kept in `chain-trace-2026-11-20/` with what the harness gives
+today, and checks that the folder of 19 November is unchanged. Between the two folders only the source and
+evidence links of the kept journey differ (40 missing then; 12 missing and 28 shown as stored now); no scenario
+result changed.
 
 No score recorded earlier was changed, no held-out case was modified, and no provider was called.
 

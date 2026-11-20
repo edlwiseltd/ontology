@@ -114,7 +114,7 @@ registrar or collections manager; a harbour master's officer or marine pilot.
 |---|---|---|
 | The brief | `autology/evaluation_reserved/<case>.json` (`brief`) | Synthetic; written by an engineer |
 | The proposed model, element by element | `python -m autology chain-eval --reference --json`, or a stored proposal | For the reserved briefs today: a **hand-written reference answer, not a model's output**. No real model has answered them |
-| Each element's basis and what it cites | The element trace (`docs/chain-evaluation.md`); `planning/evidence/provenance-2026-11-19/` | Stated or inferred, as the Engine classified it |
+| Each element's basis and what it cites | The element trace (`docs/chain-evaluation.md`); `planning/evidence/chain-trace-2026-11-20/` (as reported on 19 November: `planning/evidence/provenance-2026-11-19/`) | Stated or inferred, as the Engine classified it. For answers of 17 November the citation is the label stored at the time, not re-checked |
 | The decisions recorded | The same trace: who accepted, corrected or rejected what | For the reserved briefs: a synthetic reviewer written with the case. For the kept journey: a project member, not a domain expert |
 | What the Engine refused, and why | The proposal's `rejected` list | The strict loader's words |
 | The six scenarios | `six-scenarios-and-traces.txt` | Scenario 3 is a counterfactual |

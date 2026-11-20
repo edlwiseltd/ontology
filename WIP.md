@@ -269,7 +269,7 @@ or wired. No provider call, no credential read, the ledger not opened, nothing d
 | D34 Q1 (with Q2, Q3, Q7 needed beside it) | **Pending; designs stay drafts** | same, §2 |
 | D35 (three separate questions) | **Not isolated; planned only** | same, §3 |
 | Independent semantic review | **Package ready. No review has taken place** | [readiness package](planning/AUTOLOGY_INDEPENDENT_SEMANTIC_REVIEW_READINESS_PACKAGE.md); `deploy/make_review_package.py` |
-| New findings | GAP-113 (the trace does not read citations stored on 17 November), GAP-114 (held-out cases ship with the package) | Defect register |
+| New findings | GAP-113 (the trace did not read citations stored on 17 November; **fixed 20 November**: the stored label is shown as cited at the time, not re-checked; `planning/evidence/chain-trace-2026-11-20/`), GAP-114 (held-out cases ship with the package) | Defect register |
 
 Waiting for the owner: D24, D26, D30 (f), (g), (h), D31, D32, D33, D34, D35, D36, D37, and the choices of the
 semantic review (instrument, thresholds, reviewers, sharing). **R2 is not closed.**

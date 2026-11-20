@@ -1,6 +1,9 @@
 """Write the chain evaluation's six replay scenarios and its element traces as evidence files.
 
-    python deploy/make_chain_evidence.py planning/evidence/provenance-2026-11-19
+    python deploy/make_chain_evidence.py planning/evidence/chain-trace-2026-11-20
+
+A folder is dated and is never written again: ``planning/evidence/provenance-2026-11-19`` is what was reported on
+19 November 2026 (before the trace showed the citations stored with older answers, GAP-113) and stays as it is.
 
 It calls no provider and reads no credential: it runs the reserved briefs' hand-written reference answers, the
 answers kept from the one authorised evaluation, a kept Studio journey and a model authored by hand through
@@ -102,6 +105,8 @@ def render(out):
         for link in chain_eval.LINKS:
             lines.append(f"      {link:<17} {line[link]}")
     lines += ["", f"Kept journey, links missing per element kind of link: {json.dumps(out['trace_kept_journey_summary']['missing_by_link'])}",
+              f"Kept journey, elements whose source and evidence are the label stored with the answer ({chain_eval.CITED_THEN}): "
+              f"{out['trace_kept_journey_summary']['cited_at_the_time_not_rechecked']} of {out['trace_kept_journey_summary']['elements']}",
               "No total is computed."]
     return "\n".join(lines) + "\n"
 
@@ -115,4 +120,4 @@ def main(folder):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else "planning/evidence/provenance-2026-11-19")
+    main(sys.argv[1] if len(sys.argv) > 1 else "planning/evidence/chain-trace-2026-11-20")

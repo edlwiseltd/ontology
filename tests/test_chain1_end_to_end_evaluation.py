@@ -347,10 +347,66 @@ class TraceTests(unittest.TestCase):
         kept = chain_eval.journey(JOURNEY)
         trace = chain_eval.run_case(kept["case"], kept["ask"], kept["recorded"])["trace"]
         missing = trace["summary"]["missing_by_link"]
-        self.assertEqual((trace["summary"]["elements"], missing["source"], missing["evidence"]), (40, 40, 40))  # recorded before evidence was kept
+        # recorded before structured evidence was kept: what the file holds is the label the model cited at the time.
+        # 28 elements hold one and it is shown, marked as not re-checked; 12 hold none and stay missing (GAP-113)
+        self.assertEqual((trace["summary"]["elements"], missing["source"], missing["evidence"]), (40, 12, 12))
+        self.assertEqual(trace["summary"]["cited_at_the_time_not_rechecked"], 28)
+        stored = json.loads((JOURNEY / "proposal-revision-2.json").read_text())["items"]
+        self.assertTrue(all("evidence" not in item for item in stored))
+        held = {item["id"]: item["sources"] for item in stored}
+        for line in trace["elements"]:
+            if held[line["element"]]:
+                self.assertEqual(held[line["element"]], ["brief"])
+                self.assertEqual((line["source"], line["evidence"], line["cited_at_the_time_not_rechecked"]),
+                                 ("brief (cited at the time; not re-checked)", ["brief (cited at the time; not re-checked)"], True))
+                self.assertFalse({"source", "evidence"} & set(line["missing"]))
+            else:  # cites nothing: written as missing, exactly as before
+                self.assertEqual((line["source"], line["evidence"], line["cited_at_the_time_not_rechecked"]),
+                                 ("missing: the element cites nothing that was given", "missing: none", False))
+                self.assertTrue({"source", "evidence"} <= set(line["missing"]))
+            self.assertEqual(line["clarification"], "none cited")  # no stored label names an answer
         self.assertEqual((missing["decision"], missing["draft"], missing["release"]), (0, 1, 1))
         self.assertEqual({line["release"] for line in trace["elements"] if "release" not in line["missing"]}, {"release 3"})
         self.assertEqual(trace["summary"]["with_no_missing_link"], 0)
+
+    def test_a_kept_answer_of_run_2_shows_the_citation_stored_with_it_as_not_rechecked(self):  # C6, GAP-113
+        case = next(c for c in architect_eval.cases() if c["id"] == "b2b-procurement")
+        answer = json.loads((EVIDENCE / "b2b-procurement-1.json").read_text())
+        self.assertTrue(all(item["sources"] == ["brief"] and "evidence" not in item for item in answer["items"]))
+        trace = chain_eval.run_case(case, chain_eval.replay(EVIDENCE), {})["trace"]
+        summary = trace["summary"]
+        self.assertEqual((summary["elements"], summary["missing_by_link"]["source"], summary["missing_by_link"]["evidence"],
+                          summary["cited_at_the_time_not_rechecked"]), (26, 0, 0, 26))
+        self.assertEqual({(line["source"], tuple(line["evidence"])) for line in trace["elements"]},
+                         {("brief (cited at the time; not re-checked)", ("brief (cited at the time; not re-checked)",))})
+        # every kept answer of run 2 (seven files): each element's stored label is shown, none is written as missing
+        for number in (1, 2):
+            for kept_case in architect_eval.cases():
+                row = chain_eval.run_case(kept_case, chain_eval.replay(EVIDENCE, number), {})
+                if row["trace"] is not None:
+                    counts = row["trace"]["summary"]
+                    self.assertEqual((counts["missing_by_link"]["source"], counts["cited_at_the_time_not_rechecked"]), (0, counts["elements"]))
+
+    def test_a_stored_citation_is_shown_as_stored_and_never_replaces_or_becomes_checked_evidence(self):  # GAP-113
+        case = next(c for c in chain_eval.reserved() if c["id"] == "museum-loans")
+        proposal = json.loads(json.dumps(chain_eval.reference(case)))
+        by_id = {item["id"]: item for item in proposal["items"]}
+        older, both, neither = by_id["model:entity:LoanRequest"], by_id["model:entity:Borrower"], by_id["model:goal:loan_agreed"]
+        del older["evidence"]                                    # as an answer of 17 November holds it
+        older["sources"] = ["brief", "answer:q1", ""]
+        both["sources"] = ["something else"]                     # structured evidence is what the Engine matched: it stands
+        neither["evidence"], neither["sources"] = [], []
+        trace = chain_eval.run_case(case, lambda _: proposal)["trace"]
+        lines = {line["element"]: line for line in trace["elements"]}
+        shown = ["brief (cited at the time; not re-checked)", "answer:q1 (cited at the time; not re-checked)"]
+        self.assertEqual((lines[older["id"]]["source"], lines[older["id"]]["evidence"], lines[older["id"]]["clarification"]),
+                         (shown[0], shown, shown[1:]))
+        self.assertEqual((lines[both["id"]]["source"], lines[both["id"]]["evidence"], lines[both["id"]]["cited_at_the_time_not_rechecked"]),
+                         ("brief", ["brief"], False))
+        self.assertEqual((lines[neither["id"]]["source"], lines[neither["id"]]["evidence"]),
+                         ("missing: the element cites nothing that was given", "missing: none"))
+        self.assertEqual((trace["summary"]["cited_at_the_time_not_rechecked"], trace["summary"]["missing_by_link"]["source"]), (1, 1))
+        self.assertEqual(json.dumps(trace).count("verified"), 0)  # a stored label is never called verified
 
     def test_a_failed_answer_has_no_trace_and_a_refused_draft_says_so(self):
         case = chain_eval.reserved()[0]
@@ -402,8 +458,16 @@ class TraceTests(unittest.TestCase):
         self.assertEqual((accepted[0::2].count(True), accepted[1::2].count(True)), (1, 4))  # 1 of 4 alone; 4 of 4 as a counterfactual
         self.assertEqual(out["provider_calls"], 0)
         # the files kept in the repository are this output, not an edited copy
-        kept = json.loads((ROOT / "planning" / "evidence" / "provenance-2026-11-19" / "six-scenarios-and-traces.json").read_text())
+        self.assertEqual((out["trace_kept_journey_summary"]["missing_by_link"]["source"],
+                          out["trace_kept_journey_summary"]["cited_at_the_time_not_rechecked"]), (12, 28))
+        # the files kept in the repository are this output, not an edited copy
+        kept = json.loads((ROOT / "planning" / "evidence" / "chain-trace-2026-11-20" / "six-scenarios-and-traces.json").read_text())
         self.assertEqual(kept, json.loads(json.dumps(out, sort_keys=True, default=str)))
+        # the folder of 19 November stays as the record of what was reported then (source missing for all 40: GAP-113)
+        then = json.loads((ROOT / "planning" / "evidence" / "provenance-2026-11-19" / "six-scenarios-and-traces.json").read_text())
+        self.assertEqual((then["trace_kept_journey_summary"]["missing_by_link"]["source"],
+                          hashlib.sha256((ROOT / "planning" / "evidence" / "provenance-2026-11-19" / "six-scenarios-and-traces.json").read_bytes()).hexdigest()),
+                         (40, "89d8a89f98dd6bfd2282caaddc8e45ce3870db0cc7513274419ac821973b62f9"))
 
 
 class CommandTests(unittest.TestCase):

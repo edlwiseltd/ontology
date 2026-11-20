@@ -254,3 +254,22 @@ approval was found for D24, D30, D34, D35 or D36, and none was assumed. Report:
 | A real-model run of the chain on the reserved briefs | **Not run: not authorised** | — |
 
 Waiting for the owner: D24, D26, D30 (f), (g), (h), D31, D32, D33, D34, D35, D36, D37. **R2 is not closed.**
+
+## Owner decision readiness and semantic-review readiness (20 November 2026)
+
+Preparation only. No owner decision was found for D37 c/d, D24 a, D34 or D35, so nothing was implemented, extended
+or wired. No provider call, no credential read, the ledger not opened, nothing deployed, nobody contacted. Report:
+[planning/AUTOLOGY_NEXT_SPRINT_ENGINEERING_REPORT.md](planning/AUTOLOGY_NEXT_SPRINT_ENGINEERING_REPORT.md).
+
+| Item | Status | Where |
+|---|---|---|
+| Baseline checked again (repository, CI, full suite with outside network denied) | **Holds**, with three corrections to the report of 19 November | [authorization matrix](planning/AUTOLOGY_NEXT_SPRINT_AUTHORIZATION_MATRIX.md) |
+| D37 c (legacy drafts), D37 d (reworded elements) | **Proposed; awaiting the owner.** Defaults unchanged and pinned | [D37 package](planning/AUTOLOGY_D37_CD_OWNER_DECISION_PACKAGE.md); `tests/test_d37_current_defaults.py` |
+| D24 a (`records.create`, `records.update`: two rights) | **Not approved; inactive.** Scopes and test mapping written | [operations plan](planning/AUTOLOGY_GOVERNED_OPERATIONS_NEXT_SPRINT_PLAN.md) §1 |
+| D34 Q1 (with Q2, Q3, Q7 needed beside it) | **Pending; designs stay drafts** | same, §2 |
+| D35 (three separate questions) | **Not isolated; planned only** | same, §3 |
+| Independent semantic review | **Package ready. No review has taken place** | [readiness package](planning/AUTOLOGY_INDEPENDENT_SEMANTIC_REVIEW_READINESS_PACKAGE.md); `deploy/make_review_package.py` |
+| New findings | GAP-113 (the trace does not read citations stored on 17 November), GAP-114 (held-out cases ship with the package) | Defect register |
+
+Waiting for the owner: D24, D26, D30 (f), (g), (h), D31, D32, D33, D34, D35, D36, D37, and the choices of the
+semantic review (instrument, thresholds, reviewers, sharing). **R2 is not closed.**

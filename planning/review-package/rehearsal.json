@@ -1,0 +1,199 @@
+{
+ "a_blank_form_is_refused": [
+  "reviewer: name is empty",
+  "reviewer: role_and_organisation is empty",
+  "reviewer: domain_experience is empty"
+ ],
+ "a_form_about_another_content_is_refused": [
+  "model:entity:EquipmentItem: the judgment is about another content than the one frozen"
+ ],
+ "a_synthetic_reviewer_outside_a_rehearsal_is_refused": [
+  "reviewer: a synthetic reviewer on a form that is not a rehearsal"
+ ],
+ "case": {
+  "artifact": "examples/domains/venue_booking/model.json",
+  "case": "rehearsal:venue-booking",
+  "sha256": "cae89966647482e9a1da84a1703e7294de144a6e1eab11aac193b2c44a455d68"
+ },
+ "disagreements": {
+  "elements": 17,
+  "for_adjudication": [
+   {
+    "id": "model:entity:BookingRequest",
+    "ratings_two_or_more_apart": {
+     "S3": [
+      0,
+      3
+     ]
+    },
+    "severities": [
+     "critical",
+     "none"
+    ]
+   },
+   {
+    "id": "model:entity:Organiser",
+    "ratings_two_or_more_apart": {
+     "S3": [
+      3,
+      0
+     ]
+    },
+    "severities": [
+     "none",
+     "major"
+    ]
+   }
+  ],
+  "reviewers": [
+   "SYNTHETIC REHEARSAL: not a person, not a reviewer (A)",
+   "SYNTHETIC REHEARSAL: not a person, not a reviewer (B)"
+  ]
+ },
+ "elements": 17,
+ "filled_forms_accepted": [
+  [],
+  []
+ ],
+ "label": "SYNTHETIC REHEARSAL. It shows that the package is complete and the form usable. It is not a review, it says nothing about any model, and no person took part.",
+ "provider_calls": 0,
+ "sheet_columns": "id,version,kind,basis_shown,S1,S2,S3,S4,S5,S6,judgment,cited_domain_basis,rationale,severity,uncertainty,suggested_correction",
+ "summaries": [
+  {
+   "aggregate": null,
+   "case": "rehearsal:venue-booking",
+   "critical_defects": [
+    {
+     "cited_domain_basis": "synthetic citation",
+     "id": "model:entity:BookingRequest",
+     "rationale": "synthetic rationale, written to exercise the form"
+    }
+   ],
+   "elements": 17,
+   "ratings_per_criterion": {
+    "S1": {
+     "0": 0,
+     "1": 0,
+     "2": 0,
+     "3": 16,
+     "n/a": 0,
+     "not judged": 1
+    },
+    "S2": {
+     "0": 0,
+     "1": 0,
+     "2": 0,
+     "3": 16,
+     "n/a": 0,
+     "not judged": 1
+    },
+    "S3": {
+     "0": 1,
+     "1": 0,
+     "2": 0,
+     "3": 15,
+     "n/a": 0,
+     "not judged": 1
+    },
+    "S4": {
+     "0": 0,
+     "1": 0,
+     "2": 0,
+     "3": 16,
+     "n/a": 0,
+     "not judged": 1
+    },
+    "S5": {
+     "0": 0,
+     "1": 0,
+     "2": 0,
+     "3": 16,
+     "n/a": 0,
+     "not judged": 1
+    },
+    "S6": {
+     "0": 0,
+     "1": 0,
+     "2": 0,
+     "3": 16,
+     "n/a": 0,
+     "not judged": 1
+    }
+   },
+   "reviewer": "SYNTHETIC REHEARSAL: not a person, not a reviewer (A)",
+   "severities": {
+    "critical": 1,
+    "major": 0,
+    "minor": 0,
+    "none": 15
+   },
+   "synthetic_rehearsal": true,
+   "verdict": null
+  },
+  {
+   "aggregate": null,
+   "case": "rehearsal:venue-booking",
+   "critical_defects": [],
+   "elements": 17,
+   "ratings_per_criterion": {
+    "S1": {
+     "0": 0,
+     "1": 0,
+     "2": 0,
+     "3": 16,
+     "n/a": 0,
+     "not judged": 1
+    },
+    "S2": {
+     "0": 0,
+     "1": 0,
+     "2": 0,
+     "3": 16,
+     "n/a": 0,
+     "not judged": 1
+    },
+    "S3": {
+     "0": 1,
+     "1": 0,
+     "2": 0,
+     "3": 15,
+     "n/a": 0,
+     "not judged": 1
+    },
+    "S4": {
+     "0": 0,
+     "1": 0,
+     "2": 0,
+     "3": 16,
+     "n/a": 0,
+     "not judged": 1
+    },
+    "S5": {
+     "0": 0,
+     "1": 0,
+     "2": 0,
+     "3": 16,
+     "n/a": 0,
+     "not judged": 1
+    },
+    "S6": {
+     "0": 0,
+     "1": 0,
+     "2": 0,
+     "3": 16,
+     "n/a": 0,
+     "not judged": 1
+    }
+   },
+   "reviewer": "SYNTHETIC REHEARSAL: not a person, not a reviewer (B)",
+   "severities": {
+    "critical": 0,
+    "major": 1,
+    "minor": 0,
+    "none": 15
+   },
+   "synthetic_rehearsal": true,
+   "verdict": null
+  }
+ ]
+}

@@ -1425,3 +1425,45 @@ from 21 to 22 with their exact lists.
 |---|---|---|
 | `b0e1fca` | [run 126](https://github.com/edlwiseltd/ontology/actions/runs/44626769503) | **Success** (baseline) |
 | `334b3e5` (final code) | [run 127](https://github.com/edlwiseltd/ontology/actions/runs/44636770979) | **Success**, all five jobs |
+
+## 20 November 2026 — Owner decision readiness, governed operations and semantic-review readiness (preparation only)
+
+Directive: "Next Sprint — Owner Decision Readiness, Governed Operations and Independent Semantic Validation
+Readiness". **No owner decision was found for D37 c/d, D24 a, D34 or D35; nothing was implemented, extended or
+wired.** No provider call, no credential read, the ledger not opened, nothing deployed, nobody contacted. Report:
+[AUTOLOGY_NEXT_SPRINT_ENGINEERING_REPORT.md](AUTOLOGY_NEXT_SPRINT_ENGINEERING_REPORT.md).
+
+### What was done
+
+| Phase or track | Content |
+|---|---|
+| 0 Baseline | Report hash equal to the directive's; head `95e4442` = remote; CI run 128 success on it; full suite run again with outside network denied: 1,155 passed, 96.19 %. No new draft entry point. Prototypes imported by nothing |
+| Authorization matrix | One row per decision; every row "proposed", none approved |
+| A, B — D37 c, d | Three options each, a recommendation, exact effects, tests, blank forms. Defaults unchanged; three of their limits pinned by tests |
+| C — D24 a | Two rights (not three); four scopes an approval must name; ten items mapped to prototype, API and browser tests |
+| D — D34 Q1 | Quoted; Q2, Q3 and Q7 needed beside it; eight negative cases mapped |
+| E — D35 | Three separate decisions; staged plan; fifteen boundaries with their true test status |
+| F — Semantic review | `deploy/make_review_package.py`: frozen inventory with hashes, blank form, completeness check, synthetic rehearsal. No review; no reviewer contacted |
+
+### Findings
+
+Corrections to the report of 19 November: D24 a covers two rights, not three; the kept ground-handling proposal
+holds a coarse citation for 28 of its 40 elements, which the trace does not read (GAP-113); the publisher of a
+draft is not shown its provenance flags. Also: "D24 a" names two things; two review instruments exist; the
+held-out cases ship with the package (GAP-114). Register: 114 entries (65 fixed, 23 open, 13 partly, 8 owner
+decision, 5 external evidence). No status of an earlier entry changed.
+
+### Verification (20 November, this session's container, outside network denied for the test processes)
+
+| Run | Result |
+|---|---|
+| Full Python suite on `95e4442` | **1,155 passed**, 2 skipped (PostgreSQL), coverage 96.19 % |
+| Full Python suite on the final tree | **1,163 passed** (8 new tests), 2 skipped, coverage 96.19 % |
+| ruff; mypy ratchet | clean; 198 (= baseline, not raised) |
+| Studio | typecheck clean, 85 unit tests, build; browser: 135/135, 76/76, 108/108 |
+| PostgreSQL tests | Not run locally; last run in CI run 128 on `95e4442` |
+| Provider calls; credentials read; ledger writes | None; none; none (the ledger file was not opened) |
+| CI on the pushed commit `cc175d8` | [run 129](https://github.com/edlwiseltd/ontology/actions/runs/44716559702): **success**, five jobs, PostgreSQL tests included |
+
+The directive asked to keep the deliverables local. Because this session's container is temporary, the owner was
+asked and chose to commit and push to the working branch. No pull request, no deployment.

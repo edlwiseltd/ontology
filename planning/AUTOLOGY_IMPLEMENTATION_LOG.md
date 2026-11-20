@@ -1467,3 +1467,29 @@ decision, 5 external evidence). No status of an earlier entry changed.
 
 The directive asked to keep the deliverables local. Because this session's container is temporary, the owner was
 asked and chose to commit and push to the working branch. No pull request, no deployment.
+
+## 20 November 2026 — GAP-113: the element trace shows the citation stored with older answers
+
+One defect fixed. No provider call, no credential read, the ledger not opened, nothing deployed. Protocol V1, the
+held-out cases and every recorded score are unchanged.
+
+### What was done
+
+| Item | Result |
+|---|---|
+| `chain_eval.trace` (`_cites`) | An element with no structured `evidence` entry and a non-empty stored `sources` list shows the stored labels for the source and evidence links, written `<label> (cited at the time; not re-checked)`; such a link is not counted as missing. A stored label that names an answer is shown in the same way under clarification. Structured evidence is never replaced by a label. An element with neither stays `missing: …`, as before. Each line and the summary carry `cited_at_the_time_not_rechecked`. Nothing is reconstructed or inferred |
+| Tests (`tests/test_chain1_end_to_end_evaluation.py`, class `TraceTests`) | `test_a_kept_journey_shows_what_its_record_lacks`: 12 missing, 28 shown as stored (was 40 missing). New: `test_a_kept_answer_of_run_2_shows_the_citation_stored_with_it_as_not_rechecked` (the seven kept answers: none missing), `test_a_stored_citation_is_shown_as_stored_and_never_replaces_or_becomes_checked_evidence` |
+| Evidence | `planning/evidence/chain-trace-2026-11-20/`, written by `deploy/make_chain_evidence.py` and compared with the harness by `test_the_six_replay_scenarios_kept_as_evidence_are_what_the_harness_gives_today`. `planning/evidence/provenance-2026-11-19/` is not touched; the same test pins its hash and its figure (40) as the record of what was reported on 19 November. Between the two folders only the source and evidence links of the kept journey differ |
+| Documents | `docs/chain-evaluation.md` (links table, what the marking means, the traces table with a row for run 2); defect register (GAP-113 **fixed**; GAP-111 stays open: no passage was recorded; 114 entries: 66 fixed, 22 open, 13 partly, 8 owner decision, 5 external evidence); readiness package §2.3; expert review requirements; WIP |
+
+Not changed: `autology/server.py`; the dated reports of 19 and 20 November, which say what was known then.
+
+### Verification (20 November, this session's container)
+
+| Run | Result |
+|---|---|
+| Full Python suite, clean environment with the CI test job's dependencies | **1,165 passed** (2 new tests), 2 skipped (PostgreSQL: no database here), coverage 96.19 % (gate 95 %) |
+| The same suite in an interpreter that also held mypy | 4 failures, all `tests/test_leg1_licences.py::test_installed_dependencies_match_the_inventory_and_the_policy`: mypy's own dependencies are not in the inventory. An effect of that environment, not of the change; CI's test job does not install mypy |
+| `ruff check autology tests deploy`; `python deploy/mypy_ratchet.py` (mypy 2.4.1, clean environment) | clean; 198 (= baseline, not raised) |
+| Studio; browser suites; PostgreSQL tests | Not run: no file of Studio changed; no database here |
+| Provider calls; credentials read; ledger writes | None; none; none |

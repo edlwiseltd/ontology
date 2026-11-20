@@ -1467,3 +1467,24 @@ decision, 5 external evidence). No status of an earlier entry changed.
 
 The directive asked to keep the deliverables local. Because this session's container is temporary, the owner was
 asked and chose to commit and push to the working branch. No pull request, no deployment.
+
+## 20 November 2026 — GAP-113: the element trace shows the citations stored with older answers
+
+`chain_eval.trace` read only the structured evidence entries of an answer, so it wrote source and evidence as
+missing for answers stored on 17 November, which hold an older field. It now shows that stored citation as
+`<label> (cited at the time; not re-checked)`, counts such elements apart, and still writes an element that cites
+nothing as missing. Kept ground-handling proposal: 28 of 40 shown, 12 missing (40 missing before). Kept run 2
+answers: every element shown. Reference answers with checked evidence entries: unchanged, never given the mark.
+
+Nothing was reconstructed. No scenario result, score, protocol or held-out case changed. The evidence reported on
+19 November stays as it was in `planning/evidence/provenance-2026-11-19/`; the corrected output is in
+`planning/evidence/provenance-2026-11-20/`, and a test checks both. No provider call, no credential, no ledger write.
+
+| Check (outside network denied for the test processes) | Result |
+|---|---|
+| Full Python suite | **1,165 passed**, 2 skipped (PostgreSQL; run in CI), coverage 96.19 %; `chain_eval.py` 99.25 % |
+| ruff; mypy ratchet | clean; 198 (= baseline) |
+| Studio, browser | Not run again: nothing under `studio/` or in the API changed |
+
+Register: GAP-113 fixed; 114 entries (66 fixed, 22 open, 13 partly, 8 owner decision, 5 external evidence).
+GAP-111 stays open for what remains: 12 elements cite nothing, and none shows the answer it came from.

@@ -347,10 +347,33 @@ class TraceTests(unittest.TestCase):
         kept = chain_eval.journey(JOURNEY)
         trace = chain_eval.run_case(kept["case"], kept["ask"], kept["recorded"])["trace"]
         missing = trace["summary"]["missing_by_link"]
-        self.assertEqual((trace["summary"]["elements"], missing["source"], missing["evidence"]), (40, 40, 40))  # recorded before evidence was kept
+        # recorded before structured evidence entries existed: the citation the model gave then is shown as stored,
+        # marked as never re-checked; the elements that cite nothing stay missing; nothing is reconstructed (GAP-113)
+        self.assertEqual((trace["summary"]["elements"], missing["source"], missing["evidence"]), (40, 12, 12))
+        self.assertEqual(trace["summary"]["sources_cited_at_the_time_not_rechecked"], 28)
+        sources = [line["source"] for line in trace["elements"]]
+        self.assertEqual((sources.count("brief (cited at the time; not re-checked)"), sources.count("missing: the element cites nothing that was given")), (28, 12))
+        self.assertTrue(all(line["evidence"] == ["brief (cited at the time; not re-checked)"] for line in trace["elements"] if "source" not in line["missing"]))
+        self.assertTrue(all(line["clarification"] == "none cited" for line in trace["elements"]))   # no element shows an answer: none was stored
+        stored = json.loads((JOURNEY / "proposal-revision-2.json").read_text())["items"]
+        self.assertEqual(sum(1 for i in stored if i.get("evidence")), 0)                              # the file still holds no evidence entry
         self.assertEqual((missing["decision"], missing["draft"], missing["release"]), (0, 1, 1))
         self.assertEqual({line["release"] for line in trace["elements"] if "release" not in line["missing"]}, {"release 3"})
         self.assertEqual(trace["summary"]["with_no_missing_link"], 0)
+
+    def test_a_kept_answer_of_run_two_shows_the_citation_stored_with_it(self):  # C6, GAP-113
+        case = next(c for c in architect_eval.cases() if c["id"] == "b2b-procurement")
+        trace = chain_eval.run_case(case, chain_eval.replay(JOURNEY.parent / "run2-after-correction"), {})["trace"]
+        summary = trace["summary"]
+        self.assertEqual((summary["elements"], summary["missing_by_link"]["source"], summary["missing_by_link"]["evidence"],
+                          summary["sources_cited_at_the_time_not_rechecked"]), (26, 0, 0, 26))
+        self.assertEqual({line["source"] for line in trace["elements"]}, {"brief (cited at the time; not re-checked)"})
+
+    def test_an_element_with_checked_evidence_is_never_given_the_older_label(self):  # GAP-113
+        case = next(c for c in chain_eval.reserved() if c["id"] == "museum-loans")
+        trace = chain_eval.run_case(case, chain_eval.reference)["trace"]
+        self.assertEqual(trace["summary"]["sources_cited_at_the_time_not_rechecked"], 0)
+        self.assertNotIn("not re-checked", json.dumps(trace))
 
     def test_a_failed_answer_has_no_trace_and_a_refused_draft_says_so(self):
         case = chain_eval.reserved()[0]
@@ -402,8 +425,12 @@ class TraceTests(unittest.TestCase):
         self.assertEqual((accepted[0::2].count(True), accepted[1::2].count(True)), (1, 4))  # 1 of 4 alone; 4 of 4 as a counterfactual
         self.assertEqual(out["provider_calls"], 0)
         # the files kept in the repository are this output, not an edited copy
-        kept = json.loads((ROOT / "planning" / "evidence" / "provenance-2026-11-19" / "six-scenarios-and-traces.json").read_text())
+        kept = json.loads((ROOT / "planning" / "evidence" / "provenance-2026-11-20" / "six-scenarios-and-traces.json").read_text())
         self.assertEqual(kept, json.loads(json.dumps(out, sort_keys=True, default=str)))
+        # what was reported on 19 November is kept as it was reported, beside the corrected output: not overwritten
+        earlier = json.loads((ROOT / "planning" / "evidence" / "provenance-2026-11-19" / "six-scenarios-and-traces.json").read_text())
+        self.assertEqual((earlier["trace_kept_journey_summary"]["missing_by_link"]["source"], kept["trace_kept_journey_summary"]["missing_by_link"]["source"]), (40, 12))
+        self.assertEqual(earlier["six_scenarios_reserved_brief_museum_loans"], kept["six_scenarios_reserved_brief_museum_loans"])  # no result changed
 
 
 class CommandTests(unittest.TestCase):

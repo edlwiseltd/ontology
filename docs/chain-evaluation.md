@@ -133,9 +133,9 @@ the release, the application screens that show the element, the simulated action
 
 | Link | What the line says | Written as missing when |
 |---|---|---|
-| source | Where the element's statement comes from: the brief, an answer, a supplied source | The answer kept no source (answers recorded before evidence was kept) |
+| source | Where the element's statement comes from: the brief, an answer, a supplied source. For an answer stored before evidence entries existed: the citation stored with it, marked `(cited at the time; not re-checked)` | The element cites nothing |
 | suggestion | The architect's element and its basis (stated or inferred) | — |
-| evidence | What the element cites | Nothing is cited |
+| evidence | What the element cites. The same older citations are shown with the same mark | Nothing is cited |
 | clarification | The answer of a person it rests on | (reported as "none cited", which is not a defect) |
 | decision | The person's decision, by whom | Inferred and nobody confirmed it; rejected |
 | draft | In the draft, or not | Not kept |
@@ -154,13 +154,21 @@ What the traces show on the kept evidence:
 | Answer | Elements | Without any missing link | Links missing (number of elements) |
 |---|---|---|---|
 | Reserved brief `museum-loans`, reference answer, the synthetic reviewer's decisions | 13 | 0 | release 13 (the evaluation releases nothing); audit 11 (only the two actions the default run executed leave an event); application 2; decision, draft and validation 1 each (the inferred rule nobody confirmed); simulated action 1 (an action the default run did not reach) |
-| The kept ground-handling journey (a real model), the decisions on record | 40 | 0 | source 40 and evidence 40: the proposal was stored before evidence was kept, and none is reconstructed (GAP-111); audit 40 and simulated action 14: the default simulated run of this model completes without executing any action; application 20; draft, validation and release 1 each (the one element not accepted) |
+| The kept ground-handling journey (a real model), the decisions on record | 40 | 0 | source 12 and evidence 12: the inferred elements that cite nothing. The other 28 show "brief (cited at the time; not re-checked)": the proposal was stored before evidence entries existed, so the label is the model's own citation of 17 November, coarse and never checked by the Engine; no element shows an answer, because none was stored (GAP-111). Audit 40 and simulated action 14: the default simulated run of this model completes without executing any action; application 20; draft, validation and release 1 each (the one element not accepted) |
+
+**Correction of 20 November (GAP-113).** Until then the trace read only the structured evidence entries, and wrote
+source and evidence as missing for all 40 elements of the journey and for every element of the answers kept from
+run 2. Those files hold an older field, the citation the model gave at the time. It is now shown, marked as not
+re-checked, and counted apart (`sources_cited_at_the_time_not_rechecked`): 28 of 40 for the journey, every element
+of the run 2 answers. An element with a checked evidence entry never carries the mark. Nothing was reconstructed,
+no result of any scenario changed, and the output reported on 19 November is kept as it was in
+`planning/evidence/provenance-2026-11-19/`.
 
 The audit link is written as missing for every element that no executed step concerns: a simulation records
 events for steps, not for entities or rules. That is a limit of what a simulated run can attest, stated rather
 than papered over.
 
-### Six replay scenarios (`deploy/make_chain_evidence.py`; `planning/evidence/provenance-2026-11-19/`)
+### Six replay scenarios (`deploy/make_chain_evidence.py`; `planning/evidence/provenance-2026-11-20/`)
 
 | # | Scenario | Result on `museum-loans` (a reference answer, not a model) |
 |---|---|---|

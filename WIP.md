@@ -273,3 +273,9 @@ or wired. No provider call, no credential read, the ledger not opened, nothing d
 
 Waiting for the owner: D24, D26, D30 (f), (g), (h), D31, D32, D33, D34, D35, D36, D37, and the choices of the
 semantic review (instrument, thresholds, reviewers, sharing). **R2 is not closed.**
+
+**GAP-113 fixed (20 November 2026).** The element trace now shows the citation stored with an answer recorded
+before evidence entries existed, as `<label> (cited at the time; not re-checked)`: 28 of 40 elements of the kept
+ground-handling proposal, every element of the kept run 2 answers. Elements that cite nothing are still written as
+missing. No scenario result changed; the evidence of 19 November is kept as reported, the corrected output is in
+`planning/evidence/provenance-2026-11-20/`. No provider call.

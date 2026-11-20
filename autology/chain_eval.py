@@ -249,6 +249,7 @@ def run_case(case: Mapping[str, Any], ask: Ask, decisions: Any = None) -> Dict[s
 LINKS = ("source", "suggestion", "evidence", "clarification", "decision", "draft", "validation", "release", "application",
          "simulated_action", "audit")
 MISSING = "missing: "
+AS_CITED = "cited at the time; not re-checked"
 
 
 def trace(case: Mapping[str, Any], proposal: Mapping[str, Any], review: Mapping[str, Any], result: Mapping[str, Any],
@@ -281,14 +282,18 @@ def trace(case: Mapping[str, Any], proposal: Mapping[str, Any], review: Mapping[
     for e in review["elements"]:
         item = items[e["id"]]
         cited = [x.get("ref") for x in item.get("evidence") or [] if x.get("ref")]
-        answers = [c for c in cited if str(c).startswith("answer:")]
+        # an answer stored before evidence entries existed holds only the citation the model gave then. It is shown as
+        # exactly that: a label that was stored, which the Engine never checked against what was given
+        stored = [] if cited else [f"{label} ({AS_CITED})" for label in item.get("sources") or []]
+        shown = cited or stored
+        answers = [c for c in shown if str(c).startswith("answer")]
         bound = screens(e) if e["kept"] and accepted else []
         ran = e["kind"] == "action" and e["name"] in (work.get("executed") or [])
         line = {
             "element": e["id"],
-            "source": cited[0] if cited else MISSING + "the element cites nothing that was given",
+            "source": shown[0] if shown else MISSING + "the element cites nothing that was given",
             "suggestion": f"{e['basis']}: {item.get('rationale') or 'no rationale given'}",
-            "evidence": cited or MISSING + "none",
+            "evidence": shown or MISSING + "none",
             "clarification": answers or "none cited",
             "decision": (f"{e['decision']} by {e['by']}" if e["decision"] else "none needed: stated by the description" if e["kept"]
                          else MISSING + "inferred, and nobody confirmed it"),
@@ -307,6 +312,7 @@ def trace(case: Mapping[str, Any], proposal: Mapping[str, Any], review: Mapping[
         lines.append(line)
     return {"links": list(LINKS), "elements": lines,
             "summary": {"elements": len(lines), "with_no_missing_link": sum(1 for x in lines if not x["missing"]),
+                        "sources_cited_at_the_time_not_rechecked": sum(1 for x in lines if AS_CITED in str(x["source"])),
                         "missing_by_link": {k: sum(1 for x in lines if k in x["missing"]) for k in LINKS}},
             "holds": "element names, never a record or a value of a record"}
 

@@ -42,7 +42,8 @@ export default function RuntimeApp({ workspace, useCase, preview }: { workspace:
   const [about, setAbout] = useState(false);
   const [find, setFind] = useState("");
   const lastAnswer = useRef<Date | null>(null);  // when this screen last heard from the Engine: a fact about the screen
-  const heard = useCallback(() => { lastAnswer.current = new Date(); }, []);
+  const [readAt, setReadAt] = useState<Date | null>(null);  // shown beside Reload, so that a person knows how old the screen is
+  const heard = useCallback(() => { lastAnswer.current = new Date(); setReadAt(lastAnswer.current); }, []);
 
   const who: Caller = useMemo(() => ({ base, token: preview ? preview.token : getToken, configuration: app?.running.configuration, heard }),
                               [base, preview, app, heard]);
@@ -129,6 +130,8 @@ export default function RuntimeApp({ workspace, useCase, preview }: { workspace:
           <div className="small row">
             <span data-testid="rt-you">{app.you.name}: {[may.read_records && "reads records", may.start_runs && "starts work", may.decide_reviews && "decides reviews",
               may.read_audit && "reads audit", may.write_records && "writes records"].filter(Boolean).join(", ") || "no permission"}</span>
+            <span className="rt-fresh" data-testid="rt-fresh" title="When this screen last heard from the Engine, by this browser's clock">
+              {readAt ? `Engine data read at ${readAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Engine data not read yet"}</span>
             <button type="button" className="small" onClick={() => void load()} data-testid="rt-reload">Reload</button>
             <button type="button" className="small" onClick={() => { setToken(null); setApp(null); setState("signed-out"); }}>Sign out</button>
           </div>)}

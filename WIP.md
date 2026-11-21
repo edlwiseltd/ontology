@@ -288,3 +288,10 @@ and no detail of GEMBA was guessed.** Prepared: a capture tool the owner runs wh
 use; page text can be scrambled) and the plan with the state of Autology's interface today
 ([planning/AUTOLOGY_DESIGN_SYSTEM_GEMBA_ALIGNMENT.md](planning/AUTOLOGY_DESIGN_SYSTEM_GEMBA_ALIGNMENT.md)).
 Waiting for: the captured folder, or screenshots and source styles.
+
+**Design system, first increment (21 November 2026).** The owner sent three GEMBA screenshots and asked for
+something modern inspired by it, not a copy. Applied to Studio and to every generated application through the
+shared tokens: the measured navy and teal dark palette, a matching light theme, segmented tabs, pills, rounded
+cards, depth and motion, and a data-freshness indicator in applications. Text contrast is guarded by a test.
+Not done yet: shared React components, workspace selector, French and English.
+See [the plan](planning/AUTOLOGY_DESIGN_SYSTEM_GEMBA_ALIGNMENT.md).

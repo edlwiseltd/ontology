@@ -1,9 +1,31 @@
 # Autology — design system aligned on GEMBA: state and plan
 
-*21 November 2026. Status: **blocked on the reference. Nothing visual was changed.** The GEMBA server is on an
-internal network and cannot be reached from the engineering environment (its name does not resolve there, and no
-computer of the owner is attached to the session). No colour, font, spacing or layout of GEMBA is known to
-engineering, and none was guessed. What exists is a tool to capture the reference, and this plan.*
+*21 November 2026. Status: **first increment applied.** The owner sent three desktop screenshots of GEMBA in its
+dark theme and gave the direction: **not an identical copy; something modern, inspired by it.** So GEMBA supplies the
+identity (deep navy, teal, pill navigation, large rounded cards, small spaced labels), and the rest is Autology's
+own design. The GEMBA server itself is still unreachable from the engineering environment; its stylesheets were
+not seen. The screenshots hold business data and are **not** kept in this repository, which is public.*
+
+## 0. What was done, and what it rests on
+
+| Element | Source | State |
+|---|---|---|
+| Dark palette: ground `#0a1420`, surfaces `#0a1625` and `#0e1c2d`, lines `#1e2b3d` / `#213144`, text `#e8f0fa` / `#9fb3cc` / `#6d829c`, teal `#13a3ab` and `#5eead4`, alert `#ff6b7d`, amber `#ffc857` | **Measured** on the screenshots, pixel by pixel | Applied |
+| Green `#3fe0a1`, violet `#b59cff` | Measured on compressed images: approximate | Applied |
+| Segmented tabs with a filled current tab, pills in capitals with wide spacing, large rounded cards, uppercase table headers, small labels above titles | **Seen** on the screenshots | Applied, as shapes; sizes are Autology's (the screenshots were taken at an unknown zoom) |
+| Light theme (teal on a cool light ground), gradients, shadows, hover and focus states, motion, status dots | **Autology's own design**, on the same identity | Applied |
+| Typeface | Not identifiable from a screenshot | A modern system stack (Inter where installed, Segoe UI Variable on Windows); no font is downloaded |
+| Text on the filled teal | GEMBA uses white, which measures 3.1 to 1 | **Deliberately different:** dark text on teal in the dark theme, white on a deeper teal in the light theme, both above 4.5 to 1 |
+| Data freshness | GEMBA shows when its snapshot was taken | Applications show "Engine data read at hh:mm" beside Reload |
+
+Guarded by `studio/web/tests/design.test.ts`: both themes define the same roles; text meets 4.5 to 1 on every
+ground it is used on; an application's accent is one of six names. Checked: 88 unit tests, 319 browser checks,
+no sideways scrolling at phone width.
+
+**Not done yet:** shared React components (tables, cards, badges and timelines are still built in place and share
+the look through the stylesheets); the header with a workspace selector; dashboards beyond the overview tiles; a
+themed ontology graph; **French and English**; tablet-specific layout. GEMBA's light theme, its phone layout and
+its stylesheets were never seen.
 
 ## 1. What is needed from GEMBA, and how to get it
 

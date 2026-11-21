@@ -279,3 +279,12 @@ before evidence entries existed, as `<label> (cited at the time; not re-checked)
 ground-handling proposal, every element of the kept run 2 answers. Elements that cite nothing are still written as
 missing. No scenario result changed; the evidence of 19 November is kept as reported, the corrected output is in
 `planning/evidence/provenance-2026-11-20/`. No provider call.
+
+## Design system aligned on GEMBA (21 November 2026): blocked on the reference
+
+The GEMBA server is internal and cannot be reached from the engineering environment. **Nothing visual was changed
+and no detail of GEMBA was guessed.** Prepared: a capture tool the owner runs where GEMBA is reachable
+(`studio/web/tools/capture_reference.mjs`: screenshots at three sizes, stylesheets, an inventory of what the pages
+use; page text can be scrambled) and the plan with the state of Autology's interface today
+([planning/AUTOLOGY_DESIGN_SYSTEM_GEMBA_ALIGNMENT.md](planning/AUTOLOGY_DESIGN_SYSTEM_GEMBA_ALIGNMENT.md)).
+Waiting for: the captured folder, or screenshots and source styles.

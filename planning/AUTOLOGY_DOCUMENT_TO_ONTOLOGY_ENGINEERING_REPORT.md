@@ -24,12 +24,12 @@ deployed, no reviewer contacted. All documents and labels are synthetic. **R2 is
 | Item | Value |
 |---|---|
 | Starting point | `bf6ab9a` = remote; [CI run 135](https://github.com/edlwiseltd/ontology/actions/runs/44893009144) success |
-| Final code commit | This commit (hash recorded in the next commit) |
-| CI on it | Recorded in the next commit |
+| Final code commit | `b1c4bb2` |
+| CI on it | [run 136](https://github.com/edlwiseltd/ontology/actions/runs/45233166452): **success**, five jobs (quality, tests on Python 3.10 and 3.13 with PostgreSQL, package, Studio) |
 
 | Check (23 November, this session's container, outside network denied for the test processes) | Result |
 |---|---|
-| Full Python suite | Running when this commit was made; result recorded in the next commit |
+| Full Python suite | **1,176 passed** (11 new), 2 skipped (PostgreSQL; run in CI), coverage 96.15 % (gate 95 %); `docintel.py` 95 % |
 | New spike tests | `tests/test_docint1_document_intelligence.py`: 11 pass |
 | ruff; mypy ratchet | Clean; 198 (= baseline, not raised) |
 | Studio | Unchanged by the spike. Browser suites re-run: **135/135, 76/76, 108/108** (three domains: Crisis Management, Network Intelligence, Venue Booking) |
@@ -120,7 +120,7 @@ safety findings for a person, never made enforceable by extraction.
 | 9 | Three-domain Application Builder regression? | 108/108 application checks; 135/135 and 76/76 for Studio and the cross-domain journeys |
 | 10 | Decisions needed before activation | DI-1 to DI-6; and for any provider use D7/D10 and D30 h. D24, D34, D35 unaffected |
 | 11 | Active, prototype, proposed | Active: nothing new. Prototype: `autology/docintel.py`, the benchmark. Proposed: storage, API, Studio panel, provider extraction, KerML adapter |
-| 12 | CI on the final code | Recorded in the next commit |
+| 12 | CI on the final code | `b1c4bb2`, [run 136](https://github.com/edlwiseltd/ontology/actions/runs/45233166452): success |
 | 13 | Go / revise / no-go | **Revise** (below) |
 | 14 | Is R2 closed? | **No** |
 

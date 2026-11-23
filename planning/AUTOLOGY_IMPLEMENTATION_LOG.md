@@ -1520,6 +1520,7 @@ document"), GAP-117. Recommendation **revise**. No provider call, no credential,
 
 | Check (outside network denied for the test processes) | Result |
 |---|---|
-| Full Python suite | Running when this commit was made; result recorded in the next commit |
+| Full Python suite | **1,176 passed** (11 new), 2 skipped (PostgreSQL; run in CI), coverage 96.15 % (gate 95 %); `docintel.py` 95 % |
+| CI on `b1c4bb2` | [run 136](https://github.com/edlwiseltd/ontology/actions/runs/45233166452): **success**, five jobs, PostgreSQL tests included |
 | ruff; mypy ratchet | clean; 198 (= baseline) |
 | Studio | unchanged; browser 135/135, 76/76, 108/108 |

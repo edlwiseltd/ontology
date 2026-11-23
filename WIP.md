@@ -1,6 +1,6 @@
 # Work in progress — Autology
 
-*Updated 19 November 2026 (governed-operations and architect-reliability sprint). Branch `claude/autology-ontology-agent-4ajjer`.*
+*Updated 23 November 2026 (document intelligence research spike). Branch `claude/autology-ontology-agent-4ajjer`.*
 
 ## Done in this directive
 
@@ -60,6 +60,7 @@
 | D22b–e; authorisation for IAM-2, IAM-4, IAM-5, IAM-6 | Not started, by instruction |
 | D24: keep the engine's unrestricted `admin` permission as an acknowledged, reviewed grant? D25: company sign-in for people | See the decision register; migrated administrator grants wait for confirm / narrow / revoke in each workspace's access review |
 | D23: confirm default token lifetimes (90 d people, 365 d services) and rate limits | Existing tokens expire one lifetime after the upgrade: plan re-keying |
+| DI-1 to DI-6: document intelligence (stated by a document; storing documents; API and Studio; passage bound; provider; go/revise/no-go) | `planning/AUTOLOGY_DOCUMENT_INTELLIGENCE_OWNER_DECISIONS.md`; nothing is active until then |
 | Next increment authorisation | Readiness (REL-3), AI-1 once D7/D10 are configured |
 
 ## Hard limits (unchanged)
@@ -295,3 +296,16 @@ shared tokens: the measured navy and teal dark palette, a matching light theme, 
 cards, depth and motion, and a data-freshness indicator in applications. Text contrast is guarded by a test.
 Not done yet: shared React components, workspace selector, French and English.
 See [the plan](planning/AUTOLOGY_DESIGN_SYSTEM_GEMBA_ALIGNMENT.md).
+
+## Document intelligence and evidence-backed ontology generation: research spike (23 November 2026)
+
+A spike, **nothing in force changed**: `autology/docintel.py` (contract `docintel-1`) reads anchored sources,
+extracts candidates offline in English and French, normalises them with merges a person decides, builds a
+non-authoritative evidence graph and maps it into a proposal through the architect's own validation. Every mapped
+element is inferred by default (fail-closed) and cites its paragraph. Benchmark on four synthetic documents (one
+held out): `planning/evidence/document-ontology-spike/`. No provider call, no credential, no ledger access.
+Recommendation **revise**: keep paragraph-level evidence and candidate review, do not integrate the pattern
+extractor as a producer of models.
+Not built: storage of documents, an API route, the Studio evidence panel, provider extraction, a KerML adapter.
+Waiting for: DI-1 to DI-6 ([owner decisions](planning/AUTOLOGY_DOCUMENT_INTELLIGENCE_OWNER_DECISIONS.md)).
+See [the engineering report](planning/AUTOLOGY_DOCUMENT_TO_ONTOLOGY_ENGINEERING_REPORT.md).

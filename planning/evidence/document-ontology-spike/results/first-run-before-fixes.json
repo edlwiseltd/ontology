@@ -1,0 +1,177 @@
+{
+ "note": "first run of the extractor on the three tuning documents, before any change; kept as it came out",
+ "run": {
+  "pump-cell": {
+   "concepts": [
+    "are kept for 5",
+    "casing",
+    "impeller",
+    "motor",
+    "NCR",
+    "Pump Unit",
+    "pump units at the",
+    "quality record",
+    "shaft seal",
+    "Test Bench",
+    "test results",
+    "test results for each",
+    "Work Order"
+   ],
+   "roles": [
+    "Calibration",
+    "inspector",
+    "quality engineer",
+    "shift supervisor"
+   ],
+   "relations": [
+    [
+     "composition",
+     "concept:pump unit",
+     "concept:casing",
+     "1..*"
+    ],
+    [
+     "composition",
+     "concept:pump unit",
+     "concept:impeller",
+     "1..*"
+    ],
+    [
+     "composition",
+     "concept:pump unit",
+     "concept:shaft seal",
+     "1..*"
+    ],
+    [
+     "composition",
+     "concept:pump unit",
+     "concept:motor",
+     "1..*"
+    ],
+    [
+     "association",
+     "concept:work order",
+     "concept:pump unit",
+     "1..*"
+    ],
+    [
+     "association",
+     "concept:pump unit",
+     "concept:work order",
+     "1"
+    ],
+    [
+     "association",
+     "concept:ncr",
+     "concept:pump unit",
+     "1"
+    ],
+    [
+     "association",
+     "concept:pump unit",
+     "concept:test result",
+     "0..*"
+    ],
+    [
+     "specialization",
+     "concept:ncr",
+     "concept:quality record",
+     null
+    ]
+   ],
+   "merges": [
+    "merge:ncr=non conformance report"
+   ]
+  },
+  "reclamations": {
+   "concepts": [
+    "avoir",
+    "chargé",
+    "client",
+    "commande",
+    "e commande",
+    "e réclamation",
+    "pièces jointes",
+    "réclamation"
+   ],
+   "roles": [
+    "responsable financier",
+    "responsable qualité"
+   ],
+   "relations": [
+    [
+     "association",
+     "concept:reclamation",
+     "concept:commande",
+     "1"
+    ],
+    [
+     "association",
+     "concept:client",
+     "concept:commande",
+     "1..*"
+    ],
+    [
+     "association",
+     "concept:e reclamation",
+     "concept:piece jointe",
+     "0..*"
+    ],
+    [
+     "association",
+     "concept:reclamation",
+     "concept:charge",
+     "1"
+    ]
+   ],
+   "merges": [
+    "merge:commande=e commande",
+    "merge:e reclamation=reclamation"
+   ]
+  },
+  "garden-plots": {
+   "concepts": [
+    "application",
+    "applications over the years",
+    "garden plots fairly",
+    "member",
+    "member at",
+    "plot",
+    "plots between two members",
+    "plot holder",
+    "plot size",
+    "waiting list"
+   ],
+   "roles": [
+    "committee",
+    "secretary",
+    "treasurer"
+   ],
+   "relations": [
+    [
+     "association",
+     "concept:plot",
+     "concept:member at",
+     "0..1"
+    ],
+    [
+     "association",
+     "concept:member",
+     "concept:application over year",
+     "1..*"
+    ],
+    [
+     "association",
+     "concept:application",
+     "concept:plot size",
+     "1"
+    ]
+   ],
+   "merges": [
+    "merge:application=application over year",
+    "merge:member=member at",
+    "merge:member=plot between two member"
+   ]
+  }
+ }
+}

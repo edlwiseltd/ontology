@@ -1488,3 +1488,38 @@ Nothing was reconstructed. No scenario result, score, protocol or held-out case 
 
 Register: GAP-113 fixed; 114 entries (66 fixed, 22 open, 13 partly, 8 owner decision, 5 external evidence).
 GAP-111 stays open for what remains: 12 elements cite nothing, and none shows the answer it came from.
+
+## 21 November 2026 — Design system: a modern look inspired by GEMBA
+
+From three screenshots the owner sent (not stored: the repository is public and they show business data), the
+dark navy and teal palette was measured and a modern look built on it, not a copy: shared tokens for Studio and
+every generated application, a light theme, segmented tabs, pills with status dots, depth and motion, and
+"Engine data read at hh:mm" in applications. `studio/web/tests/design.test.ts` checks text contrast (≥ 4.5) and
+token roles. Commit `bf6ab9a`, CI run 135 success. Before it, `6a9940e` (capture tool and plan; CI run 134).
+
+## 23 November 2026 — Document intelligence and evidence-backed ontology generation (research spike)
+
+Directive: KerML-informed document intelligence, NER and evidence-backed ontology generation. Offline, synthetic,
+**nothing in force changed** (nothing in the Engine, API or Studio imports the new module; tested).
+
+| Increment | Result |
+|---|---|
+| 0 Baseline, KerML verification, gap map | `planning/AUTOLOGY_KERML_NER_FEASIBILITY_AND_BASELINE.md`. The OMG specification could not be read from this environment: every KerML claim stays unverified |
+| 1 Source and evidence contract | `docs/document-intelligence-contract.md`; `docintel.read_source`: anchors with section, paragraph, span, content hash; refusals; flags (instruction-like, duplicate, link not followed) |
+| 2 Offline extraction (English, French) | `docintel.extract`: closed patterns, no model, no network; normalisation and merges proposed for a person |
+| 3 Evidence graph → proposal → Engine | `docintel.graph` (never authoritative, no fabricated confidence), `docintel.redact`, `docintel.to_answer`/`propose` through `architect.propose`; every element inferred by default |
+| 4 Studio evidence review | **Not built**: needs decisions on storing documents and on the route (DI-2, DI-3) |
+| 5 Frozen benchmark | `deploy/make_docintel_benchmark.py`; four synthetic documents (industrial, French workflow, non-industrial, one held out); protocol `planning/AUTOLOGY_NER_ONTOLOGY_EXTRACTION_EVALUATION_PROTOCOL.md` |
+| 6 KerML mapping | Assessment only, `planning/AUTOLOGY_KERML_INTEROPERABILITY_MAPPING.md`; no adapter |
+| 7 Regression, decisions, report | `planning/AUTOLOGY_DOCUMENT_INTELLIGENCE_OWNER_DECISIONS.md` (DI-1 to DI-6); `planning/AUTOLOGY_DOCUMENT_TO_ONTOLOGY_ENGINEERING_REPORT.md` |
+
+Measured: candidate entities recall 6/7 to 10/10, relations 4/5 to 9/10 (held out 8/9 and 6/7); the Engine accepts
+3 to 5 of 14 to 19 mapped elements, the rest refused for entities without states (GAP-117). Defects recorded:
+GAP-115 (the proposal route passes no passages), GAP-116 (the contract cannot say "no confidence" or "stated by a
+document"), GAP-117. Recommendation **revise**. No provider call, no credential, ledger not opened.
+
+| Check (outside network denied for the test processes) | Result |
+|---|---|
+| Full Python suite | Running when this commit was made; result recorded in the next commit |
+| ruff; mypy ratchet | clean; 198 (= baseline) |
+| Studio | unchanged; browser 135/135, 76/76, 108/108 |

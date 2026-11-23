@@ -1,0 +1,1041 @@
+{
+ "aggregate": null,
+ "cases": {
+  "clinic-bookings": {
+   "application_and_engine": {
+    "baseline, no confirmation": {
+     "B_deterministic": true,
+     "B_manifest_valid": true,
+     "B_screens": 1,
+     "C_draft_accepted": true,
+     "C_simulation": "the model has no goal: nothing can be planned",
+     "elements_in_draft": 0
+    },
+    "candidate with one state per stateless entity, all confirmed (illustrative; no person)": {
+     "B_deterministic": true,
+     "B_manifest_valid": true,
+     "B_screens": 36,
+     "C_draft_accepted": true,
+     "C_simulation": "the model has no goal: nothing can be planned",
+     "elements_in_draft": 16
+    },
+    "candidate, all confirmed (counterfactual)": {
+     "B_deterministic": true,
+     "B_manifest_valid": true,
+     "B_screens": 7,
+     "C_draft_accepted": true,
+     "C_simulation": "the model has no goal: nothing can be planned",
+     "elements_in_draft": 3
+    },
+    "candidate, no confirmation": {
+     "B_deterministic": true,
+     "B_manifest_valid": true,
+     "B_screens": 1,
+     "C_draft_accepted": true,
+     "C_simulation": "the model has no goal: nothing can be planned",
+     "elements_in_draft": 0
+    }
+   },
+   "extraction": {
+    "entities": {
+     "missed": [
+      "examination"
+     ],
+     "not_in_reference": [
+      "estimated cost"
+     ],
+     "precision": {
+      "hit": 8,
+      "of": 9,
+      "value": 0.889
+     },
+     "recall": {
+      "hit": 8,
+      "of": 9,
+      "value": 0.889
+     }
+    },
+    "evidence": {
+     "every_quote_inside_its_anchor": true,
+     "relation_anchor_accuracy": {
+      "hit": 6,
+      "of": 6,
+      "value": 1.0
+     }
+    },
+    "merges": {
+     "applied_without_a_person": 0,
+     "correct_proposals": 1,
+     "expected_and_missed": 0,
+     "incorrect_proposals": 0
+    },
+    "parsing": {
+     "ambiguities_left_for_review": 0,
+     "flagged_paragraphs": 0,
+     "skipped": []
+    },
+    "references": {
+     "recall": {
+      "hit": 1,
+      "of": 1,
+      "value": 1.0
+     }
+    },
+    "relations": {
+     "direction_reversed": 0,
+     "missed": [
+      "owner -> animal"
+     ],
+     "precision": {
+      "hit": 6,
+      "of": 7,
+      "value": 0.857
+     },
+     "recall": {
+      "hit": 6,
+      "of": 7,
+      "value": 0.857
+     },
+     "type_correct": {
+      "hit": 6,
+      "of": 6,
+      "value": 1.0
+     }
+    },
+    "roles": {
+     "precision": {
+      "hit": 3,
+      "of": 3,
+      "value": 1.0
+     },
+     "recall": {
+      "hit": 3,
+      "of": 5,
+      "value": 0.6
+     }
+    },
+    "rules": {
+     "note": "a rule's subject counts when one contains the other",
+     "recall": {
+      "hit": 3,
+      "of": 3,
+      "value": 1.0
+     }
+    },
+    "states": {
+     "exact": {
+      "hit": 2,
+      "of": 3,
+      "value": 0.667
+     },
+     "missed": [
+      "invoice"
+     ]
+    }
+   },
+   "illustrative_states": {
+    "accepted_by_engine": 16,
+    "proposed": 16,
+    "refused": []
+   },
+   "language": "en",
+   "ontology": {
+    "baseline_sandbox_architect": {
+     "accepted_by_engine": 18,
+     "draft_valid_if_everything_were_confirmed (counterfactual)": true,
+     "draft_valid_with_no_confirmation": true,
+     "elements_citing_a_paragraph": {
+      "hit": 0,
+      "of": 18,
+      "value": 0.0
+     },
+     "elements_citing_the_brief_only": 18,
+     "entities_matching_the_reference": {
+      "hit": 0,
+      "of": 9,
+      "value": 0.0
+     },
+     "inferred_needing_confirmation": 18,
+     "proposed": 18,
+     "questions": 4,
+     "refused_by_engine": []
+    },
+    "candidate_document_pipeline": {
+     "accepted_by_engine": 3,
+     "draft_valid_if_everything_were_confirmed (counterfactual)": true,
+     "draft_valid_with_no_confirmation": true,
+     "elements_citing_a_paragraph": {
+      "hit": 3,
+      "of": 3,
+      "value": 1.0
+     },
+     "elements_citing_the_brief_only": 0,
+     "entities_matching_the_reference": {
+      "hit": 2,
+      "of": 9,
+      "value": 0.222
+     },
+     "inferred_needing_confirmation": 3,
+     "proposed": 16,
+     "questions": 8,
+     "refused_by_engine": [
+      {
+       "kind": "entity",
+       "name": "Animal",
+       "why": "entity 'Animal' must declare at least one state"
+      },
+      {
+       "kind": "entity",
+       "name": "ConsentForm",
+       "why": "entity 'ConsentForm' must declare at least one state"
+      },
+      {
+       "kind": "entity",
+       "name": "EstimatedCost",
+       "why": "entity 'EstimatedCost' must declare at least one state"
+      },
+      {
+       "kind": "entity",
+       "name": "Invoices",
+       "why": "entity 'Invoices' must declare at least one state"
+      },
+      {
+       "kind": "entity",
+       "name": "Owner",
+       "why": "entity 'Owner' must declare at least one state"
+      },
+      {
+       "kind": "entity",
+       "name": "Procedures",
+       "why": "entity 'Procedures' must declare at least one state"
+      },
+      {
+       "kind": "entity",
+       "name": "Vaccination",
+       "why": "entity 'Vaccination' must declare at least one state"
+      },
+      {
+       "kind": "relationship",
+       "name": "Animal-belongs_to-Owner",
+       "why": "relationship 'belongs_to': unknown entity 'Animal'"
+      },
+      {
+       "kind": "relationship",
+       "name": "Appointment-concerns-Animal",
+       "why": "relationship 'concerns': unknown entity 'Animal'"
+      },
+      {
+       "kind": "relationship",
+       "name": "TreatmentPlan-contains-Procedures",
+       "why": "relationship 'contains': unknown entity 'Procedures'"
+      },
+      {
+       "kind": "relationship",
+       "name": "TreatmentPlan-contains-EstimatedCost",
+       "why": "relationship 'contains': unknown entity 'EstimatedCost'"
+      },
+      {
+       "kind": "relationship",
+       "name": "TreatmentPlan-contains-ConsentForm",
+       "why": "relationship 'contains': unknown entity 'ConsentForm'"
+      },
+      {
+       "kind": "relationship",
+       "name": "Owner-has-Invoices",
+       "why": "relationship 'has': unknown entity 'Owner'"
+      }
+     ]
+    }
+   },
+   "paragraphs": 6,
+   "set": "held out (frozen before the extractor's fixes)",
+   "unmapped_examples": [
+    "the model has no specialisation between entities (interfaces are the nearest construct): left for a person",
+    "a transition is read, but no action of the text can be tied to it with certainty: left for a person (condition",
+    "a rule about approval, access or prohibition is never turned into an enforceable rule by extraction: its actio",
+    "a rule about approval, access or prohibition is never turned into an enforceable rule by extraction: its actio",
+    "a rule about approval, access or prohibition is never turned into an enforceable rule by extraction: its actio"
+   ],
+   "unmapped_findings": 6
+  },
+  "garden-plots": {
+   "application_and_engine": {
+    "baseline, no confirmation": {
+     "B_deterministic": true,
+     "B_manifest_valid": true,
+     "B_screens": 1,
+     "C_draft_accepted": true,
+     "C_simulation": "the model has no goal: nothing can be planned",
+     "elements_in_draft": 0
+    },
+    "candidate with one state per stateless entity, all confirmed (illustrative; no person)": {
+     "B_deterministic": true,
+     "B_manifest_valid": true,
+     "B_screens": 30,
+     "C_draft_accepted": true,
+     "C_simulation": "the model has no goal: nothing can be planned",
+     "elements_in_draft": 14
+    },
+    "candidate, all confirmed (counterfactual)": {
+     "B_deterministic": true,
+     "B_manifest_valid": true,
+     "B_screens": 7,
+     "C_draft_accepted": true,
+     "C_simulation": "the model has no goal: nothing can be planned",
+     "elements_in_draft": 4
+    },
+    "candidate, no confirmation": {
+     "B_deterministic": true,
+     "B_manifest_valid": true,
+     "B_screens": 1,
+     "C_draft_accepted": true,
+     "C_simulation": "the model has no goal: nothing can be planned",
+     "elements_in_draft": 0
+    }
+   },
+   "extraction": {
+    "entities": {
+     "missed": [
+      "garden"
+     ],
+     "not_in_reference": [
+      "exchange",
+      "garden plots"
+     ],
+     "precision": {
+      "hit": 7,
+      "of": 9,
+      "value": 0.778
+     },
+     "recall": {
+      "hit": 7,
+      "of": 8,
+      "value": 0.875
+     }
+    },
+    "evidence": {
+     "every_quote_inside_its_anchor": true,
+     "relation_anchor_accuracy": {
+      "hit": 5,
+      "of": 5,
+      "value": 1.0
+     }
+    },
+    "merges": {
+     "applied_without_a_person": 0,
+     "correct_proposals": 0,
+     "expected_and_missed": 1,
+     "incorrect_proposals": 0
+    },
+    "parsing": {
+     "ambiguities_left_for_review": 0,
+     "flagged_paragraphs": 0,
+     "skipped": []
+    },
+    "references": {
+     "recall": {
+      "hit": 0,
+      "of": 0,
+      "value": null
+     }
+    },
+    "relations": {
+     "direction_reversed": 0,
+     "missed": [
+      "garden -> bed",
+      "waiting list -> application"
+     ],
+     "precision": {
+      "hit": 5,
+      "of": 5,
+      "value": 1.0
+     },
+     "recall": {
+      "hit": 5,
+      "of": 7,
+      "value": 0.714
+     },
+     "type_correct": {
+      "hit": 5,
+      "of": 5,
+      "value": 1.0
+     }
+    },
+    "roles": {
+     "precision": {
+      "hit": 3,
+      "of": 3,
+      "value": 1.0
+     },
+     "recall": {
+      "hit": 3,
+      "of": 3,
+      "value": 1.0
+     }
+    },
+    "rules": {
+     "note": "a rule's subject counts when one contains the other",
+     "recall": {
+      "hit": 3,
+      "of": 3,
+      "value": 1.0
+     }
+    },
+    "states": {
+     "exact": {
+      "hit": 2,
+      "of": 2,
+      "value": 1.0
+     },
+     "missed": []
+    }
+   },
+   "illustrative_states": {
+    "accepted_by_engine": 14,
+    "proposed": 14,
+    "refused": []
+   },
+   "language": "en",
+   "ontology": {
+    "baseline_sandbox_architect": {
+     "accepted_by_engine": 0,
+     "draft_valid_if_everything_were_confirmed (counterfactual)": false,
+     "draft_valid_with_no_confirmation": false,
+     "elements_citing_a_paragraph": {
+      "hit": 0,
+      "of": 0,
+      "value": null
+     },
+     "elements_citing_the_brief_only": 0,
+     "entities_matching_the_reference": {
+      "hit": 0,
+      "of": 8,
+      "value": 0.0
+     },
+     "inferred_needing_confirmation": 0,
+     "proposed": 0,
+     "questions": 1,
+     "refused_by_engine": []
+    },
+    "candidate_document_pipeline": {
+     "accepted_by_engine": 4,
+     "draft_valid_if_everything_were_confirmed (counterfactual)": true,
+     "draft_valid_with_no_confirmation": true,
+     "elements_citing_a_paragraph": {
+      "hit": 4,
+      "of": 4,
+      "value": 1.0
+     },
+     "elements_citing_the_brief_only": 0,
+     "entities_matching_the_reference": {
+      "hit": 2,
+      "of": 8,
+      "value": 0.25
+     },
+     "inferred_needing_confirmation": 4,
+     "proposed": 14,
+     "questions": 6,
+     "refused_by_engine": [
+      {
+       "kind": "entity",
+       "name": "Bed",
+       "why": "entity 'Bed' must declare at least one state"
+      },
+      {
+       "kind": "entity",
+       "name": "Exchange",
+       "why": "entity 'Exchange' must declare at least one state"
+      },
+      {
+       "kind": "entity",
+       "name": "GardenPlots",
+       "why": "entity 'GardenPlots' must declare at least one state"
+      },
+      {
+       "kind": "entity",
+       "name": "HalfPlot",
+       "why": "entity 'HalfPlot' must declare at least one state"
+      },
+      {
+       "kind": "entity",
+       "name": "Member",
+       "why": "entity 'Member' must declare at least one state"
+      },
+      {
+       "kind": "entity",
+       "name": "PlotSize",
+       "why": "entity 'PlotSize' must declare at least one state"
+      },
+      {
+       "kind": "relationship",
+       "name": "Bed-contains-Plot",
+       "why": "relationship 'contains': unknown entity 'Bed'"
+      },
+      {
+       "kind": "relationship",
+       "name": "Plot-is_assigned_to-Member",
+       "why": "relationship 'is_assigned_to': unknown entity 'Member'"
+      },
+      {
+       "kind": "relationship",
+       "name": "Member-has-Applications",
+       "why": "relationship 'has': unknown entity 'Member'"
+      },
+      {
+       "kind": "relationship",
+       "name": "Applications-concerns-PlotSize",
+       "why": "relationship 'concerns': unknown entity 'PlotSize'"
+      }
+     ]
+    }
+   },
+   "paragraphs": 7,
+   "set": "tuning (generic reading bugs were fixed on it)",
+   "unmapped_examples": [
+    "named in the text, but nothing relates it to anything: not proposed as an entity",
+    "named in the text, but nothing relates it to anything: not proposed as an entity",
+    "the model has no specialisation between entities (interfaces are the nearest construct): left for a person",
+    "a rule about approval, access or prohibition is never turned into an enforceable rule by extraction: its actio",
+    "a rule about approval, access or prohibition is never turned into an enforceable rule by extraction: its actio"
+   ],
+   "unmapped_findings": 6
+  },
+  "pump-cell": {
+   "application_and_engine": {
+    "baseline, no confirmation": {
+     "B_deterministic": true,
+     "B_manifest_valid": true,
+     "B_screens": 1,
+     "C_draft_accepted": true,
+     "C_simulation": "the model has no goal: nothing can be planned",
+     "elements_in_draft": 0
+    },
+    "candidate with one state per stateless entity, all confirmed (illustrative; no person)": {
+     "B_deterministic": true,
+     "B_manifest_valid": true,
+     "B_screens": 36,
+     "C_draft_accepted": true,
+     "C_simulation": "the model has no goal: nothing can be planned",
+     "elements_in_draft": 19
+    },
+    "candidate, all confirmed (counterfactual)": {
+     "B_deterministic": true,
+     "B_manifest_valid": true,
+     "B_screens": 4,
+     "C_draft_accepted": true,
+     "C_simulation": "the model has no goal: nothing can be planned",
+     "elements_in_draft": 3
+    },
+    "candidate, no confirmation": {
+     "B_deterministic": true,
+     "B_manifest_valid": true,
+     "B_screens": 1,
+     "C_draft_accepted": true,
+     "C_simulation": "the model has no goal: nothing can be planned",
+     "elements_in_draft": 0
+    }
+   },
+   "extraction": {
+    "entities": {
+     "missed": [],
+     "not_in_reference": [],
+     "precision": {
+      "hit": 10,
+      "of": 10,
+      "value": 1.0
+     },
+     "recall": {
+      "hit": 10,
+      "of": 10,
+      "value": 1.0
+     }
+    },
+    "evidence": {
+     "every_quote_inside_its_anchor": true,
+     "relation_anchor_accuracy": {
+      "hit": 9,
+      "of": 9,
+      "value": 1.0
+     }
+    },
+    "merges": {
+     "applied_without_a_person": 0,
+     "correct_proposals": 1,
+     "expected_and_missed": 0,
+     "incorrect_proposals": 0
+    },
+    "parsing": {
+     "ambiguities_left_for_review": 0,
+     "flagged_paragraphs": 3,
+     "skipped": [
+      {
+       "anchor": "pump-cell#aa341a082cd5-10",
+       "why": "duplicate of pump-cell#aa341a082cd5"
+      },
+      {
+       "anchor": "pump-cell#f88ef562bfd4",
+       "why": "reads like an instruction to a program"
+      }
+     ]
+    },
+    "references": {
+     "recall": {
+      "hit": 2,
+      "of": 2,
+      "value": 1.0
+     }
+    },
+    "relations": {
+     "direction_reversed": 0,
+     "missed": [
+      "test bench -> test result"
+     ],
+     "precision": {
+      "hit": 9,
+      "of": 9,
+      "value": 1.0
+     },
+     "recall": {
+      "hit": 9,
+      "of": 10,
+      "value": 0.9
+     },
+     "type_correct": {
+      "hit": 9,
+      "of": 9,
+      "value": 1.0
+     }
+    },
+    "roles": {
+     "precision": {
+      "hit": 3,
+      "of": 3,
+      "value": 1.0
+     },
+     "recall": {
+      "hit": 3,
+      "of": 3,
+      "value": 1.0
+     }
+    },
+    "rules": {
+     "note": "a rule's subject counts when one contains the other",
+     "recall": {
+      "hit": 3,
+      "of": 3,
+      "value": 1.0
+     }
+    },
+    "states": {
+     "exact": {
+      "hit": 1,
+      "of": 3,
+      "value": 0.333
+     },
+     "missed": [
+      "non conformance report",
+      "work order"
+     ]
+    }
+   },
+   "illustrative_states": {
+    "accepted_by_engine": 19,
+    "proposed": 19,
+    "refused": []
+   },
+   "language": "en",
+   "ontology": {
+    "baseline_sandbox_architect": {
+     "accepted_by_engine": 12,
+     "draft_valid_if_everything_were_confirmed (counterfactual)": true,
+     "draft_valid_with_no_confirmation": true,
+     "elements_citing_a_paragraph": {
+      "hit": 0,
+      "of": 12,
+      "value": 0.0
+     },
+     "elements_citing_the_brief_only": 12,
+     "entities_matching_the_reference": {
+      "hit": 1,
+      "of": 10,
+      "value": 0.1
+     },
+     "inferred_needing_confirmation": 12,
+     "proposed": 12,
+     "questions": 0,
+     "refused_by_engine": []
+    },
+    "candidate_document_pipeline": {
+     "accepted_by_engine": 3,
+     "draft_valid_if_everything_were_confirmed (counterfactual)": true,
+     "draft_valid_with_no_confirmation": true,
+     "elements_citing_a_paragraph": {
+      "hit": 3,
+      "of": 3,
+      "value": 1.0
+     },
+     "elements_citing_the_brief_only": 0,
+     "entities_matching_the_reference": {
+      "hit": 1,
+      "of": 10,
+      "value": 0.1
+     },
+     "inferred_needing_confirmation": 3,
+     "proposed": 19,
+     "questions": 9,
+     "refused_by_engine": [
+      {
+       "kind": "entity",
+       "name": "Casing",
+       "why": "entity 'Casing' must declare at least one state"
+      },
+      {
+       "kind": "entity",
+       "name": "Impeller",
+       "why": "entity 'Impeller' must declare at least one state"
+      },
+      {
+       "kind": "entity",
+       "name": "Motor",
+       "why": "entity 'Motor' must declare at least one state"
+      },
+      {
+       "kind": "entity",
+       "name": "NCR",
+       "why": "entity 'NCR' must declare at least one state"
+      },
+      {
+       "kind": "entity",
+       "name": "QualityRecord",
+       "why": "entity 'QualityRecord' must declare at least one state"
+      },
+      {
+       "kind": "entity",
+       "name": "ShaftSeal",
+       "why": "entity 'ShaftSeal' must declare at least one state"
+      },
+      {
+       "kind": "entity",
+       "name": "TestResults",
+       "why": "entity 'TestResults' must declare at least one state"
+      },
+      {
+       "kind": "entity",
+       "name": "WorkOrder",
+       "why": "entity 'WorkOrder' must declare at least one state"
+      },
+      {
+       "kind": "relationship",
+       "name": "PumpUnit-contains-Casing",
+       "why": "relationship 'contains': unknown entity 'Casing'"
+      },
+      {
+       "kind": "relationship",
+       "name": "PumpUnit-contains-Impeller",
+       "why": "relationship 'contains': unknown entity 'Impeller'"
+      },
+      {
+       "kind": "relationship",
+       "name": "PumpUnit-contains-ShaftSeal",
+       "why": "relationship 'contains': unknown entity 'ShaftSeal'"
+      },
+      {
+       "kind": "relationship",
+       "name": "PumpUnit-contains-Motor",
+       "why": "relationship 'contains': unknown entity 'Motor'"
+      },
+      {
+       "kind": "relationship",
+       "name": "WorkOrder-has-PumpUnit",
+       "why": "relationship 'has': unknown entity 'WorkOrder'"
+      },
+      {
+       "kind": "relationship",
+       "name": "PumpUnit-belongs_to-WorkOrder",
+       "why": "relationship 'belongs_to': unknown entity 'WorkOrder'"
+      },
+      {
+       "kind": "relationship",
+       "name": "NCR-concerns-PumpUnit",
+       "why": "relationship 'concerns': unknown entity 'NCR'"
+      },
+      {
+       "kind": "relationship",
+       "name": "PumpUnit-has-TestResults",
+       "why": "relationship 'has': unknown entity 'TestResults'"
+      }
+     ]
+    }
+   },
+   "paragraphs": 12,
+   "set": "tuning (generic reading bugs were fixed on it)",
+   "unmapped_examples": [
+    "named in the text, but nothing relates it to anything: not proposed as an entity",
+    "the model has no specialisation between entities (interfaces are the nearest construct): left for a person",
+    "a transition is read, but no action of the text can be tied to it with certainty: left for a person (condition",
+    "a rule about approval, access or prohibition is never turned into an enforceable rule by extraction: its actio",
+    "a rule about approval, access or prohibition is never turned into an enforceable rule by extraction: its actio"
+   ],
+   "unmapped_findings": 8
+  },
+  "reclamations": {
+   "application_and_engine": {
+    "baseline, no confirmation": {
+     "B_deterministic": true,
+     "B_manifest_valid": true,
+     "B_screens": 1,
+     "C_draft_accepted": true,
+     "C_simulation": "the model has no goal: nothing can be planned",
+     "elements_in_draft": 0
+    },
+    "candidate with one state per stateless entity, all confirmed (illustrative; no person)": {
+     "B_deterministic": true,
+     "B_manifest_valid": true,
+     "B_screens": 36,
+     "C_draft_accepted": true,
+     "C_simulation": "the model has no goal: nothing can be planned",
+     "elements_in_draft": 18
+    },
+    "candidate, all confirmed (counterfactual)": {
+     "B_deterministic": true,
+     "B_manifest_valid": true,
+     "B_screens": 9,
+     "C_draft_accepted": true,
+     "C_simulation": "the model has no goal: nothing can be planned",
+     "elements_in_draft": 5
+    },
+    "candidate, no confirmation": {
+     "B_deterministic": true,
+     "B_manifest_valid": true,
+     "B_screens": 1,
+     "C_draft_accepted": true,
+     "C_simulation": "the model has no goal: nothing can be planned",
+     "elements_in_draft": 0
+    }
+   },
+   "extraction": {
+    "entities": {
+     "missed": [
+      "facture"
+     ],
+     "not_in_reference": [
+      "chargé de clientèle",
+      "décision",
+      "échanges avec le client"
+     ],
+     "precision": {
+      "hit": 6,
+      "of": 9,
+      "value": 0.667
+     },
+     "recall": {
+      "hit": 6,
+      "of": 7,
+      "value": 0.857
+     }
+    },
+    "evidence": {
+     "every_quote_inside_its_anchor": true,
+     "relation_anchor_accuracy": {
+      "hit": 4,
+      "of": 4,
+      "value": 1.0
+     }
+    },
+    "merges": {
+     "applied_without_a_person": 0,
+     "correct_proposals": 0,
+     "expected_and_missed": 0,
+     "incorrect_proposals": 2
+    },
+    "parsing": {
+     "ambiguities_left_for_review": 1,
+     "flagged_paragraphs": 0,
+     "skipped": []
+    },
+    "references": {
+     "recall": {
+      "hit": 1,
+      "of": 1,
+      "value": 1.0
+     }
+    },
+    "relations": {
+     "direction_reversed": 0,
+     "missed": [
+      "avoir -> facture"
+     ],
+     "precision": {
+      "hit": 4,
+      "of": 7,
+      "value": 0.571
+     },
+     "recall": {
+      "hit": 4,
+      "of": 5,
+      "value": 0.8
+     },
+     "type_correct": {
+      "hit": 4,
+      "of": 4,
+      "value": 1.0
+     }
+    },
+    "roles": {
+     "precision": {
+      "hit": 3,
+      "of": 3,
+      "value": 1.0
+     },
+     "recall": {
+      "hit": 3,
+      "of": 3,
+      "value": 1.0
+     }
+    },
+    "rules": {
+     "note": "a rule's subject counts when one contains the other",
+     "recall": {
+      "hit": 3,
+      "of": 3,
+      "value": 1.0
+     }
+    },
+    "states": {
+     "exact": {
+      "hit": 2,
+      "of": 2,
+      "value": 1.0
+     },
+     "missed": []
+    }
+   },
+   "illustrative_states": {
+    "accepted_by_engine": 18,
+    "proposed": 18,
+    "refused": []
+   },
+   "language": "fr",
+   "ontology": {
+    "baseline_sandbox_architect": {
+     "accepted_by_engine": 0,
+     "draft_valid_if_everything_were_confirmed (counterfactual)": false,
+     "draft_valid_with_no_confirmation": false,
+     "elements_citing_a_paragraph": {
+      "hit": 0,
+      "of": 0,
+      "value": null
+     },
+     "elements_citing_the_brief_only": 0,
+     "entities_matching_the_reference": {
+      "hit": 0,
+      "of": 7,
+      "value": 0.0
+     },
+     "inferred_needing_confirmation": 0,
+     "proposed": 0,
+     "questions": 1,
+     "refused_by_engine": []
+    },
+    "candidate_document_pipeline": {
+     "accepted_by_engine": 5,
+     "draft_valid_if_everything_were_confirmed (counterfactual)": true,
+     "draft_valid_with_no_confirmation": true,
+     "elements_citing_a_paragraph": {
+      "hit": 5,
+      "of": 5,
+      "value": 1.0
+     },
+     "elements_citing_the_brief_only": 0,
+     "entities_matching_the_reference": {
+      "hit": 2,
+      "of": 7,
+      "value": 0.286
+     },
+     "inferred_needing_confirmation": 5,
+     "proposed": 18,
+     "questions": 10,
+     "refused_by_engine": [
+      {
+       "kind": "entity",
+       "name": "Avoir",
+       "why": "entity 'Avoir' must declare at least one state"
+      },
+      {
+       "kind": "entity",
+       "name": "ChargeDeClientele",
+       "why": "entity 'ChargeDeClientele' must declare at least one state"
+      },
+      {
+       "kind": "entity",
+       "name": "Client",
+       "why": "entity 'Client' must declare at least one state"
+      },
+      {
+       "kind": "entity",
+       "name": "Decision",
+       "why": "entity 'Decision' must declare at least one state"
+      },
+      {
+       "kind": "entity",
+       "name": "DossierDeReclamation",
+       "why": "entity 'DossierDeReclamation' must declare at least one state"
+      },
+      {
+       "kind": "entity",
+       "name": "EchangesAvecLeClient",
+       "why": "entity 'EchangesAvecLeClient' must declare at least one state"
+      },
+      {
+       "kind": "entity",
+       "name": "PiecesJointes",
+       "why": "entity 'PiecesJointes' must declare at least one state"
+      },
+      {
+       "kind": "relationship",
+       "name": "Client-possede-Commande",
+       "why": "relationship 'possede': unknown entity 'Client'"
+      },
+      {
+       "kind": "relationship",
+       "name": "Reclamation-a-PiecesJointes",
+       "why": "relationship 'a': unknown entity 'PiecesJointes'"
+      },
+      {
+       "kind": "relationship",
+       "name": "DossierDeReclamation-contains-Reclamation",
+       "why": "relationship 'contains': unknown entity 'DossierDeReclamation'"
+      },
+      {
+       "kind": "relationship",
+       "name": "DossierDeReclamation-contains-EchangesAvecLeClient",
+       "why": "relationship 'contains': unknown entity 'DossierDeReclamation'"
+      },
+      {
+       "kind": "relationship",
+       "name": "DossierDeReclamation-contains-Decision",
+       "why": "relationship 'contains': unknown entity 'DossierDeReclamation'"
+      },
+      {
+       "kind": "relationship",
+       "name": "Reclamation-est_affectee_a-ChargeDeClientele",
+       "why": "relationship 'est_affectee_a': unknown entity 'ChargeDeClientele'"
+      }
+     ]
+    }
+   },
+   "paragraphs": 8,
+   "set": "tuning (generic reading bugs were fixed on it)",
+   "unmapped_examples": [
+    "a transition is read, but no action of the text can be tied to it with certainty: left for a person (condition",
+    "a rule about approval, access or prohibition is never turned into an enforceable rule by extraction: its actio",
+    "a rule about approval, access or prohibition is never turned into an enforceable rule by extraction: its actio",
+    "a rule about approval, access or prohibition is never turned into an enforceable rule by extraction: its actio",
+    "a document reference, not a business concept"
+   ],
+   "unmapped_findings": 5
+  }
+ },
+ "protocol": "docintel-benchmark-1",
+ "provider_calls": 0
+}

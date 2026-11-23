@@ -1,0 +1,32 @@
+# Small-Animal Clinic: Appointment and Treatment Handbook
+
+Internal handbook, edition 2. Synthetic text prepared for the spike; any resemblance to a real clinic is accidental.
+
+## Overview
+
+The front desk books appointments for pet owners, and the veterinarians examine the animals. This handbook says what is recorded and who decides what.
+
+## Records
+
+An owner is a person responsible for one or more animals. A Treatment Plan (TP) is the list of procedures a veterinarian proposes after an examination.
+Each animal belongs to one owner.
+Each appointment concerns exactly one animal.
+A treatment plan includes the procedures, the estimated cost and the consent form.
+An owner has several invoices.
+A vaccination is a kind of procedure.
+
+## Statuses
+
+The status of an appointment is one of: requested, confirmed, attended, missed or cancelled.
+A treatment plan can be drafted, proposed, accepted or declined.
+An invoice moves from issued to paid when the payment is received.
+
+## Rules
+
+The receptionist confirms the appointment by phone. The veterinarian signs the consent form with the owner.
+A treatment plan must be approved by the senior veterinarian when its estimated cost exceeds 800 EUR.
+Only the practice manager may cancel an invoice.
+A controlled drug must never be dispensed without a prescription.
+Anaesthesia requires a fasting period of 12 h.
+
+Records are kept according to ISO 27001 and the local veterinary code.

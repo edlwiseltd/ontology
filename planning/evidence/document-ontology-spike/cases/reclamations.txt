@@ -1,0 +1,39 @@
+# Procédure de traitement des réclamations clients
+
+Version 3, document synthétique rédigé pour l'étude de faisabilité. Il ne décrit aucune entreprise réelle.
+
+## 1 Objet
+
+Cette procédure décrit comment une réclamation est enregistrée, qualifiée, traitée puis clôturée.
+
+## 2 Définitions
+
+Une réclamation est une insatisfaction exprimée par un client au sujet d'une commande.
+Un dossier de réclamation est le regroupement des pièces relatives à une réclamation.
+Un avoir est un document comptable qui annule tout ou partie d'une facture.
+
+## 3 Organisation
+
+Chaque réclamation concerne une seule commande.
+Chaque client possède une ou plusieurs commandes.
+Une réclamation a plusieurs pièces jointes.
+Un dossier de réclamation comprend la réclamation, les échanges avec le client et la décision.
+Chaque réclamation est affectée à un chargé de clientèle.
+
+## 4 Cycle de vie
+
+Le statut d'une réclamation est : ouverte, qualifiée, en traitement, résolue ou rejetée.
+Une réclamation passe de qualifiée à en-traitement lorsque le chargé de clientèle accepte le dossier.
+Une commande peut être livrée, facturée ou annulée.
+
+## 5 Traitement
+
+Le chargé de clientèle enregistre la réclamation dans les 48 heures. Le responsable qualité qualifie la réclamation et fixe la gravité.
+
+Un avoir doit être approuvé par le responsable financier au-delà de 5 000 EUR.
+Seul le responsable qualité peut rejeter une réclamation.
+Une réclamation ne doit jamais être clôturée sans réponse écrite au client.
+
+## 6 Références
+
+La procédure suit la norme ISO 10002 sur le traitement des réclamations.

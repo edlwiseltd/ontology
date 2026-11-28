@@ -1,0 +1,9 @@
+{
+  "python_path": ["."],
+  "registries": [
+    {"target": "manufacturing_tools:procurement_tools", "kwargs": {"clause_ai_failures": 3}},
+    "manufacturing_tools:production_tools",
+    "manufacturing_tools:quality_tools"
+  ],
+  "_comment": "pilot environment: the clause-checking model times out on its first 3 calls"
+}

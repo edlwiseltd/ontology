@@ -1,0 +1,15 @@
+.git
+.github
+.claude
+.mypy_cache
+.coverage
+**/__pycache__
+**/*.db
+**/*.db-wal
+**/*.db-shm
+tests
+examples
+docs
+deploy
+video-skills.md
+!deploy/image-constraints.txt

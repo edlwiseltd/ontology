@@ -1,0 +1,138 @@
+{
+  "name": "customer",
+  "version": "1.1.0",
+  "description": "CustomerOntology: identity, KYC and due diligence",
+  "entities": {
+    "Customer": {
+      "description": "The organisation being onboarded",
+      "states": [
+        "prospect",
+        "verified",
+        "active"
+      ],
+      "initial": "prospect",
+      "attributes": {
+        "name": "string",
+        "industry": "string",
+        "tax_id": {
+          "type": "string",
+          "sensitivity": "pii"
+        },
+        "risk_level": "string",
+        "sanctions_hit": "boolean"
+      }
+    },
+    "Contact": {
+      "description": "Authorised signatory of the customer",
+      "states": [
+        "unverified",
+        "verified"
+      ],
+      "initial": "unverified",
+      "attributes": {
+        "name": "string",
+        "email": {
+          "type": "string",
+          "sensitivity": "pii"
+        },
+        "title": "string"
+      }
+    }
+  },
+  "actions": {
+    "verify_identity": {
+      "description": "Run KYC: verify the customer's identity and screen against sanctions lists",
+      "capability": "kyc.verify",
+      "requires": [
+        "Customer.status == 'prospect'"
+      ],
+      "reads": [
+        "Customer.name",
+        "Customer.industry",
+        "Customer.tax_id"
+      ],
+      "writes": [
+        "Customer.risk_level",
+        "Customer.sanctions_hit"
+      ],
+      "effects": {
+        "Customer": {
+          "status": "verified"
+        }
+      }
+    },
+    "enhanced_due_diligence": {
+      "description": "Enhanced due diligence (beneficial owners, PEP screening) for regulated customers",
+      "capability": "kyc.enhanced_due_diligence",
+      "requires": [
+        "Customer.status == 'verified'",
+        "Customer.risk_level != 'high'"
+      ],
+      "reads": [
+        "Customer.name",
+        "Customer.tax_id"
+      ],
+      "outcomes": {
+        "cleared": {
+          "effects": {}
+        },
+        "flagged": {
+          "effects": {
+            "Customer": {
+              "risk_level": "high"
+            }
+          }
+        }
+      },
+      "cost": 2
+    },
+    "verify_signatory": {
+      "description": "Verify that the contact is an authorised signatory of the customer",
+      "capability": "kyc.signatory",
+      "requires": [
+        "Customer.status == 'verified'",
+        "Contact.status == 'unverified'"
+      ],
+      "reads": [
+        "Customer.name",
+        "Contact.name",
+        "Contact.email"
+      ],
+      "effects": {
+        "Contact": {
+          "status": "verified"
+        }
+      }
+    }
+  },
+  "rules": [
+    {
+      "id": "R-PII-001",
+      "type": "data_access",
+      "description": "Tax identifiers are restricted to KYC and compliance roles",
+      "field": "Customer.tax_id",
+      "roles": [
+        "kyc",
+        "compliance"
+      ]
+    },
+    {
+      "id": "R-PII-002",
+      "type": "data_access",
+      "description": "Contact details are restricted to sales and KYC roles",
+      "field": "Contact.email",
+      "roles": [
+        "sales",
+        "kyc"
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "from": "Customer",
+      "to": "Contact",
+      "type": "hasSignatory",
+      "cardinality": "1..*"
+    }
+  ]
+}

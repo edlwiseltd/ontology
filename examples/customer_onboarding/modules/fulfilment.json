@@ -1,0 +1,123 @@
+{
+  "name": "fulfilment",
+  "version": "1.1.0",
+  "description": "FulfilmentOntology: billing, first order and activation",
+  "imports": [
+    "contracting.json"
+  ],
+  "entities": {
+    "BillingAccount": {
+      "states": [
+        "none",
+        "configured"
+      ],
+      "initial": "none",
+      "attributes": {
+        "method": "string"
+      }
+    },
+    "Order": {
+      "states": [
+        "none",
+        "placed"
+      ],
+      "initial": "none",
+      "attributes": {
+        "sku": "string"
+      }
+    }
+  },
+  "relationships": [
+    {
+      "from": "Contract",
+      "to": "Order",
+      "type": "governs",
+      "cardinality": "1..*"
+    },
+    {
+      "from": "Customer",
+      "to": "BillingAccount",
+      "type": "billed_through",
+      "cardinality": "1"
+    }
+  ],
+  "actions": {
+    "setup_billing": {
+      "description": "Create the customer's billing account",
+      "capability": "billing.setup",
+      "requires": [
+        "Contract.status == 'signed'",
+        "BillingAccount.status == 'none'"
+      ],
+      "reads": [
+        "Customer.name",
+        "BillingAccount.method"
+      ],
+      "effects": {
+        "BillingAccount": {
+          "status": "configured"
+        }
+      }
+    },
+    "place_order": {
+      "description": "Place the initial order in the ERP",
+      "capability": "erp.order",
+      "requires": [
+        "Contract.status == 'signed'",
+        "BillingAccount.status == 'configured'",
+        "Order.status == 'none'"
+      ],
+      "reads": [
+        "Customer.name",
+        "Order.sku"
+      ],
+      "effects": {
+        "Order": {
+          "status": "placed"
+        }
+      }
+    },
+    "activate_customer": {
+      "description": "Activate the customer account in the CRM",
+      "capability": "crm.activate",
+      "requires": [
+        "Customer.status == 'verified'",
+        "Order.status == 'placed'"
+      ],
+      "reads": [
+        "Customer.name"
+      ],
+      "effects": {
+        "Customer": {
+          "status": "active"
+        }
+      }
+    }
+  },
+  "rules": [
+    {
+      "id": "R-KYC-002",
+      "type": "mandatory_step",
+      "description": "No customer is activated without completed identity verification",
+      "step": "verify_identity",
+      "before": "activate_customer"
+    },
+    {
+      "id": "R-OPS-001",
+      "type": "action_access",
+      "description": "Only sales and operations agents may activate customer accounts",
+      "action": "activate_customer",
+      "roles": [
+        "sales",
+        "operations"
+      ]
+    },
+    {
+      "id": "R-RISK-001",
+      "type": "prohibition",
+      "description": "No orders for customers rated high risk",
+      "when": "Customer.risk_level == 'high'",
+      "action": "place_order"
+    }
+  ]
+}

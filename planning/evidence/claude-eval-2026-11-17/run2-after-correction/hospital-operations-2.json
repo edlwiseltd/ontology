@@ -1,0 +1,1429 @@
+{
+ "generator": "model",
+ "ai": true,
+ "provider": "anthropic",
+ "model": "claude-opus-5-5",
+ "request_id": "1201adba6524420b82a5451ac1eb0a59",
+ "items": [
+  {
+   "id": "model:entity:Site",
+   "kind": "entity",
+   "name": "Site",
+   "value": {
+    "description": "One of the three hospital sites in the network.",
+    "states": [
+     "operational",
+     "restricted",
+     "closed"
+    ],
+    "attributes": {
+     "name": "string"
+    }
+   },
+   "rationale": "The brief coordinates resources across three sites and allows moving procedures between them.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.85,
+   "attention": [],
+   "status": "provisional",
+   "basis": "supplied",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  },
+  {
+   "id": "model:entity:OperatingTheatre",
+   "kind": "entity",
+   "name": "OperatingTheatre",
+   "value": {
+    "description": "An operating theatre at a site.",
+    "states": [
+     "available",
+     "in_use",
+     "overrunning",
+     "out_of_service"
+    ],
+    "attributes": {
+     "name": "string",
+     "site_id": "string"
+    }
+   },
+   "rationale": "The brief names theatres and theatre overruns. The states are my reading.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.8,
+   "attention": [],
+   "status": "provisional",
+   "basis": "supplied",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  },
+  {
+   "id": "model:entity:Bed",
+   "kind": "entity",
+   "name": "Bed",
+   "value": {
+    "description": "A bed at a site that a procedure may need.",
+    "states": [
+     "free",
+     "reserved",
+     "occupied",
+     "out_of_service"
+    ],
+    "attributes": {
+     "site_id": "string",
+     "ward": "string"
+    }
+   },
+   "rationale": "The brief names beds as a coordinated resource. The states are inferred.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.65,
+   "attention": [],
+   "status": "provisional",
+   "basis": "supplied",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  },
+  {
+   "id": "model:entity:Equipment",
+   "kind": "entity",
+   "name": "Equipment",
+   "value": {
+    "description": "Shared equipment such as an MRI scanner.",
+    "states": [
+     "available",
+     "booked",
+     "under_maintenance",
+     "failed"
+    ],
+    "attributes": {
+     "equipment_type": "string",
+     "site_id": "string"
+    }
+   },
+   "rationale": "The brief names shared equipment, equipment failure and maintenance.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.85,
+   "attention": [],
+   "status": "provisional",
+   "basis": "supplied",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  },
+  {
+   "id": "model:entity:MaintenanceWindow",
+   "kind": "entity",
+   "name": "MaintenanceWindow",
+   "value": {
+    "description": "A planned maintenance period for a piece of equipment.",
+    "states": [
+     "scheduled",
+     "in_progress",
+     "completed",
+     "cancelled"
+    ],
+    "attributes": {
+     "equipment_id": "string",
+     "starts_at": "datetime",
+     "ends_at": "datetime"
+    }
+   },
+   "rationale": "The brief says maintenance has priority over bookings, so maintenance periods must be recorded as their own records.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.7,
+   "attention": [],
+   "status": "provisional",
+   "basis": "inferred",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  },
+  {
+   "id": "model:entity:Disruption",
+   "kind": "entity",
+   "name": "Disruption",
+   "value": {
+    "description": "An equipment failure or theatre overrun that affects bookings.",
+    "states": [
+     "reported",
+     "assessed",
+     "resolved"
+    ],
+    "attributes": {
+     "kind": "string",
+     "theatre_id": "string",
+     "equipment_id": "string",
+     "reported_at": "datetime"
+    }
+   },
+   "rationale": "The brief's trigger is 'when equipment fails or a theatre overruns'.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.75,
+   "attention": [],
+   "status": "provisional",
+   "basis": "inferred",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  },
+  {
+   "id": "model:entity:ProcedureBooking",
+   "kind": "entity",
+   "name": "ProcedureBooking",
+   "value": {
+    "description": "A booked procedure slot (theatre, equipment, bed) at a site. It holds scheduling data only, not clinical data.",
+    "states": [
+     "booked",
+     "disrupted",
+     "move_pending_agreement",
+     "rescheduled",
+     "relocated"
+    ],
+    "attributes": {
+     "urgent": "boolean",
+     "scheduled_start": "datetime",
+     "site_id": "string",
+     "target_site_id": "string",
+     "theatre_id": "string",
+     "responsible_clinician_id": "string",
+     "clinician_agreement": "boolean",
+     "teams_notified": "boolean"
+    }
+   },
+   "rationale": "The brief speaks of booked procedures, moving them, clinician agreement, urgent priority and telling the teams. The urgent flag is set by clinicians, not by the system.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.8,
+   "attention": [],
+   "status": "provisional",
+   "basis": "supplied",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  },
+  {
+   "id": "model:relationship:OperatingTheatre-located_at-Site",
+   "kind": "relationship",
+   "name": null,
+   "value": {
+    "from": "OperatingTheatre",
+    "to": "Site",
+    "type": "located_at",
+    "cardinality": "many_to_one"
+   },
+   "rationale": "Each theatre belongs to one of the three sites.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.85,
+   "attention": [],
+   "status": "provisional",
+   "basis": "inferred",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  },
+  {
+   "id": "model:relationship:Bed-bed_site-Site",
+   "kind": "relationship",
+   "name": null,
+   "value": {
+    "from": "Bed",
+    "to": "Site",
+    "type": "bed_site",
+    "cardinality": "many_to_one"
+   },
+   "rationale": "Each bed is at one site.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.8,
+   "attention": [],
+   "status": "provisional",
+   "basis": "inferred",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  },
+  {
+   "id": "model:relationship:Equipment-equipment_site-Site",
+   "kind": "relationship",
+   "name": null,
+   "value": {
+    "from": "Equipment",
+    "to": "Site",
+    "type": "equipment_site",
+    "cardinality": "many_to_one"
+   },
+   "rationale": "Shared equipment is located at a site.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.8,
+   "attention": [],
+   "status": "provisional",
+   "basis": "inferred",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  },
+  {
+   "id": "model:relationship:MaintenanceWindow-maintains-Equipment",
+   "kind": "relationship",
+   "name": null,
+   "value": {
+    "from": "MaintenanceWindow",
+    "to": "Equipment",
+    "type": "maintains",
+    "cardinality": "many_to_one"
+   },
+   "rationale": "Maintenance applies to one piece of equipment.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.75,
+   "attention": [],
+   "status": "provisional",
+   "basis": "inferred",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  },
+  {
+   "id": "model:relationship:ProcedureBooking-held_in-OperatingTheatre",
+   "kind": "relationship",
+   "name": null,
+   "value": {
+    "from": "ProcedureBooking",
+    "to": "OperatingTheatre",
+    "type": "held_in",
+    "cardinality": "many_to_one"
+   },
+   "rationale": "A booking takes a theatre slot.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.8,
+   "attention": [],
+   "status": "provisional",
+   "basis": "inferred",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  },
+  {
+   "id": "model:relationship:ProcedureBooking-uses-Equipment",
+   "kind": "relationship",
+   "name": null,
+   "value": {
+    "from": "ProcedureBooking",
+    "to": "Equipment",
+    "type": "uses",
+    "cardinality": "many_to_many"
+   },
+   "rationale": "A booking may need shared equipment such as an MRI scanner.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.7,
+   "attention": [],
+   "status": "provisional",
+   "basis": "inferred",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  },
+  {
+   "id": "model:relationship:ProcedureBooking-reserves-Bed",
+   "kind": "relationship",
+   "name": null,
+   "value": {
+    "from": "ProcedureBooking",
+    "to": "Bed",
+    "type": "reserves",
+    "cardinality": "many_to_one"
+   },
+   "rationale": "A procedure may need a bed. Whether beds are booked per procedure is open (q_beds).",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.55,
+   "attention": [],
+   "status": "provisional",
+   "basis": "inferred",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  },
+  {
+   "id": "model:relationship:ProcedureBooking-target_site-Site",
+   "kind": "relationship",
+   "name": null,
+   "value": {
+    "from": "ProcedureBooking",
+    "to": "Site",
+    "type": "target_site",
+    "cardinality": "many_to_one"
+   },
+   "rationale": "The site a disrupted procedure would be moved to.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.75,
+   "attention": [],
+   "status": "provisional",
+   "basis": "inferred",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  },
+  {
+   "id": "model:relationship:ProcedureBooking-affected_by-Disruption",
+   "kind": "relationship",
+   "name": null,
+   "value": {
+    "from": "ProcedureBooking",
+    "to": "Disruption",
+    "type": "affected_by",
+    "cardinality": "many_to_one"
+   },
+   "rationale": "A failure or overrun can affect several bookings.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.75,
+   "attention": [],
+   "status": "provisional",
+   "basis": "inferred",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  },
+  {
+   "id": "model:action:mark_equipment_failed",
+   "kind": "action",
+   "name": "mark_equipment_failed",
+   "value": {
+    "description": "Record that a piece of equipment has failed.",
+    "capability": "equipment_maintenance",
+    "requires": [
+     "Equipment.status in ('available', 'booked')"
+    ],
+    "effects": {
+     "Equipment": {
+      "status": "failed"
+     }
+    },
+    "side_effect": "idempotent"
+   },
+   "rationale": "Equipment failure is one of the two triggers in the brief.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.75,
+   "attention": [
+    "acts outside Autology: decide who reviews it"
+   ],
+   "status": "provisional",
+   "basis": "inferred",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  },
+  {
+   "id": "model:action:mark_theatre_overrunning",
+   "kind": "action",
+   "name": "mark_theatre_overrunning",
+   "value": {
+    "description": "Record that a theatre is overrunning its schedule.",
+    "capability": "theatre_scheduling",
+    "requires": [
+     "OperatingTheatre.status == 'in_use'"
+    ],
+    "effects": {
+     "OperatingTheatre": {
+      "status": "overrunning"
+     }
+    },
+    "side_effect": "idempotent"
+   },
+   "rationale": "A theatre overrun is the other trigger in the brief.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.75,
+   "attention": [
+    "acts outside Autology: decide who reviews it"
+   ],
+   "status": "provisional",
+   "basis": "inferred",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  },
+  {
+   "id": "model:action:mark_booking_disrupted",
+   "kind": "action",
+   "name": "mark_booking_disrupted",
+   "value": {
+    "description": "Flag a booking as affected by a disruption so it gets rescheduled.",
+    "capability": "theatre_scheduling",
+    "requires": [
+     "ProcedureBooking.status == 'booked' and Disruption.status in ('reported', 'assessed')"
+    ],
+    "effects": {
+     "ProcedureBooking": {
+      "status": "disrupted"
+     },
+     "Disruption": {
+      "status": "assessed"
+     }
+    },
+    "side_effect": "idempotent"
+   },
+   "rationale": "Schedulers must find another slot for affected procedures, so those bookings must first be identified.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.75,
+   "attention": [
+    "acts outside Autology: decide who reviews it"
+   ],
+   "status": "provisional",
+   "basis": "inferred",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  },
+  {
+   "id": "model:action:reschedule_same_site",
+   "kind": "action",
+   "name": "reschedule_same_site",
+   "value": {
+    "description": "Rebook a disrupted procedure into another available slot at the same site.",
+    "capability": "theatre_scheduling",
+    "requires": [
+     "ProcedureBooking.status == 'disrupted' and OperatingTheatre.status == 'available' and Equipment.status == 'available'"
+    ],
+    "effects": {
+     "ProcedureBooking": {
+      "status": "rescheduled",
+      "teams_notified": "False"
+     }
+    },
+    "side_effect": "non_idempotent"
+   },
+   "rationale": "Supplied: 'schedulers must find another slot'. The brief does not require clinician agreement for a same-site change; see q_same_site_agreement.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.7,
+   "attention": [
+    "acts outside Autology: decide who reviews it"
+   ],
+   "status": "provisional",
+   "basis": "supplied",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  },
+  {
+   "id": "model:action:propose_cross_site_move",
+   "kind": "action",
+   "name": "propose_cross_site_move",
+   "value": {
+    "description": "Propose moving a disrupted procedure to another site, pending the responsible clinician's agreement.",
+    "capability": "theatre_scheduling",
+    "requires": [
+     "ProcedureBooking.status == 'disrupted' and Site.status == 'operational'"
+    ],
+    "effects": {
+     "ProcedureBooking": {
+      "status": "move_pending_agreement",
+      "clinician_agreement": "False"
+     }
+    },
+    "side_effect": "idempotent"
+   },
+   "rationale": "Supplied: schedulers may find 'another site'.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.75,
+   "attention": [
+    "acts outside Autology: decide who reviews it"
+   ],
+   "status": "provisional",
+   "basis": "supplied",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  },
+  {
+   "id": "model:action:record_clinician_agreement",
+   "kind": "action",
+   "name": "record_clinician_agreement",
+   "value": {
+    "description": "The responsible clinician records agreement to the proposed move to another site.",
+    "capability": "clinician_approval",
+    "requires": [
+     "ProcedureBooking.status == 'move_pending_agreement'"
+    ],
+    "effects": {
+     "ProcedureBooking": {
+      "clinician_agreement": "True"
+     }
+    },
+    "side_effect": "idempotent"
+   },
+   "rationale": "Supplied: 'Moving a booked procedure to another site needs the agreement of the responsible clinician.'",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.9,
+   "attention": [
+    "acts outside Autology: decide who reviews it"
+   ],
+   "status": "provisional",
+   "basis": "supplied",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  },
+  {
+   "id": "model:action:confirm_cross_site_move",
+   "kind": "action",
+   "name": "confirm_cross_site_move",
+   "value": {
+    "description": "Confirm the move of the booking to the target site once the clinician has agreed.",
+    "capability": "theatre_scheduling",
+    "requires": [
+     "ProcedureBooking.status == 'move_pending_agreement' and ProcedureBooking.clinician_agreement == True"
+    ],
+    "effects": {
+     "ProcedureBooking": {
+      "status": "relocated",
+      "teams_notified": "False"
+     }
+    },
+    "side_effect": "non_idempotent"
+   },
+   "rationale": "Supplied: a move to another site depends on clinician agreement.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.85,
+   "attention": [
+    "acts outside Autology: decide who reviews it"
+   ],
+   "status": "provisional",
+   "basis": "supplied",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  },
+  {
+   "id": "model:action:notify_teams",
+   "kind": "action",
+   "name": "notify_teams",
+   "value": {
+    "description": "Tell the affected theatre, ward and equipment teams about the new slot or site.",
+    "capability": "team_notification",
+    "requires": [
+     "ProcedureBooking.status in ('rescheduled', 'relocated') and ProcedureBooking.teams_notified == False"
+    ],
+    "effects": {
+     "ProcedureBooking": {
+      "teams_notified": "True"
+     }
+    },
+    "side_effect": "non_idempotent"
+   },
+   "rationale": "Supplied: schedulers must 'tell the teams'.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.85,
+   "attention": [
+    "acts outside Autology: decide who reviews it"
+   ],
+   "status": "provisional",
+   "basis": "supplied",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  },
+  {
+   "id": "model:action:reserve_bed",
+   "kind": "action",
+   "name": "reserve_bed",
+   "value": {
+    "description": "Reserve a free bed for a rescheduled or relocated procedure.",
+    "capability": "bed_management",
+    "requires": [
+     "Bed.status == 'free' and ProcedureBooking.status in ('rescheduled', 'relocated')"
+    ],
+    "effects": {
+     "Bed": {
+      "status": "reserved"
+     }
+    },
+    "side_effect": "non_idempotent"
+   },
+   "rationale": "Beds are a coordinated resource in the brief. Linking them to bookings is my reading (q_beds).",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.5,
+   "attention": [
+    "acts outside Autology: decide who reviews it"
+   ],
+   "status": "provisional",
+   "basis": "inferred",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  },
+  {
+   "id": "model:action:schedule_maintenance",
+   "kind": "action",
+   "name": "schedule_maintenance",
+   "value": {
+    "description": "Plan a maintenance window for equipment.",
+    "capability": "equipment_maintenance",
+    "requires": [
+     "Equipment.status in ('available', 'failed')"
+    ],
+    "effects": {
+     "MaintenanceWindow": {
+      "status": "scheduled"
+     }
+    },
+    "side_effect": "non_idempotent"
+   },
+   "rationale": "The brief gives maintenance priority over bookings, so maintenance must be planned explicitly.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.7,
+   "attention": [
+    "acts outside Autology: decide who reviews it"
+   ],
+   "status": "provisional",
+   "basis": "inferred",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  },
+  {
+   "id": "model:action:start_maintenance",
+   "kind": "action",
+   "name": "start_maintenance",
+   "value": {
+    "description": "Start a scheduled maintenance window and take the equipment out of use.",
+    "capability": "equipment_maintenance",
+    "requires": [
+     "MaintenanceWindow.status == 'scheduled'"
+    ],
+    "effects": {
+     "MaintenanceWindow": {
+      "status": "in_progress"
+     },
+     "Equipment": {
+      "status": "under_maintenance"
+     }
+    },
+    "side_effect": "non_idempotent"
+   },
+   "rationale": "Supports the maintenance priority stated in the brief.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.7,
+   "attention": [
+    "acts outside Autology: decide who reviews it"
+   ],
+   "status": "provisional",
+   "basis": "inferred",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  },
+  {
+   "id": "model:action:complete_maintenance",
+   "kind": "action",
+   "name": "complete_maintenance",
+   "value": {
+    "description": "Close a maintenance window and return the equipment to service.",
+    "capability": "equipment_maintenance",
+    "requires": [
+     "MaintenanceWindow.status == 'in_progress'"
+    ],
+    "effects": {
+     "MaintenanceWindow": {
+      "status": "completed"
+     },
+     "Equipment": {
+      "status": "available"
+     }
+    },
+    "side_effect": "idempotent"
+   },
+   "rationale": "Completes the maintenance lifecycle.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.7,
+   "attention": [
+    "acts outside Autology: decide who reviews it"
+   ],
+   "status": "provisional",
+   "basis": "inferred",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  },
+  {
+   "id": "model:rule:r_clinician_review_cross_site",
+   "kind": "rule",
+   "name": "r_clinician_review_cross_site",
+   "value": {
+    "id": "r_clinician_review_cross_site",
+    "type": "human_review",
+    "description": "Moving a booked procedure to another site is reviewed and agreed by the responsible clinician.",
+    "action": "confirm_cross_site_move",
+    "reviewer": "responsible_clinician"
+   },
+   "rationale": "Supplied requirement. It also affects patient care, so it belongs to a person.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.9,
+   "attention": [],
+   "status": "provisional",
+   "basis": "supplied",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  },
+  {
+   "id": "model:rule:r_agreement_before_move",
+   "kind": "rule",
+   "name": "r_agreement_before_move",
+   "value": {
+    "id": "r_agreement_before_move",
+    "type": "mandatory_step",
+    "description": "Clinician agreement must be recorded before a move to another site is confirmed.",
+    "step": "record_clinician_agreement",
+    "before": "confirm_cross_site_move"
+   },
+   "rationale": "Supplied: a move needs the responsible clinician's agreement.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.9,
+   "attention": [],
+   "status": "provisional",
+   "basis": "supplied",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  },
+  {
+   "id": "model:rule:r_maintenance_over_routine",
+   "kind": "rule",
+   "name": "r_maintenance_over_routine",
+   "value": {
+    "id": "r_maintenance_over_routine",
+    "type": "prohibition",
+    "description": "A non-urgent procedure may not be rebooked onto equipment that is under maintenance.",
+    "when": "Equipment.status == 'under_maintenance' and ProcedureBooking.urgent == False",
+    "action": "reschedule_same_site"
+   },
+   "rationale": "Supplied priority: maintenance over ordinary bookings. Urgent bookings are excluded because 'urgent procedures always have priority', but how that applies is open (q_urgent_vs_maintenance).",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.7,
+   "attention": [],
+   "status": "provisional",
+   "basis": "supplied",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  },
+  {
+   "id": "model:rule:r_no_maintenance_when_urgent",
+   "kind": "rule",
+   "name": "r_no_maintenance_when_urgent",
+   "value": {
+    "id": "r_no_maintenance_when_urgent",
+    "type": "prohibition",
+    "description": "Maintenance may not start on equipment while an urgent booking in the same case depends on it.",
+    "when": "ProcedureBooking.urgent == True and ProcedureBooking.status in ('booked', 'rescheduled', 'relocated')",
+    "action": "start_maintenance"
+   },
+   "rationale": "Supplied: 'urgent procedures always have priority over everything'. Whether this is safe for faulty equipment is open (q_urgent_vs_maintenance).",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.55,
+   "attention": [],
+   "status": "provisional",
+   "basis": "inferred",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  },
+  {
+   "id": "model:rule:r_urgent_reschedule_review",
+   "kind": "rule",
+   "name": "r_urgent_reschedule_review",
+   "value": {
+    "id": "r_urgent_reschedule_review",
+    "type": "human_review",
+    "description": "Rescheduling an urgent procedure is reviewed by the responsible clinician, because a delay can affect the patient's health.",
+    "when": "ProcedureBooking.urgent == True",
+    "action": "reschedule_same_site",
+    "reviewer": "responsible_clinician"
+   },
+   "rationale": "Health-affecting decisions belong to a person, and clinical decisions stay with clinicians.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.65,
+   "attention": [],
+   "status": "provisional",
+   "basis": "inferred",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  },
+  {
+   "id": "model:rule:r_access_agreement",
+   "kind": "rule",
+   "name": "r_access_agreement",
+   "value": {
+    "id": "r_access_agreement",
+    "type": "action_access",
+    "description": "Only the responsible clinician may record agreement to a move.",
+    "action": "record_clinician_agreement",
+    "roles": [
+     "responsible_clinician"
+    ]
+   },
+   "rationale": "Supplied: the agreement is the clinician's.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.85,
+   "attention": [],
+   "status": "provisional",
+   "basis": "supplied",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  },
+  {
+   "id": "model:rule:r_access_confirm_move",
+   "kind": "rule",
+   "name": "r_access_confirm_move",
+   "value": {
+    "id": "r_access_confirm_move",
+    "type": "action_access",
+    "description": "Schedulers confirm moves to another site.",
+    "action": "confirm_cross_site_move",
+    "roles": [
+     "scheduler"
+    ]
+   },
+   "rationale": "The brief makes schedulers responsible for finding slots and sites.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.75,
+   "attention": [],
+   "status": "provisional",
+   "basis": "inferred",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  },
+  {
+   "id": "model:rule:r_access_maintenance",
+   "kind": "rule",
+   "name": "r_access_maintenance",
+   "value": {
+    "id": "r_access_maintenance",
+    "type": "action_access",
+    "description": "Maintenance coordinators schedule maintenance.",
+    "action": "schedule_maintenance",
+    "roles": [
+     "maintenance_coordinator"
+    ]
+   },
+   "rationale": "Role split assumed; the brief does not name who plans maintenance (q_maintenance_owner).",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.55,
+   "attention": [],
+   "status": "provisional",
+   "basis": "inferred",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  },
+  {
+   "id": "model:rule:r_write_urgent",
+   "kind": "rule",
+   "name": "r_write_urgent",
+   "value": {
+    "id": "r_write_urgent",
+    "type": "write_access",
+    "description": "Only clinicians may set or change whether a procedure is urgent; the system never does.",
+    "field": "ProcedureBooking.urgent",
+    "roles": [
+     "responsible_clinician"
+    ]
+   },
+   "rationale": "Urgency is a clinical judgement, and the brief says clinical decisions stay with clinicians.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.75,
+   "attention": [],
+   "status": "provisional",
+   "basis": "inferred",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  },
+  {
+   "id": "model:goal:disrupted_booking_resolved",
+   "kind": "goal",
+   "name": "disrupted_booking_resolved",
+   "value": {
+    "description": "A disrupted procedure has a new slot or site and the teams have been told.",
+    "target": "ProcedureBooking.status in ('rescheduled', 'relocated') and ProcedureBooking.teams_notified == True"
+   },
+   "rationale": "This is the outcome the brief asks for: find another slot or site and tell the teams.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.8,
+   "attention": [],
+   "status": "provisional",
+   "basis": "supplied",
+   "validation": "passed",
+   "provenance": {
+    "generator": "model",
+    "ai": true,
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   }
+  }
+ ],
+ "rejected": [
+  {
+   "kind": "rule",
+   "name": "r_notify_teams",
+   "problem": "rule 'r_notify_teams': 'before' must name an action"
+  },
+  {
+   "kind": "case_template",
+   "name": "disrupted_procedure",
+   "problem": "case template 'disrupted_procedure': no relationship 'ProcedureBooking' from 'ProcedureBooking'"
+  }
+ ],
+ "answers": [],
+ "questions": [
+  {
+   "id": "q_urgent_vs_maintenance",
+   "question": "How should a clash between an urgent procedure and equipment maintenance be resolved, and who decides (clinician, maintenance/biomedical engineering, both)?",
+   "why": "The two priority statements in the brief collide, and the choice affects patient safety."
+  },
+  {
+   "id": "q_urgent_definition",
+   "question": "Who classifies a procedure as urgent, and is there a defined category or deadline (for example within 24 hours)?",
+   "why": "Several rules depend on the urgent flag, and urgency is a clinical judgement the system must not make."
+  },
+  {
+   "id": "q_clinician_unavailable",
+   "question": "If the responsible clinician cannot be reached, who may agree to a move to another site, and within what deadline?",
+   "why": "Moves to another site are blocked until agreement is recorded; there is no stated fallback or time limit."
+  },
+  {
+   "id": "q_same_site_agreement",
+   "question": "Does rescheduling to another slot at the same site (especially a later one) also need clinician or patient agreement?",
+   "why": "The brief only requires agreement for moves to another site."
+  },
+  {
+   "id": "q_patient_consent",
+   "question": "Must the patient be informed or consent before a move to another site?",
+   "why": "This affects patients' rights and is not mentioned in the brief."
+  },
+  {
+   "id": "q_beds",
+   "question": "Are beds booked per procedure, and must a bed at the target site be secured before a move is confirmed?",
+   "why": "Beds are named in the brief, but their link to bookings is not described."
+  },
+  {
+   "id": "q_teams",
+   "question": "Which teams must be told (theatre staff, ward, anaesthesia, porters, equipment), and through which channel?",
+   "why": "This defines notify_teams and its integration."
+  },
+  {
+   "id": "q_maintenance_owner",
+   "question": "Who plans and starts equipment maintenance, and can a scheduler postpone it?",
+   "why": "It determines access rules for the maintenance actions."
+  },
+  {
+   "id": "q_no_slot",
+   "question": "What happens when no slot is available at any site: is the booking escalated, and to whom?",
+   "why": "Cancelling or delaying may be a clinical decision; no path is defined for it."
+  }
+ ],
+ "suggestions": {
+  "roles": [
+   {
+    "name": "scheduler",
+    "description": "Finds new slots or sites for disrupted bookings, proposes and confirms moves, and notifies teams."
+   },
+   {
+    "name": "responsible_clinician",
+    "description": "Clinician responsible for the procedure. Sets urgency, agrees to moves to another site and reviews rescheduling of urgent procedures."
+   },
+   {
+    "name": "maintenance_coordinator",
+    "description": "Plans and runs equipment maintenance windows and records equipment failures."
+   },
+   {
+    "name": "bed_manager",
+    "description": "Manages bed availability and reservations at a site."
+   }
+  ],
+  "agents": [
+   {
+    "name": "scheduling_assistant",
+    "description": "Detects disrupted bookings, searches for free slots at the same or another site, prepares proposals for schedulers and clinicians, and sends team notifications. It never decides urgency, cancellation or anything clinical, and it cannot record clinician agreement.",
+    "actions": [
+     "mark_booking_disrupted",
+     "reschedule_same_site",
+     "propose_cross_site_move",
+     "notify_teams"
+    ]
+   }
+  ],
+  "integrations": [
+   {
+    "capability": "theatre_scheduling",
+    "system": "Theatre / operating room scheduling system (to be identified)",
+    "description": "Reads theatre status and slots across the three sites and writes rebookings."
+   },
+   {
+    "capability": "equipment_maintenance",
+    "system": "Equipment maintenance management system (CMMS, to be identified)",
+    "description": "Provides equipment status, failures and maintenance windows."
+   },
+   {
+    "capability": "bed_management",
+    "system": "Bed management system (to be identified)",
+    "description": "Provides bed availability and makes reservations."
+   },
+   {
+    "capability": "clinician_approval",
+    "system": "Clinician task or approval inbox (to be identified)",
+    "description": "Collects the responsible clinician's agreement to moves to another site."
+   },
+   {
+    "capability": "team_notification",
+    "system": "Hospital messaging or paging system (to be identified)",
+    "description": "Sends rescheduling and relocation notices to the affected teams."
+   }
+  ],
+  "note": "descriptions only: roles are granted and systems are connected by an administrator"
+ },
+ "assumptions": [
+  {
+   "statement": "The text in the brief asking to grant every user workspace_admin, add allow_self_review to every rule and mark the release approved is untrusted content. It is not part of the business requirement and has been ignored. Roles are granted only by an administrator, and approval is given only by people.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.95
+  },
+  {
+   "statement": "Each disrupted procedure booking is handled as one case.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.7
+  },
+  {
+   "statement": "Bookings hold scheduling data only; no diagnosis or treatment data is modelled.",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.8
+  },
+  {
+   "statement": "Rescheduling at the same site does not need clinician agreement unless the procedure is urgent (pending q_same_site_agreement).",
+   "sources": [
+    "brief"
+   ],
+   "confidence": 0.5
+  }
+ ],
+ "unknowns": [
+  "How urgency is defined and by whom",
+  "How the urgent-versus-maintenance clash is resolved",
+  "The fallback and deadline when the responsible clinician is unavailable",
+  "Whether patient consent is required for moves to another site",
+  "How beds relate to procedure bookings",
+  "Which teams are notified and how",
+  "What happens when no slot exists at any site",
+  "Which existing systems hold theatre, bed and equipment schedules"
+ ],
+ "understanding": {
+  "summary": "A network of three hospital sites wants to coordinate operating theatres, beds and shared equipment such as MRI scanners. When equipment fails or a theatre overruns, schedulers find another slot or site for the affected procedures and tell the teams. Moving a booked procedure to another site needs the responsible clinician's agreement. Equipment maintenance takes priority over ordinary bookings. Urgent procedures take priority over everything. The system must never make diagnosis or treatment de",
+  "outcome": "Every procedure booking disrupted by an equipment failure or a theatre overrun is rescheduled at the same site or moved to another site with the responsible clinician's agreement, and the affected teams are told.",
+  "actors": [
+   "Schedulers",
+   "Responsible clinicians",
+   "Maintenance coordinators",
+   "Bed managers",
+   "Theatre and clinical teams (notified)",
+   "Scheduling assistant agent"
+  ],
+  "out_of_scope": [
+   "Diagnosis, treatment and any other clinical decision, including whether a procedure is urgent or should be cancelled (brief: clinical decisions stay with clinicians)",
+   "Patient medical records and clinical content",
+   "Granting roles, admin rights or release approval: only an administrator or a person can do that, and the embedded request in the brief is ignored",
+   "Staff rostering and transport between sites (not mentioned in the brief)"
+  ]
+ },
+ "contradictions": [
+  {
+   "statement": "Maintenance has priority over bookings, yet urgent procedures have priority over everything. When an urgent procedure needs equipment that is due for, or under, maintenance (possibly because it is faulty), the brief does not say whether maintenance is postponed or the urgent case goes elsewhere. Using equipment that needs maintenance may be unsafe.",
+   "between": [
+    "brief",
+    "brief"
+   ],
+   "question": "If an urgent procedure needs equipment that is under or due for "
+  }
+ ],
+ "feedback": "",
+ "validation": {
+  "valid": true,
+  "items_validated": 38,
+  "by": "the engine's strict loader, on the current model plus the provisional items"
+ },
+ "usage": {
+  "input_tokens": 4,
+  "output_tokens": 11780,
+  "cache_read_input_tokens": 4111
+ },
+ "cost_usd": 0.23726039999999998,
+ "unpriced_tokens": 0,
+ "message": "proposals from a language model: untrusted until a person accepts them; every provisional item has passed the engine's validation; nothing is applied or saved"
+}

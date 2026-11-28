@@ -1,0 +1,3122 @@
+[
+ {
+  "case_id": "ONB-000",
+  "case": {
+   "Customer": {
+    "name": "Customer 000",
+    "industry": "Manufacturing",
+    "tax_id": "TX-00000"
+   },
+   "Contact": {
+    "name": "Signatory 000",
+    "email": "signatory000@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 180000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-001",
+  "case": {
+   "Customer": {
+    "name": "Customer 001",
+    "industry": "Retail",
+    "tax_id": "TX-00001"
+   },
+   "Contact": {
+    "name": "Signatory 001",
+    "email": "signatory001@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 180000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-002",
+  "case": {
+   "Customer": {
+    "name": "Customer 002",
+    "industry": "Retail",
+    "tax_id": "TX-00002"
+   },
+   "Contact": {
+    "name": "Signatory 002",
+    "email": "signatory002@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 24000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-003",
+  "case": {
+   "Customer": {
+    "name": "Customer 003",
+    "industry": "Manufacturing",
+    "tax_id": "TX-00003"
+   },
+   "Contact": {
+    "name": "Signatory 003",
+    "email": "signatory003@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 180000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-004",
+  "case": {
+   "Customer": {
+    "name": "Customer 004",
+    "industry": "Manufacturing",
+    "tax_id": "TX-00004"
+   },
+   "Contact": {
+    "name": "Signatory 004",
+    "email": "signatory004@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 24000,
+    "nonstandard_terms": true,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-005",
+  "case": {
+   "Customer": {
+    "name": "Customer 005",
+    "industry": "Retail",
+    "tax_id": "TX-00005"
+   },
+   "Contact": {
+    "name": "Signatory 005",
+    "email": "signatory005@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 320000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-006",
+  "case": {
+   "Customer": {
+    "name": "Customer 006",
+    "industry": "Manufacturing",
+    "tax_id": "TX-00006"
+   },
+   "Contact": {
+    "name": "Signatory 006",
+    "email": "signatory006@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 320000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-007",
+  "case": {
+   "Customer": {
+    "name": "Customer 007",
+    "industry": "Retail",
+    "tax_id": "TX-00007"
+   },
+   "Contact": {
+    "name": "Signatory 007",
+    "email": "signatory007@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 640000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-008",
+  "case": {
+   "Customer": {
+    "name": "Customer 008",
+    "industry": "Financial Services",
+    "tax_id": "TX-00008"
+   },
+   "Contact": {
+    "name": "Signatory 008",
+    "email": "signatory008@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 640000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-009",
+  "case": {
+   "Customer": {
+    "name": "Customer 009",
+    "industry": "Retail",
+    "tax_id": "TX-00009"
+   },
+   "Contact": {
+    "name": "Signatory 009",
+    "email": "signatory009@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 24000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-010",
+  "case": {
+   "Customer": {
+    "name": "Shady Holdings Ltd",
+    "industry": "Retail",
+    "tax_id": "TX-00010"
+   },
+   "Contact": {
+    "name": "Signatory 010",
+    "email": "signatory010@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 640000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-011",
+  "case": {
+   "Customer": {
+    "name": "Customer 011",
+    "industry": "Financial Services",
+    "tax_id": "TX-00011-PEP"
+   },
+   "Contact": {
+    "name": "Signatory 011",
+    "email": "signatory011@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 640000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-012",
+  "case": {
+   "Customer": {
+    "name": "Customer 012",
+    "industry": "Technology",
+    "tax_id": "TX-00012"
+   },
+   "Contact": {
+    "name": "Signatory 012",
+    "email": "signatory012@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 24000,
+    "nonstandard_terms": true,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-013",
+  "case": {
+   "Customer": {
+    "name": "Customer 013",
+    "industry": "Manufacturing",
+    "tax_id": "TX-00013"
+   },
+   "Contact": {
+    "name": "Signatory 013",
+    "email": "signatory013@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 48000,
+    "nonstandard_terms": true,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-014",
+  "case": {
+   "Customer": {
+    "name": "Customer 014",
+    "industry": "Retail",
+    "tax_id": "TX-00014"
+   },
+   "Contact": {
+    "name": "Signatory 014",
+    "email": "signatory014@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 48000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-015",
+  "case": {
+   "Customer": {
+    "name": "Customer 015",
+    "industry": "Manufacturing",
+    "tax_id": "TX-00015"
+   },
+   "Contact": {
+    "name": "Signatory 015",
+    "email": "signatory015@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 48000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-016",
+  "case": {
+   "Customer": {
+    "name": "Customer 016",
+    "industry": "Retail",
+    "tax_id": "TX-00016"
+   },
+   "Contact": {
+    "name": "Signatory 016",
+    "email": "signatory016@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 24000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-017",
+  "case": {
+   "Customer": {
+    "name": "Customer 017",
+    "industry": "Financial Services",
+    "tax_id": "TX-00017"
+   },
+   "Contact": {
+    "name": "Signatory 017",
+    "email": "signatory017@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 24000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-018",
+  "case": {
+   "Customer": {
+    "name": "Customer 018",
+    "industry": "Manufacturing",
+    "tax_id": "TX-00018"
+   },
+   "Contact": {
+    "name": "Signatory 018",
+    "email": "signatory018@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 48000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-019",
+  "case": {
+   "Customer": {
+    "name": "Customer 019",
+    "industry": "Technology",
+    "tax_id": "TX-00019"
+   },
+   "Contact": {
+    "name": "Signatory 019",
+    "email": "signatory019@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 90000,
+    "nonstandard_terms": true,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-020",
+  "case": {
+   "Customer": {
+    "name": "Customer 020",
+    "industry": "Retail",
+    "tax_id": "TX-00020"
+   },
+   "Contact": {
+    "name": "Signatory 020",
+    "email": "signatory020@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 24000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-021",
+  "case": {
+   "Customer": {
+    "name": "Customer 021",
+    "industry": "Manufacturing",
+    "tax_id": "TX-00021"
+   },
+   "Contact": {
+    "name": "Signatory 021",
+    "email": "signatory021@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 180000,
+    "nonstandard_terms": true,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-022",
+  "case": {
+   "Customer": {
+    "name": "Customer 022",
+    "industry": "Retail",
+    "tax_id": "TX-00022"
+   },
+   "Contact": {
+    "name": "Signatory 022",
+    "email": "signatory022@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 90000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-023",
+  "case": {
+   "Customer": {
+    "name": "Customer 023",
+    "industry": "Retail",
+    "tax_id": "TX-00023"
+   },
+   "Contact": {
+    "name": "Signatory 023",
+    "email": "signatory023@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 640000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-024",
+  "case": {
+   "Customer": {
+    "name": "Customer 024",
+    "industry": "Technology",
+    "tax_id": "TX-00024"
+   },
+   "Contact": {
+    "name": "Signatory 024",
+    "email": "signatory024@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 180000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-025",
+  "case": {
+   "Customer": {
+    "name": "Customer 025",
+    "industry": "Retail",
+    "tax_id": "TX-00025"
+   },
+   "Contact": {
+    "name": "Signatory 025",
+    "email": "signatory025@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 2500000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-026",
+  "case": {
+   "Customer": {
+    "name": "Customer 026",
+    "industry": "Retail",
+    "tax_id": "TX-00026"
+   },
+   "Contact": {
+    "name": "Signatory 026",
+    "email": "signatory026@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 320000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-027",
+  "case": {
+   "Customer": {
+    "name": "Customer 027",
+    "industry": "Financial Services",
+    "tax_id": "TX-00027"
+   },
+   "Contact": {
+    "name": "Signatory 027",
+    "email": "signatory027@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 48000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-028",
+  "case": {
+   "Customer": {
+    "name": "Customer 028",
+    "industry": "Manufacturing",
+    "tax_id": "TX-00028"
+   },
+   "Contact": {
+    "name": "Signatory 028",
+    "email": "signatory028@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 48000,
+    "nonstandard_terms": true,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-029",
+  "case": {
+   "Customer": {
+    "name": "Customer 029",
+    "industry": "Manufacturing",
+    "tax_id": "TX-00029"
+   },
+   "Contact": {
+    "name": "Signatory 029",
+    "email": "signatory029@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 24000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-030",
+  "case": {
+   "Customer": {
+    "name": "Customer 030",
+    "industry": "Manufacturing",
+    "tax_id": "TX-00030"
+   },
+   "Contact": {
+    "name": "Signatory 030",
+    "email": "signatory030@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 90000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-031",
+  "case": {
+   "Customer": {
+    "name": "Customer 031",
+    "industry": "Retail",
+    "tax_id": "TX-00031"
+   },
+   "Contact": {
+    "name": "Signatory 031",
+    "email": "signatory031@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 320000,
+    "nonstandard_terms": true,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-032",
+  "case": {
+   "Customer": {
+    "name": "Customer 032",
+    "industry": "Retail",
+    "tax_id": "TX-00032"
+   },
+   "Contact": {
+    "name": "Signatory 032",
+    "email": "signatory032@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 2500000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-033",
+  "case": {
+   "Customer": {
+    "name": "Customer 033",
+    "industry": "Retail",
+    "tax_id": "TX-00033"
+   },
+   "Contact": {
+    "name": "Signatory 033",
+    "email": "signatory033@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 180000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-034",
+  "case": {
+   "Customer": {
+    "name": "Customer 034",
+    "industry": "Retail",
+    "tax_id": "TX-00034"
+   },
+   "Contact": {
+    "name": "Signatory 034",
+    "email": "signatory034@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 2500000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-035",
+  "case": {
+   "Customer": {
+    "name": "Customer 035",
+    "industry": "Financial Services",
+    "tax_id": "TX-00035"
+   },
+   "Contact": {
+    "name": "Signatory 035",
+    "email": "signatory035@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 640000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-036",
+  "case": {
+   "Customer": {
+    "name": "Customer 036",
+    "industry": "Retail",
+    "tax_id": "TX-00036"
+   },
+   "Contact": {
+    "name": "Signatory 036",
+    "email": "signatory036@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 24000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-037",
+  "case": {
+   "Customer": {
+    "name": "Shady Holdings Ltd",
+    "industry": "Technology",
+    "tax_id": "TX-00037"
+   },
+   "Contact": {
+    "name": "Signatory 037",
+    "email": "signatory037@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 320000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-038",
+  "case": {
+   "Customer": {
+    "name": "Customer 038",
+    "industry": "Retail",
+    "tax_id": "TX-00038"
+   },
+   "Contact": {
+    "name": "Signatory 038",
+    "email": "signatory038@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 1200000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-039",
+  "case": {
+   "Customer": {
+    "name": "Customer 039",
+    "industry": "Financial Services",
+    "tax_id": "TX-00039"
+   },
+   "Contact": {
+    "name": "Signatory 039",
+    "email": "signatory039@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 640000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-040",
+  "case": {
+   "Customer": {
+    "name": "Customer 040",
+    "industry": "Manufacturing",
+    "tax_id": "TX-00040"
+   },
+   "Contact": {
+    "name": "Signatory 040",
+    "email": "signatory040@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 320000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-041",
+  "case": {
+   "Customer": {
+    "name": "Customer 041",
+    "industry": "Retail",
+    "tax_id": "TX-00041"
+   },
+   "Contact": {
+    "name": "Signatory 041",
+    "email": "signatory041@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 180000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-042",
+  "case": {
+   "Customer": {
+    "name": "Customer 042",
+    "industry": "Retail",
+    "tax_id": "TX-00042"
+   },
+   "Contact": {
+    "name": "Signatory 042",
+    "email": "signatory042@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 640000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-043",
+  "case": {
+   "Customer": {
+    "name": "Customer 043",
+    "industry": "Retail",
+    "tax_id": "TX-00043"
+   },
+   "Contact": {
+    "name": "Signatory 043",
+    "email": "signatory043@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 640000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-044",
+  "case": {
+   "Customer": {
+    "name": "Customer 044",
+    "industry": "Technology",
+    "tax_id": "TX-00044"
+   },
+   "Contact": {
+    "name": "Signatory 044",
+    "email": "signatory044@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 180000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-045",
+  "case": {
+   "Customer": {
+    "name": "Customer 045",
+    "industry": "Manufacturing",
+    "tax_id": "TX-00045"
+   },
+   "Contact": {
+    "name": "Signatory 045",
+    "email": "signatory045@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 640000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-046",
+  "case": {
+   "Customer": {
+    "name": "Customer 046",
+    "industry": "Financial Services",
+    "tax_id": "TX-00046"
+   },
+   "Contact": {
+    "name": "Signatory 046",
+    "email": "signatory046@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 180000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-047",
+  "case": {
+   "Customer": {
+    "name": "Customer 047",
+    "industry": "Retail",
+    "tax_id": "TX-00047"
+   },
+   "Contact": {
+    "name": "Signatory 047",
+    "email": "signatory047@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 24000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-048",
+  "case": {
+   "Customer": {
+    "name": "Customer 048",
+    "industry": "Retail",
+    "tax_id": "TX-00048"
+   },
+   "Contact": {
+    "name": "Signatory 048",
+    "email": "signatory048@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 180000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-049",
+  "case": {
+   "Customer": {
+    "name": "Customer 049",
+    "industry": "Financial Services",
+    "tax_id": "TX-00049"
+   },
+   "Contact": {
+    "name": "Signatory 049",
+    "email": "signatory049@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 320000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-050",
+  "case": {
+   "Customer": {
+    "name": "Customer 050",
+    "industry": "Financial Services",
+    "tax_id": "TX-00050"
+   },
+   "Contact": {
+    "name": "Signatory 050",
+    "email": "signatory050@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 24000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-051",
+  "case": {
+   "Customer": {
+    "name": "Customer 051",
+    "industry": "Technology",
+    "tax_id": "TX-00051"
+   },
+   "Contact": {
+    "name": "Signatory 051",
+    "email": "signatory051@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 90000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-052",
+  "case": {
+   "Customer": {
+    "name": "Customer 052",
+    "industry": "Retail",
+    "tax_id": "TX-00052"
+   },
+   "Contact": {
+    "name": "Signatory 052",
+    "email": "signatory052@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 180000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-053",
+  "case": {
+   "Customer": {
+    "name": "Customer 053",
+    "industry": "Retail",
+    "tax_id": "TX-00053"
+   },
+   "Contact": {
+    "name": "Signatory 053",
+    "email": "signatory053@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 24000,
+    "nonstandard_terms": true,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-054",
+  "case": {
+   "Customer": {
+    "name": "Customer 054",
+    "industry": "Retail",
+    "tax_id": "TX-00054"
+   },
+   "Contact": {
+    "name": "Signatory 054",
+    "email": "signatory054@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 640000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-055",
+  "case": {
+   "Customer": {
+    "name": "Customer 055",
+    "industry": "Technology",
+    "tax_id": "TX-00055"
+   },
+   "Contact": {
+    "name": "Signatory 055",
+    "email": "signatory055@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 180000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-056",
+  "case": {
+   "Customer": {
+    "name": "Customer 056",
+    "industry": "Technology",
+    "tax_id": "TX-00056"
+   },
+   "Contact": {
+    "name": "Signatory 056",
+    "email": "signatory056@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 24000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-057",
+  "case": {
+   "Customer": {
+    "name": "Customer 057",
+    "industry": "Retail",
+    "tax_id": "TX-00057"
+   },
+   "Contact": {
+    "name": "Signatory 057",
+    "email": "signatory057@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 320000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-058",
+  "case": {
+   "Customer": {
+    "name": "Customer 058",
+    "industry": "Retail",
+    "tax_id": "TX-00058"
+   },
+   "Contact": {
+    "name": "Signatory 058",
+    "email": "signatory058@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 640000,
+    "nonstandard_terms": true,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-059",
+  "case": {
+   "Customer": {
+    "name": "Customer 059",
+    "industry": "Financial Services",
+    "tax_id": "TX-00059"
+   },
+   "Contact": {
+    "name": "Signatory 059",
+    "email": "signatory059@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 48000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-060",
+  "case": {
+   "Customer": {
+    "name": "Customer 060",
+    "industry": "Retail",
+    "tax_id": "TX-00060"
+   },
+   "Contact": {
+    "name": "Signatory 060",
+    "email": "signatory060@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 640000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-061",
+  "case": {
+   "Customer": {
+    "name": "Customer 061",
+    "industry": "Financial Services",
+    "tax_id": "TX-00061-PEP"
+   },
+   "Contact": {
+    "name": "Signatory 061",
+    "email": "signatory061@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 640000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-062",
+  "case": {
+   "Customer": {
+    "name": "Customer 062",
+    "industry": "Technology",
+    "tax_id": "TX-00062"
+   },
+   "Contact": {
+    "name": "Signatory 062",
+    "email": "signatory062@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 24000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-063",
+  "case": {
+   "Customer": {
+    "name": "Customer 063",
+    "industry": "Financial Services",
+    "tax_id": "TX-00063"
+   },
+   "Contact": {
+    "name": "Signatory 063",
+    "email": "signatory063@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 320000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-064",
+  "case": {
+   "Customer": {
+    "name": "Customer 064",
+    "industry": "Technology",
+    "tax_id": "TX-00064"
+   },
+   "Contact": {
+    "name": "Signatory 064",
+    "email": "signatory064@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 1200000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-065",
+  "case": {
+   "Customer": {
+    "name": "Customer 065",
+    "industry": "Manufacturing",
+    "tax_id": "TX-00065"
+   },
+   "Contact": {
+    "name": "Signatory 065",
+    "email": "signatory065@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 24000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-066",
+  "case": {
+   "Customer": {
+    "name": "Customer 066",
+    "industry": "Manufacturing",
+    "tax_id": "TX-00066"
+   },
+   "Contact": {
+    "name": "Signatory 066",
+    "email": "signatory066@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 2500000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-067",
+  "case": {
+   "Customer": {
+    "name": "Customer 067",
+    "industry": "Manufacturing",
+    "tax_id": "TX-00067"
+   },
+   "Contact": {
+    "name": "Signatory 067",
+    "email": "signatory067@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 640000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-068",
+  "case": {
+   "Customer": {
+    "name": "Customer 068",
+    "industry": "Manufacturing",
+    "tax_id": "TX-00068"
+   },
+   "Contact": {
+    "name": "Signatory 068",
+    "email": "signatory068@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 320000,
+    "nonstandard_terms": true,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-069",
+  "case": {
+   "Customer": {
+    "name": "Customer 069",
+    "industry": "Retail",
+    "tax_id": "TX-00069"
+   },
+   "Contact": {
+    "name": "Signatory 069",
+    "email": "signatory069@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 90000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-070",
+  "case": {
+   "Customer": {
+    "name": "Customer 070",
+    "industry": "Retail",
+    "tax_id": "TX-00070"
+   },
+   "Contact": {
+    "name": "Signatory 070",
+    "email": "signatory070@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 320000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-071",
+  "case": {
+   "Customer": {
+    "name": "Customer 071",
+    "industry": "Financial Services",
+    "tax_id": "TX-00071"
+   },
+   "Contact": {
+    "name": "Signatory 071",
+    "email": "signatory071@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 320000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-072",
+  "case": {
+   "Customer": {
+    "name": "Customer 072",
+    "industry": "Manufacturing",
+    "tax_id": "TX-00072"
+   },
+   "Contact": {
+    "name": "Signatory 072",
+    "email": "signatory072@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 48000,
+    "nonstandard_terms": true,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-073",
+  "case": {
+   "Customer": {
+    "name": "Customer 073",
+    "industry": "Retail",
+    "tax_id": "TX-00073"
+   },
+   "Contact": {
+    "name": "Signatory 073",
+    "email": "signatory073@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 320000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-074",
+  "case": {
+   "Customer": {
+    "name": "Customer 074",
+    "industry": "Manufacturing",
+    "tax_id": "TX-00074"
+   },
+   "Contact": {
+    "name": "Signatory 074",
+    "email": "signatory074@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 320000,
+    "nonstandard_terms": true,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-075",
+  "case": {
+   "Customer": {
+    "name": "Customer 075",
+    "industry": "Retail",
+    "tax_id": "TX-00075"
+   },
+   "Contact": {
+    "name": "Signatory 075",
+    "email": "signatory075@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 180000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-076",
+  "case": {
+   "Customer": {
+    "name": "Customer 076",
+    "industry": "Financial Services",
+    "tax_id": "TX-00076"
+   },
+   "Contact": {
+    "name": "Signatory 076",
+    "email": "signatory076@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 180000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-077",
+  "case": {
+   "Customer": {
+    "name": "Customer 077",
+    "industry": "Financial Services",
+    "tax_id": "TX-00077"
+   },
+   "Contact": {
+    "name": "Signatory 077",
+    "email": "signatory077@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 320000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-078",
+  "case": {
+   "Customer": {
+    "name": "Customer 078",
+    "industry": "Financial Services",
+    "tax_id": "TX-00078"
+   },
+   "Contact": {
+    "name": "Signatory 078",
+    "email": "signatory078@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 24000,
+    "nonstandard_terms": true,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-079",
+  "case": {
+   "Customer": {
+    "name": "Customer 079",
+    "industry": "Retail",
+    "tax_id": "TX-00079"
+   },
+   "Contact": {
+    "name": "Signatory 079",
+    "email": "signatory079@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 48000,
+    "nonstandard_terms": true,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-080",
+  "case": {
+   "Customer": {
+    "name": "Customer 080",
+    "industry": "Technology",
+    "tax_id": "TX-00080"
+   },
+   "Contact": {
+    "name": "Signatory 080",
+    "email": "signatory080@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 320000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-081",
+  "case": {
+   "Customer": {
+    "name": "Customer 081",
+    "industry": "Technology",
+    "tax_id": "TX-00081"
+   },
+   "Contact": {
+    "name": "Signatory 081",
+    "email": "signatory081@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 24000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-082",
+  "case": {
+   "Customer": {
+    "name": "Customer 082",
+    "industry": "Manufacturing",
+    "tax_id": "TX-00082"
+   },
+   "Contact": {
+    "name": "Signatory 082",
+    "email": "signatory082@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 48000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-083",
+  "case": {
+   "Customer": {
+    "name": "Customer 083",
+    "industry": "Retail",
+    "tax_id": "TX-00083"
+   },
+   "Contact": {
+    "name": "Signatory 083",
+    "email": "signatory083@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 320000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-084",
+  "case": {
+   "Customer": {
+    "name": "Customer 084",
+    "industry": "Retail",
+    "tax_id": "TX-00084"
+   },
+   "Contact": {
+    "name": "Signatory 084",
+    "email": "signatory084@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 90000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-085",
+  "case": {
+   "Customer": {
+    "name": "Customer 085",
+    "industry": "Retail",
+    "tax_id": "TX-00085"
+   },
+   "Contact": {
+    "name": "Signatory 085",
+    "email": "signatory085@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 48000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-086",
+  "case": {
+   "Customer": {
+    "name": "Customer 086",
+    "industry": "Retail",
+    "tax_id": "TX-00086"
+   },
+   "Contact": {
+    "name": "Signatory 086",
+    "email": "signatory086@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 48000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-087",
+  "case": {
+   "Customer": {
+    "name": "Customer 087",
+    "industry": "Retail",
+    "tax_id": "TX-00087"
+   },
+   "Contact": {
+    "name": "Signatory 087",
+    "email": "signatory087@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 180000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-088",
+  "case": {
+   "Customer": {
+    "name": "Customer 088",
+    "industry": "Retail",
+    "tax_id": "TX-00088"
+   },
+   "Contact": {
+    "name": "Signatory 088",
+    "email": "signatory088@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 24000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-089",
+  "case": {
+   "Customer": {
+    "name": "Customer 089",
+    "industry": "Retail",
+    "tax_id": "TX-00089"
+   },
+   "Contact": {
+    "name": "Signatory 089",
+    "email": "signatory089@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 90000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-090",
+  "case": {
+   "Customer": {
+    "name": "Customer 090",
+    "industry": "Technology",
+    "tax_id": "TX-00090"
+   },
+   "Contact": {
+    "name": "Signatory 090",
+    "email": "signatory090@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 640000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-091",
+  "case": {
+   "Customer": {
+    "name": "Customer 091",
+    "industry": "Manufacturing",
+    "tax_id": "TX-00091"
+   },
+   "Contact": {
+    "name": "Signatory 091",
+    "email": "signatory091@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 2500000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-092",
+  "case": {
+   "Customer": {
+    "name": "Customer 092",
+    "industry": "Retail",
+    "tax_id": "TX-00092"
+   },
+   "Contact": {
+    "name": "Signatory 092",
+    "email": "signatory092@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 90000,
+    "nonstandard_terms": true,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-093",
+  "case": {
+   "Customer": {
+    "name": "Customer 093",
+    "industry": "Retail",
+    "tax_id": "TX-00093"
+   },
+   "Contact": {
+    "name": "Signatory 093",
+    "email": "signatory093@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 180000,
+    "nonstandard_terms": true,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-094",
+  "case": {
+   "Customer": {
+    "name": "Customer 094",
+    "industry": "Retail",
+    "tax_id": "TX-00094"
+   },
+   "Contact": {
+    "name": "Signatory 094",
+    "email": "signatory094@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 90000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-095",
+  "case": {
+   "Customer": {
+    "name": "Customer 095",
+    "industry": "Retail",
+    "tax_id": "TX-00095"
+   },
+   "Contact": {
+    "name": "Signatory 095",
+    "email": "signatory095@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 48000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-096",
+  "case": {
+   "Customer": {
+    "name": "Customer 096",
+    "industry": "Technology",
+    "tax_id": "TX-00096"
+   },
+   "Contact": {
+    "name": "Signatory 096",
+    "email": "signatory096@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 48000,
+    "nonstandard_terms": true,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-097",
+  "case": {
+   "Customer": {
+    "name": "Customer 097",
+    "industry": "Technology",
+    "tax_id": "TX-00097"
+   },
+   "Contact": {
+    "name": "Signatory 097",
+    "email": "signatory097@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 24000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-098",
+  "case": {
+   "Customer": {
+    "name": "Customer 098",
+    "industry": "Financial Services",
+    "tax_id": "TX-00098"
+   },
+   "Contact": {
+    "name": "Signatory 098",
+    "email": "signatory098@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 180000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-099",
+  "case": {
+   "Customer": {
+    "name": "Customer 099",
+    "industry": "Retail",
+    "tax_id": "TX-00099"
+   },
+   "Contact": {
+    "name": "Signatory 099",
+    "email": "signatory099@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 90000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-100",
+  "case": {
+   "Customer": {
+    "name": "Customer 100",
+    "industry": "Technology",
+    "tax_id": "TX-00100"
+   },
+   "Contact": {
+    "name": "Signatory 100",
+    "email": "signatory100@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 180000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-101",
+  "case": {
+   "Customer": {
+    "name": "Customer 101",
+    "industry": "Manufacturing",
+    "tax_id": "TX-00101"
+   },
+   "Contact": {
+    "name": "Signatory 101",
+    "email": "signatory101@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 180000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-102",
+  "case": {
+   "Customer": {
+    "name": "Customer 102",
+    "industry": "Technology",
+    "tax_id": "TX-00102"
+   },
+   "Contact": {
+    "name": "Signatory 102",
+    "email": "signatory102@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 2500000,
+    "nonstandard_terms": true,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-103",
+  "case": {
+   "Customer": {
+    "name": "Customer 103",
+    "industry": "Financial Services",
+    "tax_id": "TX-00103"
+   },
+   "Contact": {
+    "name": "Signatory 103",
+    "email": "signatory103@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 320000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-104",
+  "case": {
+   "Customer": {
+    "name": "Customer 104",
+    "industry": "Retail",
+    "tax_id": "TX-00104"
+   },
+   "Contact": {
+    "name": "Signatory 104",
+    "email": "signatory104@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 180000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-105",
+  "case": {
+   "Customer": {
+    "name": "Customer 105",
+    "industry": "Retail",
+    "tax_id": "TX-00105"
+   },
+   "Contact": {
+    "name": "Signatory 105",
+    "email": "signatory105@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 640000,
+    "nonstandard_terms": true,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-106",
+  "case": {
+   "Customer": {
+    "name": "Customer 106",
+    "industry": "Retail",
+    "tax_id": "TX-00106"
+   },
+   "Contact": {
+    "name": "Signatory 106",
+    "email": "signatory106@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 24000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-107",
+  "case": {
+   "Customer": {
+    "name": "Customer 107",
+    "industry": "Retail",
+    "tax_id": "TX-00107"
+   },
+   "Contact": {
+    "name": "Signatory 107",
+    "email": "signatory107@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 24000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-108",
+  "case": {
+   "Customer": {
+    "name": "Customer 108",
+    "industry": "Retail",
+    "tax_id": "TX-00108"
+   },
+   "Contact": {
+    "name": "Signatory 108",
+    "email": "signatory108@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 90000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-109",
+  "case": {
+   "Customer": {
+    "name": "Customer 109",
+    "industry": "Manufacturing",
+    "tax_id": "TX-00109"
+   },
+   "Contact": {
+    "name": "Signatory 109",
+    "email": "signatory109@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 320000,
+    "nonstandard_terms": true,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-110",
+  "case": {
+   "Customer": {
+    "name": "Customer 110",
+    "industry": "Manufacturing",
+    "tax_id": "TX-00110"
+   },
+   "Contact": {
+    "name": "Signatory 110",
+    "email": "signatory110@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 320000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-111",
+  "case": {
+   "Customer": {
+    "name": "Customer 111",
+    "industry": "Retail",
+    "tax_id": "TX-00111"
+   },
+   "Contact": {
+    "name": "Signatory 111",
+    "email": "signatory111@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 48000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-112",
+  "case": {
+   "Customer": {
+    "name": "Customer 112",
+    "industry": "Financial Services",
+    "tax_id": "TX-00112"
+   },
+   "Contact": {
+    "name": "Signatory 112",
+    "email": "signatory112@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 320000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-113",
+  "case": {
+   "Customer": {
+    "name": "Customer 113",
+    "industry": "Manufacturing",
+    "tax_id": "TX-00113"
+   },
+   "Contact": {
+    "name": "Signatory 113",
+    "email": "signatory113@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 90000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-114",
+  "case": {
+   "Customer": {
+    "name": "Customer 114",
+    "industry": "Retail",
+    "tax_id": "TX-00114"
+   },
+   "Contact": {
+    "name": "Signatory 114",
+    "email": "signatory114@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 640000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-115",
+  "case": {
+   "Customer": {
+    "name": "Customer 115",
+    "industry": "Retail",
+    "tax_id": "TX-00115"
+   },
+   "Contact": {
+    "name": "Signatory 115",
+    "email": "signatory115@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 24000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-116",
+  "case": {
+   "Customer": {
+    "name": "Customer 116",
+    "industry": "Technology",
+    "tax_id": "TX-00116"
+   },
+   "Contact": {
+    "name": "Signatory 116",
+    "email": "signatory116@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 2500000,
+    "nonstandard_terms": true,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "invoice"
+   },
+   "Order": {
+    "sku": "PLAN-ENTERPRISE"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-117",
+  "case": {
+   "Customer": {
+    "name": "Customer 117",
+    "industry": "Financial Services",
+    "tax_id": "TX-00117"
+   },
+   "Contact": {
+    "name": "Signatory 117",
+    "email": "signatory117@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 24000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-118",
+  "case": {
+   "Customer": {
+    "name": "Customer 118",
+    "industry": "Retail",
+    "tax_id": "TX-00118"
+   },
+   "Contact": {
+    "name": "Signatory 118",
+    "email": "signatory118@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 24000,
+    "nonstandard_terms": false,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ },
+ {
+  "case_id": "ONB-119",
+  "case": {
+   "Customer": {
+    "name": "Customer 119",
+    "industry": "Technology",
+    "tax_id": "TX-00119"
+   },
+   "Contact": {
+    "name": "Signatory 119",
+    "email": "signatory119@example.com",
+    "title": "CFO"
+   },
+   "Contract": {
+    "value": 48000,
+    "nonstandard_terms": true,
+    "revision": 0
+   },
+   "BillingAccount": {
+    "method": "card"
+   },
+   "Order": {
+    "sku": "PLAN-STARTER"
+   }
+  }
+ }
+]

@@ -1,0 +1,13 @@
+== fallback payment provider after the primary timed out (primary had executed) ==
+  status: completed | path: ['assess_fraud:clear', 'approve_claim:done', 'pay_claim:done'] | step tool: ('pay_claim', 'bank_b', 'paid by B')
+  bank A calls: 1 | bank B calls: 1
+  tool events: [('tool.call', 'bank_a', 1), ('tool.error', 'bank_a', 1), ('tool.call', 'bank_b', 1)]
+== fallback_after=1: primary retried once before the fallback ==
+  status: completed | bank A calls: 2 | bank B calls: 1
+== timeout is per socket operation: a server trickling its reply ==
+  result: paid | configured timeout 1.0 s, elapsed 7.51 s
+== tool output validation ==
+  undeclared field: escalated | tool attempted to write undeclared field Payment.amount | Payment={'amount': None, 'reference': None, 'status': 'pending'}
+  status via updates: escalated | tool attempted to write undeclared field Claim.status | Payment={'amount': None, 'reference': None, 'status': 'pending'}
+  declared field, wrong type: completed | None | Payment={'amount': 2700, 'reference': 12345, 'status': 'sent'}
+  declared field, nested object: completed | None | Payment={'amount': 2700, 'reference': {'$set': 'x'}, 'status': 'sent'}

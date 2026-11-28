@@ -1,0 +1,28 @@
+{"case": "reclamations", "language": "fr", "synthetic": true,
+ "labelled_by": "the engineering team, while writing the document; not an independent expert",
+ "entities": [
+  {"name": "réclamation", "stated_in": "Une réclamation est une insatisfaction"},
+  {"name": "dossier de réclamation", "stated_in": "Un dossier de réclamation est"},
+  {"name": "avoir", "stated_in": "Un avoir est un document comptable"},
+  {"name": "commande", "stated_in": "concerne une seule commande"},
+  {"name": "client", "stated_in": "Chaque client possède"},
+  {"name": "pièce jointe", "stated_in": "plusieurs pièces jointes"},
+  {"name": "facture", "stated_in": "partie d'une facture"}],
+ "relations": [
+  {"from": "réclamation", "to": "commande", "type": "association", "stated_in": "Chaque réclamation concerne une seule commande"},
+  {"from": "client", "to": "commande", "type": "association", "stated_in": "Chaque client possède une ou plusieurs commandes"},
+  {"from": "réclamation", "to": "pièce jointe", "type": "association", "stated_in": "Une réclamation a plusieurs pièces jointes"},
+  {"from": "dossier de réclamation", "to": "réclamation", "type": "composition", "stated_in": "Un dossier de réclamation comprend"},
+  {"from": "avoir", "to": "facture", "type": "association", "stated_in": "annule tout ou partie d'une facture"}],
+ "states": {"réclamation": ["ouverte", "qualifiee", "en_traitement", "resolue", "rejetee"],
+            "commande": ["livree", "facturee", "annulee"]},
+ "rules": [
+  {"kind": "approval", "about": "avoir", "role": "responsable financier", "stated_in": "doit être approuvé par le responsable financier"},
+  {"kind": "access", "about": "réclamation", "role": "responsable qualité", "stated_in": "Seul le responsable qualité peut rejeter"},
+  {"kind": "prohibition", "about": "réclamation", "stated_in": "ne doit jamais être clôturée"}],
+ "roles": ["chargé de clientèle", "responsable qualité", "responsable financier"],
+ "references": ["ISO 10002"],
+ "merges": [],
+ "not_merges": [["réclamation", "dossier de réclamation"]],
+ "traps": ["'chargé de clientèle' is a role that the association pattern may read as a concept",
+           "'dossier de réclamation' contains the word 'réclamation' but is a different thing"]}

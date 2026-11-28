@@ -1,0 +1,17 @@
+  runs: completed awaiting_review | verify: True True
+  [restart with key 'other-key'] verify after restart (key=other-key): [False, False]
+     unverified_runs metric: 2
+     decide -> ApiError 500 the decision could not be saved (StoreError); the review is still open ve_run(result, run_id, agent_name, started_by)
+  File "/home/user/ontology/autology/store.py", line 247, in save_run
+    raise StoreError(f"run {run_id}: audit chain does not verify; refusing to store it")
+autology.store.StoreError: run c4c701ed0061: audit chain does not verify; refusing to store it
+  [restart with key 'k'] verify after restart (key=k): [True, True]
+     unverified_runs metric: 0
+     decide -> awaiting_review | esc: ('awaiting claims_manager review of pay_claim', 'claims_manager') 
+== tampering with the stored run record while paused ==
+  edit parked state (Claim.amount): decide -> escalated | ('stored run does not match its audit log: the case state differs from the state recorded when the run stopped', 'security') | verify: True
+  edit run.ontology_ref: decide -> ApiError 409 the run cannot continue: run was started on auto-insurance-claims@0.9; this agent uses auto-insurance-claims@1.0.0
+  edit run.failures/attempts: decide -> awaiting_review | ('awaiting claims_manager review of pay_claim', 'claims_manager') | verify: True
+  edit run.failures/attempts: decide -> ApiError 404 no review '6d99e006daeb'
+  edit pending_review.action -> pay_claim: decide -> awaiting_review | ('awaiting special_investigations review of approve_claim', 'special_investigations') | verify: True
+     second review (approve_claim) by ivan -> completed ['assess_fraud:suspicious', 'approve_claim:done', 'pay_claim:done'] | reviewers on steps: [('approve_claim', 'ivan'), ('pay_claim', 'ivan')]

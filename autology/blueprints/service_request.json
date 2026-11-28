@@ -1,0 +1,485 @@
+{
+ "id": "service-request",
+ "name": "Request, approval and fulfilment",
+ "description": "Industry-neutral template (synthetic, no customer data): somebody asks for something, it is reviewed, approved by a person above a threshold, fulfilled by a team, and closed after the requester was told.",
+ "keywords": [
+  "request",
+  "approv",
+  "manager",
+  "fulfil",
+  "service",
+  "team"
+ ],
+ "parameters": [
+  {
+   "id": "approval_threshold",
+   "type": "number",
+   "default": 1000,
+   "question": "From which amount must a person approve a request?",
+   "why": "Below it the agent may approve on its own; at or above it the request waits for a human reviewer"
+  },
+  {
+   "id": "approver_role",
+   "type": "name",
+   "default": "manager",
+   "question": "Which role approves requests at or above that amount?",
+   "why": "The review is addressed to a role that a named member must hold before a pilot"
+  },
+  {
+   "id": "handler_role",
+   "type": "name",
+   "default": "service_agent",
+   "question": "Which role handles and fulfils requests?",
+   "why": "Only this role may fulfil a request; the agent acts with it"
+  },
+  {
+   "id": "fulfilment_system",
+   "type": "text",
+   "default": "",
+   "question": "Which system delivers what was requested (for example an ERP, a ticketing tool, a warehouse system)?",
+   "why": "Fulfilment acts outside Autology: it needs a tool, first simulated, then a sandbox of that system"
+  }
+ ],
+ "items": [
+  {
+   "kind": "entity",
+   "name": "Requester",
+   "rationale": "Somebody asks for something: the brief speaks of requests and of who raises them",
+   "value": {
+    "description": "A person or unit that asks for something",
+    "states": [
+     "active",
+     "inactive"
+    ],
+    "attributes": {
+     "name": "string",
+     "department": "string"
+    }
+   }
+  },
+  {
+   "kind": "entity",
+   "name": "Request",
+   "rationale": "The thing that is asked for, reviewed, approved, fulfilled and closed",
+   "value": {
+    "description": "A request to be reviewed, approved and fulfilled",
+    "states": [
+     "submitted",
+     "under_review",
+     "approved",
+     "rejected",
+     "fulfilled",
+     "closed"
+    ],
+    "attributes": {
+     "title": "string",
+     "category": "string",
+     "amount": "number",
+     "priority": "string"
+    }
+   }
+  },
+  {
+   "kind": "entity",
+   "name": "Team",
+   "rationale": "Requests are fulfilled by a team",
+   "value": {
+    "description": "The team that delivers what was requested",
+    "states": [
+     "available",
+     "unavailable"
+    ],
+    "attributes": {
+     "name": "string"
+    }
+   }
+  },
+  {
+   "kind": "relationship",
+   "rationale": "A requester raises requests",
+   "value": {
+    "from": "Requester",
+    "to": "Request",
+    "type": "submits",
+    "cardinality": "1..*"
+   }
+  },
+  {
+   "kind": "relationship",
+   "rationale": "A team fulfils requests",
+   "value": {
+    "from": "Team",
+    "to": "Request",
+    "type": "fulfils",
+    "cardinality": "1..*"
+   }
+  },
+  {
+   "kind": "action",
+   "name": "review_request",
+   "rationale": "Every request is looked at before a decision",
+   "value": {
+    "description": "Check that the request is complete",
+    "capability": "requests.review",
+    "requires": [
+     "Request.status == 'submitted'"
+    ],
+    "effects": {
+     "Request": {
+      "status": "under_review"
+     }
+    },
+    "side_effect": "none"
+   }
+  },
+  {
+   "kind": "action",
+   "name": "approve_request",
+   "rationale": "A reviewed request is approved before anything is delivered",
+   "value": {
+    "description": "Approve the request",
+    "capability": "requests.approve",
+    "requires": [
+     "Request.status == 'under_review'"
+    ],
+    "effects": {
+     "Request": {
+      "status": "approved"
+     }
+    },
+    "side_effect": "none"
+   }
+  },
+  {
+   "kind": "action",
+   "name": "reject_request",
+   "rationale": "A reviewed request can be turned down",
+   "value": {
+    "description": "Reject the request",
+    "capability": "requests.reject",
+    "cost": 20,
+    "requires": [
+     "Request.status == 'under_review'"
+    ],
+    "effects": {
+     "Request": {
+      "status": "rejected"
+     }
+    },
+    "side_effect": "none"
+   }
+  },
+  {
+   "kind": "action",
+   "name": "fulfil_request",
+   "rationale": "An approved request is delivered by an available team",
+   "value": {
+    "description": "Deliver what was requested",
+    "capability": "fulfilment.deliver",
+    "requires": [
+     "Request.status == 'approved'",
+     "Team.status == 'available'"
+    ],
+    "effects": {
+     "Request": {
+      "status": "fulfilled"
+     }
+    },
+    "side_effect": "idempotent"
+   }
+  },
+  {
+   "kind": "action",
+   "name": "notify_requester",
+   "rationale": "The requester is told before the request is closed",
+   "value": {
+    "description": "Tell the requester that the request was fulfilled",
+    "capability": "notifications.send",
+    "requires": [
+     "Request.status == 'fulfilled'"
+    ],
+    "effects": {
+     "Request": {}
+    },
+    "side_effect": "idempotent"
+   }
+  },
+  {
+   "kind": "action",
+   "name": "close_request",
+   "rationale": "A fulfilled request is closed",
+   "value": {
+    "description": "Close the request",
+    "capability": "requests.close",
+    "requires": [
+     "Request.status == 'fulfilled'"
+    ],
+    "effects": {
+     "Request": {
+      "status": "closed"
+     }
+    },
+    "side_effect": "none"
+   }
+  },
+  {
+   "kind": "rule",
+   "rationale": "Approvals at or above the threshold belong to a person",
+   "uses": [
+    "approval_threshold",
+    "approver_role"
+   ],
+   "value": {
+    "id": "R-APPROVAL",
+    "type": "human_review",
+    "action": "approve_request",
+    "reviewer": "{approver_role}",
+    "when": "Request.amount >= {approval_threshold}",
+    "description": "A {approver_role} approves requests of {approval_threshold} or more"
+   }
+  },
+  {
+   "kind": "rule",
+   "rationale": "Rejecting a request is a person's decision",
+   "uses": [
+    "approver_role"
+   ],
+   "value": {
+    "id": "R-REJECTION",
+    "type": "human_review",
+    "action": "reject_request",
+    "reviewer": "{approver_role}",
+    "description": "A {approver_role} decides rejections"
+   }
+  },
+  {
+   "kind": "rule",
+   "rationale": "Only the handling role delivers",
+   "uses": [
+    "handler_role"
+   ],
+   "value": {
+    "id": "R-FULFIL",
+    "type": "action_access",
+    "action": "fulfil_request",
+    "roles": [
+     "{handler_role}"
+    ],
+    "description": "Only a {handler_role} fulfils requests"
+   }
+  },
+  {
+   "kind": "rule",
+   "rationale": "The amount decides who approves, so it has a named writer",
+   "uses": [
+    "approver_role"
+   ],
+   "value": {
+    "id": "R-AMOUNT",
+    "type": "write_access",
+    "field": "Request.amount",
+    "roles": [
+     "{approver_role}"
+    ],
+    "description": "Only a {approver_role} changes a request's amount"
+   }
+  },
+  {
+   "kind": "rule",
+   "rationale": "Nobody is left without news of their request",
+   "value": {
+    "id": "R-NOTIFY",
+    "type": "mandatory_step",
+    "step": "notify_requester",
+    "before": "close_request",
+    "description": "The requester is notified before a request is closed"
+   }
+  },
+  {
+   "kind": "goal",
+   "name": "request_closed",
+   "rationale": "The outcome the agents pursue",
+   "value": {
+    "description": "The request was fulfilled and closed",
+    "target": "Request.status == 'closed'"
+   }
+  },
+  {
+   "kind": "case_template",
+   "name": "request_case",
+   "rationale": "A run reads a request with its requester and the team that fulfils it from the records",
+   "value": {
+    "description": "A request with its requester and its team",
+    "root": "Request",
+    "entities": {
+     "Request": "self",
+     "Requester": "^submits",
+     "Team": "^fulfils"
+    }
+   }
+  }
+ ],
+ "roles": [
+  {
+   "name": "{handler_role}",
+   "description": "Handles requests and fulfils the approved ones; the agent acts with this role"
+  },
+  {
+   "name": "{approver_role}",
+   "description": "Reviewer role: approves requests of {approval_threshold} or more, decides rejections, maintains the amount"
+  }
+ ],
+ "agents": [
+  {
+   "name": "request_handler",
+   "description": "Takes a submitted request to closure; stops for a person where the rules ask for one",
+   "actions": [
+    "review_request",
+    "approve_request",
+    "fulfil_request",
+    "notify_requester",
+    "close_request"
+   ]
+  }
+ ],
+ "integrations": [
+  {
+   "capability": "fulfilment.deliver",
+   "system": "{fulfilment_system}",
+   "description": "Delivers what was requested; start with a simulated tool, then a sandbox of the system"
+  },
+  {
+   "capability": "notifications.send",
+   "system": "",
+   "description": "Tells the requester; a simulated tool is enough until a channel is chosen"
+  }
+ ],
+ "assumptions": [
+  "Each request has one requester and is fulfilled by one team",
+  "The amount of a request is known when it is submitted"
+ ],
+ "unknowns": [
+  "Deadlines or service levels per category",
+  "What happens to a rejected request (appeal, resubmission)"
+ ],
+ "sample_case": {
+  "Requester": {
+   "status": "active",
+   "name": "Sample requester",
+   "department": "Operations"
+  },
+  "Request": {
+   "status": "submitted",
+   "title": "Sample request",
+   "category": "equipment",
+   "amount": 2500,
+   "priority": "normal"
+  },
+  "Team": {
+   "status": "available",
+   "name": "Sample team"
+  }
+ },
+ "solution": {
+  "agents": {
+   "request_handler": {
+    "purpose": "Takes a submitted request to closure",
+    "responsibilities": [
+     "Review each request",
+     "Approve within the policy, or ask the person the policy names",
+     "Fulfil, notify the requester and close"
+    ],
+    "roles": [
+     "{handler_role}"
+    ],
+    "goals": [
+     "request_closed"
+    ],
+    "autonomy": {
+     "mode": "policy"
+    },
+    "tools": [
+     {
+      "action": "review_request",
+      "tool": "simulated.succeed"
+     },
+     {
+      "action": "approve_request",
+      "tool": "simulated.succeed"
+     },
+     {
+      "action": "fulfil_request",
+      "tool": "simulated.succeed",
+      "message": "delivered (simulated)"
+     },
+     {
+      "action": "notify_requester",
+      "tool": "simulated.succeed",
+      "message": "requester notified (simulated)"
+     },
+     {
+      "action": "close_request",
+      "tool": "simulated.succeed"
+     }
+    ]
+   }
+  },
+  "sample_data": {
+   "instances": [
+    {
+     "type": "Requester",
+     "id": "EMP-1",
+     "status": "active",
+     "name": "Sample requester (synthetic)",
+     "department": "Operations"
+    },
+    {
+     "type": "Team",
+     "id": "TEAM-1",
+     "status": "available",
+     "name": "Service desk (synthetic)"
+    },
+    {
+     "type": "Request",
+     "id": "REQ-1",
+     "status": "submitted",
+     "title": "Replacement keyboard",
+     "category": "equipment",
+     "amount": 120,
+     "priority": "normal"
+    },
+    {
+     "type": "Request",
+     "id": "REQ-2",
+     "status": "submitted",
+     "title": "Team laptops",
+     "category": "equipment",
+     "amount": 9500,
+     "priority": "normal"
+    }
+   ],
+   "links": [
+    [
+     "EMP-1",
+     "submits",
+     "REQ-1"
+    ],
+    [
+     "EMP-1",
+     "submits",
+     "REQ-2"
+    ],
+    [
+     "TEAM-1",
+     "fulfils",
+     "REQ-1"
+    ],
+    [
+     "TEAM-1",
+     "fulfils",
+     "REQ-2"
+    ]
+   ]
+  }
+ }
+}

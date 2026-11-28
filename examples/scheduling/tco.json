@@ -1,0 +1,15 @@
+{
+  "notes": "Illustrative assumptions for event-driven replanning in one plant - replace with your own. intervention_rate and tool cost per task are measured from the runs.",
+  "ontology_development": 150000,
+  "ontology_maintenance_per_year": 30000,
+  "integration": 80000,
+  "platform_per_year": 20000,
+  "llm_cost_per_task": 0.0,
+  "tool_cost_per_task": 0.2,
+  "tasks_per_month": 120,
+  "manual_hours_per_task": 6,
+  "hourly_rate": 95,
+  "intervention_rate": 0.4,
+  "human_hours_per_intervention": 0.5,
+  "horizon_years": 3
+}

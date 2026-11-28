@@ -1,0 +1,8 @@
+Three treatments of inferred elements, protocol chain-v1. Answers: the stored proposal of the journey kept in planning/evidence/claude-eval-2026-11-17/ground-handling
+
+ground-handling        scenario 1                  confirmed 0 of 23; unresolved 23; dependency failures 4; draft refused; manifest none; simulation not run
+ground-handling        scenario 2                  confirmed 22 of 23; unresolved 0; dependency failures 0; draft accepted; manifest valid; simulation completed
+ground-handling        scenario 3 (counterfactual) confirmed 23 of 23; unresolved 0; dependency failures 0; draft accepted; manifest valid; simulation awaiting_review
+
+Scenario 3 assumes confirmations nobody gave. Technical acceptance in any scenario says the Engine can load and run the model; it says nothing about whether the model is right for the business. No domain expert reviewed any of these models.
+No total is computed.

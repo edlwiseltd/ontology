@@ -1,0 +1,26 @@
+{
+  "name": "claims_feed",
+  "description": "Policies from the policy system's CSV export, new claims from the claims intake feed",
+  "every": 300,
+  "sources": {
+    "policies": {"type": "csv", "path": "../feeds/policies.csv"},
+    "claims": {"type": "jsonl", "path": "../feeds/claims.jsonl", "incremental": {"column": "updated_at"}},
+    "shops": {"type": "push"}
+  },
+  "mappings": [
+    {"source": "policies", "entity": "Policy", "id": "policy_no",
+     "attributes": {"holder": "holder_name", "deductible": "deductible", "coverage_limit": "limit",
+                    "status": {"column": "state", "map": {"A": "active", "L": "lapsed"}}},
+     "checks": [{"attribute": "deductible", "rule": "min", "value": 0},
+                {"attribute": "coverage_limit", "rule": "required"}]},
+    {"source": "shops", "entity": "RepairShop", "id": "shop_id",
+     "attributes": {"name": "name", "approved_network": "in_network"}},
+    {"source": "claims", "entity": "Claim", "id": {"template": "CL-{claim_no}"},
+     "attributes": {"amount": "amount", "damage_type": "damage", "reported_days_after": "days",
+                    "status": {"value": "reported", "on": "create"}},
+     "links": [{"kind": "against", "target": "policy_no"}, {"kind": "concerns", "target": "vehicle"},
+               {"kind": "repairedAt", "target": "shop"}],
+     "checks": [{"attribute": "amount", "rule": "required"},
+                {"attribute": "amount", "rule": "min", "value": 0, "message": "a claim amount cannot be negative"}]}
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "name": "order fulfilment",
+  "ontology": "ontology.json",
+  "tools": "tools.json",
+  "goal": "fulfil_contract",
+  "roles": ["ops", "eu_ops", "finance"],
+  "approver": "auto",
+  "prices": {"scripted-contrarian": [3.0, 15.0], "scripted-unreliable": [0.25, 1.25]},
+  "reasoners": {
+    "planner": "planner",
+    "contrarian": "eval_models:contrarian",
+    "unreliable": "eval_models:unreliable"
+  },
+  "cases": [
+    {"id": "five orders", "case_file": "case.json",
+     "expect": {"status": "completed", "reviews": 1, "max_steps": 22,
+                "order": ["clear_hazmat@O-2", "ship_order@O-2"],
+                "contains": ["credit_check@O-5"], "excludes": ["ship_order@O-5"],
+                "final": ["Contract.status == 'signed'", "all_of(Order.status in ['invoiced', 'cancelled'])"]}},
+    {"id": "over the credit limit",
+     "case": {"Customer": {"name": "Tiny", "region": "US", "credit_limit": 1000}, "Contract": {"value": 5000},
+              "Order": [{"id": "T-1", "sku": "X", "quantity": 1, "amount": 5000, "region": "US", "hazardous": false}]},
+     "expect": {"status": "completed", "excludes": ["ship_order"], "final": ["all_of(Order.status == 'cancelled')"]}},
+    {"id": "hazardous goods",
+     "case": {"Customer": {"name": "Chem", "region": "US", "credit_limit": 100000}, "Contract": {"value": 5000},
+              "Order": [{"id": "H-1", "sku": "ACID", "quantity": 2, "amount": 400, "region": "US", "hazardous": true}]},
+     "expect": {"status": "completed", "order": ["clear_hazmat", "ship_order"], "reviews": 0, "max_steps": 8}},
+    {"id": "no finance role", "case_file": "case.json", "roles": ["ops", "eu_ops"],
+     "expect": {"status": "escalated", "escalation": "Only finance runs credit checks", "max_steps": 2}},
+    {"id": "EU order without EU staff", "roles": ["ops", "finance"],
+     "case": {"Customer": {"name": "Euro", "region": "EU", "credit_limit": 100000}, "Contract": {"value": 5000},
+              "Order": [{"id": "E-1", "sku": "VALVE", "quantity": 1, "amount": 900, "region": "EU", "hazardous": false}]},
+     "expect": {"status": "escalated", "escalation": "data residency", "excludes": ["ship_order"]}}
+  ]
+}

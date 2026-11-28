@@ -1,0 +1,110 @@
+  pay_claim on_failure policy: FailurePolicy(max_attempts=3, backoff_seconds=0.0, fallback_tools=True, escalate_to='operations', fallback_after=0)
+== 7a connection refused ==
+  run status: escalated
+  escalation: ('pay_claim failed 3 times: cannot reach http://127.0.0.1:51557/pay: <urlopen error [Errno 111] Connection refused>', 'operations')
+  tool events: [('tool.call', 1, None), ('tool.call', 1, None), ('tool.call', 1, None), ('tool.error', 1, 'cannot reach http://127.0.0.1:51557/pay: <urlopen error [Errno 111] Connection refused>'), ('tool.call', 2, None), ('tool.error', 2, 'cannot reach http://127.0.0.1:51557/pay: <urlopen error [Errno 111] Connection refused>'), ('tool.call', 3, None), ('tool.error', 3, 'cannot reach http://127.0.0.1:51557/pay: <urlopen error [Errno 111] Connection refused>')]
+== 7b HTTP 500 always ==
+  run status: escalated
+  escalation: ('pay_claim failed 3 times: HTTP 500 from http://127.0.0.1:37941/pay', 'operations')
+  path: ['assess_fraud:clear', 'approve_claim:done']
+  Claim.status / Payment: ('approved', {'amount': None, 'reference': None, 'status': 'pending'})
+  external calls received: 3
+  attempt fields seen by server: [1, 2, 3]
+  tool events: [('tool.call', 1, None), ('tool.call', 1, None), ('tool.call', 1, None), ('tool.error', 1, 'HTTP 500 from http://127.0.0.1:37941/pay'), ('tool.call', 2, None), ('tool.error', 2, 'HTTP 500 from http://127.0.0.1:37941/pay'), ('tool.call', 3, None), ('tool.error', 3, 'HTTP 500 from http://127.0.0.1:37941/pay')]
+  elapsed s: 0.01
+== 7c HTTP 503 then 200 ==
+  run status: completed
+  escalation: None
+  path: ['assess_fraud:clear', 'approve_claim:done', 'pay_claim:done']
+  Claim.status / Payment: ('paid', {'amount': 2700, 'reference': None, 'status': 'sent'})
+  external calls received: 2
+  attempt fields seen by server: [1, 2]
+  tool events: [('tool.call', 1, None), ('tool.call', 1, None), ('tool.call', 1, None), ('tool.error', 1, 'HTTP 503 from http://127.0.0.1:41991/pay'), ('tool.call', 2, None)]
+  elapsed s: 0.01
+== 7d HTTP 200 with empty JSON body {} ==
+  run status: completed
+  escalation: None
+  path: ['assess_fraud:clear', 'approve_claim:done', 'pay_claim:done']
+  Claim.status / Payment: ('paid', {'amount': 2700, 'reference': None, 'status': 'sent'})
+  external calls received: 1
+  attempt fields seen by server: [1]
+  tool events: [('tool.call', 1, None), ('tool.call', 1, None), ('tool.call', 1, None)]
+  elapsed s: 0.01
+== 7e HTTP 202 Accepted (queued, not executed) ==
+  run status: completed
+  escalation: None
+  path: ['assess_fraud:clear', 'approve_claim:done', 'pay_claim:done']
+  Claim.status / Payment: ('paid', {'amount': 2700, 'reference': None, 'status': 'sent'})
+  external calls received: 1
+  attempt fields seen by server: [1]
+  tool events: [('tool.call', 1, None), ('tool.call', 1, None), ('tool.call', 1, None)]
+  elapsed s: 0.0
+== 7f HTTP 200 non-JSON body ==
+  run status: escalated
+  escalation: ('pay_claim failed 3 times: http://127.0.0.1:37247/pay returned invalid JSON', 'operations')
+  path: ['assess_fraud:clear', 'approve_claim:done']
+  Claim.status / Payment: ('approved', {'amount': None, 'reference': None, 'status': 'pending'})
+  external calls received: 3
+  attempt fields seen by server: [1, 2, 3]
+  tool events: [('tool.call', 1, None), ('tool.call', 1, None), ('tool.call', 1, None), ('tool.error', 1, 'http://127.0.0.1:37247/pay returned invalid JSON'), ('tool.call', 2, None), ('tool.error', 2, 'http://127.0.0.1:37247/pay returned invalid JSON'), ('tool.call', 3, None), ('tool.error', 3, 'http://127.0.0.1:37247/pay returned invalid JSON')]
+  elapsed s: 0.01
+== 7g HTTP 200 outcome not in ontology ==
+  run status: escalated
+  escalation: ("tool returned unknown outcome 'failed' (allowed: ['done'])", 'it-integration')
+  path: ['assess_fraud:clear', 'approve_claim:done']
+  Claim.status / Payment: ('approved', {'amount': None, 'reference': None, 'status': 'pending'})
+  external calls received: 1
+  attempt fields seen by server: [1]
+  tool events: [('tool.call', 1, None), ('tool.call', 1, None), ('tool.call', 1, None)]
+  elapsed s: 0.0
+== 7h HTTP 200 with 'status: failed' inside output (no outcome key) ==
+  run status: completed
+  escalation: None
+  path: ['assess_fraud:clear', 'approve_claim:done', 'pay_claim:done']
+  Claim.status / Payment: ('paid', {'amount': 2700, 'reference': None, 'status': 'sent'})
+  external calls received: 1
+  attempt fields seen by server: [1]
+  tool events: [('tool.call', 1, None), ('tool.call', 1, None), ('tool.call', 1, None)]
+  elapsed s: 0.01
+== 7i HTTP 200 body 'null' ==
+  run status: escalated
+  escalation: ('pay_claim failed 3 times: http://127.0.0.1:41591/pay returned NoneType, expected an object', 'operations')
+  path: ['assess_fraud:clear', 'approve_claim:done']
+  Claim.status / Payment: ('approved', {'amount': None, 'reference': None, 'status': 'pending'})
+  external calls received: 3
+  attempt fields seen by server: [1, 2, 3]
+  tool events: [('tool.call', 1, None), ('tool.call', 1, None), ('tool.call', 1, None), ('tool.error', 1, 'http://127.0.0.1:41591/pay returned NoneType, expected an object'), ('tool.call', 2, None), ('tool.error', 2, 'http://127.0.0.1:41591/pay returned NoneType, expected an object'), ('tool.call', 3, None), ('tool.error', 3, 'http://127.0.0.1:41591/pay returned NoneType, expected an object')]
+  elapsed s: 0.01
+== 8a timeout AFTER execution (server sleeps 2s, tool timeout 1s) ==
+  run status: escalated
+  escalation: ('pay_claim failed 3 times: cannot reach http://127.0.0.1:35621/pay: timed out', 'operations')
+  path: ['assess_fraud:clear', 'approve_claim:done']
+  Claim.status / Payment: ('approved', {'amount': None, 'reference': None, 'status': 'pending'})
+  external calls received: 3
+  attempt fields seen by server: [1, 2, 3]
+  tool events: [('tool.call', 1, None), ('tool.call', 1, None), ('tool.call', 1, None), ('tool.error', 1, 'cannot reach http://127.0.0.1:35621/pay: timed out'), ('tool.call', 2, None), ('tool.error', 2, 'cannot reach http://127.0.0.1:35621/pay: timed out'), ('tool.call', 3, None), ('tool.error', 3, 'cannot reach http://127.0.0.1:35621/pay: timed out')]
+  elapsed s: 3.01
+  payload keys sent to external system: ['action', 'attempt', 'capability', 'context', 'inputs']
+  headers sent: ['Accept-Encoding', 'Connection', 'Content-Length', 'Content-Type', 'Host', 'User-Agent']
+  context keys: ['Claim', 'Payment', 'Policy', 'RepairShop', 'Vehicle'] inputs: {}
+  any idempotency/run/case id in payload: False
+  bodies identical except attempt: True
+== 8b connection dropped after server executed (no reply) ==
+  run status: escalated
+  escalation: ('pay_claim failed 3 times: cannot reach http://127.0.0.1:34451/pay: Remote end closed connection without response', 'operations')
+  path: ['assess_fraud:clear', 'approve_claim:done']
+  Claim.status / Payment: ('approved', {'amount': None, 'reference': None, 'status': 'pending'})
+  external calls received: 3
+  attempt fields seen by server: [1, 2, 3]
+  tool events: [('tool.call', 1, None), ('tool.call', 1, None), ('tool.call', 1, None), ('tool.error', 1, 'cannot reach http://127.0.0.1:34451/pay: Remote end closed connection without response'), ('tool.call', 2, None), ('tool.error', 2, 'cannot reach http://127.0.0.1:34451/pay: Remote end closed connection without response'), ('tool.call', 3, None), ('tool.error', 3, 'cannot reach http://127.0.0.1:34451/pay: Remote end closed connection without response')]
+  elapsed s: 0.01
+== 8c timeout after execution, max_attempts=1 ==
+  run status: escalated
+  escalation: ('pay_claim failed 1 times: cannot reach http://127.0.0.1:46653/pay: timed out', 'operations')
+  external calls: 1
+  Payment state in run: {'amount': None, 'reference': None, 'status': 'pending'}
+  step message: [('assess_fraud', 'clear', 'no fraud indicators'), ('approve_claim', 'done', 'claim approved'), ('pay_claim', None, 'cannot reach http://127.0.0.1:46653/pay: timed out')]
+== 8d timeout after execution, backoff 600s -> deferred, then resume(force) ==
+  first status: ('deferred', 'pay_claim failed (cannot reach http://127.0.0.1:35515/pay: timed out); retry scheduled', True)
+  after resume: ('completed', ['assess_fraud:clear', 'approve_claim:done', 'pay_claim:done'])
+  external calls (duplicates?): 2

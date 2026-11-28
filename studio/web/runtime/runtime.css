@@ -1,0 +1,81 @@
+/* The application runtime's own look (classes prefixed rt-). It reuses the page's design tokens and adds an accent
+   chosen from a closed list in the manifest: a manifest never carries a colour value or a style. */
+.rt { --rt-accent: var(--accent-text); min-height: 100vh; }
+.rt[data-accent="teal"] { --rt-accent: #0d7f86; } .rt[data-accent="green"] { --rt-accent: #1d7a3a; }
+.rt[data-accent="amber"] { --rt-accent: #8a5a00; } .rt[data-accent="violet"] { --rt-accent: #6a3fc0; }
+.rt[data-accent="slate"] { --rt-accent: #44505e; } .rt[data-accent="blue"] { --rt-accent: #2851c8; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .rt[data-accent="teal"] { --rt-accent: #5eead4; }
+  :root:not([data-theme="light"]) .rt[data-accent="green"] { --rt-accent: #3fe0a1; }
+  :root:not([data-theme="light"]) .rt[data-accent="amber"] { --rt-accent: #ffc857; }
+  :root:not([data-theme="light"]) .rt[data-accent="violet"] { --rt-accent: #b59cff; }
+  :root:not([data-theme="light"]) .rt[data-accent="slate"] { --rt-accent: #b4bfcc; }
+  :root:not([data-theme="light"]) .rt[data-accent="blue"] { --rt-accent: #86a6ff; }
+}
+.rt-bar { background: var(--bg); border-bottom: 1px solid var(--line); box-shadow: inset 0 3px 0 var(--rt-accent); padding: 16px 20px 12px; display: grid; gap: 6px; }
+.rt-title { font-size: 24px; font-weight: 750; letter-spacing: -.01em; margin-right: 12px; }
+.rt-pill { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; border: 1px solid var(--line); border-radius: var(--radius-pill);
+  padding: 2px 10px; white-space: nowrap; display: inline-block; background: var(--surface); }
+.rt-fresh { color: var(--muted); }
+.rt-mode { border-color: var(--rt-accent); color: var(--rt-accent); margin-right: 6px; }
+/* a long label wraps inside its pill instead of pushing the page sideways on a phone */
+.rt-bar > * { min-width: 0; } .rt-bar .rt-pill { white-space: normal; max-width: 100%; border-radius: 12px; }
+.rt-table button.link { padding: 0; white-space: nowrap; text-align: left; font-weight: 650; }
+.rt-ok { border-color: var(--ok); color: var(--ok); } .rt-bad { border-color: var(--bad); color: var(--bad); }
+.rt-status ul { list-style: none; margin: 4px 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 8px; }
+.rt-status li { font-size: 12px; border: 1px solid var(--line); border-radius: var(--radius-pill); padding: 1px 9px; background: var(--surface); }
+.rt-status li.rt-none { border-style: dashed; color: var(--muted); }
+.rt-status-detail { color: var(--muted); }
+.rt-body { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 20px; padding: 20px; }
+.rt-nav ul { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 4px; }
+.rt-nav-group h3 { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: var(--track); color: var(--rt-accent); margin: 0 0 6px; }
+.rt-nav-find { margin-bottom: 10px; } .rt-nav-find input { width: 100%; }
+.rt-about-open { width: 100%; text-align: left; margin-bottom: 10px; }
+.rt-about dd { margin-bottom: 4px; }
+.rt-provenance { border-left: 3px solid var(--line); padding-left: 8px; margin-top: 10px; }
+.rt-nav button { width: 100%; text-align: left; }
+.rt-nav button { border-radius: 12px; padding: 8px 12px; }
+.rt-nav button[aria-current="page"] { border-color: var(--rt-accent); background: var(--panel-2); box-shadow: inset 3px 0 0 var(--rt-accent); font-weight: 650; }
+.rt-cannot { font-size: 12.5px; color: var(--muted); } .rt-cannot ul { padding-left: 16px; }
+.rt-main { min-width: 0; }
+.rt-main .primary { background: var(--rt-accent); border-color: var(--rt-accent); color: var(--rt-on-accent, var(--accent-ink)); }
+.rt-scroll { overflow-x: auto; }
+.rt-table { width: 100%; border-collapse: collapse; background: var(--panel); margin: 8px 0; border: 1px solid var(--line-strong); border-radius: var(--radius-card); }
+.rt-table th, .rt-table td { border: 0; border-bottom: 1px solid var(--line); padding: 8px 12px; text-align: left; vertical-align: top; }
+.rt-table tbody tr:last-child td { border-bottom: 0; }
+.rt-compact .rt-table th, .rt-compact .rt-table td { padding: 4px 8px; }
+.rt-table thead th { background: none; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.rt-pager { margin-top: 6px; }
+.rt-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px 16px; margin: 10px 0; }
+.rt-fields dt { font-size: 12px; color: var(--muted); } .rt-fields dd { margin: 0; overflow-wrap: anywhere; }
+.rt-related { margin-top: 10px; }
+.rt-chips { list-style: none; padding: 0; margin: 4px 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.rt-chips li { border: 1px solid var(--line); border-radius: var(--radius-pill); padding: 1px 9px; background: var(--surface); }
+.rt-plain { list-style: none; padding: 0; margin: 4px 0; display: grid; gap: 3px; }
+.rt-steps { padding-left: 20px; display: grid; gap: 3px; }
+.rt-states { list-style: none; padding: 0; margin: 8px 0; display: flex; flex-wrap: wrap; gap: 4px; }
+.rt-states li { border: 1px solid var(--line); border-radius: var(--radius-pill); padding: 2px 10px; font-size: 12.5px; background: var(--surface); }
+.rt-states li.rt-now { border-color: var(--rt-accent); color: var(--rt-accent); font-weight: 600; }
+.rt-states li + li::before { content: "→ "; color: var(--muted); }
+.rt-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.rt-big { font-size: 36px; margin: 0; font-weight: 750; letter-spacing: -.02em; line-height: 1.1; }
+.rt-pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; margin: 6px 0 0; }
+.rt-graph { width: 100%; max-width: 760px; background: var(--panel); border: 1px solid var(--line-strong); border-radius: var(--radius-card); }
+.rt-edge { stroke: var(--muted); stroke-width: 1.2; } .rt-edge-label { font-size: 9px; fill: var(--muted); text-anchor: middle; }
+.rt-node circle { fill: var(--bg); stroke: var(--muted); stroke-width: 1.5; } .rt-center circle { stroke: var(--rt-accent); stroke-width: 3; }
+.rt-node text { font-size: 9px; fill: var(--ink); } .rt-node-type { fill: var(--muted); font-size: 8px; }
+@media (max-width: 760px) {
+  /* minmax(0, …): a wide table scrolls inside its own box and never widens the page */
+  .rt-body { grid-template-columns: minmax(0, 1fr); padding: 14px; } .rt-nav ul { display: flex; flex-wrap: wrap; } .rt-nav button { width: auto; }
+  .rt-title { font-size: 20px; } .rt-bar { padding: 14px 14px 10px; }
+}
+/* the modern layer for applications: the same depth and motion as the design tool */
+.rt-bar { background: color-mix(in srgb, var(--bg) 86%, transparent); }
+.rt-mode::before, .rt-pill.rt-ok::before, .rt-pill.rt-bad::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: currentColor; margin-right: 6px; vertical-align: 1px; }
+.rt-nav button { box-shadow: none; } .rt-nav button:hover:not([aria-current="page"]) { background: var(--panel-2); }
+.rt-tiles .card { margin-top: 0; box-shadow: inset 0 3px 0 var(--rt-accent), var(--shadow); padding: 18px; }
+.rt-main .primary { background: var(--rt-accent); box-shadow: 0 6px 18px color-mix(in srgb, var(--rt-accent) 26%, transparent); }
+.rt-main .primary:hover:not(:disabled) { background: var(--rt-accent); filter: brightness(1.07); }
+.rt-table { box-shadow: var(--shadow); }
+.rt-fresh::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); margin-right: 6px; box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 22%, transparent); }
+.rt button.link { color: var(--rt-accent); } .rt :focus-visible { outline-color: var(--rt-accent); }

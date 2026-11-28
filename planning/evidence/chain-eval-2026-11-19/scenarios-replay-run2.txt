@@ -1,0 +1,20 @@
+Three treatments of inferred elements, protocol chain-v1. Answers: answers kept in planning/evidence/claude-eval-2026-11-17/run2-after-correction
+
+airline-disruption     scenario 1                  confirmed None; unresolved 0; dependency failures 0; draft none: no answer; manifest none; simulation not run
+airline-disruption     scenario 2: not run (no recorded decision exists for this answer; none is invented)
+airline-disruption     scenario 3 (counterfactual) confirmed None; unresolved 0; dependency failures 0; draft none: no answer; manifest none; simulation not run
+b2b-procurement        scenario 1                  confirmed 0 of 9; unresolved 9; dependency failures 0; draft accepted; manifest valid; simulation completed
+b2b-procurement        scenario 2: not run (no recorded decision exists for this answer; none is invented)
+b2b-procurement        scenario 3 (counterfactual) confirmed 9 of 9; unresolved 0; dependency failures 0; draft accepted; manifest valid; simulation completed
+global-logistics       scenario 1                  confirmed 0 of 12; unresolved 12; dependency failures 1; draft refused; manifest none; simulation not run
+global-logistics       scenario 2: not run (no recorded decision exists for this answer; none is invented)
+global-logistics       scenario 3 (counterfactual) confirmed 12 of 12; unresolved 0; dependency failures 0; draft accepted; manifest valid; simulation awaiting_review
+hospital-operations    scenario 1                  confirmed 0 of 10; unresolved 10; dependency failures 3; draft refused; manifest none; simulation not run
+hospital-operations    scenario 2: not run (no recorded decision exists for this answer; none is invented)
+hospital-operations    scenario 3 (counterfactual) confirmed 10 of 10; unresolved 0; dependency failures 0; draft accepted; manifest valid; simulation escalated
+insurance-claims       scenario 1                  confirmed 0 of 10; unresolved 10; dependency failures 6; draft refused; manifest none; simulation not run
+insurance-claims       scenario 2: not run (no recorded decision exists for this answer; none is invented)
+insurance-claims       scenario 3 (counterfactual) confirmed 10 of 10; unresolved 0; dependency failures 0; draft accepted; manifest valid; simulation awaiting_review
+
+Scenario 3 assumes confirmations nobody gave. Technical acceptance in any scenario says the Engine can load and run the model; it says nothing about whether the model is right for the business. No domain expert reviewed any of these models.
+No total is computed.

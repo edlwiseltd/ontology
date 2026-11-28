@@ -1,0 +1,486 @@
+{
+  "name": "plant",
+  "version": "1.0.0",
+  "description": "PlantOntology: orders, work orders, parts, processes and the resources they need",
+  "entities": {
+    "Order": {
+      "description": "Customer order",
+      "states": [
+        "open",
+        "fulfilled"
+      ],
+      "attributes": {
+        "customer": {
+          "type": "string",
+          "sensitivity": "confidential"
+        },
+        "due_h": "integer"
+      },
+      "external_states": [
+        "fulfilled"
+      ]
+    },
+    "WorkOrder": {
+      "description": "Production or rework order for one part",
+      "states": [
+        "planned",
+        "released",
+        "done"
+      ],
+      "attributes": {
+        "quantity": "integer",
+        "release_h": "integer",
+        "due_h": "integer",
+        "kind": "string"
+      },
+      "external_states": [
+        "released",
+        "done"
+      ]
+    },
+    "Part": {
+      "description": "Structural part with its routing (BOM item)",
+      "states": [
+        "released",
+        "under_change"
+      ],
+      "attributes": {
+        "name": "string",
+        "revision": "string",
+        "family": "string"
+      },
+      "external_states": [
+        "under_change"
+      ]
+    },
+    "Process": {
+      "description": "One operation of a work order",
+      "states": [
+        "pending",
+        "done"
+      ],
+      "attributes": {
+        "seq": "integer",
+        "op": "string",
+        "hours": "integer",
+        "quantity": "integer",
+        "material_kg": "number"
+      },
+      "external_states": [
+        "done"
+      ]
+    },
+    "Machine": {
+      "description": "Machine tool; status synced from MES",
+      "states": [
+        "available",
+        "down",
+        "maintenance"
+      ],
+      "external_states": [
+        "down",
+        "maintenance"
+      ],
+      "attributes": {
+        "kind": "string",
+        "calibration_due_h": "integer"
+      }
+    },
+    "Mold": {
+      "description": "Forming tool; status synced from tool crib",
+      "states": [
+        "available",
+        "broken",
+        "maintenance"
+      ],
+      "external_states": [
+        "broken",
+        "maintenance"
+      ],
+      "attributes": {
+        "shots_left": "integer"
+      }
+    },
+    "Operator": {
+      "description": "Qualified operator; status synced from shift planning",
+      "states": [
+        "on_shift",
+        "absent"
+      ],
+      "external_states": [
+        "absent"
+      ],
+      "attributes": {
+        "skill": "string",
+        "cert_expires_h": "integer",
+        "employee_id": {
+          "type": "string",
+          "sensitivity": "pii"
+        }
+      }
+    },
+    "Material": {
+      "description": "Raw material lot; stock synced from WMS",
+      "states": [
+        "available",
+        "short"
+      ],
+      "external_states": [
+        "short"
+      ],
+      "attributes": {
+        "grade": "string",
+        "on_hand_kg": "number"
+      }
+    },
+    "ECN": {
+      "description": "Engineering change notice",
+      "states": [
+        "issued",
+        "implemented"
+      ],
+      "attributes": {
+        "title": "string",
+        "duration_factor": "number",
+        "effective_at": "integer"
+      },
+      "external_states": [
+        "implemented"
+      ]
+    },
+    "QualityReturn": {
+      "description": "Parts returned by quality / the customer",
+      "states": [
+        "open",
+        "closed"
+      ],
+      "attributes": {
+        "defect": "string",
+        "from_seq": "integer"
+      },
+      "external_states": [
+        "closed"
+      ]
+    },
+    "MachineAlert": {
+      "description": "MES alert raised by a machine",
+      "states": [
+        "open",
+        "closed"
+      ],
+      "external_states": [
+        "closed"
+      ],
+      "attributes": {
+        "code": "string",
+        "message": "string"
+      }
+    }
+  },
+  "relationships": [
+    {
+      "from": "WorkOrder",
+      "to": "Part",
+      "type": "produces",
+      "cardinality": "1"
+    },
+    {
+      "from": "WorkOrder",
+      "to": "Order",
+      "type": "fulfils",
+      "cardinality": "1"
+    },
+    {
+      "from": "WorkOrder",
+      "to": "Process",
+      "type": "hasProcess",
+      "cardinality": "1..*"
+    },
+    {
+      "from": "WorkOrder",
+      "to": "WorkOrder",
+      "type": "feeds",
+      "cardinality": "0..1"
+    },
+    {
+      "from": "WorkOrder",
+      "to": "WorkOrder",
+      "type": "reworks",
+      "cardinality": "0..1"
+    },
+    {
+      "from": "Process",
+      "to": "Machine",
+      "type": "requiresMachine",
+      "cardinality": "1..*"
+    },
+    {
+      "from": "Process",
+      "to": "Mold",
+      "type": "requiresMold",
+      "cardinality": "0..1"
+    },
+    {
+      "from": "Process",
+      "to": "Operator",
+      "type": "operatedBy",
+      "cardinality": "1..*"
+    },
+    {
+      "from": "Process",
+      "to": "Material",
+      "type": "consumes",
+      "cardinality": "0..1"
+    },
+    {
+      "from": "ECN",
+      "to": "Part",
+      "type": "changes",
+      "cardinality": "1..*"
+    },
+    {
+      "from": "QualityReturn",
+      "to": "WorkOrder",
+      "type": "returnOf",
+      "cardinality": "1"
+    },
+    {
+      "from": "MachineAlert",
+      "to": "Machine",
+      "type": "affects",
+      "cardinality": "1"
+    }
+  ],
+  "impact_rules": [
+    {
+      "id": "IMP-ECN",
+      "event": "ECN",
+      "description": "An engineering change affects every order producing a changed part, their operations and resources",
+      "paths": [
+        "changes.^produces",
+        "changes.^produces.hasProcess",
+        "changes.^produces.hasProcess.requiresMachine",
+        "changes.^produces.hasProcess.requiresMold",
+        "changes.^produces.hasProcess.operatedBy",
+        "changes.^produces.hasProcess.consumes",
+        "changes.^produces.feeds",
+        "changes.^produces.fulfils"
+      ],
+      "adjust": {
+        "duration_factor": "ECN.duration_factor",
+        "release": "ECN.effective_at"
+      },
+      "apply": [
+        {
+          "path": "changes",
+          "set": {
+            "status": "under_change"
+          }
+        }
+      ]
+    },
+    {
+      "id": "IMP-MACHINE",
+      "event": "Machine",
+      "when": "Machine.status != 'available'",
+      "description": "A machine outage affects the operations routed to it, their orders and downstream assemblies",
+      "paths": [
+        "^requiresMachine",
+        "^requiresMachine.^hasProcess",
+        "^requiresMachine.^hasProcess.feeds",
+        "^requiresMachine.^hasProcess.fulfils"
+      ]
+    },
+    {
+      "id": "IMP-ALERT",
+      "event": "MachineAlert",
+      "description": "An MES breakdown alert takes the machine down; its operations, orders and downstream assemblies are affected",
+      "apply": [
+        {
+          "path": "affects",
+          "set": {
+            "status": "down"
+          }
+        }
+      ],
+      "paths": [
+        "affects",
+        "affects.^requiresMachine",
+        "affects.^requiresMachine.^hasProcess",
+        "affects.^requiresMachine.^hasProcess.feeds",
+        "affects.^requiresMachine.^hasProcess.fulfils"
+      ]
+    },
+    {
+      "id": "IMP-MOLD",
+      "event": "Mold",
+      "when": "Mold.status != 'available'",
+      "description": "A mold outage affects the forming operations that need it",
+      "paths": [
+        "^requiresMold",
+        "^requiresMold.^hasProcess",
+        "^requiresMold.^hasProcess.feeds",
+        "^requiresMold.^hasProcess.fulfils"
+      ]
+    },
+    {
+      "id": "IMP-RETURN",
+      "event": "QualityReturn",
+      "description": "A quality return creates rework that inherits the part's routing",
+      "paths": [
+        "returnOf",
+        "returnOf.^reworks",
+        "returnOf.^reworks.hasProcess",
+        "returnOf.^reworks.hasProcess.requiresMachine",
+        "returnOf.^reworks.hasProcess.operatedBy",
+        "returnOf.feeds",
+        "returnOf.fulfils"
+      ]
+    }
+  ],
+  "scheduling": {
+    "job": "WorkOrder",
+    "task": "Process",
+    "job_tasks": "hasProcess",
+    "sequence": "seq",
+    "duration": "hours",
+    "release": "release_h",
+    "due": "due_h",
+    "job_precedence": "feeds",
+    "time_unit": "h",
+    "resources": [
+      {
+        "step": "requiresMachine",
+        "alternatives": true
+      },
+      {
+        "step": "requiresMold"
+      },
+      {
+        "step": "operatedBy",
+        "alternatives": true
+      }
+    ],
+    "availability": {
+      "Machine": "Machine.status == 'available'",
+      "Mold": "Mold.status == 'available'",
+      "Operator": "Operator.status == 'on_shift'"
+    },
+    "context": [
+      "consumes"
+    ],
+    "job_context": [
+      "produces"
+    ],
+    "checks": [
+      {
+        "id": "CHK-MOLD-LIFE",
+        "when": "Mold.shots_left < Process.quantity",
+        "message": "{Process.id}: mold {Mold.id} has {Mold.shots_left} shots left for {Process.quantity} parts - plan mold maintenance"
+      },
+      {
+        "id": "CHK-CALIBRATION",
+        "when": "Slot.end > Machine.calibration_due_h",
+        "message": "{Process.id}: {Machine.id} calibration expires at {Machine.calibration_due_h}h, operation ends at {Slot.end}h"
+      },
+      {
+        "id": "CHK-CERTIFICATION",
+        "when": "Slot.end > Operator.cert_expires_h",
+        "severity": "critical",
+        "message": "{Process.id}: operator {Operator.id} certification expires at {Operator.cert_expires_h}h, before the operation ends ({Slot.end}h)"
+      },
+      {
+        "id": "CHK-MATERIAL",
+        "when": "Material.on_hand_kg < Process.material_kg",
+        "severity": "critical",
+        "message": "{Process.id}: needs {Process.material_kg} kg of {Material.grade}, only {Material.on_hand_kg} kg on hand"
+      },
+      {
+        "id": "CHK-PART-CHANGE",
+        "when": "Part.status == 'under_change' and Slot.start < 6",
+        "message": "{Process.id}: part {Part.id} is under engineering change - confirm drawing revision before {Slot.start}h start"
+      }
+    ]
+  },
+  "competency_questions": [
+    {
+      "id": "CQ-01",
+      "question": "Which work orders have an operation routed to machine EQ_05?",
+      "find": "Machine",
+      "where": "Machine.id == Params.machine",
+      "follow": [
+        "^requiresMachine",
+        "^hasProcess"
+      ],
+      "params": {
+        "machine": "EQ_05"
+      }
+    },
+    {
+      "id": "CQ-02",
+      "question": "Which parts does ECN-7 change?",
+      "find": "ECN",
+      "where": "ECN.id == 'ECN-7'",
+      "follow": [
+        "changes"
+      ],
+      "expect": [
+        "PT-02",
+        "PT-05",
+        "PT-07",
+        "PT-11"
+      ]
+    },
+    {
+      "id": "CQ-03",
+      "question": "Which machines are currently unavailable?",
+      "find": "Machine",
+      "where": "Machine.status != 'available'",
+      "expect": []
+    },
+    {
+      "id": "CQ-04",
+      "question": "How many operations need a mold?",
+      "find": "Mold",
+      "follow": [
+        "^requiresMold"
+      ],
+      "aggregate": {
+        "count": true
+      },
+      "expect": 17
+    },
+    {
+      "id": "CQ-05",
+      "question": "Which customer orders does an order feeding into assemblies serve?",
+      "find": "WorkOrder",
+      "where": "WorkOrder.kind == 'subassembly'",
+      "follow": [
+        "feeds",
+        "fulfils"
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "R-DATA-001",
+      "type": "data_access",
+      "description": "Operator employee ids are HR data; schedulers work with operator codes only",
+      "field": "Operator.employee_id",
+      "roles": [
+        "hr",
+        "supervisor"
+      ]
+    },
+    {
+      "id": "R-DATA-002",
+      "type": "data_access",
+      "description": "Customer identities on orders are visible to sales and planners only",
+      "field": "Order.customer",
+      "roles": [
+        "sales",
+        "planner"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,305 @@
+"""Knowledge graph: ontology-typed instances and links, queried by competency questions.
+
+The planner and agents work on one *case* at a time; the knowledge graph holds
+the wider enterprise picture (all contracts, suppliers, production lines...) so
+the ontology can answer questions such as "Which contracts expire within 30
+days?" or "Which suppliers does ProductionLine #1 depend on?". It is an
+in-memory reference store; production deployments would back the same
+interface with a graph database (Neo4j, Neptune) synced by ETL.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
+
+from .expressions import Expression
+from .ontology import ID, PARAMS, STATUS, CompetencyQuestion, Ontology, OntologyError, check_types
+
+
+@dataclass
+class Instance:
+    type: str
+    id: str
+    attributes: Dict[str, Any]
+
+    def get(self, attr: str) -> Any:
+        if attr == ID:
+            return self.id
+        return self.attributes.get(attr)
+
+
+@dataclass
+class QueryResult:
+    instances: List[Instance]
+    value: Any = None  # aggregate value, if requested
+
+    @property
+    def ids(self) -> List[str]:
+        return [i.id for i in self.instances]
+
+    @property
+    def answer(self) -> Any:
+        return self.value if self.value is not None else self.ids
+
+
+class KnowledgeGraph:
+    def __init__(self, ontology: Ontology):
+        self.ontology = ontology
+        self._instances: Dict[str, Instance] = {}
+        self._links: List[Tuple[str, str, str]] = []  # (source id, kind, target id)
+
+    # -- building -------------------------------------------------------
+    def add(self, entity_type: str, id: str, **attributes: Any) -> Instance:
+        entity_type = self.ontology.canonical(entity_type)
+        etype = self.ontology.entities.get(entity_type)
+        if etype is None:
+            raise OntologyError(f"unknown entity type {entity_type!r}")
+        unknown = [k for k in attributes if not etype.has_attribute(k) or k == ID]
+        if unknown:
+            raise OntologyError(f"{entity_type} {id!r}: unknown attributes {unknown}")
+        check_types(etype, attributes, f"{entity_type} {id!r}")
+        status = attributes.get(STATUS, etype.initial_state)
+        if status not in etype.states:
+            raise OntologyError(f"{entity_type} {id!r}: {status!r} is not a valid state")
+        if id in self._instances:
+            raise OntologyError(f"duplicate instance id {id!r}")
+        values = {a: None for a in etype.attributes}
+        values.update(attributes)
+        values[STATUS] = status
+        inst = Instance(entity_type, id, values)
+        self._instances[id] = inst
+        return inst
+
+    def link(self, source: str, kind: str, target: str) -> None:
+        src, tgt = self._instances[source], self._instances[target]
+        if not any(r.kind == kind and r.source == src.type and r.target == tgt.type
+                   for r in self.ontology.relationships):
+            raise OntologyError(f"ontology has no relationship {src.type} -{kind}-> {tgt.type}")
+        self._links.append((source, kind, target))
+
+    @classmethod
+    def from_dict(cls, ontology: Ontology, data: Mapping[str, Any]) -> "KnowledgeGraph":
+        graph = cls(ontology)
+        for spec in data.get("instances", []):
+            spec = dict(spec)
+            graph.add(spec.pop("type"), spec.pop("id"), **spec)
+        for source, kind, target in data.get("links", []):
+            graph.link(source, kind, target)
+        return graph
+
+    # -- querying -------------------------------------------------------
+    def instances(self, entity_type: Optional[str] = None) -> List[Instance]:
+        """All instances, those of one entity type, or those of every type implementing an interface."""
+        if entity_type is None:
+            return list(self._instances.values())
+        types = set(self.ontology.implementers(entity_type))
+        return [i for i in self._instances.values() if i.type in types]
+
+    def get(self, id: str) -> Instance:
+        return self._instances[id]
+
+    def neighbours(self, inst: Instance, step: str) -> List[Instance]:
+        reverse = step.startswith("^")
+        kind = step.lstrip("^")
+        if reverse:
+            return [self._instances[s] for s, k, t in self._links if k == kind and t == inst.id]
+        return [self._instances[t] for s, k, t in self._links if k == kind and s == inst.id]
+
+    def _matches(self, expr: Optional[Expression], inst: Instance, params: Mapping[str, Any]) -> bool:
+        if expr is None:
+            return True
+        ontology_implements = lambda i: self.ontology.entities[i.type].implements  # noqa: E731
+
+        def resolve(entity: str, attr: str) -> Any:
+            if entity == PARAMS:
+                return params.get(attr)
+            if entity == inst.type or entity in ontology_implements(inst):
+                return inst.get(attr)
+            return None
+
+        return expr.evaluate(resolve)
+
+    def query(self, find: str, where: Optional[str | Expression] = None, follow: Sequence[str] = (),
+              result_where: Optional[str | Expression] = None, aggregate: Optional[Tuple[str, Optional[str]]] = None,
+              params: Optional[Mapping[str, Any]] = None) -> QueryResult:
+        params = dict(params or {})
+        where = self.ontology.expression(where) if isinstance(where, str) else where
+        result_where = self.ontology.expression(result_where) if isinstance(result_where, str) else result_where
+        current = [i for i in self.instances(find) if self._matches(where, i, params)]
+        for step in follow:
+            self.ontology.relationship(current[0].type if current else find, step)  # validates step
+            seen: Dict[str, Instance] = {}
+            for inst in current:
+                for n in self.neighbours(inst, step):
+                    seen.setdefault(n.id, n)
+            current = list(seen.values())
+        current = [i for i in current if self._matches(result_where, i, params)]
+        value = None
+        if aggregate:
+            fn, target = aggregate
+            if fn == "count":
+                value = len(current)
+            else:
+                attr = target.partition(".")[2]
+                nums = [i.get(attr) for i in current if isinstance(i.get(attr), (int, float))]
+                if fn == "sum":
+                    value = sum(nums)
+                elif nums:
+                    value = {"avg": sum(nums) / len(nums), "min": min(nums), "max": max(nums)}[fn]
+        return QueryResult(sorted(current, key=lambda i: i.id), value)
+
+    def ask(self, question: CompetencyQuestion | str, **params: Any) -> QueryResult:
+        if isinstance(question, str):
+            question = next((q for q in self.ontology.questions if q.id == question), None) or \
+                _raise(OntologyError(f"unknown competency question {question!r}"))
+        merged = dict(question.params)
+        merged.update(params)
+        return self.query(question.find, question.where, question.follow, question.result_where,
+                          question.aggregate, merged)
+
+    def check_competency(self) -> List[Tuple[CompetencyQuestion, Any, Optional[bool]]]:
+        """Answer every competency question; third element is True/False when ``expect`` is set."""
+        report = []
+        for q in self.ontology.questions:
+            answer = self.ask(q).answer
+            ok = None
+            if q.expect is not None:
+                expected = sorted(q.expect) if isinstance(q.expect, (list, tuple)) else q.expect
+                ok = answer == expected
+            report.append((q, answer, ok))
+        return report
+
+
+def build_case(graph: "KnowledgeGraph", template: str, root_id: str) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """Assemble an agent case from the graph with a case template.
+
+    Returns ``(case, sources)`` - ``sources`` maps each entity to the instance id(s) it came from, so a
+    completed run can write its results back to exactly those instances.
+    """
+    onto = graph.ontology
+    tpl = onto.case_templates.get(template)
+    if tpl is None:
+        raise OntologyError(f"unknown case template {template!r}")
+    try:
+        root = graph.get(root_id)
+    except KeyError:
+        raise OntologyError(f"no instance {root_id!r}") from None
+    if root.type != tpl.root:
+        raise OntologyError(f"template {template!r} starts at a {tpl.root}, not a {root.type}")
+    case: Dict[str, Any] = {}
+    sources: Dict[str, Any] = {}
+    for entity, steps in tpl.entities.items():
+        reached = [root]
+        for step in steps:
+            seen: Dict[str, Instance] = {}
+            for inst in reached:
+                for n in graph.neighbours(inst, step):
+                    seen.setdefault(n.id, n)
+            reached = sorted(seen.values(), key=lambda i: i.id)
+        if onto.entities[entity].multiple:
+            case[entity] = [{"id": i.id, **i.attributes} for i in reached]
+            sources[entity] = [i.id for i in reached]
+        elif reached:
+            case[entity] = dict(reached[0].attributes)
+            sources[entity] = reached[0].id
+    return case, sources
+
+
+def run_values(state: Any, sources: Mapping[str, Any], iid: str) -> Optional[Dict[str, Any]]:
+    """The values a run's state holds for the record ``iid`` it was started from, or None."""
+    for entity, src in sources.items():
+        if isinstance(src, list) and iid in src:
+            return state.collections.get(entity, {}).get(iid)
+        if src == iid:
+            return state.entities.get(entity)
+    return None
+
+
+def plan_write_back(graph: "KnowledgeGraph", state: Any, sources: Mapping[str, Any],
+                    base: Dict[str, Dict[str, Any]]) -> Tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
+    """What a run would write back, without changing anything (audit GAP-009).
+
+    ``base`` holds each source instance's values as the case read them. Only fields the run changed (its value
+    differs from ``base``) are written, so live edits to other fields survive. A field the run changed that has
+    also moved on the live record since is a **conflict**.
+
+    Returns ``(writes, conflicts)``: ``writes`` maps each instance id to the fields to set on it.
+    """
+    writes: Dict[str, Dict[str, Any]] = {}
+    conflicts: List[Dict[str, Any]] = []
+    for entity, src in sources.items():
+        if isinstance(src, list):
+            pairs = [(iid, state.collections.get(entity, {}).get(iid)) for iid in src]
+        else:
+            pairs = [(src, state.entities.get(entity))]
+        for iid, values in pairs:
+            inst = graph._instances.get(iid)
+            if not values or inst is None:
+                continue
+            seen = base.get(iid)
+            if seen is None:  # no record of what the case read: never guess
+                conflicts.append({"id": iid, "type": inst.type, "attribute": None, "base": None, "live": None,
+                                  "run": None, "reason": "no snapshot of the values the case was built from"})
+                continue
+            for attr, new in values.items():
+                if attr not in inst.attributes or new == seen.get(attr):
+                    continue  # the run did not change this field
+                live = inst.attributes.get(attr)
+                if live == new:
+                    continue  # already so: nothing to write
+                if live != seen.get(attr):
+                    conflicts.append({"id": iid, "type": inst.type, "attribute": attr, "base": seen.get(attr),
+                                      "live": live, "run": new, "reason": "changed on the live record since the "
+                                                                        "case was built"})
+                    continue
+                writes.setdefault(iid, {})[attr] = new
+    return writes, conflicts
+
+
+def advance_base(graph: "KnowledgeGraph", state: Any, sources: Mapping[str, Any],
+                 base: Dict[str, Dict[str, Any]]) -> None:
+    """After a committed write-back, ``base`` records what the run's fields now hold, so a run saved several times
+    (before and after a review) does not mistake its own writes for conflicts."""
+    for entity, src in sources.items():
+        pairs = ([(iid, state.collections.get(entity, {}).get(iid)) for iid in src] if isinstance(src, list)
+                 else [(src, state.entities.get(entity))])
+        for iid, values in pairs:
+            inst, seen = graph._instances.get(iid), base.get(iid)
+            if not values or inst is None or seen is None:
+                continue
+            for attr, new in values.items():
+                if attr in inst.attributes and inst.attributes.get(attr) == new:
+                    seen[attr] = new
+
+
+def write_back(graph: "KnowledgeGraph", state: Any, sources: Mapping[str, Any],
+               base: Dict[str, Dict[str, Any]]) -> Tuple[List[str], List[Dict[str, Any]]]:
+    """Write a run's results back to the in-memory graph, **all or nothing**: if any field conflicts, nothing
+    is written and the conflicts are returned for a person to resolve. Returns ``(changed ids, conflicts)``.
+    The service persists the same write set in one store transaction (``Store.commit_write_set``)."""
+    writes, conflicts = plan_write_back(graph, state, sources, base)
+    if conflicts:
+        return [], conflicts
+    for iid, fields in writes.items():
+        graph._instances[iid].attributes.update(fields)
+    advance_base(graph, state, sources, base)
+    return list(writes), []
+
+
+def snapshot(graph: "KnowledgeGraph", sources: Mapping[str, Any]) -> Dict[str, Dict[str, Any]]:
+    """The current values of the instances named by ``sources`` (the base for :func:`write_back`)."""
+    ids = [i for src in sources.values() for i in (src if isinstance(src, list) else [src])]
+    return {i: dict(graph.get(i).attributes) for i in ids if i in graph._instances}
+
+
+def fork(graph: "KnowledgeGraph") -> "KnowledgeGraph":
+    """An independent copy of ``graph``: changes to the copy never touch the original."""
+    copy = KnowledgeGraph(graph.ontology)
+    copy._instances = {i.id: Instance(i.type, i.id, dict(i.attributes)) for i in graph._instances.values()}
+    copy._links = list(graph._links)
+    return copy
+
+
+def _raise(exc: Exception):
+    raise exc

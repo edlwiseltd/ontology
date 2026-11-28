@@ -1,0 +1,159 @@
+{
+ "instances": [
+  {
+   "type": "Policy",
+   "id": "P-1",
+   "holder": "Ana Ruiz",
+   "deductible": 500,
+   "coverage_limit": 25000,
+   "status": "active"
+  },
+  {
+   "type": "Policy",
+   "id": "P-2",
+   "holder": "Ben Okafor",
+   "deductible": 1000,
+   "coverage_limit": 40000,
+   "status": "active"
+  },
+  {
+   "type": "Policy",
+   "id": "P-3",
+   "holder": "Chloe Martin",
+   "deductible": 500,
+   "coverage_limit": 30000,
+   "status": "active"
+  },
+  {
+   "type": "Vehicle",
+   "id": "V-1",
+   "plate": "AB-123",
+   "age_years": 4
+  },
+  {
+   "type": "Vehicle",
+   "id": "V-2",
+   "plate": "CD-456",
+   "age_years": 1
+  },
+  {
+   "type": "Vehicle",
+   "id": "V-3",
+   "plate": "EF-789",
+   "age_years": 9
+  },
+  {
+   "type": "RepairShop",
+   "id": "RS-1",
+   "name": "Northside Motors",
+   "approved_network": true
+  },
+  {
+   "type": "RepairShop",
+   "id": "RS-2",
+   "name": "QuickFix Garage",
+   "approved_network": false
+  },
+  {
+   "type": "Claim",
+   "id": "CL-1",
+   "amount": 3200,
+   "damage_type": "rear bumper",
+   "reported_days_after": 2,
+   "status": "reported"
+  },
+  {
+   "type": "Payment",
+   "id": "PAY-1",
+   "status": "pending"
+  },
+  {
+   "type": "Claim",
+   "id": "CL-2",
+   "amount": 48000,
+   "damage_type": "total loss",
+   "reported_days_after": 5,
+   "status": "reported"
+  },
+  {
+   "type": "Payment",
+   "id": "PAY-2",
+   "status": "pending"
+  },
+  {
+   "type": "Claim",
+   "id": "CL-3",
+   "amount": 35000,
+   "damage_type": "engine fire",
+   "reported_days_after": 75,
+   "status": "reported"
+  },
+  {
+   "type": "Payment",
+   "id": "PAY-3",
+   "status": "pending"
+  }
+ ],
+ "links": [
+  [
+   "CL-1",
+   "against",
+   "P-1"
+  ],
+  [
+   "CL-1",
+   "concerns",
+   "V-1"
+  ],
+  [
+   "CL-1",
+   "repairedAt",
+   "RS-1"
+  ],
+  [
+   "CL-1",
+   "settledBy",
+   "PAY-1"
+  ],
+  [
+   "CL-2",
+   "against",
+   "P-2"
+  ],
+  [
+   "CL-2",
+   "concerns",
+   "V-2"
+  ],
+  [
+   "CL-2",
+   "repairedAt",
+   "RS-1"
+  ],
+  [
+   "CL-2",
+   "settledBy",
+   "PAY-2"
+  ],
+  [
+   "CL-3",
+   "against",
+   "P-3"
+  ],
+  [
+   "CL-3",
+   "concerns",
+   "V-3"
+  ],
+  [
+   "CL-3",
+   "repairedAt",
+   "RS-2"
+  ],
+  [
+   "CL-3",
+   "settledBy",
+   "PAY-3"
+  ]
+ ]
+}

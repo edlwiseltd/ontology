@@ -1,0 +1,37 @@
+== S1 fully automated CL-1 ==
+  status: completed
+  path: ['assess_fraud:clear', 'approve_claim:done', 'pay_claim:done']
+  graph CL-1: {'amount': 3200, 'damage_type': 'rear bumper', 'reported_days_after': 2, 'fraud_score': 0.1, 'fraud_band': 'low', 'approved_amount': 2700, 'status': 'paid'}
+  graph PAY-1: {'amount': 2700, 'reference': 'BANK-TRANSFER', 'status': 'sent'}
+  verify_audit: True
+  audit events: ['run.start', 'plan', 'decision', 'tool.call', 'step', 'plan', 'decision', 'tool.call', 'step', 'plan', 'decision', 'tool.call', 'step', 'run.end']
+== S2 review approved CL-2 ==
+  status: awaiting_review
+  pending_review: afd8ef20204b
+  pending reviews: [('afd8ef20204b', 'approve_claim', ['special_investigations'])]
+  after approve: awaiting_review
+  path: ['assess_fraud:suspicious', 'approve_claim:done']
+  escalation: Escalation(reason='awaiting claims_manager review of pay_claim', to='claims_manager', action='pay_claim', details=['Payouts of 20,000 or more need a claims manager'])
+  graph CL-2: {'amount': 48000, 'damage_type': 'total loss', 'reported_days_after': 5, 'fraud_score': 0.75, 'fraud_band': 'high', 'approved_amount': 40000, 'status': 'approved'}
+  graph PAY-2: {'amount': None, 'reference': None, 'status': 'pending'}
+  verify_audit: True
+  pending reviews now: [('271cdc7b5224', 'pay_claim', ['claims_manager'])]
+  after 2nd approve: completed
+  path: ['assess_fraud:suspicious', 'approve_claim:done', 'pay_claim:done']
+  graph CL-2: {'amount': 48000, 'damage_type': 'total loss', 'reported_days_after': 5, 'fraud_score': 0.75, 'fraud_band': 'high', 'approved_amount': 40000, 'status': 'paid'}
+  graph PAY-2: {'amount': 40000, 'reference': 'BANK-TRANSFER', 'status': 'sent'}
+== S3 review declined (CL-3 fraud -> reject_claim needs SIU) ==
+  status: awaiting_review
+  pending action: reject_claim
+  after decline: blocked
+  escalation: Escalation(reason='human review declined reject_claim', to='special_investigations', action='reject_claim', details=['need more evidence'])
+  graph CL-3: {'amount': 35000, 'damage_type': 'engine fire', 'reported_days_after': 75, 'fraud_score': 0.97, 'fraud_band': 'certain', 'approved_amount': None, 'status': 'referred'}
+  audit tail: ['run.resume', 'plan', 'decision', 'review', 'run.end']
+  resume blocked run: ApiError: 409 run 481d6c474211 is blocked; only deferred or paused runs resume here
+  open reviews for CL-3 run: []
+  new run on CL-3 after decline: ('awaiting_review', [])
+== S3b decline on CL-2-like approve: does the agent replan to reject? ==
+  status after decline of approve_claim: blocked
+  escalation: Escalation(reason='human review declined approve_claim', to='special_investigations', action='approve_claim', details=['suspicious'])
+  graph CL-2 status: assessed
+  pending reviews: []

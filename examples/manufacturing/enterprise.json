@@ -1,0 +1,26 @@
+{
+  "name": "acme-manufacturing",
+  "version": "1.0.0",
+  "description": "Enterprise ontology composed from procurement, production and quality modules",
+  "imports": ["modules/procurement.json", "modules/production.json", "modules/quality.json"],
+  "settings": {"max_violations": 3},
+  "competency_questions": [
+    {"id": "CQ-01", "question": "Which supplier contracts expire within 30 days?",
+     "find": "Contract", "where": "Contract.status == 'signed' and Contract.end_date <= Params.horizon",
+     "params": {"horizon": "2026-12-09"}, "expect": ["C-104"]},
+    {"id": "CQ-02", "question": "Which suppliers does production line PL-1 depend on?",
+     "find": "ProductionLine", "where": "ProductionLine.id == Params.line",
+     "follow": ["manufactures", "hasSupplier"], "params": {"line": "PL-1"}, "expect": ["S-X", "S-Y"]},
+    {"id": "CQ-03", "question": "Which supplier contracts lack a LateDeliveryPenalty clause?",
+     "find": "Contract", "where": "Contract.late_delivery_penalty != True", "expect": ["C-102"]},
+    {"id": "CQ-04", "question": "What is the open order value for Product A?",
+     "find": "Product", "where": "Product.id == 'P-A'", "follow": ["^forProduct"],
+     "result_where": "Order.status != 'completed'", "aggregate": {"sum": "Order.amount"}, "expect": 1250000},
+    {"id": "CQ-05", "question": "Which products are affected if supplier S-X is suspended?",
+     "find": "Supplier", "where": "Supplier.id == Params.supplier", "follow": ["^hasSupplier"],
+     "params": {"supplier": "S-X"}, "expect": ["P-A", "P-B"]},
+    {"id": "CQ-06", "question": "How many production lines does the Lyon factory run?",
+     "find": "Factory", "where": "Factory.name == 'Lyon'", "follow": ["hasProductionLine"],
+     "aggregate": {"count": true}, "expect": 2}
+  ]
+}

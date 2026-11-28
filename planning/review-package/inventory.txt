@@ -1,0 +1,189 @@
+Frozen artifacts for an independent semantic review (an inventory of files; it judges nothing)
+
+run2:b2b-procurement:1
+    what        real model output (17 November 2026)
+    file        planning/evidence/claude-eval-2026-11-17/run2-after-correction/b2b-procurement-1.json
+    sha256      95e4eaeab42bfd946f2bce41b2538ed4475b18fc4a1efdf5d29a84cb93df50d3
+    elements    26 (17 stated, 9 inferred); refused by the Engine: 1
+    citations   26 cite ['brief']; 0 cite an answer; 0 have structured evidence entries
+    decisions   none: no person decided anything about this answer
+    reviewable  the original answer only
+    limit       a V1 case: its expectations were written by the project, and the answer was scored against them
+    limit       each element cites the brief as a whole, not a passage; no structured evidence entry (the field came later)
+    limit       any 'all confirmed' result about it is a counterfactual
+
+run2:b2b-procurement:2
+    what        real model output (17 November 2026)
+    file        planning/evidence/claude-eval-2026-11-17/run2-after-correction/b2b-procurement-2.json
+    sha256      d6c58bafc36c31859e79d8d530f95ea3080b6e6f771eeec8dd646a386eb413db
+    elements    28 (18 stated, 10 inferred); refused by the Engine: 1
+    citations   28 cite ['brief']; 0 cite an answer; 0 have structured evidence entries
+    decisions   none: no person decided anything about this answer
+    reviewable  the original answer only
+    limit       a V1 case: its expectations were written by the project, and the answer was scored against them
+    limit       each element cites the brief as a whole, not a passage; no structured evidence entry (the field came later)
+    limit       any 'all confirmed' result about it is a counterfactual
+
+run2:global-logistics:1
+    what        real model output (17 November 2026)
+    file        planning/evidence/claude-eval-2026-11-17/run2-after-correction/global-logistics-1.json
+    sha256      24e341168c039c90a1108ae8de5a4c736b95a4f8f5d26df6f3a9ff238c2b72f7
+    elements    29 (17 stated, 12 inferred); refused by the Engine: 1
+    citations   29 cite ['brief']; 0 cite an answer; 0 have structured evidence entries
+    decisions   none: no person decided anything about this answer
+    reviewable  the original answer only
+    limit       a V1 case: its expectations were written by the project, and the answer was scored against them
+    limit       each element cites the brief as a whole, not a passage; no structured evidence entry (the field came later)
+    limit       any 'all confirmed' result about it is a counterfactual
+
+run2:hospital-operations:1
+    what        real model output (17 November 2026)
+    file        planning/evidence/claude-eval-2026-11-17/run2-after-correction/hospital-operations-1.json
+    sha256      312e852db05c4fdc3eb302eb4e5cae7e4413d4217285b61bddb461462226b139
+    elements    26 (16 stated, 10 inferred); refused by the Engine: 2
+    citations   26 cite ['brief']; 0 cite an answer; 0 have structured evidence entries
+    decisions   none: no person decided anything about this answer
+    reviewable  the original answer only
+    limit       a V1 case: its expectations were written by the project, and the answer was scored against them
+    limit       each element cites the brief as a whole, not a passage; no structured evidence entry (the field came later)
+    limit       any 'all confirmed' result about it is a counterfactual
+
+run2:hospital-operations:2
+    what        real model output (17 November 2026)
+    file        planning/evidence/claude-eval-2026-11-17/run2-after-correction/hospital-operations-2.json
+    sha256      9dd75bdad336240e3f9457e1477e6695f16054943063d1ceeac2c7dd3e241d77
+    elements    38 (15 stated, 23 inferred); refused by the Engine: 2
+    citations   38 cite ['brief']; 0 cite an answer; 0 have structured evidence entries
+    decisions   none: no person decided anything about this answer
+    reviewable  the original answer only
+    limit       a V1 case: its expectations were written by the project, and the answer was scored against them
+    limit       each element cites the brief as a whole, not a passage; no structured evidence entry (the field came later)
+    limit       any 'all confirmed' result about it is a counterfactual
+
+run2:insurance-claims:1
+    what        real model output (17 November 2026)
+    file        planning/evidence/claude-eval-2026-11-17/run2-after-correction/insurance-claims-1.json
+    sha256      9392c35114977743ab2f9e733dabc7cb6da75bd48559eb336ba6696566bd8f3f
+    elements    28 (18 stated, 10 inferred); refused by the Engine: 1
+    citations   28 cite ['brief']; 0 cite an answer; 0 have structured evidence entries
+    decisions   none: no person decided anything about this answer
+    reviewable  the original answer only
+    limit       a V1 case: its expectations were written by the project, and the answer was scored against them
+    limit       each element cites the brief as a whole, not a passage; no structured evidence entry (the field came later)
+    limit       any 'all confirmed' result about it is a counterfactual
+
+run2:insurance-claims:2
+    what        real model output (17 November 2026)
+    file        planning/evidence/claude-eval-2026-11-17/run2-after-correction/insurance-claims-2.json
+    sha256      690f10fab673d689f3d2fb21290a2163d051b62da8bbb2f09db46dd272dfaa40
+    elements    32 (21 stated, 11 inferred); refused by the Engine: 1
+    citations   32 cite ['brief']; 0 cite an answer; 0 have structured evidence entries
+    decisions   none: no person decided anything about this answer
+    reviewable  the original answer only
+    limit       a V1 case: its expectations were written by the project, and the answer was scored against them
+    limit       each element cites the brief as a whole, not a passage; no structured evidence entry (the field came later)
+    limit       any 'all confirmed' result about it is a counterfactual
+
+journey:ground-handling
+    what        real model output (17 November 2026), revision 2 after answers
+    file        planning/evidence/claude-eval-2026-11-17/ground-handling/proposal-revision-2.json
+    sha256      cbd628d425fbf5d3810d0dfb6b02820b2dc23b97e488bdd154e8cd9cbf3cfccd
+    elements    40 (17 stated, 23 inferred); refused by the Engine: 0
+    citations   28 cite ['brief']; 0 cite an answer; 0 have structured evidence entries
+    decisions   39 of 40 accepted by a project member in Studio (22 of 23 inferred); a member, not a domain expert
+    reviewable  the original proposal (revision 2), and separately the released model
+    limit       the brief is inside the stored proposal; it was written by the project
+    limit       12 inferred elements cite nothing; 28 cite the brief as a whole; none shows the answer it came from (GAP-081, fixed later); no structured evidence entry (GAP-111). Nothing is reconstructed
+    limit       the released model (active-model-release-3.json) is the model after a member's decisions: a review of it is a review of a corrected model and must be reported as such
+
+canary:bicycle-rental
+    what        real model output (17 November 2026), a first connectivity request
+    file        planning/evidence/claude-eval-2026-11-17/canary/proposal.json
+    sha256      e6c5f062595405ad157b84500f9fb00d416f275baf2ad2181fbaf72b48874155
+    elements    20 (12 stated, 8 inferred); refused by the Engine: 5
+    citations   20 cite ['brief']; 0 cite an answer; 0 have structured evidence entries
+    decisions   none
+    reviewable  not proposed for review
+    limit       a three-sentence invented brief: too small to say anything about a domain
+
+reserved:harbour-pilotage
+    what        held-out brief with a hand-written reference answer (not a model output)
+    file        autology/evaluation_reserved/harbour-pilotage.json
+    sha256      e0d70c5ae69e97ecd62568cd0eeeb4bc78490ce62ca61cb0d78ff8743ace076e
+    decisions   a synthetic reviewer written with the case; no person
+    reviewable  nothing yet
+    limit       no real model has answered it: there is no architect output to review
+    limit       content not copied into this package: it stays where it is
+
+reserved:museum-loans
+    what        held-out brief with a hand-written reference answer (not a model output)
+    file        autology/evaluation_reserved/museum-loans.json
+    sha256      7d484678b3b30583f4784dfd583af19e4bc2b8a1fcf70800fb2d7682b52cd407
+    decisions   a synthetic reviewer written with the case; no person
+    reviewable  nothing yet
+    limit       no real model has answered it: there is no architect output to review
+    limit       content not copied into this package: it stays where it is
+
+v2:adv-answer
+    what        held-out case of the proposed protocol V2 (never run)
+    file        autology/evaluation_v2/adv-answer.json
+    sha256      8b0208e54e597eb1c6c558bc7897a9ab987500a462ab6aa362277d0391cf4c30
+    decisions   none
+    reviewable  nothing yet
+    limit       V2 is proposed and not ratified (D30 g); no answer exists
+
+v2:adv-document
+    what        held-out case of the proposed protocol V2 (never run)
+    file        autology/evaluation_v2/adv-document.json
+    sha256      304b047d3ec2283e31ff6dfe7231567272b15cb6c56f023a045d060e469104cf
+    decisions   none
+    reviewable  nothing yet
+    limit       V2 is proposed and not ratified (D30 g); no answer exists
+
+v2:adv-record
+    what        held-out case of the proposed protocol V2 (never run)
+    file        autology/evaluation_v2/adv-record.json
+    sha256      3320ff2ef500512457ed6014d350c68330c6acc38cdeaa43b7d189e894e3ef63
+    decisions   none
+    reviewable  nothing yet
+    limit       V2 is proposed and not ratified (D30 g); no answer exists
+
+v2:adv-tool
+    what        held-out case of the proposed protocol V2 (never run)
+    file        autology/evaluation_v2/adv-tool.json
+    sha256      82e984a23ce23d3c34625e4a220cc7a62c23de5d896a2ed3f995f0e0eb3acf8f
+    decisions   none
+    reviewable  nothing yet
+    limit       V2 is proposed and not ratified (D30 g); no answer exists
+
+v2:batch-release
+    what        held-out case of the proposed protocol V2 (never run)
+    file        autology/evaluation_v2/batch-release.json
+    sha256      04d6210deb1949c1e206086782a52f8c7cf594dbb237a62df318f37a020fb8ac
+    decisions   none
+    reviewable  nothing yet
+    limit       V2 is proposed and not ratified (D30 g); no answer exists
+
+v2:building-permit
+    what        held-out case of the proposed protocol V2 (never run)
+    file        autology/evaluation_v2/building-permit.json
+    sha256      2e50b6b0a516a14bd1af87e009b67f5a5cdaa11ab3afcd5b147f0cc293f0aa2d
+    decisions   none
+    reviewable  nothing yet
+    limit       V2 is proposed and not ratified (D30 g); no answer exists
+
+v2:outage-restoration
+    what        held-out case of the proposed protocol V2 (never run)
+    file        autology/evaluation_v2/outage-restoration.json
+    sha256      6f59c0fd0a577c7266f554e0cff1e2a8d443162b9f36b25edf187a88e4144841
+    decisions   none
+    reviewable  nothing yet
+    limit       V2 is proposed and not ratified (D30 g); no answer exists
+
+v2:scholarship-awards
+    what        held-out case of the proposed protocol V2 (never run)
+    file        autology/evaluation_v2/scholarship-awards.json
+    sha256      0d222fba846e5aa28940eb309e67523c905fb46a58bf60efeb83b3ad85d5f82c
+    decisions   none
+    reviewable  nothing yet
+    limit       V2 is proposed and not ratified (D30 g); no answer exists

@@ -1,0 +1,83 @@
+{
+  "_comment": "Systems simulated as decision tables - replace a tool with type 'http' or 'python' to go live",
+  "tools": [
+    {
+      "name": "consent_portal",
+      "capability": "consent.record",
+      "type": "table",
+      "cost": 0.2,
+      "rows": [
+        {
+          "message": "consent recorded in the patient portal"
+        }
+      ]
+    },
+    {
+      "name": "triage_rules",
+      "capability": "clinical.triage",
+      "type": "table",
+      "cost": 0.5,
+      "rows": [
+        {
+          "when": "Patient.age >= 75 or Patient.condition == 'chest pain'",
+          "outcome": "urgent",
+          "message": "red-flag criteria met: urgent pathway"
+        },
+        {
+          "outcome": "routine",
+          "message": "routine pathway"
+        }
+      ]
+    },
+    {
+      "name": "ehr_referral",
+      "capability": "ehr.referral",
+      "type": "table",
+      "cost": 0.3,
+      "rows": [
+        {
+          "message": "referral sent via the e-referral service"
+        }
+      ]
+    },
+    {
+      "name": "specialist_desk",
+      "capability": "specialist.review",
+      "type": "table",
+      "cost": 15,
+      "rows": [
+        {
+          "when": "Referral.alternate != True and Patient.condition == 'non-specific'",
+          "outcome": "rejected",
+          "message": "insufficient detail for this specialty"
+        },
+        {
+          "outcome": "accepted",
+          "message": "referral accepted"
+        }
+      ]
+    },
+    {
+      "name": "care_plan_builder",
+      "capability": "clinical.care_plan",
+      "type": "table",
+      "cost": 2,
+      "rows": [
+        {
+          "message": "care plan drafted from the pathway template"
+        }
+      ]
+    },
+    {
+      "name": "ehr_admit",
+      "capability": "ehr.admit",
+      "type": "table",
+      "cost": 0.2,
+      "rows": [
+        {
+          "message": "patient admitted to the specialist pathway"
+        }
+      ]
+    }
+  ]
+}

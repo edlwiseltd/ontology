@@ -1,0 +1,4 @@
+olivia roles: ['ops']
+O-3 region: EU visible to olivia: False
+run status: completed keys: ['case_id', 'detail', 'hidden', 'run_id', 'status']
+steps on O-3: [('credit_check@O-3', 'ok'), ('pick_order@O-3', 'done'), ('ship_order@O-3', 'done'), ('invoice_order@O-3', 'done')]

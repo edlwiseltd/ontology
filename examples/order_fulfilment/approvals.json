@@ -1,0 +1,8 @@
+{
+  "type": "policy",
+  "reviewer": "logistics-manager",
+  "decisions": {
+    "ship_order": "Order.amount < 100000"
+  },
+  "default": false
+}

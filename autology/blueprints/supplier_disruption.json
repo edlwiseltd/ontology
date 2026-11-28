@@ -1,0 +1,635 @@
+{
+ "id": "supplier-disruption",
+ "name": "Supplier disruption and operational decision",
+ "description": "Industry-neutral template (synthetic, no customer data): a supplier delays a delivery; the impact is assessed, the alternatives are compared and an authorised response is selected. A short delay is accepted by the agent; costly expediting and any change of supplier go to a person; replacing an exclusive supplier is prohibited.",
+ "keywords": [
+  "supplier",
+  "deliver",
+  "delay",
+  "disruption",
+  "alternativ",
+  "shipment",
+  "expedit"
+ ],
+ "parameters": [
+  {
+   "id": "major_delay_days",
+   "type": "number",
+   "default": 5,
+   "question": "From how many days of delay is the impact on operations major?",
+   "why": "Below it the agent may accept the delay on its own; from it on, a response that costs money is needed"
+  },
+  {
+   "id": "expedite_approval_cost",
+   "type": "number",
+   "default": 5000,
+   "question": "From which cost must a person approve expediting a shipment?",
+   "why": "Below it the agent may book the expedite itself; at or above it the decision waits for a human reviewer"
+  },
+  {
+   "id": "approver_role",
+   "type": "name",
+   "default": "operations_manager",
+   "question": "Which role approves costly expediting and any change of supplier?",
+   "why": "The reviews are addressed to a role that a named member must hold before a pilot"
+  },
+  {
+   "id": "planner_role",
+   "type": "name",
+   "default": "supply_planner",
+   "question": "Which role handles disruptions day to day?",
+   "why": "Only this role may select a response; the agent acts with it"
+  },
+  {
+   "id": "order_system",
+   "type": "text",
+   "default": "",
+   "question": "Which system holds purchase orders and deliveries (for example an ERP)?",
+   "why": "Responses act outside Autology: they need a tool, first simulated, then a sandbox of that system"
+  }
+ ],
+ "items": [
+  {
+   "kind": "entity",
+   "name": "Supplier",
+   "rationale": "The brief speaks of a supplier whose delivery is late",
+   "value": {
+    "description": "A company that supplies goods",
+    "states": [
+     "active",
+     "suspended"
+    ],
+    "attributes": {
+     "name": "string",
+     "exclusive": "boolean",
+     "reliability": "number"
+    }
+   }
+  },
+  {
+   "kind": "entity",
+   "name": "Delivery",
+   "rationale": "The delayed delivery is what is assessed and decided on",
+   "value": {
+    "description": "A delivery expected from a supplier that is late",
+    "states": [
+     "delayed",
+     "assessed",
+     "options_compared",
+     "resolved"
+    ],
+    "attributes": {
+     "item": "string",
+     "delay_days": "number",
+     "order_value": "number",
+     "expedite_cost": "number",
+     "response": "string",
+     "simulate_outage": "boolean"
+    }
+   }
+  },
+  {
+   "kind": "entity",
+   "name": "Alternative",
+   "rationale": "The brief asks to compare available alternatives",
+   "value": {
+    "description": "Another source that could cover the delivery",
+    "states": [
+     "available",
+     "unavailable"
+    ],
+    "attributes": {
+     "name": "string",
+     "lead_time_days": "number",
+     "extra_cost": "number"
+    }
+   }
+  },
+  {
+   "kind": "relationship",
+   "rationale": "A supplier is responsible for its deliveries",
+   "value": {
+    "from": "Supplier",
+    "to": "Delivery",
+    "type": "supplies",
+    "cardinality": "1..*"
+   }
+  },
+  {
+   "kind": "relationship",
+   "rationale": "An alternative source is evaluated for a delivery",
+   "value": {
+    "from": "Alternative",
+    "to": "Delivery",
+    "type": "covers",
+    "cardinality": "1..*"
+   }
+  },
+  {
+   "kind": "action",
+   "name": "assess_impact",
+   "rationale": "The operational impact is evaluated before any response",
+   "value": {
+    "description": "Evaluate the operational impact of the delay",
+    "capability": "operations.assess",
+    "requires": [
+     "Delivery.status == 'delayed'"
+    ],
+    "effects": {
+     "Delivery": {
+      "status": "assessed"
+     }
+    },
+    "side_effect": "none"
+   }
+  },
+  {
+   "kind": "action",
+   "name": "compare_alternatives",
+   "rationale": "The available alternatives are compared before a response is selected",
+   "value": {
+    "description": "Compare the alternatives: wait, expedite, or another source",
+    "capability": "sourcing.compare",
+    "requires": [
+     "Delivery.status == 'assessed'"
+    ],
+    "effects": {
+     "Delivery": {
+      "status": "options_compared"
+     }
+    },
+    "side_effect": "none"
+   }
+  },
+  {
+   "kind": "action",
+   "name": "accept_delay",
+   "rationale": "A delay below the threshold has a minor impact: it is accepted and planning is told",
+   "value": {
+    "description": "Accept the delay and inform planning",
+    "capability": "orders.accept_delay",
+    "requires": [
+     "Delivery.status == 'options_compared'",
+     "Delivery.delay_days < {major_delay_days}"
+    ],
+    "effects": {
+     "Delivery": {
+      "status": "resolved",
+      "response": "delay_accepted"
+     }
+    },
+    "side_effect": "idempotent"
+   },
+   "uses": [
+    "major_delay_days"
+   ]
+  },
+  {
+   "kind": "action",
+   "name": "switch_supplier",
+   "rationale": "A major delay is answered from another source when one is available",
+   "value": {
+    "description": "Place the order with the alternative source",
+    "capability": "sourcing.switch",
+    "requires": [
+     "Delivery.status == 'options_compared'",
+     "Delivery.delay_days >= {major_delay_days}",
+     "Alternative.status == 'available'"
+    ],
+    "effects": {
+     "Delivery": {
+      "status": "resolved",
+      "response": "supplier_switched"
+     }
+    },
+    "side_effect": "idempotent"
+   },
+   "uses": [
+    "major_delay_days"
+   ]
+  },
+  {
+   "kind": "action",
+   "name": "expedite_shipment",
+   "rationale": "A major delay with no other source is answered by expediting the shipment",
+   "value": {
+    "description": "Book an expedited shipment with the supplier",
+    "capability": "logistics.expedite",
+    "requires": [
+     "Delivery.status == 'options_compared'",
+     "Delivery.delay_days >= {major_delay_days}",
+     "Alternative.status == 'unavailable'"
+    ],
+    "effects": {
+     "Delivery": {
+      "status": "resolved",
+      "response": "shipment_expedited"
+     }
+    },
+    "side_effect": "idempotent"
+   },
+   "uses": [
+    "major_delay_days"
+   ]
+  },
+  {
+   "kind": "rule",
+   "rationale": "Costly expediting is a person's decision",
+   "value": {
+    "id": "R-EXPEDITE-APPROVAL",
+    "type": "human_review",
+    "action": "expedite_shipment",
+    "reviewer": "{approver_role}",
+    "when": "Delivery.expedite_cost >= {expedite_approval_cost}",
+    "description": "A {approver_role} approves expediting that costs {expedite_approval_cost} or more"
+   },
+   "uses": [
+    "expedite_approval_cost",
+    "approver_role"
+   ]
+  },
+  {
+   "kind": "rule",
+   "rationale": "Changing supplier always needs a person",
+   "value": {
+    "id": "R-SWITCH-APPROVAL",
+    "type": "human_review",
+    "action": "switch_supplier",
+    "reviewer": "{approver_role}",
+    "description": "A {approver_role} approves every change of supplier"
+   },
+   "uses": [
+    "approver_role"
+   ]
+  },
+  {
+   "kind": "rule",
+   "rationale": "An exclusive supplier may not be replaced, whoever asks",
+   "value": {
+    "id": "R-EXCLUSIVE",
+    "type": "prohibition",
+    "action": "switch_supplier",
+    "when": "Supplier.exclusive == True",
+    "description": "A supplier under an exclusivity agreement is never replaced"
+   }
+  },
+  {
+   "kind": "rule",
+   "rationale": "Only the planning role selects a response that costs money",
+   "value": {
+    "id": "R-EXPEDITE-ROLE",
+    "type": "action_access",
+    "action": "expedite_shipment",
+    "roles": [
+     "{planner_role}"
+    ],
+    "description": "Only a {planner_role} expedites a shipment"
+   },
+   "uses": [
+    "planner_role"
+   ]
+  },
+  {
+   "kind": "rule",
+   "rationale": "Only the planning role changes supplier",
+   "value": {
+    "id": "R-SWITCH-ROLE",
+    "type": "action_access",
+    "action": "switch_supplier",
+    "roles": [
+     "{planner_role}"
+    ],
+    "description": "Only a {planner_role} changes supplier"
+   },
+   "uses": [
+    "planner_role"
+   ]
+  },
+  {
+   "kind": "rule",
+   "rationale": "The cost decides who approves, so it has a named writer",
+   "value": {
+    "id": "R-COST",
+    "type": "write_access",
+    "field": "Delivery.expedite_cost",
+    "roles": [
+     "{approver_role}"
+    ],
+    "description": "Only a {approver_role} changes the cost of expediting"
+   },
+   "uses": [
+    "approver_role"
+   ]
+  },
+  {
+   "kind": "goal",
+   "name": "disruption_resolved",
+   "rationale": "The outcome the agents pursue",
+   "value": {
+    "description": "An authorised response to the delayed delivery was selected and recorded",
+    "target": "Delivery.status == 'resolved'"
+   }
+  },
+  {
+   "kind": "case_template",
+   "name": "delivery_case",
+   "rationale": "A run reads a delayed delivery with its supplier and its alternative from the records",
+   "value": {
+    "description": "A delayed delivery with its supplier and the alternative source",
+    "root": "Delivery",
+    "entities": {
+     "Delivery": "self",
+     "Supplier": "^supplies",
+     "Alternative": "^covers"
+    }
+   }
+  }
+ ],
+ "roles": [
+  {
+   "name": "{planner_role}",
+   "description": "Handles disruptions; the agent acts with this role"
+  },
+  {
+   "name": "{approver_role}",
+   "description": "Reviewer role: approves expediting of {expedite_approval_cost} or more and every change of supplier; maintains the expedite cost"
+  }
+ ],
+ "agents": [
+  {
+   "name": "disruption_agent",
+   "description": "Takes a delayed delivery to an authorised response; stops for a person where the rules ask for one",
+   "actions": [
+    "assess_impact",
+    "compare_alternatives",
+    "accept_delay",
+    "expedite_shipment",
+    "switch_supplier"
+   ]
+  }
+ ],
+ "integrations": [
+  {
+   "capability": "logistics.expedite",
+   "system": "{order_system}",
+   "description": "Books an expedited shipment; start with a simulated tool, then a sandbox of the system"
+  },
+  {
+   "capability": "sourcing.switch",
+   "system": "{order_system}",
+   "description": "Places the order with another source; simulated first"
+  },
+  {
+   "capability": "orders.accept_delay",
+   "system": "{order_system}",
+   "description": "Updates the expected date; simulated first"
+  }
+ ],
+ "assumptions": [
+  "Each delivery has one supplier and at most one alternative source under evaluation",
+  "The cost of expediting is known when the response is selected"
+ ],
+ "unknowns": [
+  "Contractual penalties for late delivery",
+  "How production schedules depend on each item"
+ ],
+ "sample_case": {
+  "Supplier": {
+   "status": "active",
+   "name": "Sample supplier",
+   "exclusive": false,
+   "reliability": 0.9
+  },
+  "Delivery": {
+   "status": "delayed",
+   "item": "Sample component",
+   "delay_days": 9,
+   "order_value": 40000,
+   "expedite_cost": 8000,
+   "response": "",
+   "simulate_outage": false
+  },
+  "Alternative": {
+   "status": "unavailable",
+   "name": "Sample alternative",
+   "lead_time_days": 4,
+   "extra_cost": 3000
+  }
+ },
+ "solution": {
+  "agents": {
+   "disruption_agent": {
+    "purpose": "Takes a delayed delivery to an authorised response",
+    "responsibilities": [
+     "Evaluate the operational impact of a delay",
+     "Compare the available alternatives",
+     "Select a response the policy authorises, or ask the person the policy names"
+    ],
+    "roles": [
+     "{planner_role}"
+    ],
+    "goals": [
+     "disruption_resolved"
+    ],
+    "autonomy": {
+     "mode": "policy"
+    },
+    "tools": [
+     {
+      "action": "assess_impact",
+      "tool": "simulated.succeed",
+      "message": "impact assessed from the delay and the order value (simulated)"
+     },
+     {
+      "action": "compare_alternatives",
+      "tool": "simulated.fail",
+      "error": "the sourcing catalogue is not reachable (simulated outage)",
+      "when": "Delivery.simulate_outage == True"
+     },
+     {
+      "action": "accept_delay",
+      "tool": "simulated.succeed",
+      "message": "planning informed of the new date (simulated)"
+     },
+     {
+      "action": "expedite_shipment",
+      "tool": "simulated.succeed",
+      "message": "expedited shipment booked (simulated)"
+     },
+     {
+      "action": "switch_supplier",
+      "tool": "simulated.succeed",
+      "message": "order placed with the alternative source (simulated)"
+     }
+    ]
+   }
+  },
+  "sample_data": {
+   "instances": [
+    {
+     "type": "Supplier",
+     "id": "SUP-NORTH",
+     "status": "active",
+     "name": "Northfield Components (synthetic)",
+     "exclusive": false,
+     "reliability": 0.92
+    },
+    {
+     "type": "Supplier",
+     "id": "SUP-SOLE",
+     "status": "active",
+     "name": "Solera Castings (synthetic, exclusive)",
+     "exclusive": true,
+     "reliability": 0.81
+    },
+    {
+     "type": "Delivery",
+     "id": "DEL-1001",
+     "status": "delayed",
+     "item": "Packaging film",
+     "delay_days": 2,
+     "order_value": 6000,
+     "expedite_cost": 900,
+     "response": "",
+     "simulate_outage": false
+    },
+    {
+     "type": "Delivery",
+     "id": "DEL-1002",
+     "status": "delayed",
+     "item": "Control valves",
+     "delay_days": 9,
+     "order_value": 48000,
+     "expedite_cost": 8000,
+     "response": "",
+     "simulate_outage": false
+    },
+    {
+     "type": "Delivery",
+     "id": "DEL-1003",
+     "status": "delayed",
+     "item": "Cast housings",
+     "delay_days": 12,
+     "order_value": 75000,
+     "expedite_cost": 12000,
+     "response": "",
+     "simulate_outage": false
+    },
+    {
+     "type": "Delivery",
+     "id": "DEL-1004",
+     "status": "delayed",
+     "item": "Sensor modules",
+     "delay_days": 7,
+     "order_value": 21000,
+     "expedite_cost": 1500,
+     "response": "",
+     "simulate_outage": true
+    },
+    {
+     "type": "Delivery",
+     "id": "DEL-1005",
+     "status": "delayed",
+     "item": "Drive belts",
+     "delay_days": 8,
+     "order_value": 18000,
+     "expedite_cost": 2500,
+     "response": "",
+     "simulate_outage": false
+    },
+    {
+     "type": "Alternative",
+     "id": "ALT-1001",
+     "status": "unavailable",
+     "name": "No second source",
+     "lead_time_days": 0,
+     "extra_cost": 0
+    },
+    {
+     "type": "Alternative",
+     "id": "ALT-1002",
+     "status": "unavailable",
+     "name": "No second source",
+     "lead_time_days": 0,
+     "extra_cost": 0
+    },
+    {
+     "type": "Alternative",
+     "id": "ALT-1003",
+     "status": "available",
+     "name": "Meridian Foundry (synthetic)",
+     "lead_time_days": 5,
+     "extra_cost": 4000
+    },
+    {
+     "type": "Alternative",
+     "id": "ALT-1004",
+     "status": "unavailable",
+     "name": "No second source",
+     "lead_time_days": 0,
+     "extra_cost": 0
+    },
+    {
+     "type": "Alternative",
+     "id": "ALT-1005",
+     "status": "unavailable",
+     "name": "No second source",
+     "lead_time_days": 0,
+     "extra_cost": 0
+    }
+   ],
+   "links": [
+    [
+     "SUP-NORTH",
+     "supplies",
+     "DEL-1001"
+    ],
+    [
+     "SUP-NORTH",
+     "supplies",
+     "DEL-1002"
+    ],
+    [
+     "SUP-SOLE",
+     "supplies",
+     "DEL-1003"
+    ],
+    [
+     "SUP-NORTH",
+     "supplies",
+     "DEL-1004"
+    ],
+    [
+     "SUP-NORTH",
+     "supplies",
+     "DEL-1005"
+    ],
+    [
+     "ALT-1001",
+     "covers",
+     "DEL-1001"
+    ],
+    [
+     "ALT-1002",
+     "covers",
+     "DEL-1002"
+    ],
+    [
+     "ALT-1003",
+     "covers",
+     "DEL-1003"
+    ],
+    [
+     "ALT-1004",
+     "covers",
+     "DEL-1004"
+    ],
+    [
+     "ALT-1005",
+     "covers",
+     "DEL-1005"
+    ]
+   ]
+  }
+ }
+}

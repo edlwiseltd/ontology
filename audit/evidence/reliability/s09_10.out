@@ -1,0 +1,68 @@
+== 9a SIGKILL while the payment call is in flight (bank executed it), run started by a user ==
+  child exit code: -9 | external calls: 1
+  [after restart] runs: []
+  [after restart] reviews: []
+  [after restart] graph CL-1/PAY-1: reported {'amount': None, 'reference': None, 'status': 'pending'}
+  [after restart] graph CL-2/PAY-2: reported {'amount': None, 'reference': None, 'status': 'pending'}
+  user retries the claim after restart -> completed | external calls now: 2 [1, 1]
+== 9b crash right AFTER the http tool succeeded but BEFORE save_run ==
+  child exit code: 137 | child said: [{'event': 'crash', 'where': 'save_run'}] | external calls: 1
+  [after restart] runs: []
+  [after restart] reviews: []
+  [after restart] graph CL-1/PAY-1: reported {'amount': None, 'reference': None, 'status': 'pending'}
+  [after restart] graph CL-2/PAY-2: reported {'amount': None, 'reference': None, 'status': 'pending'}
+  retry -> completed | external calls now: 2
+== 10a review approved, crash while the (resumed) payment is in flight; restart; decide again ==
+  started 92d2054e7775 awaiting_review
+  SIU approve -> awaiting_review
+  manager approve, killed during payment: exit -9 | external calls: 1
+  [after restart] runs: [{"run_id": "92d2054e7775", "case": "CL-2", "status": "awaiting_review", "agent": "claims", "verified": true, "events": ["run.start", "plan", "decision", "tool.call", "step", "plan", "decision", "review.requested", "run.end", "review.decision", "run.resume", "plan", "decision", "review", "tool.call", "step", "plan", "decision", "review.requested", "run.end"]}]
+  [after restart] reviews: [['20f064080181', '92d2054e7775', 'approve_claim', 'approved'], ['957bc3dde964', '92d2054e7775', 'pay_claim', 'pending']]
+  [after restart] graph CL-1/PAY-1: reported {'amount': None, 'reference': None, 'status': 'pending'}
+  [after restart] graph CL-2/PAY-2: approved {'amount': None, 'reference': None, 'status': 'pending'}
+  manager decides again after restart -> completed | external calls now: 2
+  [final] runs: [{"run_id": "92d2054e7775", "case": "CL-2", "status": "completed", "agent": "claims", "verified": true, "events": ["run.start", "plan", "decision", "tool.call", "step", "plan", "decision", "review.requested", "run.end", "review.decision", "run.resume", "plan", "decision", "review", "tool.call", "step", "plan", "decision", "review.requested", "run.end", "review.decision", "run.resume", "plan", "decision", "review", "tool.call", "step", "run.end"]}]
+  [final] reviews: [['20f064080181', '92d2054e7775', 'approve_claim', 'approved'], ['957bc3dde964', '92d2054e7775', 'pay_claim', 'approved']]
+  [final] graph CL-1/PAY-1: reported {'amount': None, 'reference': None, 'status': 'pending'}
+  [final] graph CL-2/PAY-2: paid {'amount': 40000, 'reference': None, 'status': 'sent'}
+== 10b review approved, save fails after the payment (in-process: StoreError path re-opens review) ==
+saving run a0e79c8acacc after review 2f9e47114608 failed
+Traceback (most recent call last):
+  File "/home/user/ontology/autology/server.py", line 985, in decide
+    _, changed = self._store_result(result, cfg.name, review["run_id"])
+                 ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/user/ontology/autology/server.py", line 528, in _store_result
+    run_id = self.store.save_run(result, run_id, agent_name, started_by)
+  File "/tmp/claude-0/-home-user-ontology/896e8aa3-d9dc-5a67-94cb-091cd3408dee/scratchpad/audit/reliability/s09_10_crash.py", line 110, in flaky
+    raise RuntimeError("database is locked")
+RuntimeError: database is locked
+  first decide: ApiError 500 the decision could not be saved (RuntimeError); the review is still open
+  external calls: 1 | review status: pending | run status: awaiting_review
+  second decide -> completed | external calls now: 2
+== 10c deferred run resumed by the scheduler; crash in flight; restart; tick again ==
+  first run: deferred | calls: 1
+  tick killed during payment: exit -9 | calls: 2
+  [after restart] runs: [{"run_id": "69ced9aa37f7", "case": "CL-1", "status": "deferred", "agent": "claims", "verified": true, "events": ["run.start", "plan", "decision", "tool.call", "step", "plan", "decision", "tool.call", "step", "plan", "decision", "tool.call", "tool.error", "deferred", "run.end"]}]
+  [after restart] reviews: []
+  [after restart] graph CL-1/PAY-1: approved {'amount': None, 'reference': None, 'status': 'pending'}
+  [after restart] graph CL-2/PAY-2: reported {'amount': None, 'reference': None, 'status': 'pending'}
+  tick after restart -> [{'run_id': '69ced9aa37f7', 'status': 'completed'}] | calls now: 3
+  [final] runs: [{"run_id": "69ced9aa37f7", "case": "CL-1", "status": "completed", "agent": "claims", "verified": true, "events": ["run.start", "plan", "decision", "tool.call", "step", "plan", "decision", "tool.call", "step", "plan", "decision", "tool.call", "tool.error", "deferred", "run.end", "run.resume", "plan", "decision", "tool.call", "step", "run.end"]}]
+  [final] reviews: []
+  [final] graph CL-1/PAY-1: paid {'amount': 2700, 'reference': None, 'status': 'sent'}
+  [final] graph CL-2/PAY-2: reported {'amount': None, 'reference': None, 'status': 'pending'}
+== 10d automation-fired run killed during payment; restart; does the automation re-fire? ==
+  admin upsert (fires automation) killed: exit -9 | calls: 1
+  [after restart] runs: []
+  [after restart] reviews: []
+  [after restart] graph CL-1/PAY-1: reported {'amount': None, 'reference': None, 'status': 'pending'}
+  [after restart] graph CL-2/PAY-2: reported {'amount': None, 'reference': None, 'status': 'pending'}
+  [after restart] automation_state: [{'automation': 'settle_new_claims', 'instance': 'CL-1', 'active': 1, 'last_fired': 1794585422.953245, 'failures': 0}]
+  [after restart] firings: []
+  tick after restart -> {'resumed': [], 'firings': [{'automation': 'settle_new_claims', 'instance': 'CL-2', 'trigger': 'change', 'run_id': '112946b6d102', 'status': 'awaiting_review', 'detail': 'awaiting special_investigations review of approve_claim', 'notification_id': 'ee41daaf5e77'}, {'automation': 'settle_new_claims', 'instance': 'CL-3', 'trigger': 'change', 'run_id': 'e8de634bc946', 'status': 'awaiting_review', 'detail': 'awaiting special_investigations review of reject_claim', 'notification_id': 'ba7ff239b11a'}], 'ingested': [{'batch_id': 'cf63f982a4a3', 'created': 3, 'updated': 0, 'rejected': 3}]} | calls now: 2
+  [final] runs: [{"run_id": "e8de634bc946", "case": "settle_new_claims:CL-3", "status": "awaiting_review", "agent": "claims", "verified": true, "events": ["run.start", "plan", "decision", "tool.call", "step", "plan", "decision", "review.requested", "run.end"]}, {"run_id": "112946b6d102", "case": "settle_new_claims:CL-2", "status": "awaiting_review", "agent": "claims", "verified": true, "events": ["run.start", "plan", "decision", "tool.call", "step", "plan", "decision", "review.requested", "run.end"]}, {"run_id": "12de40cf2db8", "case": "settle_new_claims:CL-4", "status": "completed", "agent": "claims", "verified": true, "events": ["run.start", "plan", "decision", "tool.call", "step", "plan", "decision", "tool.call", "step", "plan", "decision", "tool.call", "step", "run.end"]}]
+  [final] reviews: [['b09ce0f1c643', '112946b6d102', 'approve_claim', 'pending'], ['def19eaa2a77', 'e8de634bc946', 'reject_claim', 'pending']]
+  [final] graph CL-1/PAY-1: reported {'amount': None, 'reference': None, 'status': 'pending'}
+  [final] graph CL-2/PAY-2: assessed {'amount': None, 'reference': None, 'status': 'pending'}
+  [final] automation_state: [{'automation': 'settle_new_claims', 'instance': 'CL-1', 'active': 1, 'last_fired': 1794585422.953245, 'failures': 0}, {'automation': 'settle_new_claims', 'instance': 'CL-4', 'active': 0, 'last_fired': 1794585423.223327, 'failures': 0}, {'automation': 'settle_new_claims', 'instance': 'CL-2', 'active': 0, 'last_fired': 1794585423.2403812, 'failures': 0}, {'automation': 'settle_new_claims', 'instance': 'CL-3', 'active': 0, 'last_fired': 1794585423.2403812, 'failures': 0}]
+  [final] firings: [['settle_new_claims', 'CL-3', 'awaiting_review', 'e8de634bc946'], ['settle_new_claims', 'CL-2', 'awaiting_review', '112946b6d102'], ['settle_new_claims', 'CL-4', 'completed', '12de40cf2db8']]

@@ -1,0 +1,15 @@
+{
+  "notes": "Illustrative pilot assumptions taken from the midpoints of the methodology's ranges (ontology build 50k-200k, maintenance 10k-50k/yr, integration 20k-100k, human cost 50-200/h). platform_per_year and the per-task effort figures are placeholders - replace them with your own. intervention_rate and tool cost per task are overwritten with values measured from the agent runs.",
+  "ontology_development": 125000,
+  "ontology_maintenance_per_year": 30000,
+  "integration": 60000,
+  "platform_per_year": 24000,
+  "llm_cost_per_task": 0.05,
+  "tool_cost_per_task": 5,
+  "tasks_per_month": 1500,
+  "manual_hours_per_task": 1.5,
+  "hourly_rate": 100,
+  "intervention_rate": 0.1,
+  "human_hours_per_intervention": 0.5,
+  "horizon_years": 3
+}

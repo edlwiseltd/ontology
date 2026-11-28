@@ -1,0 +1,34 @@
+{
+  "instances": [
+    {"type": "Factory", "id": "F-LYON", "name": "Lyon", "region": "EU"},
+    {"type": "Factory", "id": "F-OH", "name": "Ohio", "region": "US"},
+    {"type": "ProductionLine", "id": "PL-1", "code": "LYON-1", "alternate_available": true},
+    {"type": "ProductionLine", "id": "PL-2", "code": "LYON-2", "alternate_available": false},
+    {"type": "ProductionLine", "id": "PL-3", "code": "OH-1", "alternate_available": true},
+    {"type": "Product", "id": "P-A", "name": "Product A", "defect_rate": 0.004},
+    {"type": "Product", "id": "P-B", "name": "Product B", "defect_rate": 0.031},
+    {"type": "Product", "id": "P-C", "name": "Product C", "defect_rate": 0.001},
+    {"type": "Supplier", "id": "S-X", "name": "Supplier X", "country": "DE", "on_time_rate": 0.97},
+    {"type": "Supplier", "id": "S-Y", "name": "Supplier Y", "country": "PL", "on_time_rate": 0.81},
+    {"type": "Supplier", "id": "S-Z", "name": "Supplier Z", "country": "US", "on_time_rate": 0.99},
+    {"type": "Contract", "id": "C-101", "status": "signed", "value": 800000, "end_date": "2027-06-30", "late_delivery_penalty": true},
+    {"type": "Contract", "id": "C-102", "status": "draft", "value": 1200000, "end_date": "2027-12-31", "late_delivery_penalty": false},
+    {"type": "Contract", "id": "C-103", "status": "signed", "value": 350000, "end_date": "2028-01-31", "late_delivery_penalty": true},
+    {"type": "Contract", "id": "C-104", "status": "signed", "value": 90000, "end_date": "2026-11-30", "late_delivery_penalty": true},
+    {"type": "Order", "id": "O-1", "status": "scheduled", "amount": 500000, "quantity": 1000, "line": "primary"},
+    {"type": "Order", "id": "O-2", "status": "received", "amount": 750000, "quantity": 1500, "line": "primary"},
+    {"type": "Order", "id": "O-3", "status": "completed", "amount": 300000, "quantity": 600, "line": "primary"},
+    {"type": "Order", "id": "O-4", "status": "received", "amount": 120000, "quantity": 200, "line": "primary"}
+  ],
+  "links": [
+    ["F-LYON", "hasProductionLine", "PL-1"], ["F-LYON", "hasProductionLine", "PL-2"],
+    ["F-OH", "hasProductionLine", "PL-3"],
+    ["PL-1", "manufactures", "P-A"], ["PL-2", "manufactures", "P-B"], ["PL-3", "manufactures", "P-C"],
+    ["P-A", "hasSupplier", "S-X"], ["P-A", "hasSupplier", "S-Y"], ["P-B", "hasSupplier", "S-X"],
+    ["P-C", "hasSupplier", "S-Z"],
+    ["S-X", "hasContract", "C-101"], ["S-Y", "hasContract", "C-102"], ["S-Z", "hasContract", "C-103"],
+    ["S-X", "hasContract", "C-104"],
+    ["O-1", "forProduct", "P-A"], ["O-2", "forProduct", "P-A"], ["O-3", "forProduct", "P-A"],
+    ["O-4", "forProduct", "P-C"]
+  ]
+}

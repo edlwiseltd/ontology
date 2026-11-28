@@ -1,0 +1,1003 @@
+{
+ "kept_answers_run_2": [
+  {
+   "answered": false,
+   "case": "airline-disruption",
+   "confirmation_rate": null,
+   "counterfactual": false,
+   "decided_by": null,
+   "dependency_failures": 0,
+   "draft_accepted": null,
+   "manifest_valid": null,
+   "refused_by_engine": null,
+   "rejected_by_a_person": 0,
+   "run": true,
+   "scenario": "1",
+   "screens": null,
+   "simulation": "not run",
+   "simulation_ready": false,
+   "unresolved": 0,
+   "what": "no additional confirmation"
+  },
+  {
+   "case": "airline-disruption",
+   "run": false,
+   "scenario": "2",
+   "what": "explicit selective confirmation: recorded, attributable decisions only",
+   "why": "no recorded decision exists for this answer; none is invented"
+  },
+  {
+   "answered": false,
+   "case": "airline-disruption",
+   "confirmation_rate": null,
+   "counterfactual": true,
+   "decided_by": null,
+   "dependency_failures": 0,
+   "draft_accepted": null,
+   "manifest_valid": null,
+   "refused_by_engine": null,
+   "rejected_by_a_person": 0,
+   "run": true,
+   "scenario": "3",
+   "screens": null,
+   "simulation": "not run",
+   "simulation_ready": false,
+   "unresolved": 0,
+   "what": "hypothetical full confirmation: a counterfactual, not evidence that any element is right"
+  },
+  {
+   "answered": true,
+   "case": "b2b-procurement",
+   "confirmation_rate": "0 of 9",
+   "counterfactual": false,
+   "decided_by": "nobody: no decision was given",
+   "dependency_failures": 0,
+   "draft_accepted": true,
+   "manifest_valid": true,
+   "refused_by_engine": 1,
+   "rejected_by_a_person": 0,
+   "run": true,
+   "scenario": "1",
+   "screens": 16,
+   "simulation": "completed",
+   "simulation_ready": true,
+   "unresolved": 9,
+   "what": "no additional confirmation"
+  },
+  {
+   "case": "b2b-procurement",
+   "run": false,
+   "scenario": "2",
+   "what": "explicit selective confirmation: recorded, attributable decisions only",
+   "why": "no recorded decision exists for this answer; none is invented"
+  },
+  {
+   "answered": true,
+   "case": "b2b-procurement",
+   "confirmation_rate": "9 of 9",
+   "counterfactual": true,
+   "decided_by": "confirm-all (an assumption of the replay: no reviewer confirmed anything)",
+   "dependency_failures": 0,
+   "draft_accepted": true,
+   "manifest_valid": true,
+   "refused_by_engine": 1,
+   "rejected_by_a_person": 0,
+   "run": true,
+   "scenario": "3",
+   "screens": 18,
+   "simulation": "completed",
+   "simulation_ready": true,
+   "unresolved": 0,
+   "what": "hypothetical full confirmation: a counterfactual, not evidence that any element is right"
+  },
+  {
+   "answered": true,
+   "case": "global-logistics",
+   "confirmation_rate": "0 of 12",
+   "counterfactual": false,
+   "decided_by": "nobody: no decision was given",
+   "dependency_failures": 1,
+   "draft_accepted": false,
+   "manifest_valid": null,
+   "refused_by_engine": 1,
+   "rejected_by_a_person": 0,
+   "run": true,
+   "scenario": "1",
+   "screens": null,
+   "simulation": "not run",
+   "simulation_ready": false,
+   "unresolved": 12,
+   "what": "no additional confirmation"
+  },
+  {
+   "case": "global-logistics",
+   "run": false,
+   "scenario": "2",
+   "what": "explicit selective confirmation: recorded, attributable decisions only",
+   "why": "no recorded decision exists for this answer; none is invented"
+  },
+  {
+   "answered": true,
+   "case": "global-logistics",
+   "confirmation_rate": "12 of 12",
+   "counterfactual": true,
+   "decided_by": "confirm-all (an assumption of the replay: no reviewer confirmed anything)",
+   "dependency_failures": 0,
+   "draft_accepted": true,
+   "manifest_valid": true,
+   "refused_by_engine": 1,
+   "rejected_by_a_person": 0,
+   "run": true,
+   "scenario": "3",
+   "screens": 22,
+   "simulation": "awaiting_review",
+   "simulation_ready": true,
+   "unresolved": 0,
+   "what": "hypothetical full confirmation: a counterfactual, not evidence that any element is right"
+  },
+  {
+   "answered": true,
+   "case": "hospital-operations",
+   "confirmation_rate": "0 of 10",
+   "counterfactual": false,
+   "decided_by": "nobody: no decision was given",
+   "dependency_failures": 3,
+   "draft_accepted": false,
+   "manifest_valid": null,
+   "refused_by_engine": 2,
+   "rejected_by_a_person": 0,
+   "run": true,
+   "scenario": "1",
+   "screens": null,
+   "simulation": "not run",
+   "simulation_ready": false,
+   "unresolved": 10,
+   "what": "no additional confirmation"
+  },
+  {
+   "case": "hospital-operations",
+   "run": false,
+   "scenario": "2",
+   "what": "explicit selective confirmation: recorded, attributable decisions only",
+   "why": "no recorded decision exists for this answer; none is invented"
+  },
+  {
+   "answered": true,
+   "case": "hospital-operations",
+   "confirmation_rate": "10 of 10",
+   "counterfactual": true,
+   "decided_by": "confirm-all (an assumption of the replay: no reviewer confirmed anything)",
+   "dependency_failures": 0,
+   "draft_accepted": true,
+   "manifest_valid": true,
+   "refused_by_engine": 2,
+   "rejected_by_a_person": 0,
+   "run": true,
+   "scenario": "3",
+   "screens": 18,
+   "simulation": "escalated",
+   "simulation_ready": false,
+   "unresolved": 0,
+   "what": "hypothetical full confirmation: a counterfactual, not evidence that any element is right"
+  },
+  {
+   "answered": true,
+   "case": "insurance-claims",
+   "confirmation_rate": "0 of 10",
+   "counterfactual": false,
+   "decided_by": "nobody: no decision was given",
+   "dependency_failures": 6,
+   "draft_accepted": false,
+   "manifest_valid": null,
+   "refused_by_engine": 1,
+   "rejected_by_a_person": 0,
+   "run": true,
+   "scenario": "1",
+   "screens": null,
+   "simulation": "not run",
+   "simulation_ready": false,
+   "unresolved": 10,
+   "what": "no additional confirmation"
+  },
+  {
+   "case": "insurance-claims",
+   "run": false,
+   "scenario": "2",
+   "what": "explicit selective confirmation: recorded, attributable decisions only",
+   "why": "no recorded decision exists for this answer; none is invented"
+  },
+  {
+   "answered": true,
+   "case": "insurance-claims",
+   "confirmation_rate": "10 of 10",
+   "counterfactual": true,
+   "decided_by": "confirm-all (an assumption of the replay: no reviewer confirmed anything)",
+   "dependency_failures": 0,
+   "draft_accepted": true,
+   "manifest_valid": true,
+   "refused_by_engine": 1,
+   "rejected_by_a_person": 0,
+   "run": true,
+   "scenario": "3",
+   "screens": 14,
+   "simulation": "awaiting_review",
+   "simulation_ready": true,
+   "unresolved": 0,
+   "what": "hypothetical full confirmation: a counterfactual, not evidence that any element is right"
+  }
+ ],
+ "kept_journey_ground_handling": {
+  "1": {
+   "A_architect": {
+    "answered": true,
+    "elements": null,
+    "inferred": null
+   },
+   "B_builder": {
+    "manifest_valid": null,
+    "screens": null
+   },
+   "C_engine": {
+    "draft_accepted": false,
+    "simulation": null
+   },
+   "confirmation_rate": "0 of 23",
+   "corrections": 0,
+   "decided_by": "nobody: no decision was given",
+   "dependency_failures": [
+    {
+     "because": {
+      "model:entity:TeamAssignment": "inferred and not confirmed"
+     },
+     "element": "model:action:assign_ground_team",
+     "needs": [
+      "model:entity:TeamAssignment"
+     ]
+    },
+    {
+     "because": {
+      "model:action:approve_recovery_option": "inferred and not confirmed"
+     },
+     "element": "model:rule:R_review_safety_apron",
+     "needs": [
+      "model:action:approve_recovery_option"
+     ]
+    },
+    {
+     "because": {
+      "model:action:approve_recovery_option": "inferred and not confirmed"
+     },
+     "element": "model:rule:R_review_safety_aircraft",
+     "needs": [
+      "model:action:approve_recovery_option"
+     ]
+    },
+    {
+     "because": {
+      "model:action:auto_approve_recovery_option": "inferred and not confirmed"
+     },
+     "element": "model:rule:R_no_auto_approval_beyond_limits",
+     "needs": [
+      "model:action:auto_approve_recovery_option"
+     ]
+    }
+   ],
+   "rejected_by_a_person": [],
+   "scenario": "1",
+   "trace_missing_by_link": {
+    "application": 40,
+    "audit": 40,
+    "clarification": 0,
+    "decision": 23,
+    "draft": 23,
+    "evidence": 40,
+    "release": 23,
+    "simulated_action": 14,
+    "source": 40,
+    "suggestion": 0,
+    "validation": 40
+   },
+   "unresolved": [
+    "model:entity:TeamAssignment",
+    "model:relationship:RecoveryOption-assignments-TeamAssignment",
+    "model:relationship:TeamAssignment-team-GroundTeam",
+    "model:relationship:RecoveryOption-slot_requests-SlotRequest",
+    "model:relationship:Turnaround-decisions-DecisionRecord",
+    "model:action:mark_delayed",
+    "model:action:assess_conflict",
+    "model:action:escalate_to_airline",
+    "model:action:auto_approve_recovery_option",
+    "model:action:approve_recovery_option",
+    "model:action:reject_recovery_option",
+    "model:action:request_slot_change_via_airline",
+    "model:action:execute_recovery_option",
+    "model:action:complete_turnaround",
+    "model:rule:R_review_cost_delay",
+    "model:rule:R_no_execution_unrecorded",
+    "model:rule:R_approve_access",
+    "model:rule:R_reject_access",
+    "model:rule:R_safety_flag_write",
+    "model:rule:R_decision_trail_read",
+    "model:goal:turnaround_recovered",
+    "model:goal:conflict_closed",
+    "model:case_template:delayed_turnaround_recovery"
+   ],
+   "what": "no additional confirmation"
+  },
+  "2": {
+   "A_architect": {
+    "answered": true,
+    "elements": null,
+    "inferred": null
+   },
+   "B_builder": {
+    "manifest_valid": true,
+    "screens": 32
+   },
+   "C_engine": {
+    "draft_accepted": true,
+    "simulation": "completed"
+   },
+   "confirmation_rate": "22 of 23",
+   "corrections": 0,
+   "decided_by": "owner: the elements recorded as accepted in the released model's provenance (a member's acceptance in Studio, not a domain expert's review)",
+   "dependency_failures": [],
+   "rejected_by_a_person": [
+    "model:goal:conflict_closed"
+   ],
+   "scenario": "2",
+   "trace_missing_by_link": {
+    "application": 20,
+    "audit": 40,
+    "clarification": 0,
+    "decision": 0,
+    "draft": 1,
+    "evidence": 40,
+    "release": 1,
+    "simulated_action": 14,
+    "source": 40,
+    "suggestion": 0,
+    "validation": 1
+   },
+   "unresolved": [],
+   "what": "explicit selective confirmation: recorded, attributable decisions only"
+  },
+  "3": {
+   "A_architect": {
+    "answered": true,
+    "elements": null,
+    "inferred": null
+   },
+   "B_builder": {
+    "manifest_valid": true,
+    "screens": 32
+   },
+   "C_engine": {
+    "draft_accepted": true,
+    "simulation": "awaiting_review"
+   },
+   "confirmation_rate": "23 of 23",
+   "corrections": 0,
+   "decided_by": "confirm-all (an assumption of the replay: no reviewer confirmed anything)",
+   "dependency_failures": [],
+   "rejected_by_a_person": [],
+   "scenario": "3",
+   "trace_missing_by_link": {
+    "application": 20,
+    "audit": 39,
+    "clarification": 0,
+    "decision": 0,
+    "draft": 0,
+    "evidence": 40,
+    "release": 0,
+    "simulated_action": 13,
+    "source": 40,
+    "suggestion": 0,
+    "validation": 0
+   },
+   "unresolved": [],
+   "what": "hypothetical full confirmation: a counterfactual, not evidence that any element is right"
+  }
+ },
+ "protocol": "chain-v1",
+ "provider_calls": 0,
+ "reading": "Three components are reported apart: A the AI Architect, B the Application Builder, C the Engine. Acceptance by the Engine means the model loads and runs; it does not mean the model is right for the business. No independent domain expert reviewed any model here. No total is computed.",
+ "six_scenarios_reserved_brief_museum_loans": [
+  {
+   "A_architect": {
+    "answered": true,
+    "elements": null,
+    "inferred": null
+   },
+   "B_builder": {
+    "manifest_valid": true,
+    "screens": 13
+   },
+   "C_engine": {
+    "draft_accepted": true,
+    "simulation": "completed"
+   },
+   "confirmation_rate": "0 of 3",
+   "corrections": 0,
+   "decided_by": "nobody: no decision was given",
+   "dependency_failures": [],
+   "rejected_by_a_person": [],
+   "scenario": "1",
+   "trace_missing_by_link": {
+    "application": 8,
+    "audit": 10,
+    "clarification": 0,
+    "decision": 3,
+    "draft": 3,
+    "evidence": 0,
+    "release": 13,
+    "simulated_action": 0,
+    "source": 0,
+    "suggestion": 0,
+    "validation": 3
+   },
+   "unresolved": [
+    "model:rule:R-VALUE",
+    "model:rule:R-VALUATION",
+    "model:case_template:loan_case"
+   ],
+   "what": "No element confirmed"
+  },
+  {
+   "A_architect": {
+    "answered": true,
+    "elements": null,
+    "inferred": null
+   },
+   "B_builder": {
+    "manifest_valid": true,
+    "screens": 16
+   },
+   "C_engine": {
+    "draft_accepted": true,
+    "simulation": "awaiting_review"
+   },
+   "confirmation_rate": "2 of 3",
+   "corrections": 0,
+   "decided_by": "a synthetic reviewer, written with the case",
+   "dependency_failures": [],
+   "rejected_by_a_person": [],
+   "scenario": "2",
+   "trace_missing_by_link": {
+    "application": 2,
+    "audit": 11,
+    "clarification": 0,
+    "decision": 1,
+    "draft": 1,
+    "evidence": 0,
+    "release": 13,
+    "simulated_action": 1,
+    "source": 0,
+    "suggestion": 0,
+    "validation": 1
+   },
+   "unresolved": [
+    "model:rule:R-VALUATION"
+   ],
+   "what": "Only the recorded, attributable confirmations (a synthetic reviewer, written with the case)"
+  },
+  {
+   "A_architect": {
+    "answered": true,
+    "elements": null,
+    "inferred": null
+   },
+   "B_builder": {
+    "manifest_valid": true,
+    "screens": 16
+   },
+   "C_engine": {
+    "draft_accepted": true,
+    "simulation": "awaiting_review"
+   },
+   "confirmation_rate": "3 of 3",
+   "corrections": 0,
+   "decided_by": "confirm-all (an assumption of the replay: no reviewer confirmed anything)",
+   "dependency_failures": [],
+   "rejected_by_a_person": [],
+   "scenario": "3",
+   "trace_missing_by_link": {
+    "application": 2,
+    "audit": 11,
+    "clarification": 0,
+    "decision": 0,
+    "draft": 0,
+    "evidence": 0,
+    "release": 13,
+    "simulated_action": 1,
+    "source": 0,
+    "suggestion": 0,
+    "validation": 0
+   },
+   "unresolved": [],
+   "what": "Hypothetical: every inferred element confirmed (a counterfactual; nobody confirmed them)"
+  },
+  {
+   "A_architect": {
+    "answered": true,
+    "elements": null,
+    "inferred": null
+   },
+   "B_builder": {
+    "manifest_valid": null,
+    "screens": null
+   },
+   "C_engine": {
+    "draft_accepted": false,
+    "simulation": null
+   },
+   "confirmation_rate": "2 of 3",
+   "corrections": 0,
+   "decided_by": "illustrative decisions written with this evidence script; no person made them",
+   "dependency_failures": [
+    {
+     "because": {
+      "model:entity:Borrower": "rejected"
+     },
+     "element": "model:relationship:Borrower-submits-LoanRequest",
+     "needs": [
+      "model:entity:Borrower"
+     ]
+    },
+    {
+     "because": {
+      "model:entity:Borrower": "rejected"
+     },
+     "element": "model:case_template:loan_case",
+     "needs": [
+      "model:entity:Borrower"
+     ]
+    }
+   ],
+   "rejected_by_a_person": [
+    "model:entity:Borrower"
+   ],
+   "scenario": "4a",
+   "trace_missing_by_link": {
+    "application": 13,
+    "audit": 13,
+    "clarification": 0,
+    "decision": 1,
+    "draft": 2,
+    "evidence": 0,
+    "release": 13,
+    "simulated_action": 3,
+    "source": 0,
+    "suggestion": 0,
+    "validation": 13
+   },
+   "unresolved": [
+    "model:rule:R-VALUATION"
+   ],
+   "what": "A rejection, and what depended on the rejected element"
+  },
+  {
+   "A_architect": {
+    "answered": true,
+    "elements": null,
+    "inferred": null
+   },
+   "B_builder": {
+    "manifest_valid": true,
+    "screens": 16
+   },
+   "C_engine": {
+    "draft_accepted": true,
+    "simulation": "awaiting_review"
+   },
+   "confirmation_rate": "2 of 3",
+   "corrections": 1,
+   "decided_by": "illustrative decisions written with this evidence script; no person made them",
+   "dependency_failures": [],
+   "rejected_by_a_person": [],
+   "scenario": "4b",
+   "trace_missing_by_link": {
+    "application": 2,
+    "audit": 11,
+    "clarification": 0,
+    "decision": 1,
+    "draft": 1,
+    "evidence": 0,
+    "release": 13,
+    "simulated_action": 1,
+    "source": 0,
+    "suggestion": 0,
+    "validation": 1
+   },
+   "unresolved": [
+    "model:rule:R-VALUATION"
+   ],
+   "what": "A correction, validated again by the Engine"
+  },
+  {
+   "architect": "not applicable: no architect proposal",
+   "authored_elements": 17,
+   "case": "venue-booking",
+   "draft_accepted": true,
+   "established_by_engine": true,
+   "manifest_valid": true,
+   "may_be_published": true,
+   "provenance": "manual_authoring",
+   "scenario": "5",
+   "screens": 24,
+   "simulation": "awaiting_review",
+   "what": "A model authored by hand, with no architect proposal",
+   "why": "attributed to the authenticated author; published only by a second person"
+  },
+  {
+   "architect": "not applicable: no architect proposal",
+   "authored_elements": 17,
+   "case": "venue-booking",
+   "draft_accepted": true,
+   "established_by_engine": false,
+   "manifest_valid": true,
+   "may_be_published": false,
+   "provenance": "legacy_unknown",
+   "scenario": "6",
+   "screens": 24,
+   "simulation": "awaiting_review",
+   "what": "The same model as a legacy draft whose provenance was never established",
+   "why": "the provenance was never established: the Engine refuses to publish it until it is saved again and classified"
+  }
+ ],
+ "trace_kept_journey_summary": {
+  "elements": 40,
+  "missing_by_link": {
+   "application": 20,
+   "audit": 40,
+   "clarification": 0,
+   "decision": 0,
+   "draft": 1,
+   "evidence": 40,
+   "release": 1,
+   "simulated_action": 14,
+   "source": 40,
+   "suggestion": 0,
+   "validation": 1
+  },
+  "with_no_missing_link": 0
+ },
+ "trace_museum_loans_recorded_decisions": {
+  "elements": [
+   {
+    "application": [
+     "work-loan_case",
+     "list-loanrequest",
+     "detail-loanrequest",
+     "links-loanrequest",
+     "form-loanrequest"
+    ],
+    "audit": "missing: no audit event for this element",
+    "clarification": "none cited",
+    "decision": "none needed: stated by the description",
+    "draft": "in the draft",
+    "element": "model:entity:LoanRequest",
+    "evidence": [
+     "brief"
+    ],
+    "missing": [
+     "release",
+     "audit"
+    ],
+    "release": "missing: this evaluation releases nothing (a hosted draft is released by two people: tests C8)",
+    "simulated_action": "not an action",
+    "source": "brief",
+    "suggestion": "supplied: A request to borrow one object",
+    "validation": "accepted by the strict loader"
+   },
+   {
+    "application": [
+     "list-collectionobject",
+     "detail-collectionobject",
+     "links-collectionobject",
+     "form-collectionobject"
+    ],
+    "audit": "missing: no audit event for this element",
+    "clarification": "none cited",
+    "decision": "none needed: stated by the description",
+    "draft": "in the draft",
+    "element": "model:entity:CollectionObject",
+    "evidence": [
+     "brief"
+    ],
+    "missing": [
+     "release",
+     "audit"
+    ],
+    "release": "missing: this evaluation releases nothing (a hosted draft is released by two people: tests C8)",
+    "simulated_action": "not an action",
+    "source": "brief",
+    "suggestion": "supplied: An object of the collection",
+    "validation": "accepted by the strict loader"
+   },
+   {
+    "application": [
+     "list-borrower",
+     "detail-borrower",
+     "links-borrower",
+     "form-borrower"
+    ],
+    "audit": "missing: no audit event for this element",
+    "clarification": "none cited",
+    "decision": "none needed: stated by the description",
+    "draft": "in the draft",
+    "element": "model:entity:Borrower",
+    "evidence": [
+     "brief"
+    ],
+    "missing": [
+     "release",
+     "audit"
+    ],
+    "release": "missing: this evaluation releases nothing (a hosted draft is released by two people: tests C8)",
+    "simulated_action": "not an action",
+    "source": "brief",
+    "suggestion": "supplied: An institution that borrows",
+    "validation": "accepted by the strict loader"
+   },
+   {
+    "application": [
+     "detail-loanrequest",
+     "links-loanrequest",
+     "detail-borrower",
+     "links-borrower"
+    ],
+    "audit": "missing: no audit event for this element",
+    "clarification": "none cited",
+    "decision": "none needed: stated by the description",
+    "draft": "in the draft",
+    "element": "model:relationship:Borrower-submits-LoanRequest",
+    "evidence": [
+     "brief"
+    ],
+    "missing": [
+     "release",
+     "audit"
+    ],
+    "release": "missing: this evaluation releases nothing (a hosted draft is released by two people: tests C8)",
+    "simulated_action": "not an action",
+    "source": "brief",
+    "suggestion": "supplied: Borrower submits LoanRequest",
+    "validation": "accepted by the strict loader"
+   },
+   {
+    "application": [
+     "detail-loanrequest",
+     "links-loanrequest",
+     "detail-collectionobject",
+     "links-collectionobject"
+    ],
+    "audit": "missing: no audit event for this element",
+    "clarification": "none cited",
+    "decision": "none needed: stated by the description",
+    "draft": "in the draft",
+    "element": "model:relationship:CollectionObject-requested_in-LoanRequest",
+    "evidence": [
+     "brief"
+    ],
+    "missing": [
+     "release",
+     "audit"
+    ],
+    "release": "missing: this evaluation releases nothing (a hosted draft is released by two people: tests C8)",
+    "simulated_action": "not an action",
+    "source": "brief",
+    "suggestion": "supplied: CollectionObject requested_in LoanRequest",
+    "validation": "accepted by the strict loader"
+   },
+   {
+    "application": [
+     "work-loan_case"
+    ],
+    "audit": "17 events in the simulation's in-memory trace (not a signed chain)",
+    "clarification": "none cited",
+    "decision": "none needed: stated by the description",
+    "draft": "in the draft",
+    "element": "model:action:check_request",
+    "evidence": [
+     "brief"
+    ],
+    "missing": [
+     "release"
+    ],
+    "release": "missing: this evaluation releases nothing (a hosted draft is released by two people: tests C8)",
+    "simulated_action": "executed in the default simulated run",
+    "source": "brief",
+    "suggestion": "supplied: The registrar checks the request",
+    "validation": "accepted by the strict loader"
+   },
+   {
+    "application": [
+     "work-loan_case"
+    ],
+    "audit": "17 events in the simulation's in-memory trace (not a signed chain)",
+    "clarification": "none cited",
+    "decision": "none needed: stated by the description",
+    "draft": "in the draft",
+    "element": "model:action:write_condition_report",
+    "evidence": [
+     "brief"
+    ],
+    "missing": [
+     "release"
+    ],
+    "release": "missing: this evaluation releases nothing (a hosted draft is released by two people: tests C8)",
+    "simulated_action": "executed in the default simulated run",
+    "source": "brief",
+    "suggestion": "supplied: The conservator writes a condition report",
+    "validation": "accepted by the strict loader"
+   },
+   {
+    "application": [
+     "work-loan_case"
+    ],
+    "audit": "missing: no audit event for this element",
+    "clarification": "none cited",
+    "decision": "none needed: stated by the description",
+    "draft": "in the draft",
+    "element": "model:action:issue_agreement",
+    "evidence": [
+     "brief"
+    ],
+    "missing": [
+     "release",
+     "simulated_action",
+     "audit"
+    ],
+    "release": "missing: this evaluation releases nothing (a hosted draft is released by two people: tests C8)",
+    "simulated_action": "missing: not executed in the default simulated run",
+    "source": "brief",
+    "suggestion": "supplied: Issue the loan agreement",
+    "validation": "accepted by the strict loader"
+   },
+   {
+    "application": [
+     "work-loan_case",
+     "reviews"
+    ],
+    "audit": "missing: no audit event for this element",
+    "clarification": "none cited",
+    "decision": "accepted by a synthetic reviewer, written with the case",
+    "draft": "in the draft",
+    "element": "model:rule:R-VALUE",
+    "evidence": [
+     "brief"
+    ],
+    "missing": [
+     "release",
+     "audit"
+    ],
+    "release": "missing: this evaluation releases nothing (a hosted draft is released by two people: tests C8)",
+    "simulated_action": "not an action",
+    "source": "brief",
+    "suggestion": "inferred: The director approves loans above the valuation limit",
+    "validation": "accepted by the strict loader"
+   },
+   {
+    "application": [
+     "work-loan_case"
+    ],
+    "audit": "missing: no audit event for this element",
+    "clarification": "none cited",
+    "decision": "none needed: stated by the description",
+    "draft": "in the draft",
+    "element": "model:rule:R-FRAGILE",
+    "evidence": [
+     "brief"
+    ],
+    "missing": [
+     "release",
+     "audit"
+    ],
+    "release": "missing: this evaluation releases nothing (a hosted draft is released by two people: tests C8)",
+    "simulated_action": "not an action",
+    "source": "brief",
+    "suggestion": "supplied: A fragile object never travels",
+    "validation": "accepted by the strict loader"
+   },
+   {
+    "application": "missing: no application",
+    "audit": "missing: no audit event for this element",
+    "clarification": "none cited",
+    "decision": "missing: inferred, and nobody confirmed it",
+    "draft": "missing: not in the draft",
+    "element": "model:rule:R-VALUATION",
+    "evidence": [
+     "brief"
+    ],
+    "missing": [
+     "decision",
+     "draft",
+     "validation",
+     "release",
+     "application",
+     "audit"
+    ],
+    "release": "missing: this evaluation releases nothing (a hosted draft is released by two people: tests C8)",
+    "simulated_action": "not an action",
+    "source": "brief",
+    "suggestion": "inferred: Only a registrar records the valuation",
+    "validation": "missing: not validated: not in the draft"
+   },
+   {
+    "application": "missing: no screen is bound to this kind of element",
+    "audit": "missing: no audit event for this element",
+    "clarification": "none cited",
+    "decision": "none needed: stated by the description",
+    "draft": "in the draft",
+    "element": "model:goal:loan_agreed",
+    "evidence": [
+     "brief"
+    ],
+    "missing": [
+     "release",
+     "application",
+     "audit"
+    ],
+    "release": "missing: this evaluation releases nothing (a hosted draft is released by two people: tests C8)",
+    "simulated_action": "not an action",
+    "source": "brief",
+    "suggestion": "supplied: The loan agreement is issued",
+    "validation": "accepted by the strict loader"
+   },
+   {
+    "application": [
+     "work-loan_case"
+    ],
+    "audit": "missing: no audit event for this element",
+    "clarification": "none cited",
+    "decision": "accepted by a synthetic reviewer, written with the case",
+    "draft": "in the draft",
+    "element": "model:case_template:loan_case",
+    "evidence": [
+     "brief"
+    ],
+    "missing": [
+     "release",
+     "audit"
+    ],
+    "release": "missing: this evaluation releases nothing (a hosted draft is released by two people: tests C8)",
+    "simulated_action": "not an action",
+    "source": "brief",
+    "suggestion": "inferred: A loan request with its borrower and its object",
+    "validation": "accepted by the strict loader"
+   }
+  ],
+  "holds": "element names, never a record or a value of a record",
+  "links": [
+   "source",
+   "suggestion",
+   "evidence",
+   "clarification",
+   "decision",
+   "draft",
+   "validation",
+   "release",
+   "application",
+   "simulated_action",
+   "audit"
+  ],
+  "summary": {
+   "elements": 13,
+   "missing_by_link": {
+    "application": 2,
+    "audit": 11,
+    "clarification": 0,
+    "decision": 1,
+    "draft": 1,
+    "evidence": 0,
+    "release": 13,
+    "simulated_action": 1,
+    "source": 0,
+    "suggestion": 0,
+    "validation": 1
+   },
+   "with_no_missing_link": 0
+  }
+ }
+}

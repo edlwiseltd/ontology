@@ -1,0 +1,16 @@
+{
+  "name": "Northwind adds a large turbine order",
+  "edits": [
+    {"op": "add", "type": "Order", "id": "O-6",
+     "attributes": {"sku": "TURBINE-2", "quantity": 1, "amount": 95000, "region": "US", "hazardous": false},
+     "links": [{"kind": "covers", "source": "K-1"}]},
+    {"op": "action", "action": "credit_check", "case_template": "contract_case", "root": "K-1", "target": "O-6",
+     "roles": ["finance"]},
+    {"op": "action", "action": "pick_order", "case_template": "contract_case", "root": "K-1", "target": "O-6",
+     "roles": ["ops"]}
+  ],
+  "checks": [
+    {"goal": "fulfil_contract", "case_template": "contract_case", "root": "K-1",
+     "roles": ["ops", "eu_ops", "finance"]}
+  ]
+}

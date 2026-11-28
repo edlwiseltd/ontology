@@ -1,0 +1,35 @@
+End-to-end chain evaluation, protocol chain-v1. Answers: the reserved briefs' hand-written reference answers (not a model)
+
+A. AI Architect: answered 2 of 2; language model answers 0; elements proposed 26; elements refused by engine 0; inferred elements needing confirmation 5; cost usd recorded with the answers 0.0
+B. Application Builder: manifests generated 2 of 2; manifests valid 2 of 2; deterministic 2 of 2
+C. Autology Engine: drafts accepted 2 of 2; runs that proceed 2 of 2; reviews requested 1; decisions by another role refused 1 of 1
+
+harbour-pilotage:
+   1. [harness] ok  an unfamiliar business description: 651 characters, synthetic
+   2. [      A] ok  clarification questions: 3 question(s)
+   3. [      A] ok  a structured proposal: 13 element(s) proposed
+   4. [      C] ok  validation by the Engine: 13 accepted, 0 refused by the strict loader
+   5. [      C] ok  rejected elements and their reasons: none refused
+   6. [harness] ok  only authorised corrections and confirmations: 12 kept, 1 inferred and not confirmed, 0 dropped; by a synthetic reviewer, written with the case
+   7. [      C] ok  a governed draft: accepted by the strict loader
+   8. [      B] ok  an application manifest: 16 screens, 7 menu entries
+   9. [      B] ok  validation of the manifest: valid
+  10. [      B] ok  rendering in simulation: every screen is of a view type the renderer draws; no browser was run here
+  11. [      C] ok  governed actions, refusals and approvals: default run: completed
+  12. [harness] ok  a reproducible report: digest ef6569de8f9f77e8
+museum-loans:
+   1. [harness] ok  an unfamiliar business description: 687 characters, synthetic
+   2. [      A] ok  clarification questions: 3 question(s)
+   3. [      A] ok  a structured proposal: 13 element(s) proposed
+   4. [      C] ok  validation by the Engine: 13 accepted, 0 refused by the strict loader
+   5. [      C] ok  rejected elements and their reasons: none refused
+   6. [harness] ok  only authorised corrections and confirmations: 12 kept, 1 inferred and not confirmed, 0 dropped; by a synthetic reviewer, written with the case
+   7. [      C] ok  a governed draft: accepted by the strict loader
+   8. [      B] ok  an application manifest: 16 screens, 7 menu entries
+   9. [      B] ok  validation of the manifest: valid
+  10. [      B] ok  rendering in simulation: every screen is of a view type the renderer draws; no browser was run here
+  11. [      C] ok  governed actions, refusals and approvals: default run: awaiting_review; review by director: approved -> completed, refused -> blocked
+  12. [harness] ok  a reproducible report: digest 7552626b074665a4
+
+Not measured: whether a model is right for a real organisation (independent domain reviewers); a browser's rendering (the browser suite does that for hosted applications); a real provider beyond the answers already kept
+No total is computed: the three components are reported apart.

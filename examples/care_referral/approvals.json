@@ -1,0 +1,9 @@
+{
+  "type": "policy",
+  "reviewer": "pilot-clinical-board",
+  "decisions": {
+    "refer_alternate": true,
+    "approve_care_plan": "Patient.age < 95"
+  },
+  "default": false
+}

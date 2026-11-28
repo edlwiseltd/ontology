@@ -1,0 +1,16 @@
+{
+  "name": "water-operations",
+  "version": "0.1.0",
+  "description": "Synthetic starting point for an industrial water-treatment use case (no real customer data): one entity, to be designed in Studio",
+  "entities": {
+    "Plant": {
+      "description": "A treatment plant",
+      "states": ["operating", "maintenance"],
+      "attributes": {"name": "string", "capacity_m3_per_day": "number"}
+    }
+  },
+  "relationships": [],
+  "actions": {},
+  "goals": {},
+  "rules": []
+}

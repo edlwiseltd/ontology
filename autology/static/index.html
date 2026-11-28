@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Autology Inbox</title>
+  <link rel="stylesheet" href="/app.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Autology <span class="muted" id="ontology-ref"></span></div>
+    <div class="who" id="who" hidden>
+      <span id="who-name"></span>
+      <button type="button" class="link" id="sign-out">Sign out</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="signin" class="card narrow" aria-labelledby="signin-title">
+      <h1 id="signin-title">Sign in</h1>
+      <p class="muted">Paste the API token your administrator gave you. It stays in this browser tab only.</p>
+      <form id="signin-form">
+        <label for="token">API token</label>
+        <input id="token" name="token" type="password" autocomplete="off" required>
+        <button type="submit" class="primary">Sign in</button>
+      </form>
+      <div id="sso" hidden>
+        <p class="muted or">or</p>
+        <button type="button" class="primary wide" id="sso-button">Sign in with your company account</button>
+      </div>
+    </section>
+
+    <div id="app" hidden>
+      <nav class="tabs" role="tablist" aria-label="Sections">
+        <button role="tab" id="tab-reviews" aria-controls="panel-reviews" aria-selected="true">Reviews <span class="badge" id="review-count">0</span></button>
+        <button role="tab" id="tab-runs" aria-controls="panel-runs" aria-selected="false">Runs</button>
+        <button role="tab" id="tab-start" aria-controls="panel-start" aria-selected="false">Start a run</button>
+        <button role="tab" id="tab-objects" aria-controls="panel-objects" aria-selected="false">Objects</button>
+        <button role="tab" id="tab-activity" aria-controls="panel-activity" aria-selected="false">Activity <span class="badge" id="note-count">0</span></button>
+        <button role="tab" id="tab-assistant" aria-controls="panel-assistant" aria-selected="false">Assistant</button>
+      </nav>
+
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+
+      <section role="tabpanel" id="panel-reviews" aria-labelledby="tab-reviews">
+        <div class="section-head">
+          <h2>Waiting for your decision</h2>
+          <button type="button" id="refresh-reviews">Refresh</button>
+        </div>
+        <div id="reviews"></div>
+      </section>
+
+      <section role="tabpanel" id="panel-runs" aria-labelledby="tab-runs" hidden>
+        <div class="section-head">
+          <h2>Runs</h2>
+          <label class="inline">Status
+            <select id="run-status">
+              <option value="">All</option>
+              <option>completed</option>
+              <option>awaiting_review</option>
+              <option>blocked</option>
+              <option>escalated</option>
+              <option>deferred</option>
+              <option>paused</option>
+              <option>suspended</option>
+            </select>
+          </label>
+        </div>
+        <div class="table-wrap"><table id="runs-table">
+          <thead><tr><th>Case</th><th>Goal</th><th>Agent</th><th>Status</th><th>Updated</th></tr></thead>
+          <tbody></tbody>
+        </table></div>
+        <div id="run-detail" class="card" hidden></div>
+      </section>
+
+      <section role="tabpanel" id="panel-start" aria-labelledby="tab-start" hidden>
+        <h2>Start a run</h2>
+        <form id="start-form" class="card">
+          <label for="start-agent">Agent</label>
+          <select id="start-agent" required></select>
+          <label for="start-goal">Goal</label>
+          <select id="start-goal" required></select>
+          <label for="start-template">Case template</label>
+          <select id="start-template"></select>
+          <label for="start-root">Start from object (id)</label>
+          <input id="start-root" placeholder="e.g. K-1" autocomplete="off">
+          <p class="muted">The case is assembled from the stored data, so the facts that trigger reviews and rules come from the system of record.</p>
+          <div id="free-form" hidden>
+            <label for="start-case-id">Case id</label>
+            <input id="start-case-id" value="case">
+            <label for="start-case">Or: case data (JSON) instead of a template</label>
+            <textarea id="start-case" rows="10" spellcheck="false"></textarea>
+          </div>
+          <button type="submit" class="primary">Run</button>
+        </form>
+      </section>
+
+      <section role="tabpanel" id="panel-objects" aria-labelledby="tab-objects" hidden>
+        <div class="section-head">
+          <h2>Objects</h2>
+          <label class="inline">Type <select id="object-type"></select></label>
+        </div>
+        <p class="muted" id="object-total"></p>
+        <button type="button" id="reveal-objects" hidden>Reveal protected fields…</button>
+        <div class="table-wrap"><table id="objects-table"><thead></thead><tbody></tbody></table></div>
+      </section>
+
+      <section role="tabpanel" id="panel-activity" aria-labelledby="tab-activity" hidden>
+        <div class="section-head">
+          <h2>Notifications</h2>
+          <button type="button" id="refresh-activity">Refresh</button>
+        </div>
+        <ul id="notifications" class="notes"></ul>
+        <h2>Automations</h2>
+        <div id="automations"></div>
+      </section>
+
+      <section role="tabpanel" id="panel-assistant" aria-labelledby="tab-assistant" hidden>
+        <div class="section-head">
+          <h2>Assistant</h2>
+          <button type="button" id="chat-new">New conversation</button>
+        </div>
+        <p class="muted">Ask about your data, runs and reviews, or ask it to start work. It acts as you: it sees only what you may see, and it cannot decide reviews.</p>
+        <div id="proposals"></div>
+        <div id="chat-log" class="chat-log" aria-live="polite"></div>
+        <form id="chat-form" class="chat-form">
+          <label for="chat-input" class="visually-hidden">Message</label>
+          <textarea id="chat-input" rows="2" placeholder="e.g. Which orders are still waiting, and why?" required></textarea>
+          <button type="submit" class="primary">Send</button>
+        </form>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

@@ -1,0 +1,174 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash  # bash -eo pipefail: a failing test run is not hidden by tee
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.13"]
+    services:
+      postgres:  # a real database for the SQL ingestion tests
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: ci-only
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+        with:
+          python-version: ${{ matrix.python }}
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: "22"
+
+      # Optional dependencies, so the OR-Tools, SPARQL, PostgreSQL, RSA interoperability, TypeScript SDK and Anthropic adapter
+      # tests run instead of skipping (the adapter tests replace the SDK's transport: no key exists and nothing is called)
+      - name: Install test dependencies
+        run: |
+          python -m pip install "pip==26.2.2"
+          python -m pip install "ortools==9.15.6755" "rdflib==7.1.4" "coverage==7.16.2" "psycopg[binary]==3.2.3" "cryptography==44.0.2" "anthropic==2.8.0"
+          npm install --global "typescript@6.0.2"
+          tsc --version
+          node --version
+
+      - name: Run the test suite (no test may be skipped)
+        env:
+          AUTOLOGY_AUDIT_KEY: ci-audit-key
+          AUTOLOGY_TEST_PG_DSN: postgresql://postgres:ci-only@127.0.0.1:5432/postgres
+        run: |
+          python -m coverage run --source=autology -m unittest discover -s tests -t . -v 2>&1 | tee test.log
+          if grep -E "skipped '" test.log; then
+            echo "::error::tests were skipped; CI installs every optional dependency, so nothing may skip"
+            exit 1
+          fi
+
+      - name: Coverage
+        run: python -m coverage report --fail-under=95
+
+  package:
+    # The wheel installs and serves the inbox; the Docker image passes the end-to-end smoke test.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+        with:
+          python-version: "3.13"
+
+      - name: Build and check the wheel
+        run: |
+          python -m pip install "build==1.2.2"
+          python -m build
+          python -m venv /tmp/wheel-env
+          /tmp/wheel-env/bin/pip install dist/*.whl
+          /tmp/wheel-env/bin/autology --help > /dev/null
+          /tmp/wheel-env/bin/python -c "import autology, pathlib; p = pathlib.Path(autology.__file__).parent; assert (p / 'static' / 'app.js').exists() and (p / 'console_static' / 'console.js').exists() and (p / 'blueprints' / 'water_treatment.json').exists() and len(list((p / 'evaluation').glob('*.json'))) == 5 and len(list((p / 'evaluation_v2').glob('*.json'))) == 8"
+          /tmp/wheel-env/bin/autology architect-eval --self-check > /dev/null
+
+      - name: Build the Docker image
+        run: docker build -t autology:ci .
+
+      - name: Smoke-test the image
+        run: deploy/smoke_test.sh autology:ci
+
+      - name: Licences of what the image really contains (GAP-031)
+        run: |
+          docker run --rm -i --entrypoint python autology:ci - < deploy/image_licences.py > /tmp/installed.json
+          python deploy/image_licences.py check /tmp/installed.json
+
+      - name: Image without the LGPL PostgreSQL driver builds, contains no weak copyleft and passes the smoke test
+        run: |
+          docker build --build-arg EXTRAS=llm -t autology:ci-no-postgres .
+          docker run --rm -i --entrypoint python autology:ci-no-postgres - < deploy/image_licences.py > /tmp/installed-no-postgres.json
+          python deploy/image_licences.py check /tmp/installed-no-postgres.json --no-weak-copyleft
+          SMOKE_PORT=18801 deploy/smoke_test.sh autology:ci-no-postgres
+
+      - name: Compose file is valid
+        run: |
+          cp deploy/.env.example deploy/.env
+          touch deploy/prometheus-token
+          docker compose -f deploy/docker-compose.yml --profile monitoring config -q
+
+  studio:
+    # Studio (Next.js, studio/web) is its own application: it type-checks, passes its unit tests, builds, and passes
+    # its browser tests against a real platform; then the engine is shown to keep working with Studio stopped.
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: studio/web
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+        with:
+          python-version: "3.13"
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: "22"
+
+      - name: Install (exact versions from the lock file)
+        run: npm ci --no-audit --no-fund
+
+      - name: The API client is generated from the contracts the engine publishes
+        run: |
+          (cd ../.. && python -m autology openapi --write)
+          npm run generate:api
+          git diff --exit-code -- api lib/generated
+
+      - name: Type-check and unit tests
+        run: |
+          npm run typecheck
+          npm test
+
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+
+      - name: Known vulnerabilities in the npm packages Studio ships (QA-1)
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Browser tests against a real platform, then the engine without Studio
+        run: |
+          npx playwright install --with-deps chromium
+          e2e/run.sh
+
+  quality:
+    # QA-1 (audit GAP-025, F-06, F-12): bug-finding lint, a type-checking ratchet, and known vulnerabilities in the
+    # pinned image dependencies. Tool versions are pinned so the gate does not move on its own.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+        with:
+          python-version: "3.13"
+
+      - name: Install the quality tools (exact versions)
+        run: python -m pip install "pip==26.2.2" "ruff==0.17.5" "mypy==2.4.1" "pip-audit==2.10.1"
+
+      - name: Lint (rules that find bugs; configuration in pyproject.toml)
+        run: ruff check autology tests deploy
+
+      - name: Type errors may only go down (deploy/mypy-baseline.txt)
+        run: python deploy/mypy_ratchet.py
+
+      - name: Known vulnerabilities in the image's pinned Python dependencies
+        run: pip-audit -r deploy/image-constraints.txt --no-deps --progress-spinner off

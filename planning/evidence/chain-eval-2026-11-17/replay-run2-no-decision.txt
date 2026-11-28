@@ -1,0 +1,74 @@
+End-to-end chain evaluation, protocol chain-v1. Answers: answers kept in planning/evidence/claude-eval-2026-11-17/run2-after-correction; no decision of a person
+
+A. AI Architect: answered 4 of 5; language model answers 4; elements proposed 114; elements refused by engine 5; inferred elements needing confirmation 41; cost usd recorded with the answers 0.799479
+B. Application Builder: manifests generated 1 of 1; manifests valid 1 of 1; deterministic 1 of 1
+C. Autology Engine: drafts accepted 1 of 4; runs that proceed 1 of 1; reviews requested 0; decisions by another role refused 0 of 0
+
+airline-disruption:
+   1. [harness] ok  an unfamiliar business description: 679 characters, synthetic
+   2. [      A] NO  clarification questions: LookupError: no answer was kept for this case: the provider's answer was refused or never received
+   3. [harness] --  a structured proposal: not reached: no proposal
+   4. [harness] --  validation by the Engine: not reached: no proposal
+   5. [harness] --  rejected elements and their reasons: not reached: no proposal
+   6. [harness] --  only authorised corrections and confirmations: not reached: no proposal
+   7. [harness] --  a governed draft: not reached: no proposal
+   8. [harness] --  an application manifest: not reached: no proposal
+   9. [harness] --  validation of the manifest: not reached: no proposal
+  10. [harness] --  rendering in simulation: not reached: no proposal
+  11. [harness] --  governed actions, refusals and approvals: not reached: no proposal
+  12. [harness] --  a reproducible report: not reached: no proposal
+b2b-procurement:
+   1. [harness] ok  an unfamiliar business description: 618 characters, synthetic
+   2. [      A] ok  clarification questions: 6 question(s)
+   3. [      A] ok  a structured proposal: 27 element(s) proposed
+   4. [      C] ok  validation by the Engine: 26 accepted, 1 refused by the strict loader
+   5. [      C] ok  rejected elements and their reasons: case_template component_sourcing: case template 'component_sourcing': no relationship 'Requirement' from 'Requirement'
+   6. [harness] ok  only authorised corrections and confirmations: 17 kept, 9 inferred and not confirmed, 0 dropped; by nobody: no decision was given
+   7. [      C] ok  a governed draft: accepted by the strict loader
+   8. [      B] ok  an application manifest: 16 screens, 6 menu entries
+   9. [      B] ok  validation of the manifest: valid
+  10. [      B] ok  rendering in simulation: every screen is of a view type the renderer draws; no browser was run here
+  11. [      C] ok  governed actions, refusals and approvals: default run: completed
+  12. [harness] ok  a reproducible report: digest c0a6f3bd4d1ff627
+global-logistics:
+   1. [harness] ok  an unfamiliar business description: 716 characters, synthetic
+   2. [      A] ok  clarification questions: 6 question(s)
+   3. [      A] ok  a structured proposal: 30 element(s) proposed
+   4. [      C] ok  validation by the Engine: 29 accepted, 1 refused by the strict loader
+   5. [      C] ok  rejected elements and their reasons: case_template shipment_disruption_case: case template 'shipment_disruption_case': no relationship 'Shipment' from 'Shipment'
+   6. [harness] ok  only authorised corrections and confirmations: 17 kept, 12 inferred and not confirmed, 0 dropped; by nobody: no decision was given
+   7. [      C] NO  a governed draft: rule 'customer_agreement_before_air': 'before' must name an action
+   8. [      B] --  an application manifest: not reached: no accepted draft
+   9. [      B] --  validation of the manifest: not reached: no accepted draft
+  10. [      B] --  rendering in simulation: not reached: no accepted draft
+  11. [      C] --  governed actions, refusals and approvals: not reached: no accepted draft
+  12. [harness] ok  a reproducible report: digest e7b722e2eb93b4c3
+hospital-operations:
+   1. [harness] ok  an unfamiliar business description: 693 characters, synthetic
+   2. [      A] ok  clarification questions: 8 question(s)
+   3. [      A] ok  a structured proposal: 28 element(s) proposed
+   4. [      C] ok  validation by the Engine: 26 accepted, 2 refused by the strict loader
+   5. [      C] ok  rejected elements and their reasons: rule R6_notify_after_reschedule: rule 'R6_notify_after_reschedule': 'before' must name an action; case_template booking_disruption_case: case template 'booking_disruption_case': no relationship 'Booking' from 'Booking'
+   6. [harness] ok  only authorised corrections and confirmations: 16 kept, 10 inferred and not confirmed, 0 dropped; by nobody: no decision was given
+   7. [      C] NO  a governed draft: relationship 'located_at': unknown entity 'Resource'
+   8. [      B] --  an application manifest: not reached: no accepted draft
+   9. [      B] --  validation of the manifest: not reached: no accepted draft
+  10. [      B] --  rendering in simulation: not reached: no accepted draft
+  11. [      C] --  governed actions, refusals and approvals: not reached: no accepted draft
+  12. [harness] ok  a reproducible report: digest c379df666b75872c
+insurance-claims:
+   1. [harness] ok  an unfamiliar business description: 669 characters, synthetic
+   2. [      A] ok  clarification questions: 7 question(s)
+   3. [      A] ok  a structured proposal: 29 element(s) proposed
+   4. [      C] ok  validation by the Engine: 28 accepted, 1 refused by the strict loader
+   5. [      C] ok  rejected elements and their reasons: case_template property_claim_case: case template 'property_claim_case': no relationship 'Claim' from 'Claim'
+   6. [harness] ok  only authorised corrections and confirmations: 18 kept, 10 inferred and not confirmed, 0 dropped; by nobody: no decision was given
+   7. [      C] NO  a governed draft: relationship 'covered_by': unknown entity 'Policy'
+   8. [      B] --  an application manifest: not reached: no accepted draft
+   9. [      B] --  validation of the manifest: not reached: no accepted draft
+  10. [      B] --  rendering in simulation: not reached: no accepted draft
+  11. [      C] --  governed actions, refusals and approvals: not reached: no accepted draft
+  12. [harness] ok  a reproducible report: digest 84241c6918dc767e
+
+Not measured: whether a model is right for a real organisation (independent domain reviewers); a browser's rendering (the browser suite does that for hosted applications); a real provider beyond the answers already kept
+No total is computed: the three components are reported apart.

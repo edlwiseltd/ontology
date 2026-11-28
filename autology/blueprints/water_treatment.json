@@ -1,0 +1,199 @@
+{
+  "id": "water-treatment",
+  "name": "Industrial water treatment: assets and maintenance",
+  "description": "Synthetic industry blueprint (no customer data). Proposes a starting model for plants, pump assets, maintenance work and approvals.",
+  "keywords": [
+    "water",
+    "treatment",
+    "plant",
+    "plants",
+    "pump",
+    "pumps",
+    "asset",
+    "assets",
+    "maintenance",
+    "technician",
+    "technicians",
+    "supervisor",
+    "supervisors",
+    "approval",
+    "approvals",
+    "work order"
+  ],
+  "items": [
+    {
+      "kind": "entity",
+      "name": "Plant",
+      "rationale": "The brief operates several treatment plants",
+      "value": {
+        "description": "A treatment plant",
+        "states": [
+          "operating",
+          "maintenance"
+        ],
+        "attributes": {
+          "name": "string",
+          "capacity_m3_per_day": "number"
+        }
+      }
+    },
+    {
+      "kind": "entity",
+      "name": "Pump",
+      "rationale": "Pump assets are named in the brief",
+      "value": {
+        "description": "A pump asset at a plant",
+        "multiple": true,
+        "states": [
+          "running",
+          "degraded",
+          "stopped"
+        ],
+        "attributes": {
+          "tag": "string",
+          "rated_flow_m3_h": "number",
+          "running_hours": "number",
+          "criticality": "string"
+        }
+      }
+    },
+    {
+      "kind": "entity",
+      "name": "WorkOrder",
+      "rationale": "A maintenance process needs a unit of work",
+      "value": {
+        "description": "Maintenance work on an asset",
+        "states": [
+          "requested",
+          "approved",
+          "in_progress",
+          "done",
+          "rejected"
+        ],
+        "attributes": {
+          "priority": "string",
+          "estimated_cost": "number",
+          "description": "string"
+        }
+      }
+    },
+    {
+      "kind": "entity",
+      "name": "Technician",
+      "rationale": "Technicians are named in the brief",
+      "value": {
+        "description": "A person who performs maintenance",
+        "multiple": true,
+        "attributes": {
+          "name": "string",
+          "certification": "string"
+        },
+        "states": [
+          "active",
+          "inactive"
+        ]
+      }
+    },
+    {
+      "kind": "entity",
+      "name": "Supervisor",
+      "rationale": "Supervisors approve work in the brief",
+      "value": {
+        "description": "A person who approves maintenance work",
+        "attributes": {
+          "name": "string"
+        },
+        "states": [
+          "active",
+          "inactive"
+        ]
+      }
+    },
+    {
+      "kind": "relationship",
+      "rationale": "Pumps belong to plants",
+      "value": {
+        "from": "Plant",
+        "to": "Pump",
+        "type": "operates",
+        "cardinality": "1..*"
+      }
+    },
+    {
+      "kind": "relationship",
+      "rationale": "Work orders concern one asset",
+      "value": {
+        "from": "WorkOrder",
+        "to": "Pump",
+        "type": "concerns",
+        "cardinality": "1"
+      }
+    },
+    {
+      "kind": "relationship",
+      "rationale": "Work is assigned to technicians",
+      "value": {
+        "from": "WorkOrder",
+        "to": "Technician",
+        "type": "assignedTo",
+        "cardinality": "0..*"
+      }
+    },
+    {
+      "kind": "relationship",
+      "rationale": "Approval responsibility",
+      "value": {
+        "from": "WorkOrder",
+        "to": "Supervisor",
+        "type": "approvedBy",
+        "cardinality": "0..1"
+      }
+    },
+    {
+      "kind": "action",
+      "name": "approve_work_order",
+      "rationale": "Approval responsibilities are named in the brief",
+      "value": {
+        "description": "Approve a requested work order",
+        "capability": "maintenance.approve",
+        "requires": [
+          "WorkOrder.status == 'requested'"
+        ],
+        "effects": {
+          "WorkOrder": {
+            "status": "approved"
+          }
+        },
+        "side_effect": "none"
+      }
+    },
+    {
+      "kind": "action",
+      "name": "schedule_work",
+      "rationale": "Approved work must be planned in the maintenance system",
+      "value": {
+        "description": "Schedule approved work in the maintenance system",
+        "capability": "maintenance.schedule",
+        "requires": [
+          "WorkOrder.status == 'approved'"
+        ],
+        "effects": {
+          "WorkOrder": {
+            "status": "in_progress"
+          }
+        }
+      }
+    },
+    {
+      "kind": "rule",
+      "rationale": "Costly work needs a supervisor's approval",
+      "value": {
+        "id": "R-COSTLY-WORK",
+        "type": "human_review",
+        "action": "approve_work_order",
+        "reviewer": "maintenance_supervisor",
+        "description": "Work orders estimated above 10,000 need a maintenance supervisor"
+      }
+    }
+  ]
+}

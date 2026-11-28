@@ -1,0 +1,36 @@
+autology/adapters.py:109:11: S310 Audit URL open for permitted schemes. Allowing use of `file:` or custom schemes is often unexpected.
+autology/console.py:85:15: S310 Audit URL open for permitted schemes. Allowing use of `file:` or custom schemes is often unexpected.
+autology/ingest.py:373:19: S310 Audit URL open for permitted schemes. Allowing use of `file:` or custom schemes is often unexpected.
+autology/ingest.py:374:18: S310 Audit URL open for permitted schemes. Allowing use of `file:` or custom schemes is often unexpected.
+autology/ingest.py:441:30: B023 Function definition does not bind loop variable `m`
+autology/ingest.py:441:40: B023 Function definition does not bind loop variable `number`
+autology/ingest.py:441:51: B023 Function definition does not bind loop variable `m`
+autology/ingest.py:441:80: B023 Function definition does not bind loop variable `row`
+autology/ingest.py:543:38: B023 Function definition does not bind loop variable `value`
+autology/ingest.py:543:47: B023 Function definition does not bind loop variable `check`
+autology/ingest.py:543:78: B023 Function definition does not bind loop variable `value`
+autology/ingest.py:543:87: B023 Function definition does not bind loop variable `check`
+autology/ingest.py:544:37: B023 Function definition does not bind loop variable `value`
+autology/ingest.py:544:46: B023 Function definition does not bind loop variable `check`
+autology/ingest.py:545:59: B023 Function definition does not bind loop variable `check`
+autology/ingest.py:545:80: B023 Function definition does not bind loop variable `value`
+autology/mcp.py:158:15: S310 Audit URL open for permitted schemes. Allowing use of `file:` or custom schemes is often unexpected.
+autology/mcp.py:178:44: S107 Possible hardcoded password assigned to function default: "token_env"
+autology/oidc.py:97:11: S310 Audit URL open for permitted schemes. Allowing use of `file:` or custom schemes is often unexpected.
+autology/oidc.py:98:10: S310 Audit URL open for permitted schemes. Allowing use of `file:` or custom schemes is often unexpected.
+autology/reporting.py:97:5: F841 Local variable `reviewed` is assigned to but never used
+autology/scheduling.py:330:15: S311 Standard pseudo-random generators are not suitable for cryptographic purposes
+autology/scheduling.py:565:24: B023 Function definition does not bind loop variable `slot`
+autology/scheduling.py:566:20: B023 Function definition does not bind loop variable `bound`
+autology/server.py:1004:15: S310 Audit URL open for permitted schemes. Allowing use of `file:` or custom schemes is often unexpected.
+autology/server.py:1007:13: S310 Audit URL open for permitted schemes. Allowing use of `file:` or custom schemes is often unexpected.
+autology/settings.py:24:15: S105 Possible hardcoded password assigned to: "SECRET_NAME"
+autology/store.py:350:15: S608 Possible SQL injection vector through string-based query construction
+autology/store.py:466:17: S608 Possible SQL injection vector through string-based query construction
+autology/store.py:633:28: S608 Possible SQL injection vector through string-based query construction
+autology/store.py:641:24: S608 Possible SQL injection vector through string-based query construction
+autology/store.py:650:24: S608 Possible SQL injection vector through string-based query construction
+autology/store.py:901:13: S608 Possible SQL injection vector through string-based query construction
+autology/tracing.py:180:11: S310 Audit URL open for permitted schemes. Allowing use of `file:` or custom schemes is often unexpected.
+autology/tracing.py:182:10: S310 Audit URL open for permitted schemes. Allowing use of `file:` or custom schemes is often unexpected.
+autology/warehouse.py:193:29: S608 Possible SQL injection vector through string-based query construction

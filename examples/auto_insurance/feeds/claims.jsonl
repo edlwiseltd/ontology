@@ -1,0 +1,4 @@
+{"claim_no": "4", "policy_no": "P-4", "vehicle": "V-1", "shop": "RS-1", "amount": "1850.00", "damage": "side mirror", "days": "1", "updated_at": "2026-11-10T09:00:00Z"}
+{"claim_no": "5", "policy_no": "P-4", "vehicle": "V-2", "shop": "RS-2", "amount": "-40", "damage": "scratch", "days": "3", "updated_at": "2026-11-10T09:05:00Z"}
+{"claim_no": "6", "policy_no": "P-9", "vehicle": "V-3", "shop": "RS-1", "amount": "9000", "damage": "hail", "days": "2", "updated_at": "2026-11-10T09:10:00Z"}
+{"claim_no": "7", "policy_no": "P-1", "vehicle": "V-1", "shop": "RS-1", "amount": "2400", "damage": "windscreen", "days": "four", "updated_at": "2026-11-10T09:15:00Z"}

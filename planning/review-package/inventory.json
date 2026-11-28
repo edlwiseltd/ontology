@@ -1,0 +1,424 @@
+{
+ "aggregate": null,
+ "artifacts": [
+  {
+   "answered_by": {
+    "model": "claude-opus-5-5",
+    "provider": "anthropic",
+    "request_id": "6be855a051de475c8139fc76bfa5f2ae"
+   },
+   "artifact": "planning/evidence/claude-eval-2026-11-17/run2-after-correction/b2b-procurement-1.json",
+   "assumptions": 4,
+   "brief_from": "autology/evaluation/b2b-procurement.json",
+   "brief_sha256": "b29ee59a19bb3dfcff1dd6e610474ae99bd879b7d47f43ab50b59bd973c4dbcf",
+   "case": "run2:b2b-procurement:1",
+   "citation_labels": [
+    "brief"
+   ],
+   "citing_an_answer": 0,
+   "decisions_on_record": "none: no person decided anything about this answer",
+   "elements": 26,
+   "inferred": 9,
+   "kind": "real model output (17 November 2026)",
+   "limits": [
+    "a V1 case: its expectations were written by the project, and the answer was scored against them",
+    "each element cites the brief as a whole, not a passage; no structured evidence entry (the field came later)",
+    "any 'all confirmed' result about it is a counterfactual"
+   ],
+   "questions": 6,
+   "refused_by_the_engine": 1,
+   "reviewable": "the original answer only",
+   "sha256": "95e4eaeab42bfd946f2bce41b2538ed4475b18fc4a1efdf5d29a84cb93df50d3",
+   "stated": 17,
+   "with_a_citation_stored_at_the_time": 26,
+   "with_a_rationale": 26,
+   "with_structured_evidence_entries": 0
+  },
+  {
+   "answered_by": {
+    "model": "claude-opus-5-5",
+    "provider": "anthropic",
+    "request_id": "992e6c6e142c48e884176d6e7742eb8b"
+   },
+   "artifact": "planning/evidence/claude-eval-2026-11-17/run2-after-correction/b2b-procurement-2.json",
+   "assumptions": 4,
+   "brief_from": "autology/evaluation/b2b-procurement.json",
+   "brief_sha256": "b29ee59a19bb3dfcff1dd6e610474ae99bd879b7d47f43ab50b59bd973c4dbcf",
+   "case": "run2:b2b-procurement:2",
+   "citation_labels": [
+    "brief"
+   ],
+   "citing_an_answer": 0,
+   "decisions_on_record": "none: no person decided anything about this answer",
+   "elements": 28,
+   "inferred": 10,
+   "kind": "real model output (17 November 2026)",
+   "limits": [
+    "a V1 case: its expectations were written by the project, and the answer was scored against them",
+    "each element cites the brief as a whole, not a passage; no structured evidence entry (the field came later)",
+    "any 'all confirmed' result about it is a counterfactual"
+   ],
+   "questions": 6,
+   "refused_by_the_engine": 1,
+   "reviewable": "the original answer only",
+   "sha256": "d6c58bafc36c31859e79d8d530f95ea3080b6e6f771eeec8dd646a386eb413db",
+   "stated": 18,
+   "with_a_citation_stored_at_the_time": 28,
+   "with_a_rationale": 28,
+   "with_structured_evidence_entries": 0
+  },
+  {
+   "answered_by": {
+    "model": "claude-opus-5-5",
+    "provider": "anthropic",
+    "request_id": "9e708a5b47fe4515ab0b44ba15ec931f"
+   },
+   "artifact": "planning/evidence/claude-eval-2026-11-17/run2-after-correction/global-logistics-1.json",
+   "assumptions": 4,
+   "brief_from": "autology/evaluation/global-logistics.json",
+   "brief_sha256": "410cb6312f3425caf5dc29142f12f8f8dfed72ca0e0a6808b9de888915480103",
+   "case": "run2:global-logistics:1",
+   "citation_labels": [
+    "brief"
+   ],
+   "citing_an_answer": 0,
+   "decisions_on_record": "none: no person decided anything about this answer",
+   "elements": 29,
+   "inferred": 12,
+   "kind": "real model output (17 November 2026)",
+   "limits": [
+    "a V1 case: its expectations were written by the project, and the answer was scored against them",
+    "each element cites the brief as a whole, not a passage; no structured evidence entry (the field came later)",
+    "any 'all confirmed' result about it is a counterfactual"
+   ],
+   "questions": 6,
+   "refused_by_the_engine": 1,
+   "reviewable": "the original answer only",
+   "sha256": "24e341168c039c90a1108ae8de5a4c736b95a4f8f5d26df6f3a9ff238c2b72f7",
+   "stated": 17,
+   "with_a_citation_stored_at_the_time": 29,
+   "with_a_rationale": 29,
+   "with_structured_evidence_entries": 0
+  },
+  {
+   "answered_by": {
+    "model": "claude-opus-5-5",
+    "provider": "anthropic",
+    "request_id": "14e4985797524c4bbc813ec76d4a5bd0"
+   },
+   "artifact": "planning/evidence/claude-eval-2026-11-17/run2-after-correction/hospital-operations-1.json",
+   "assumptions": 3,
+   "brief_from": "autology/evaluation/hospital-operations.json",
+   "brief_sha256": "2fc5f0525e3cfd4f34254168fa4c5c1c74d09fdce15c364c4d3fe82daaa93089",
+   "case": "run2:hospital-operations:1",
+   "citation_labels": [
+    "brief"
+   ],
+   "citing_an_answer": 0,
+   "decisions_on_record": "none: no person decided anything about this answer",
+   "elements": 26,
+   "inferred": 10,
+   "kind": "real model output (17 November 2026)",
+   "limits": [
+    "a V1 case: its expectations were written by the project, and the answer was scored against them",
+    "each element cites the brief as a whole, not a passage; no structured evidence entry (the field came later)",
+    "any 'all confirmed' result about it is a counterfactual"
+   ],
+   "questions": 8,
+   "refused_by_the_engine": 2,
+   "reviewable": "the original answer only",
+   "sha256": "312e852db05c4fdc3eb302eb4e5cae7e4413d4217285b61bddb461462226b139",
+   "stated": 16,
+   "with_a_citation_stored_at_the_time": 26,
+   "with_a_rationale": 26,
+   "with_structured_evidence_entries": 0
+  },
+  {
+   "answered_by": {
+    "model": "claude-opus-5-5",
+    "provider": "anthropic",
+    "request_id": "1201adba6524420b82a5451ac1eb0a59"
+   },
+   "artifact": "planning/evidence/claude-eval-2026-11-17/run2-after-correction/hospital-operations-2.json",
+   "assumptions": 4,
+   "brief_from": "autology/evaluation/hospital-operations.json",
+   "brief_sha256": "2fc5f0525e3cfd4f34254168fa4c5c1c74d09fdce15c364c4d3fe82daaa93089",
+   "case": "run2:hospital-operations:2",
+   "citation_labels": [
+    "brief"
+   ],
+   "citing_an_answer": 0,
+   "decisions_on_record": "none: no person decided anything about this answer",
+   "elements": 38,
+   "inferred": 23,
+   "kind": "real model output (17 November 2026)",
+   "limits": [
+    "a V1 case: its expectations were written by the project, and the answer was scored against them",
+    "each element cites the brief as a whole, not a passage; no structured evidence entry (the field came later)",
+    "any 'all confirmed' result about it is a counterfactual"
+   ],
+   "questions": 9,
+   "refused_by_the_engine": 2,
+   "reviewable": "the original answer only",
+   "sha256": "9dd75bdad336240e3f9457e1477e6695f16054943063d1ceeac2c7dd3e241d77",
+   "stated": 15,
+   "with_a_citation_stored_at_the_time": 38,
+   "with_a_rationale": 38,
+   "with_structured_evidence_entries": 0
+  },
+  {
+   "answered_by": {
+    "model": "claude-opus-5-5",
+    "provider": "anthropic",
+    "request_id": "25abf87256f240639d382a0ddf843398"
+   },
+   "artifact": "planning/evidence/claude-eval-2026-11-17/run2-after-correction/insurance-claims-1.json",
+   "assumptions": 4,
+   "brief_from": "autology/evaluation/insurance-claims.json",
+   "brief_sha256": "f78513c97277152fa98a098256e2f3130162d691c4db0e063a6953eef9273341",
+   "case": "run2:insurance-claims:1",
+   "citation_labels": [
+    "brief"
+   ],
+   "citing_an_answer": 0,
+   "decisions_on_record": "none: no person decided anything about this answer",
+   "elements": 28,
+   "inferred": 10,
+   "kind": "real model output (17 November 2026)",
+   "limits": [
+    "a V1 case: its expectations were written by the project, and the answer was scored against them",
+    "each element cites the brief as a whole, not a passage; no structured evidence entry (the field came later)",
+    "any 'all confirmed' result about it is a counterfactual"
+   ],
+   "questions": 7,
+   "refused_by_the_engine": 1,
+   "reviewable": "the original answer only",
+   "sha256": "9392c35114977743ab2f9e733dabc7cb6da75bd48559eb336ba6696566bd8f3f",
+   "stated": 18,
+   "with_a_citation_stored_at_the_time": 28,
+   "with_a_rationale": 28,
+   "with_structured_evidence_entries": 0
+  },
+  {
+   "answered_by": {
+    "model": "claude-opus-5-5",
+    "provider": "anthropic",
+    "request_id": "461db4a012164c719ae889013e59c095"
+   },
+   "artifact": "planning/evidence/claude-eval-2026-11-17/run2-after-correction/insurance-claims-2.json",
+   "assumptions": 5,
+   "brief_from": "autology/evaluation/insurance-claims.json",
+   "brief_sha256": "f78513c97277152fa98a098256e2f3130162d691c4db0e063a6953eef9273341",
+   "case": "run2:insurance-claims:2",
+   "citation_labels": [
+    "brief"
+   ],
+   "citing_an_answer": 0,
+   "decisions_on_record": "none: no person decided anything about this answer",
+   "elements": 32,
+   "inferred": 11,
+   "kind": "real model output (17 November 2026)",
+   "limits": [
+    "a V1 case: its expectations were written by the project, and the answer was scored against them",
+    "each element cites the brief as a whole, not a passage; no structured evidence entry (the field came later)",
+    "any 'all confirmed' result about it is a counterfactual"
+   ],
+   "questions": 6,
+   "refused_by_the_engine": 1,
+   "reviewable": "the original answer only",
+   "sha256": "690f10fab673d689f3d2fb21290a2163d051b62da8bbb2f09db46dd272dfaa40",
+   "stated": 21,
+   "with_a_citation_stored_at_the_time": 32,
+   "with_a_rationale": 32,
+   "with_structured_evidence_entries": 0
+  },
+  {
+   "answered_by": {
+    "model": "claude-opus-5-5",
+    "provider": "anthropic",
+    "request_id": "cb376e4c2c6f4da7b20a866a329d32a8"
+   },
+   "artifact": "planning/evidence/claude-eval-2026-11-17/ground-handling/proposal-revision-2.json",
+   "assumptions": 4,
+   "brief_from": null,
+   "brief_sha256": null,
+   "case": "journey:ground-handling",
+   "citation_labels": [
+    "brief"
+   ],
+   "citing_an_answer": 0,
+   "decisions_on_record": "39 of 40 accepted by a project member in Studio (22 of 23 inferred); a member, not a domain expert",
+   "elements": 40,
+   "inferred": 23,
+   "kind": "real model output (17 November 2026), revision 2 after answers",
+   "limits": [
+    "the brief is inside the stored proposal; it was written by the project",
+    "12 inferred elements cite nothing; 28 cite the brief as a whole; none shows the answer it came from (GAP-081, fixed later); no structured evidence entry (GAP-111). Nothing is reconstructed",
+    "the released model (active-model-release-3.json) is the model after a member's decisions: a review of it is a review of a corrected model and must be reported as such"
+   ],
+   "questions": 7,
+   "refused_by_the_engine": 0,
+   "released_model": {
+    "artifact": "planning/evidence/claude-eval-2026-11-17/ground-handling/active-model-release-3.json",
+    "sha256": "a81636d499d5d446f7ab8898072aba94194f0c0beac5d47c2fe4a10bd1ce98eb"
+   },
+   "reviewable": "the original proposal (revision 2), and separately the released model",
+   "sha256": "cbd628d425fbf5d3810d0dfb6b02820b2dc23b97e488bdd154e8cd9cbf3cfccd",
+   "stated": 17,
+   "with_a_citation_stored_at_the_time": 28,
+   "with_a_rationale": 40,
+   "with_structured_evidence_entries": 0
+  },
+  {
+   "answered_by": {
+    "model": "claude-opus-5-5",
+    "provider": "anthropic",
+    "request_id": "50767001405840e88375ac756d3000be"
+   },
+   "artifact": "planning/evidence/claude-eval-2026-11-17/canary/proposal.json",
+   "assumptions": 4,
+   "brief_from": null,
+   "brief_sha256": null,
+   "case": "canary:bicycle-rental",
+   "citation_labels": [
+    "brief"
+   ],
+   "citing_an_answer": 0,
+   "decisions_on_record": "none",
+   "elements": 20,
+   "inferred": 8,
+   "kind": "real model output (17 November 2026), a first connectivity request",
+   "limits": [
+    "a three-sentence invented brief: too small to say anything about a domain"
+   ],
+   "questions": 6,
+   "refused_by_the_engine": 5,
+   "reviewable": "not proposed for review",
+   "sha256": "e6c5f062595405ad157b84500f9fb00d416f275baf2ad2181fbaf72b48874155",
+   "stated": 12,
+   "with_a_citation_stored_at_the_time": 20,
+   "with_a_rationale": 20,
+   "with_structured_evidence_entries": 0
+  },
+  {
+   "artifact": "autology/evaluation_reserved/harbour-pilotage.json",
+   "case": "reserved:harbour-pilotage",
+   "decisions_on_record": "a synthetic reviewer written with the case; no person",
+   "kind": "held-out brief with a hand-written reference answer (not a model output)",
+   "limits": [
+    "no real model has answered it: there is no architect output to review",
+    "content not copied into this package: it stays where it is"
+   ],
+   "reviewable": "nothing yet",
+   "sha256": "e0d70c5ae69e97ecd62568cd0eeeb4bc78490ce62ca61cb0d78ff8743ace076e"
+  },
+  {
+   "artifact": "autology/evaluation_reserved/museum-loans.json",
+   "case": "reserved:museum-loans",
+   "decisions_on_record": "a synthetic reviewer written with the case; no person",
+   "kind": "held-out brief with a hand-written reference answer (not a model output)",
+   "limits": [
+    "no real model has answered it: there is no architect output to review",
+    "content not copied into this package: it stays where it is"
+   ],
+   "reviewable": "nothing yet",
+   "sha256": "7d484678b3b30583f4784dfd583af19e4bc2b8a1fcf70800fb2d7682b52cd407"
+  },
+  {
+   "artifact": "autology/evaluation_v2/adv-answer.json",
+   "case": "v2:adv-answer",
+   "decisions_on_record": "none",
+   "kind": "held-out case of the proposed protocol V2 (never run)",
+   "limits": [
+    "V2 is proposed and not ratified (D30 g); no answer exists"
+   ],
+   "reviewable": "nothing yet",
+   "sha256": "8b0208e54e597eb1c6c558bc7897a9ab987500a462ab6aa362277d0391cf4c30"
+  },
+  {
+   "artifact": "autology/evaluation_v2/adv-document.json",
+   "case": "v2:adv-document",
+   "decisions_on_record": "none",
+   "kind": "held-out case of the proposed protocol V2 (never run)",
+   "limits": [
+    "V2 is proposed and not ratified (D30 g); no answer exists"
+   ],
+   "reviewable": "nothing yet",
+   "sha256": "304b047d3ec2283e31ff6dfe7231567272b15cb6c56f023a045d060e469104cf"
+  },
+  {
+   "artifact": "autology/evaluation_v2/adv-record.json",
+   "case": "v2:adv-record",
+   "decisions_on_record": "none",
+   "kind": "held-out case of the proposed protocol V2 (never run)",
+   "limits": [
+    "V2 is proposed and not ratified (D30 g); no answer exists"
+   ],
+   "reviewable": "nothing yet",
+   "sha256": "3320ff2ef500512457ed6014d350c68330c6acc38cdeaa43b7d189e894e3ef63"
+  },
+  {
+   "artifact": "autology/evaluation_v2/adv-tool.json",
+   "case": "v2:adv-tool",
+   "decisions_on_record": "none",
+   "kind": "held-out case of the proposed protocol V2 (never run)",
+   "limits": [
+    "V2 is proposed and not ratified (D30 g); no answer exists"
+   ],
+   "reviewable": "nothing yet",
+   "sha256": "82e984a23ce23d3c34625e4a220cc7a62c23de5d896a2ed3f995f0e0eb3acf8f"
+  },
+  {
+   "artifact": "autology/evaluation_v2/batch-release.json",
+   "case": "v2:batch-release",
+   "decisions_on_record": "none",
+   "kind": "held-out case of the proposed protocol V2 (never run)",
+   "limits": [
+    "V2 is proposed and not ratified (D30 g); no answer exists"
+   ],
+   "reviewable": "nothing yet",
+   "sha256": "04d6210deb1949c1e206086782a52f8c7cf594dbb237a62df318f37a020fb8ac"
+  },
+  {
+   "artifact": "autology/evaluation_v2/building-permit.json",
+   "case": "v2:building-permit",
+   "decisions_on_record": "none",
+   "kind": "held-out case of the proposed protocol V2 (never run)",
+   "limits": [
+    "V2 is proposed and not ratified (D30 g); no answer exists"
+   ],
+   "reviewable": "nothing yet",
+   "sha256": "2e50b6b0a516a14bd1af87e009b67f5a5cdaa11ab3afcd5b147f0cc293f0aa2d"
+  },
+  {
+   "artifact": "autology/evaluation_v2/outage-restoration.json",
+   "case": "v2:outage-restoration",
+   "decisions_on_record": "none",
+   "kind": "held-out case of the proposed protocol V2 (never run)",
+   "limits": [
+    "V2 is proposed and not ratified (D30 g); no answer exists"
+   ],
+   "reviewable": "nothing yet",
+   "sha256": "6f59c0fd0a577c7266f554e0cff1e2a8d443162b9f36b25edf187a88e4144841"
+  },
+  {
+   "artifact": "autology/evaluation_v2/scholarship-awards.json",
+   "case": "v2:scholarship-awards",
+   "decisions_on_record": "none",
+   "kind": "held-out case of the proposed protocol V2 (never run)",
+   "limits": [
+    "V2 is proposed and not ratified (D30 g); no answer exists"
+   ],
+   "reviewable": "nothing yet",
+   "sha256": "0d222fba846e5aa28940eb309e67523c905fb46a58bf60efeb83b3ad85d5f82c"
+  }
+ ],
+ "components_reported_apart": {
+  "A": "AI Architect: fidelity, completeness, assumptions, evidence, semantic defects",
+  "B": "Application Builder: deterministic manifest generation and conformance to the accepted model",
+  "C": "Engine: structural validity, authorisation and enforceable constraints"
+ },
+ "provider_calls": 0,
+ "reading": "An inventory of files. It says what exists and what each record lacks; it judges nothing.",
+ "rubric": "part-c-2026-11-20"
+}

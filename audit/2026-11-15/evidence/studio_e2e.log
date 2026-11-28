@@ -1,0 +1,28 @@
+PASS CSP header present
+PASS workspace and use cases from the real platform
+PASS draft use case: the engine runs nothing
+PASS stage moved through the platform and recorded
+PASS canvas and list are views of one model — 5 nodes, 5 list items, rendered in 75 ms
+PASS keyboard selects an entity; inspector shows it
+PASS dark theme text contrast ≥ 4.5:1 — 15.4:1
+PASS light theme text contrast ≥ 4.5:1 — 16.2:1
+PASS use case created from a template starts in Draft
+PASS no page errors
+PASS design starts from the active model, valid
+PASS brief gives provisional items labelled not AI — 11 items
+PASS accepted items appear as new (dashed) nodes and the engine validates them — 471 ms to engine-validated
+PASS questions come from real gaps
+PASS a malformed attribute is refused by the engine and anchored to its node
+PASS fixing it in the inspector makes the model valid again
+PASS draft saved as revision 1; nothing unsaved
+PASS a stale save is refused (409) and the user is told
+PASS the active model is unchanged by drafts
+PASS no page errors (design)
+PASS non-admin sees no stage form
+PASS direct API v1 calls are refused by the platform (403, 404, 404, 403, 403) — [403,404,404,403,403]
+PASS the same direct calls on the legacy paths are refused too — [403,404,404,403,403]
+PASS v1 refusals use the error envelope
+PASS mobile: no horizontal page scroll
+25/25 checks passed
+PASS Studio is stopped
+PASS engine answers with Studio stopped (HTTP 200)

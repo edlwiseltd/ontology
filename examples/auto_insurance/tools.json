@@ -1,0 +1,80 @@
+{
+ "_comment": "Systems simulated as decision tables; replace any with an http or python tool to go live",
+ "tools": [
+  {
+   "name": "fraud_engine",
+   "capability": "fraud.score",
+   "type": "table",
+   "cost": 0.5,
+   "rows": [
+    {
+     "when": "Claim.reported_days_after > 60 and Claim.amount > 30000",
+     "outcome": "fraud",
+     "updates": {
+      "Claim": {
+       "fraud_score": 0.97
+      }
+     },
+     "message": "late, large claim: scored as fraud"
+    },
+    {
+     "when": "Claim.reported_days_after > 30 or Claim.amount > 40000",
+     "outcome": "suspicious",
+     "updates": {
+      "Claim": {
+       "fraud_score": 0.75
+      }
+     },
+     "message": "unusual claim: needs an investigator"
+    },
+    {
+     "outcome": "clear",
+     "updates": {
+      "Claim": {
+       "fraud_score": 0.1
+      }
+     },
+     "message": "no fraud indicators"
+    }
+   ]
+  },
+  {
+   "name": "claims_system",
+   "capability": "claims.approve",
+   "type": "table",
+   "cost": 0.1,
+   "rows": [
+    {
+     "message": "claim approved"
+    }
+   ]
+  },
+  {
+   "name": "claims_system_reject",
+   "capability": "claims.reject",
+   "type": "table",
+   "cost": 0.1,
+   "rows": [
+    {
+     "message": "claim rejected"
+    }
+   ]
+  },
+  {
+   "name": "payments",
+   "capability": "payments.pay",
+   "type": "table",
+   "cost": 1,
+   "rows": [
+    {
+     "updates": {
+      "Payment": {
+       "reference": "BANK-TRANSFER"
+      }
+     },
+     "message": "payment sent"
+    }
+   ]
+  }
+ ]
+}

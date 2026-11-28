@@ -1,0 +1,72 @@
+@prefix : <https://autology.dev/ontology/auto-insurance-claims/1.0.0#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix autology: <https://autology.dev/ns#> .
+
+<https://autology.dev/ontology/auto-insurance-claims/1.0.0> a owl:Ontology ; rdfs:label "auto-insurance-claims" ; owl:versionInfo "1.0.0" ; autology:fingerprint "efd813a0c117fa78b4a67a07e4bdb740e7959c6908993d390150303c3d30e64c" .
+
+:Claim a owl:Class ; rdfs:label "Claim" ; rdfs:comment "A request to be paid for damage to an insured vehicle" .
+:ClaimState a owl:Class ; owl:oneOf ( :Claim_reported :Claim_assessed :Claim_referred :Claim_approved :Claim_rejected :Claim_paid ) .
+:Claim_reported a owl:NamedIndividual , :ClaimState ; rdfs:label "reported" .
+:Claim_assessed a owl:NamedIndividual , :ClaimState ; rdfs:label "assessed" .
+:Claim_referred a owl:NamedIndividual , :ClaimState ; rdfs:label "referred" .
+:Claim_approved a owl:NamedIndividual , :ClaimState ; rdfs:label "approved" .
+:Claim_rejected a owl:NamedIndividual , :ClaimState ; rdfs:label "rejected" .
+:Claim_paid a owl:NamedIndividual , :ClaimState ; rdfs:label "paid" .
+:Claim_status a owl:ObjectProperty , owl:FunctionalProperty ; rdfs:domain :Claim ; rdfs:range :ClaimState .
+:Claim_amount a owl:DatatypeProperty ; rdfs:domain :Claim ; rdfs:range xsd:decimal .
+:Claim_damage_type a owl:DatatypeProperty ; rdfs:domain :Claim ; rdfs:range xsd:string .
+:Claim_reported_days_after a owl:DatatypeProperty ; rdfs:domain :Claim ; rdfs:range xsd:integer .
+:Claim_fraud_score a owl:DatatypeProperty ; rdfs:domain :Claim ; rdfs:range xsd:decimal .
+:Claim_fraud_band a owl:DatatypeProperty ; rdfs:domain :Claim ; rdfs:range xsd:string .
+:Claim_approved_amount a owl:DatatypeProperty ; rdfs:domain :Claim ; rdfs:range xsd:decimal .
+
+:Policy a owl:Class ; rdfs:label "Policy" ; rdfs:comment "The cover the claim is made against" .
+:PolicyState a owl:Class ; owl:oneOf ( :Policy_active :Policy_lapsed ) .
+:Policy_active a owl:NamedIndividual , :PolicyState ; rdfs:label "active" .
+:Policy_lapsed a owl:NamedIndividual , :PolicyState ; rdfs:label "lapsed" .
+:Policy_status a owl:ObjectProperty , owl:FunctionalProperty ; rdfs:domain :Policy ; rdfs:range :PolicyState .
+:Policy_holder a owl:DatatypeProperty ; rdfs:domain :Policy ; rdfs:range xsd:string ; autology:sensitivity "pii" .
+:Policy_deductible a owl:DatatypeProperty ; rdfs:domain :Policy ; rdfs:range xsd:decimal .
+:Policy_coverage_limit a owl:DatatypeProperty ; rdfs:domain :Policy ; rdfs:range xsd:decimal .
+
+:Vehicle a owl:Class ; rdfs:label "Vehicle" ; rdfs:comment "The insured vehicle" .
+:VehicleState a owl:Class ; owl:oneOf ( :Vehicle_insured ) .
+:Vehicle_insured a owl:NamedIndividual , :VehicleState ; rdfs:label "insured" .
+:Vehicle_status a owl:ObjectProperty , owl:FunctionalProperty ; rdfs:domain :Vehicle ; rdfs:range :VehicleState .
+:Vehicle_plate a owl:DatatypeProperty ; rdfs:domain :Vehicle ; rdfs:range xsd:string .
+:Vehicle_age_years a owl:DatatypeProperty ; rdfs:domain :Vehicle ; rdfs:range xsd:integer .
+
+:RepairShop a owl:Class ; rdfs:label "RepairShop" ; rdfs:comment "Where the vehicle is repaired" .
+:RepairShopState a owl:Class ; owl:oneOf ( :RepairShop_active ) .
+:RepairShop_active a owl:NamedIndividual , :RepairShopState ; rdfs:label "active" .
+:RepairShop_status a owl:ObjectProperty , owl:FunctionalProperty ; rdfs:domain :RepairShop ; rdfs:range :RepairShopState .
+:RepairShop_name a owl:DatatypeProperty ; rdfs:domain :RepairShop ; rdfs:range xsd:string .
+:RepairShop_approved_network a owl:DatatypeProperty ; rdfs:domain :RepairShop ; rdfs:range xsd:boolean .
+
+:Payment a owl:Class ; rdfs:label "Payment" ; rdfs:comment "The settlement paid out for the claim" .
+:PaymentState a owl:Class ; owl:oneOf ( :Payment_pending :Payment_sent ) .
+:Payment_pending a owl:NamedIndividual , :PaymentState ; rdfs:label "pending" .
+:Payment_sent a owl:NamedIndividual , :PaymentState ; rdfs:label "sent" .
+:Payment_status a owl:ObjectProperty , owl:FunctionalProperty ; rdfs:domain :Payment ; rdfs:range :PaymentState .
+:Payment_amount a owl:DatatypeProperty ; rdfs:domain :Payment ; rdfs:range xsd:decimal .
+:Payment_reference a owl:DatatypeProperty ; rdfs:domain :Payment ; rdfs:range xsd:string .
+
+:against a owl:ObjectProperty ; rdfs:domain :Claim ; rdfs:range :Policy ; autology:cardinality "1" .
+:concerns a owl:ObjectProperty ; rdfs:domain :Claim ; rdfs:range :Vehicle ; autology:cardinality "1" .
+:repairedAt a owl:ObjectProperty ; rdfs:domain :Claim ; rdfs:range :RepairShop ; autology:cardinality "0..1" .
+:settledBy a owl:ObjectProperty ; rdfs:domain :Claim ; rdfs:range :Payment ; autology:cardinality "0..1" .
+
+:action_assess_fraud a autology:Action ; rdfs:label "assess_fraud" ; rdfs:comment "Score the claim for fraud" ; autology:capability "fraud.score" .
+:action_approve_claim a autology:Action ; rdfs:label "approve_claim" ; rdfs:comment "Approve the claim for the computed payout" ; autology:capability "claims.approve" .
+:action_reject_claim a autology:Action ; rdfs:label "reject_claim" ; rdfs:comment "Reject the claim" ; autology:capability "claims.reject" .
+:action_pay_claim a autology:Action ; rdfs:label "pay_claim" ; rdfs:comment "Pay the approved amount" ; autology:capability "payments.pay" .
+:rule_R_SIU_APPROVE a autology:Rule ; autology:kind "human_review" ; rdfs:comment "Claims scored as suspicious are approved only after an investigator looks at them" .
+:rule_R_SIU_REJECT a autology:Rule ; autology:kind "human_review" ; rdfs:comment "Only an investigator rejects a claim" .
+:rule_R_HIGH_PAYOUT a autology:Rule ; autology:kind "human_review" ; rdfs:comment "Payouts of 20,000 or more need a claims manager" .
+:rule_R_NO_FRAUD_PAY a autology:Rule ; autology:kind "prohibition" ; rdfs:comment "Never pay a claim scored as fraud" .
+:rule_R_PII a autology:Rule ; autology:kind "data_access" ; rdfs:comment "Policy holders' names are for claims handlers only" .
+:rule_R_FRAUD_TEAM a autology:Rule ; autology:kind "action_access" ; rdfs:comment "Fraud scoring is run by fraud analytics" .
+:rule_R_FINANCE a autology:Rule ; autology:kind "action_access" ; rdfs:comment "Only finance releases payments" .
+

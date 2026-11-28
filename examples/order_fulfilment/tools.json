@@ -1,0 +1,102 @@
+{
+  "_comment": "Systems simulated as decision tables; replace any with an http or python tool to go live",
+  "tools": [
+    {
+      "name": "crm",
+      "capability": "crm.approve",
+      "type": "table",
+      "cost": 0.1,
+      "rows": [
+        {
+          "message": "account approved"
+        }
+      ]
+    },
+    {
+      "name": "esign",
+      "capability": "contract.sign",
+      "type": "table",
+      "cost": 1,
+      "rows": [
+        {
+          "message": "contract signed"
+        }
+      ]
+    },
+    {
+      "name": "credit_engine",
+      "capability": "credit.check",
+      "type": "table",
+      "cost": 0.5,
+      "rows": [
+        {
+          "when": "Order.amount > Customer.credit_limit",
+          "outcome": "declined",
+          "message": "exceeds credit limit"
+        },
+        {
+          "outcome": "ok",
+          "message": "within credit limit"
+        }
+      ]
+    },
+    {
+      "name": "wms",
+      "capability": "warehouse.pick",
+      "type": "table",
+      "cost": 0.3,
+      "rows": [
+        {
+          "message": "picked and packed"
+        }
+      ]
+    },
+    {
+      "name": "dg_desk",
+      "capability": "hazmat.clear",
+      "type": "table",
+      "cost": 4,
+      "rows": [
+        {
+          "message": "dangerous-goods declaration filed"
+        }
+      ]
+    },
+    {
+      "name": "carrier",
+      "capability": "carrier.ship",
+      "type": "table",
+      "cost": 2,
+      "rows": [
+        {
+          "when": "Order.region == 'EU'",
+          "updates": {
+            "Order": {
+              "tracking": "EU-TRACK"
+            }
+          },
+          "message": "booked with EU carrier"
+        },
+        {
+          "updates": {
+            "Order": {
+              "tracking": "US-TRACK"
+            }
+          },
+          "message": "booked with US carrier"
+        }
+      ]
+    },
+    {
+      "name": "erp_billing",
+      "capability": "billing.invoice",
+      "type": "table",
+      "cost": 0.2,
+      "rows": [
+        {
+          "message": "invoice issued"
+        }
+      ]
+    }
+  ]
+}

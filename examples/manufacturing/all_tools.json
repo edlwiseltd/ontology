@@ -1,0 +1,9 @@
+{
+  "python_path": ["."],
+  "registries": [
+    "manufacturing_tools:procurement_tools",
+    "manufacturing_tools:finance_tools",
+    "manufacturing_tools:production_tools",
+    "manufacturing_tools:quality_tools"
+  ]
+}

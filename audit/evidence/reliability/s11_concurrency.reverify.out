@@ -1,0 +1,25 @@
+== 11a two runs on the same claim started concurrently ==
+  statuses: ['completed', 'completed']
+  external payment calls: 2
+  run 7e357c98bf92 path ['assess_fraud:clear', 'approve_claim:done', 'pay_claim:done'] conflicts: []
+  run 5cf93863f324 path ['assess_fraud:clear', 'approve_claim:done', 'pay_claim:done'] conflicts: []
+  graph CL-1: paid PAY-1: {'amount': 2700, 'reference': None, 'status': 'sent'}
+  conflict notifications: []
+== 11b admin changes the claim while its run awaits review; reviewer approves ==
+  run awaiting_review
+  live CL-2 now: {'status': 'rejected', 'amount': 1000}
+  reviewer sees amount: 48000 status: assessed
+  after SIU approve: awaiting_review
+  after manager approve: completed
+  path: ['assess_fraud:suspicious', 'approve_claim:done', 'pay_claim:done'] | payment calls: 1 | amount sent to bank (context): 48000
+  live CL-2: {'status': 'rejected', 'amount': 1000, 'approved_amount': 40000}
+  live PAY-2: {'amount': 40000, 'reference': None, 'status': 'sent'}
+  write-back conflicts: [{'id': 'CL-2', 'type': 'Claim', 'attribute': 'status', 'base': 'assessed', 'live': 'rejected', 'run': 'approved', 'reason': 'changed on the live record since the case was built'}, {'id': 'CL-2', 'type': 'Claim', 'attribute': 'status', 'base': 'assessed', 'live': 'rejected', 'run': 'paid', 'reason': 'changed on the live record since the case was built'}]
+  conflict notifications: ['Run 02184b92efb1 could not write back CL-2.status: the live data changed while the run was in progress', 'Run 02184b92efb1 could not write back CL-2.status: the live data changed while the run was in progress']
+== 11c ingestion updates the claim amount while the run awaits review ==
+  ingest: {'created': 0, 'updated': 1, 'rejected': 0}
+  live CL-2 after ingest: {'status': 'assessed', 'amount': 5000}
+  after SIU approve: awaiting_review
+  after manager approve: completed
+  payment calls: 1 | live CL-2: {'status': 'paid', 'amount': 5000, 'approved_amount': 40000} | PAY-2: {'amount': 40000, 'reference': None, 'status': 'sent'}
+  conflicts: []

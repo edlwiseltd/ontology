@@ -1,0 +1,15 @@
+{
+  "notes": "Illustrative assumptions for a B2B onboarding desk - replace with your own. intervention_rate, LLM and tool cost per task are overwritten with values measured from the runs.",
+  "ontology_development": 80000,
+  "ontology_maintenance_per_year": 15000,
+  "integration": 40000,
+  "platform_per_year": 12000,
+  "llm_cost_per_task": 0.05,
+  "tool_cost_per_task": 10,
+  "tasks_per_month": 400,
+  "manual_hours_per_task": 6,
+  "hourly_rate": 90,
+  "intervention_rate": 0.3,
+  "human_hours_per_intervention": 0.75,
+  "horizon_years": 3
+}

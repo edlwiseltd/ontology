@@ -1,0 +1,154 @@
+{
+ "agents": {
+  "booking_agent": {
+   "purpose": "Takes a booking request to closure, within the policy",
+   "responsibilities": [
+    "Check",
+    "Confirm",
+    "Close"
+   ],
+   "roles": [
+    "booking_clerk"
+   ],
+   "goals": [
+    "request_closed"
+   ],
+   "autonomy": {
+    "mode": "policy"
+   },
+   "tools": [
+    {
+     "action": "check_availability",
+     "tool": "simulated.succeed",
+     "message": "availability checked (simulated: nothing left Autology)"
+    },
+    {
+     "action": "confirm_booking",
+     "tool": "simulated.succeed",
+     "message": "booking confirmed (simulated: nothing left Autology)"
+    },
+    {
+     "action": "close_request",
+     "tool": "simulated.succeed",
+     "message": "request closed (simulated: nothing left Autology)"
+    }
+   ]
+  }
+ },
+ "sample_data": {
+  "instances": [
+   {
+    "type": "Organiser",
+    "id": "ORG-1",
+    "status": "active",
+    "display_name": "Events team (fictional)",
+    "department": "Communications"
+   },
+   {
+    "type": "Room",
+    "id": "ROOM-A",
+    "status": "open",
+    "label": "Auditorium A (fictional)",
+    "capacity": 300,
+    "floor": 0
+   },
+   {
+    "type": "Room",
+    "id": "ROOM-B",
+    "status": "closed",
+    "label": "Seminar room B (fictional, closed for works)",
+    "capacity": 40,
+    "floor": 2
+   },
+   {
+    "type": "EquipmentItem",
+    "id": "EQ-1",
+    "status": "available",
+    "label": "Projector (fictional)",
+    "quantity": 2
+   },
+   {
+    "type": "Deposit",
+    "id": "DEP-1",
+    "status": "requested",
+    "amount": 500,
+    "due_on": "2026-12-01"
+   },
+   {
+    "type": "BookingRequest",
+    "id": "BKG-4001",
+    "status": "submitted",
+    "reference": "BKG-4001",
+    "event_date": "2026-12-10",
+    "catering": false,
+    "note": "",
+    "event_title": "Team meeting",
+    "attendees": 30
+   },
+   {
+    "type": "BookingRequest",
+    "id": "BKG-4002",
+    "status": "submitted",
+    "reference": "BKG-4002",
+    "event_date": "2026-12-10",
+    "catering": true,
+    "note": "",
+    "event_title": "Annual conference",
+    "attendees": 260
+   },
+   {
+    "type": "BookingRequest",
+    "id": "BKG-4003",
+    "status": "submitted",
+    "reference": "BKG-4003",
+    "event_date": "2026-12-10",
+    "catering": false,
+    "note": "",
+    "event_title": "Workshop",
+    "attendees": 20
+   }
+  ],
+  "links": [
+   [
+    "BKG-4002",
+    "equipment",
+    "EQ-1"
+   ],
+   [
+    "BKG-4002",
+    "deposit",
+    "DEP-1"
+   ],
+   [
+    "ORG-1",
+    "requests",
+    "BKG-4001"
+   ],
+   [
+    "BKG-4001",
+    "room",
+    "ROOM-A"
+   ],
+   [
+    "ORG-1",
+    "requests",
+    "BKG-4002"
+   ],
+   [
+    "BKG-4002",
+    "room",
+    "ROOM-A"
+   ],
+   [
+    "ORG-1",
+    "requests",
+    "BKG-4003"
+   ],
+   [
+    "BKG-4003",
+    "room",
+    "ROOM-B"
+   ]
+  ]
+ }
+}

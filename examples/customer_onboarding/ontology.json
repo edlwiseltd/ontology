@@ -1,0 +1,80 @@
+{
+  "name": "customer-onboarding",
+  "version": "1.2.0",
+  "description": "Customer -> Contract -> Order lifecycle for B2B onboarding",
+  "imports": [
+    "modules/fulfilment.json"
+  ],
+  "goals": {
+    "onboard_customer": {
+      "description": "Take a prospect to an active, billed customer with a signed contract and a first order",
+      "target": "Customer.status == 'active'"
+    }
+  },
+  "settings": {
+    "max_violations": 3
+  },
+  "competency_questions": [
+    {
+      "id": "CQ-01",
+      "question": "Which financial-services customers are not yet active?",
+      "find": "Customer",
+      "where": "Customer.industry == 'Financial Services' and Customer.status != 'active'",
+      "expect": [
+        "CU-2",
+        "CU-5"
+      ]
+    },
+    {
+      "id": "CQ-02",
+      "question": "Which contracts are waiting for legal review?",
+      "find": "Contract",
+      "where": "Contract.status == 'submitted'",
+      "expect": [
+        "K-2"
+      ]
+    },
+    {
+      "id": "CQ-03",
+      "question": "What is the total contract value of active customers?",
+      "find": "Customer",
+      "where": "Customer.status == 'active'",
+      "follow": [
+        "has"
+      ],
+      "aggregate": {
+        "sum": "Contract.value"
+      },
+      "expect": 348000
+    },
+    {
+      "id": "CQ-04",
+      "question": "Which customers have a rejected contract?",
+      "find": "Contract",
+      "where": "Contract.status == 'rejected'",
+      "follow": [
+        "^has"
+      ],
+      "expect": [
+        "CU-5"
+      ]
+    },
+    {
+      "id": "CQ-05",
+      "question": "How many orders do a customer's contracts govern?",
+      "find": "Customer",
+      "where": "Customer.id == Params.customer",
+      "follow": [
+        "has",
+        "governs"
+      ],
+      "aggregate": {
+        "count": true
+      },
+      "params": {
+        "customer": "CU-1"
+      },
+      "expect": 2
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "instances": [
+    {
+      "type": "Customer",
+      "id": "C-1",
+      "name": "Northwind",
+      "region": "US",
+      "credit_limit": 250000,
+      "status": "approved"
+    },
+    {
+      "type": "Contract",
+      "id": "K-1",
+      "value": 300000,
+      "status": "signed"
+    },
+    {
+      "type": "Order",
+      "id": "O-1",
+      "sku": "PUMP-10",
+      "quantity": 4,
+      "amount": 9000,
+      "region": "US",
+      "hazardous": false,
+      "status": "invoiced"
+    },
+    {
+      "type": "Order",
+      "id": "O-2",
+      "sku": "SOLVENT-5",
+      "quantity": 20,
+      "amount": 3000,
+      "region": "US",
+      "hazardous": true,
+      "status": "picked"
+    },
+    {
+      "type": "Order",
+      "id": "O-3",
+      "sku": "VALVE-2",
+      "quantity": 50,
+      "amount": 12000,
+      "region": "EU",
+      "hazardous": false,
+      "status": "received"
+    }
+  ],
+  "links": [
+    [
+      "C-1",
+      "hasContract",
+      "K-1"
+    ],
+    [
+      "K-1",
+      "covers",
+      "O-1"
+    ],
+    [
+      "K-1",
+      "covers",
+      "O-2"
+    ],
+    [
+      "K-1",
+      "covers",
+      "O-3"
+    ]
+  ]
+}

@@ -1,0 +1,70 @@
+{
+ "protocol": "chain-v1",
+ "source_of_answers": "the stored proposal of the journey kept in planning/evidence/claude-eval-2026-11-17/ground-handling",
+ "scenarios": {
+  "1": "no additional confirmation",
+  "2": "explicit selective confirmation: recorded, attributable decisions only",
+  "3": "hypothetical full confirmation: a counterfactual, not evidence that any element is right"
+ },
+ "table": [
+  {
+   "case": "ground-handling",
+   "scenario": "1",
+   "what": "no additional confirmation",
+   "run": true,
+   "counterfactual": false,
+   "answered": true,
+   "decided_by": "nobody: no decision was given",
+   "confirmation_rate": "0 of 23",
+   "unresolved": 23,
+   "rejected_by_a_person": 0,
+   "refused_by_engine": 0,
+   "dependency_failures": 4,
+   "draft_accepted": false,
+   "manifest_valid": null,
+   "screens": null,
+   "simulation": "not run",
+   "simulation_ready": false
+  },
+  {
+   "case": "ground-handling",
+   "scenario": "2",
+   "what": "explicit selective confirmation: recorded, attributable decisions only",
+   "run": true,
+   "counterfactual": false,
+   "answered": true,
+   "decided_by": "owner: the elements recorded as accepted in the released model's provenance (a member's acceptance in Studio, not a domain expert's review)",
+   "confirmation_rate": "22 of 23",
+   "unresolved": 0,
+   "rejected_by_a_person": 1,
+   "refused_by_engine": 0,
+   "dependency_failures": 0,
+   "draft_accepted": true,
+   "manifest_valid": true,
+   "screens": 32,
+   "simulation": "completed",
+   "simulation_ready": true
+  },
+  {
+   "case": "ground-handling",
+   "scenario": "3",
+   "what": "hypothetical full confirmation: a counterfactual, not evidence that any element is right",
+   "run": true,
+   "counterfactual": true,
+   "answered": true,
+   "decided_by": "confirm-all (an assumption of the replay: no reviewer confirmed anything)",
+   "confirmation_rate": "23 of 23",
+   "unresolved": 0,
+   "rejected_by_a_person": 0,
+   "refused_by_engine": 0,
+   "dependency_failures": 0,
+   "draft_accepted": true,
+   "manifest_valid": true,
+   "screens": 32,
+   "simulation": "awaiting_review",
+   "simulation_ready": true
+  }
+ ],
+ "reading": "Scenario 3 assumes confirmations nobody gave. Technical acceptance in any scenario says the Engine can load and run the model; it says nothing about whether the model is right for the business. No domain expert reviewed any of these models.",
+ "aggregate": null
+}

@@ -1,0 +1,9 @@
+K-2 status: draft
+automation when: Contract.status == 'signed'
+direct start: 200 awaiting_review 17882797ffbf
+direct self-decide: (403, {'error': 'you started this run: another reviewer must decide its review (a rule can allow this with "allow_self_review": true)'})
+run_automation: 200 {'firings': [{'automation': 'fulfil_signed_contracts', 'instance': 'K-2', 'trigger': 'manual', 'run_id': '1a636f723ae5', 'status': 'awaiting_review', 'detail': 'awaiting logistics_manager review of ship_order@O-4', 'notification_id': '3a1b346427b0'}]}
+run started_by: automation:fulfil_signed_contracts
+self-decide via automation: 200 completed
+steps: [('sign_contract', 'done', None), ('credit_check@O-4', 'ok', None), ('pick_order@O-4', 'done', None), ('ship_order@O-4', 'done', 'rita'), ('invoice_order@O-4', 'done', None)]
+access log of rita: []
